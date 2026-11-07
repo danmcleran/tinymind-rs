@@ -6,9 +6,10 @@
 //! tinymind's freestanding build.
 #![no_std]
 #![forbid(unsafe_code)]
+#![warn(missing_docs)]
 
 pub mod activation;
-pub mod lut;
+mod lut;
 pub mod neuralnet;
 pub mod qformat;
 pub mod rand;

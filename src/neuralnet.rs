@@ -18,7 +18,7 @@ use crate::qformat::Fixed;
 
 /// One weighted edge to a neuron in the next layer (C++ `TrainableConnection`).
 #[derive(Clone, Copy, Debug, Default)]
-pub struct Connection<V> {
+pub(crate) struct Connection<V> {
     pub weight: V,
     pub delta_weight: V,
     pub previous_delta_weight: V,
@@ -35,7 +35,7 @@ impl<V: Copy> Connection<V> {
 
 /// A neuron and its outgoing connections (C++ `TrainableNeuron`).
 #[derive(Clone, Copy, Debug)]
-pub struct Neuron<V, const N: usize> {
+pub(crate) struct Neuron<V, const N: usize> {
     pub output: V,
     pub node_delta: V,
     pub connections: [Connection<V>; N],
@@ -127,14 +127,19 @@ where
         nn
     }
 
+    /// Replace the learning rate (default `2^-2`, tinymind's
+    /// `DefaultNetworkInitializer`).
     pub fn set_learning_rate(&mut self, rate: V) {
         self.learning_rate = rate;
     }
 
+    /// Replace the momentum rate (default `2^-1`).
     pub fn set_momentum_rate(&mut self, rate: V) {
         self.momentum_rate = rate;
     }
 
+    /// Run one forward pass: load `inputs`, then compute the hidden and output
+    /// activations. Read the result with [`learned_values`](Self::learned_values).
     pub fn feed_forward(&mut self, inputs: &[V; IN]) {
         for (neuron, &value) in self.input.iter_mut().zip(inputs) {
             neuron.output = value;
@@ -151,6 +156,8 @@ where
         }
     }
 
+    /// The output-layer activations from the latest
+    /// [`feed_forward`](Self::feed_forward).
     pub fn learned_values(&self) -> [V; OUT] {
         self.output.map(|n| n.output)
     }
@@ -244,18 +251,38 @@ where
 
     // Weight accessors, in the order tinymind's NetworkPropertiesFileManager writes them.
 
+    /// Weight from input `input` to hidden neuron `hidden`.
+    ///
+    /// # Panics
+    ///
+    /// If `input >= IN` or `hidden >= HID`.
     pub fn input_weight(&self, input: usize, hidden: usize) -> V {
         self.input[input].connections[hidden].weight
     }
 
+    /// Weight from the input-layer bias to hidden neuron `hidden`.
+    ///
+    /// # Panics
+    ///
+    /// If `hidden >= HID`.
     pub fn input_bias_weight(&self, hidden: usize) -> V {
         self.input_bias.connections[hidden].weight
     }
 
+    /// Weight from hidden neuron `hidden` to output `output`.
+    ///
+    /// # Panics
+    ///
+    /// If `hidden >= HID` or `output >= OUT`.
     pub fn hidden_weight(&self, hidden: usize, output: usize) -> V {
         self.hidden[hidden].connections[output].weight
     }
 
+    /// Weight from the hidden-layer bias to output `output`.
+    ///
+    /// # Panics
+    ///
+    /// If `output >= OUT`.
     pub fn hidden_bias_weight(&self, output: usize) -> V {
         self.hidden_bias.connections[output].weight
     }

@@ -12,6 +12,7 @@ use crate::qformat::{Q16_16, QValue};
 
 /// A neuron activation function and its derivative.
 pub trait Activation<V> {
+    /// The activation of the weighted input sum `x`.
     fn activate(x: V) -> V;
     /// Derivative expressed in terms of the activation's *output* `y`, the way
     /// tinymind computes it during back-propagation.

@@ -172,7 +172,9 @@ tinymind's `unit_test/integration` goldens.
   CI -> squash-merge -> delete the branch (GitHub deletes the remote branch on merge;
   delete the local one). Never push straight to `master`.
 - CI (`.github/workflows/ci.yml`) runs two jobs on every PR and on pushes to `master`:
-  `rust` (fmt, clippy, test) and `cpp-equivalence` (checks out tinymind at
+  `rust` (fmt, clippy, test, rustdoc with `-D warnings`, library builds for
+  `thumbv7em-none-eabihf` and `thumbv6m-none-eabi`, and the tests again on the MSRV) and
+  `cpp-equivalence` (checks out tinymind at
   `TINYMIND_REF` inside the workspace and runs `scripts/compare-with-cpp.sh`). Branch
   protection is meant to require both by job name, so do not rename them, and do not
   skip them with `paths-ignore` or a job-level `if:`: a required check that never
@@ -180,6 +182,13 @@ tinymind's `unit_test/integration` goldens.
   (a fmt error; multiply rounding instead of flooring) before the workflow landed.
 - CI uses floating `stable` Rust, so a new clippy lint can turn `master` red without a
   code change. Fix the lint in its own PR.
+- MSRV is `rust-version = "1.85"` in `Cargo.toml` (edition 2024's floor). CI tests on it,
+  so a newer std API or language feature fails there. Raising it is a deliberate
+  decision for Dan, noted in the changelog once there is one, not a side effect.
+- `#![warn(missing_docs)]` plus clippy's `-D warnings` means every public item needs a
+  doc comment. Prefer making internals `pub(crate)` over documenting them: the
+  public API is a semver promise once released. `lut`, `Connection` and `Neuron`
+  are crate-private for that reason.
 
 ## Working with Dan
 

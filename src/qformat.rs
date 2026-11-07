@@ -31,9 +31,14 @@ impl<const FRAC: u32> QValue<FRAC> {
         "QValue needs 1..=31 fractional bits"
     );
 
+    /// Number of fractional bits (`FRAC`).
     pub const FRACTIONAL_BITS: u32 = FRAC;
+    /// Number of integer bits, including the sign bit (`32 - FRAC`).
     pub const FIXED_BITS: u32 = 32 - FRAC;
+    /// 0.0
     pub const ZERO: Self = Self(0);
+    /// 1.0. With `FRAC = 31` there are no integer bits besides the sign, 1.0 is
+    /// not representable, and this wraps to -1.0 (raw `i32::MIN`).
     pub const ONE: Self = Self::from_int(1);
 
     /// Build from raw LSBs (C++ `QValue(FullWidthFieldType)` / `setValue(raw)`).
@@ -167,7 +172,9 @@ pub trait Fixed:
     + Mul<Output = Self>
     + Div<Output = Self>
 {
+    /// 0.0
     const ZERO: Self;
+    /// 1.0
     const ONE: Self;
     /// `2^-n`
     fn pow2_neg(n: u32) -> Self;
