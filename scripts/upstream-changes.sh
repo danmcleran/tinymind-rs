@@ -36,6 +36,8 @@ PORTED=(
   examples/pytorch_quant/xor
   cpp/qaffine.hpp
   cpp/qdense.hpp
+  cpp/qpointwiseconv2d.hpp
+  benchmarks/framework_comparison_f411/gen/out/mlp_tinymind.hpp
   cpp/qactivations.hpp
   cpp/include/qcalibration.hpp
   cpp/include/simd/simd_dispatch.hpp

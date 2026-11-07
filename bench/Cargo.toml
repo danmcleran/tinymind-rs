@@ -1,0 +1,32 @@
+# On-board functionality and performance checks for the tinymind crate on a
+# NUCLEO-F411RE (Cortex-M4F) and a NUCLEO-L031K6 (Cortex-M0+), mirroring
+# tinymind's benchmarks/framework_comparison_f411. Not part of the published
+# crate; see README.md and run.sh.
+[package]
+name = "tinymind-bench"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+tinymind = { path = ".." }
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+
+[features]
+# Board (exactly one).
+f411 = []
+l031 = []
+# Workload (at most one; none builds the empty baseline image for size deltas).
+mlp = []
+xor-q16 = []
+xor-q8 = []
+# Per-layer cycles for the MLP (a separate image, like tinymind's PROFILE build).
+profile = ["mlp"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = true

@@ -129,6 +129,7 @@ code follows rustfmt; do not fight the formatter.
 | `examples/xor.rs`, `examples/common/xor_driver.rs` | `examples/xor/xor.cpp`, `xornet.h` | Example `main` (arguments) + driver (the program, generic over the format, `--format q16.16\|q8.8`); the golden test includes the driver and runs it in-process |
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`, `cpp/include/simd/simd_dispatch.hpp` (scalar dot) | Int8 affine inference: gemmlowp primitives, `Requantizer` (i8 output only; both C++ paths, fused and saturating), `QDense<'a, IN, OUT>` borrowing `&[[i8; IN]; OUT]` weights (flash-friendly), `qrelu`/`qrelu6`, 256-entry LUT. Integer only, no_std |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp` | Feature `std`: `quantize_multiplier` (with a ported `frexp`), `build_requantizer`, `quantize`/`dequantize`, sigmoid/tanh LUT builders |
+| (same, `QDensePerChannel`) | `cpp/qpointwiseconv2d.hpp` (1x1, per channel) | Dense with one requantizer per output, as TFLite quantizes dense layers; verified on the boards against tinymind's benchmark hash |
 | `examples/int8_xor.rs`, `examples/common/int8_xor_driver.rs` | `examples/pytorch_quant/xor/xor_quant.cpp`, `weights.hpp` | Weights and scales copied from `weights.hpp` (the goldens catch any mistake) |
 | `examples/iris.rs`, `examples/common/iris_driver.rs`, `data/iris.data` | `examples/iris/iris.cpp`, `iris.data` | 4-8-3 MLP, ReLU hidden + sigmoid output, 3 outputs (exercises the MSE `/ OUT` path). Data is the UCI file, CC BY 4.0 (attribution in `NOTICE`), checked against tinymind's copy |
 | `examples/common/cppfmt.rs` | (C++ iostreams) | `fmt_g` (`ostream << double`) and `fmt_fixed` (`std::fixed`), `#[path]`-included by each driver |
@@ -190,6 +191,19 @@ Bit-exactness against the C++ is the acceptance test. These details all matter:
 Never trust output files lying around in the tinymind tree; regenerate the C++
 reference (the compare script does). Stale ones were found there once (tinymind #237
 fixed the docs that produced them).
+
+## On-board checks (`bench/`)
+
+`bench/` is a separate firmware crate (not published; CI only builds it) that runs
+on Dan's NUCLEO-F411RE (Cortex-M4F, ST-LINK serial `0667FF3833584B3043112826`) and
+NUCLEO-L031K6 (Cortex-M0+, `066DFF485652867187112939`), both on USB. `bench/run.sh`
+builds, flashes (OpenOCD, probe by serial) and reads the VCP. It mirrors tinymind's
+`benchmarks/framework_comparison_f411` (same clocks, timing, weights, samples):
+the int8 digits MLP must hash-match tinymind's expected hash, and xor training on
+the board must reproduce the golden trajectory hash. Results and method are in
+`bench/README.md`; rerun after changing arithmetic and update the tables.
+`bench/gen.py` generates the MLP from tinymind's headers (never hand-copied).
+probe-rs is not installed; OpenOCD and arm-none-eabi binutils are.
 
 ## Verification beyond the goldens
 

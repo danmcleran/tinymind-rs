@@ -174,8 +174,8 @@ fn relu_definition() {
 /// Int8 affine inference (`crate::int8`).
 mod int8 {
     use crate::int8::{
-        LUT_SIZE, QDense, Requantizer, apply_lut, multiply_by_quantized_multiplier,
-        rounding_divide_by_pot, rounding_high_mul_divide_by_pot,
+        LUT_SIZE, QDense, QDensePerChannel, Requantizer, apply_lut,
+        multiply_by_quantized_multiplier, rounding_divide_by_pot, rounding_high_mul_divide_by_pot,
     };
 
     /// gemmlowp's two roundings, written as tinymind's unit test writes them:
@@ -242,6 +242,37 @@ mod int8 {
                 qmin: kani::any(),
                 qmax: kani::any(),
             },
+        };
+        let input: [i8; 3] = kani::any();
+        let _ = layer.forward(&input);
+    }
+
+    /// The per-channel dense layer never panics either.
+    #[kani::proof]
+    fn dense_per_channel_never_panics() {
+        let weights: [[i8; 3]; 2] = kani::any();
+        let biases: [i32; 2] = kani::any();
+        let requantizers: [Requantizer; 2] = [
+            Requantizer {
+                multiplier: kani::any(),
+                shift: kani::any(),
+                zero_point: kani::any(),
+                qmin: kani::any(),
+                qmax: kani::any(),
+            },
+            Requantizer {
+                multiplier: kani::any(),
+                shift: kani::any(),
+                zero_point: kani::any(),
+                qmin: kani::any(),
+                qmax: kani::any(),
+            },
+        ];
+        let layer = QDensePerChannel {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
         };
         let input: [i8; 3] = kani::any();
         let _ = layer.forward(&input);

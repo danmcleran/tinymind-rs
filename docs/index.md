@@ -26,7 +26,7 @@ nav_order: 1
 - **Fixed-point so far.** The ported value types are Q-format integers (Q16.16 and Q8.8) and int8 in the TFLite/CMSIS-NN affine model, so training and inference need no FPU, and activations come from lookup tables. tinymind's networks are generic over the value type and are also tested with `float` and `double`; floating-point networks are not ported yet.
 - **No `unsafe`, no reachable panics.** The library is `#![forbid(unsafe_code)]`, and CI links a Cortex-M firmware image that calls every public function and whose panic handler does not exist: any panic path left after optimisation would fail the build.
 - **Bit-exact with C++.** The port is checked byte for byte against tinymind's own C++ build on every pull request. See [Equivalence with tinymind]({{ site.baseurl }}/equivalence).
-- **Built for microcontrollers.** CI builds the library for Cortex-M4F (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`). Minimum Rust version: 1.85.
+- **Built for microcontrollers, checked on them.** CI builds the library for Cortex-M4F (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`), and it has been run on an STM32F411 and an STM32L031: int8 inference and on-device training match the C++ bit for bit there, at about tinymind's code size. See [On-board results]({{ site.baseurl }}/benchmarks). Minimum Rust version: 1.85.
 
 ## Status
 

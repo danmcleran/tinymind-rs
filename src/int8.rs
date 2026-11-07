@@ -192,6 +192,36 @@ impl<const IN: usize, const OUT: usize> QDense<'_, IN, OUT> {
     }
 }
 
+/// A quantized fully connected layer with one [`Requantizer`] per output: the
+/// per-channel weight quantization TFLite applies to dense layers by default
+/// (C++ `QPointwiseConv2DPerChannel` over a 1x1 input, which is a dense layer).
+/// Otherwise the same as [`QDense`].
+#[derive(Clone, Copy, Debug)]
+pub struct QDensePerChannel<'a, const IN: usize, const OUT: usize> {
+    /// `weights[o][i]`: weight from input `i` to output `o`.
+    pub weights: &'a [[i8; IN]; OUT],
+    /// One `i32` bias per output, or `None`.
+    pub biases: Option<&'a [i32; OUT]>,
+    /// The input tensor's zero point.
+    pub input_zero_point: i8,
+    /// `requantizers[o]` rescales output `o`.
+    pub requantizers: &'a [Requantizer; OUT],
+}
+
+impl<const IN: usize, const OUT: usize> QDensePerChannel<'_, IN, OUT> {
+    /// One forward pass.
+    pub fn forward(&self, input: &[i8; IN]) -> [i8; OUT] {
+        let mut output = [0i8; OUT];
+        let rows = self.weights.iter().zip(self.requantizers);
+        for (o, (out, (row, rq))) in output.iter_mut().zip(rows).enumerate() {
+            let bias = self.biases.map_or(0, |b| b.get(o).copied().unwrap_or(0));
+            let acc = bias.wrapping_add(dot_with_zero_point(input, row, self.input_zero_point));
+            *out = rq.apply(acc);
+        }
+        output
+    }
+}
+
 /// Quantized ReLU: clamp at the tensor's zero point, which represents 0.0
 /// (C++ `qrelu`).
 pub fn qrelu(x: i8, zero_point: i8) -> i8 {
@@ -384,6 +414,42 @@ mod tests {
             requantizer: unit,
         };
         assert_eq!(layer.forward(&[4]), [8]);
+    }
+
+    #[test]
+    fn per_channel_dense_matches_dense_with_shared_requantizer() {
+        let rq = Requantizer {
+            multiplier: 1_200_000_000,
+            shift: 6,
+            zero_point: -3,
+            qmin: -128,
+            qmax: 127,
+        };
+        let weights = [[12, -7, 100], [-128, 5, 9]];
+        let biases = [1000, -2000];
+        let input = [-128, 0, 77];
+        let shared = QDense {
+            weights: &weights,
+            biases: Some(&biases),
+            input_zero_point: -5,
+            requantizer: rq,
+        };
+        let per_channel = QDensePerChannel {
+            weights: &weights,
+            biases: Some(&biases),
+            input_zero_point: -5,
+            requantizers: &[rq, rq],
+        };
+        assert_eq!(per_channel.forward(&input), shared.forward(&input));
+        // A different requantizer on output 1 changes only output 1.
+        let other = Requantizer { shift: 4, ..rq };
+        let mixed = QDensePerChannel {
+            requantizers: &[rq, other],
+            ..per_channel
+        };
+        let (a, b) = (mixed.forward(&input), shared.forward(&input));
+        assert_eq!(a[0], b[0]);
+        assert_ne!(a[1], b[1]);
     }
 
     #[test]

@@ -20,7 +20,8 @@ its XOR and iris examples use, bit-exact with the C++ build.
   SGD with momentum, stored in fixed-size arrays.
 - `int8`: int8 affine-quantized inference in the TFLite / CMSIS-NN model, pure
   integer at run time: `Requantizer` (gemmlowp rounding), the dense layer
-  `QDense`, `qrelu`, `qrelu6` and 256-entry activation tables.
+  `QDense`, `QDensePerChannel` (one requantizer per output, TFLite's default),
+  `qrelu`, `qrelu6` and 256-entry activation tables.
 - `int8::calibration` (feature `std`): host-side helpers that turn float scales
   into requantizers and sigmoid/tanh tables, and quantize/dequantize values.
 - `rand::GlibcRand`: glibc's `srand`/`rand`, bit for bit, for reproducing the
