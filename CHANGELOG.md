@@ -7,6 +7,17 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- `InferencePerceptron`: an inference-only multilayer perceptron (tinymind's
+  `IsTrainable = false`) that holds only its weights, so a trained network can be
+  a `static` in flash. Its outputs are bit-identical to `MultilayerPerceptron`'s
+  with the same weights and to tinymind's untrainable network. A Q16.16 2-4-1
+  network is 68 bytes instead of 372.
+- `MultilayerPerceptron::to_inference`, `set_weights` and per-matrix weight
+  setters (`set_input_weights`, `set_input_bias_weights`, `set_hidden_weights`,
+  `set_hidden_bias_weights`), to ship trained weights and load them back.
+
 ## [0.1.1] - 2026-11-07
 
 ### Added

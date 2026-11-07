@@ -102,6 +102,26 @@ for f in stdout.txt xor_decision_surface.csv; do
   fi
 done
 
+echo "== inference_mlp"
+# tinymind's inference-only MultilayerPerceptron (IsTrainable = false) with loaded
+# weights; tests/inference_mlp.rs checks InferencePerceptron against the committed
+# golden, so the golden must still be what the C++ prints.
+mkdir -p "$TMP/inference_mlp"
+g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/inference_mlp/inference_mlp" "$ROOT/scripts/cpp/inference_mlp.cpp" \
+  "$TINYMIND_DIR/cpp/lookupTables.cpp" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_TANH_16_16=1 \
+  -DTINYMIND_USE_SIGMOID_8_8=1 -DTINYMIND_USE_TANH_8_8=1
+"$TMP/inference_mlp/inference_mlp" > "$TMP/inference_mlp/stdout.txt"
+if cmp -s "$TMP/inference_mlp/stdout.txt" "$ROOT/tests/golden/inference_mlp/stdout.txt"; then
+  echo "IDENTICAL  inference_mlp stdout.txt (C++ vs tests/golden/inference_mlp)"
+else
+  echo "DIFFERENT  inference_mlp stdout.txt (C++ vs tests/golden/inference_mlp)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --test inference_mlp >/dev/null 2>&1 \
+  && echo "IDENTICAL  inference_mlp Rust vs tests/golden/inference_mlp" \
+  || { echo "DIFFERENT  inference_mlp Rust vs tests/golden/inference_mlp"; status=1; }
+
 echo "== softmax"
 # tinymind's QSoftmaxFixedPoint1D over a sweep of calibrations; tests/softmax_sweep.rs
 # checks the Rust kernel against the committed golden, so the golden must still be
@@ -172,6 +192,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   done
   cp -r "$TMP/iris/cpp" "$KEEP_CPP_OUTPUT/iris"
   cp -r "$TMP/int8_xor/cpp" "$KEEP_CPP_OUTPUT/int8_xor"
+  mkdir -p "$KEEP_CPP_OUTPUT/inference_mlp"
+  cp "$TMP/inference_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/inference_mlp/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/softmax"
   cp "$TMP/softmax/stdout.txt" "$KEEP_CPP_OUTPUT/softmax/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/imported_mlp"

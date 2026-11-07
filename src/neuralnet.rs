@@ -1,5 +1,7 @@
-//! A trainable multilayer perceptron with one hidden layer, ported from the
-//! `NeuralNetwork` / `MultilayerPerceptron` path of tinymind `cpp/neuralnet.hpp`.
+//! A multilayer perceptron with one hidden layer, ported from the
+//! `NeuralNetwork` / `MultilayerPerceptron` path of tinymind `cpp/neuralnet.hpp`,
+//! in two forms: [`MultilayerPerceptron`] trains on the device, and
+//! [`InferencePerceptron`] only runs a trained network (C++ `IsTrainable = false`).
 //!
 //! The C++ network is assembled from layer, neuron, connection, gradient-manager
 //! and training-policy templates, stored in placement-new byte buffers. This port
@@ -276,6 +278,213 @@ impl<V: Copy, H, O, const IN: usize, const HID: usize, const OUT: usize>
     pub fn hidden_bias_weights(&self) -> [V; OUT] {
         self.hidden_bias.connections.map(|c| c.weight)
     }
+
+    /// Replace the input-to-hidden weights, laid out as
+    /// [`input_weights`](Self::input_weights) returns them. Only the weights
+    /// change; the training state (delta weights, gradients) is kept, as with
+    /// the C++ `setInputLayerWeightForNeuronAndConnection`.
+    pub fn set_input_weights(&mut self, weights: &[[V; HID]; IN]) {
+        for (neuron, row) in self.input.iter_mut().zip(weights) {
+            for (c, &w) in neuron.connections.iter_mut().zip(row) {
+                c.weight = w;
+            }
+        }
+    }
+
+    /// Replace the input-layer bias weights (C++
+    /// `setInputLayerBiasWeightForConnection`).
+    pub fn set_input_bias_weights(&mut self, weights: &[V; HID]) {
+        for (c, &w) in self.input_bias.connections.iter_mut().zip(weights) {
+            c.weight = w;
+        }
+    }
+
+    /// Replace the hidden-to-output weights (C++
+    /// `setHiddenLayerWeightForNeuronAndConnection`).
+    pub fn set_hidden_weights(&mut self, weights: &[[V; OUT]; HID]) {
+        for (neuron, row) in self.hidden.iter_mut().zip(weights) {
+            for (c, &w) in neuron.connections.iter_mut().zip(row) {
+                c.weight = w;
+            }
+        }
+    }
+
+    /// Replace the hidden-layer bias weights (C++
+    /// `setHiddenLayerBiasNeuronWeightForConnection`).
+    pub fn set_hidden_bias_weights(&mut self, weights: &[V; OUT]) {
+        for (c, &w) in self.hidden_bias.connections.iter_mut().zip(weights) {
+            c.weight = w;
+        }
+    }
+
+    /// Load every weight from an inference network of the same shape, for
+    /// example to fine-tune shipped weights on the device.
+    pub fn set_weights(&mut self, from: &InferencePerceptron<V, H, O, IN, HID, OUT>) {
+        self.set_input_weights(&from.input_weights);
+        self.set_input_bias_weights(&from.input_bias_weights);
+        self.set_hidden_weights(&from.hidden_weights);
+        self.set_hidden_bias_weights(&from.hidden_bias_weights);
+    }
+
+    /// The trained network as an [`InferencePerceptron`]: the same weights and
+    /// the same outputs, bit for bit, without the training state.
+    pub fn to_inference(&self) -> InferencePerceptron<V, H, O, IN, HID, OUT> {
+        InferencePerceptron::new(
+            self.input_weights(),
+            self.input_bias_weights(),
+            self.hidden_weights(),
+            self.hidden_bias_weights(),
+        )
+    }
+}
+
+/// An inference-only multilayer perceptron: `IN` inputs -> `HID` hidden neurons
+/// (activation `H`) -> `OUT` outputs (activation `O`), holding only its weights.
+///
+/// C++: `MultilayerPerceptron<ValueType, IN, 1, HID, OUT, TransferFunctions,
+/// false>`, the untrainable network. Train offline, or on a host with
+/// [`MultilayerPerceptron`], then ship this: it stores one value per connection
+/// instead of four, has no per-neuron state, and has no training code. Its
+/// outputs are bit-identical to the trainable network's with the same weights.
+///
+/// [`feed_forward`](Self::feed_forward) takes `&self` and keeps nothing between
+/// calls, and [`new`](Self::new) is a `const fn`, so a trained network can be a
+/// `static` (in flash on a microcontroller):
+///
+/// ```
+/// use tinymind::{InferencePerceptron, Q8_8, Sigmoid, Tanh};
+///
+/// const fn q(x: i16) -> Q8_8 {
+///     Q8_8::from_int(x as i32)
+/// }
+///
+/// // XOR by hand: hidden neuron 0 is OR, hidden neuron 1 is AND, and the output
+/// // is "OR and not AND". Trained weights, e.g. from
+/// // `MultilayerPerceptron::to_inference` on a host, go here the same way.
+/// static XOR: InferencePerceptron<Q8_8, Tanh, Sigmoid, 2, 2, 1> = InferencePerceptron::new(
+///     [[q(4), q(4)], [q(4), q(4)]], // input -> hidden
+///     [q(-2), q(-6)],               // input bias -> hidden
+///     [[q(6)], [q(-6)]],            // hidden -> output
+///     [q(-3)],                      // hidden bias -> output
+/// );
+///
+/// let half = Q8_8::from_raw(128);
+/// for (a, b, want) in [(0, 0, false), (0, 1, true), (1, 0, true), (1, 1, false)] {
+///     let [y] = XOR.feed_forward(&[q(a), q(b)]);
+///     assert_eq!(y > half, want);
+/// }
+/// ```
+pub struct InferencePerceptron<V, H, O, const IN: usize, const HID: usize, const OUT: usize> {
+    /// Input-to-hidden weights: `input_weights[input][hidden]`.
+    pub input_weights: [[V; HID]; IN],
+    /// Input-layer bias to hidden neuron weights: `input_bias_weights[hidden]`.
+    pub input_bias_weights: [V; HID],
+    /// Hidden-to-output weights: `hidden_weights[hidden][output]`.
+    pub hidden_weights: [[V; OUT]; HID],
+    /// Hidden-layer bias to output neuron weights: `hidden_bias_weights[output]`.
+    pub hidden_bias_weights: [V; OUT],
+    activations: PhantomData<fn() -> (H, O)>,
+}
+
+impl<V, H, O, const IN: usize, const HID: usize, const OUT: usize>
+    InferencePerceptron<V, H, O, IN, HID, OUT>
+{
+    /// A network with these weights, laid out as the
+    /// [`MultilayerPerceptron`] weight getters return them.
+    pub const fn new(
+        input_weights: [[V; HID]; IN],
+        input_bias_weights: [V; HID],
+        hidden_weights: [[V; OUT]; HID],
+        hidden_bias_weights: [V; OUT],
+    ) -> Self {
+        Self {
+            input_weights,
+            input_bias_weights,
+            hidden_weights,
+            hidden_bias_weights,
+            activations: PhantomData,
+        }
+    }
+}
+
+impl<V, H, O, const IN: usize, const HID: usize, const OUT: usize>
+    InferencePerceptron<V, H, O, IN, HID, OUT>
+where
+    V: Fixed,
+    H: Activation<V>,
+    O: Activation<V>,
+{
+    /// One forward pass: the output-layer activations for `inputs`.
+    pub fn feed_forward(&self, inputs: &[V; IN]) -> [V; OUT] {
+        // The same sums, in the same order, as the trainable network: the bias
+        // neuron's output (1) times its weight, plus the layer sum from zero.
+        let mut hidden = [V::ZERO; HID];
+        for (h, out) in hidden.iter_mut().enumerate() {
+            let mut sum = V::ONE * self.input_bias_weights[h];
+            let mut layer_sum = V::ZERO;
+            for (&x, row) in inputs.iter().zip(&self.input_weights) {
+                layer_sum += x * row[h];
+            }
+            sum += layer_sum;
+            *out = H::activate(sum);
+        }
+
+        let mut output = [V::ZERO; OUT];
+        for (o, out) in output.iter_mut().enumerate() {
+            let mut sum = V::ONE * self.hidden_bias_weights[o];
+            let mut layer_sum = V::ZERO;
+            for (&x, row) in hidden.iter().zip(&self.hidden_weights) {
+                layer_sum += x * row[o];
+            }
+            sum += layer_sum;
+            *out = O::activate(sum);
+        }
+        output
+    }
+}
+
+// Written out rather than derived: a derive would also require the activation
+// marker types `H` and `O` to implement each trait.
+impl<V: Copy, H, O, const IN: usize, const HID: usize, const OUT: usize> Clone
+    for InferencePerceptron<V, H, O, IN, HID, OUT>
+{
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<V: Copy, H, O, const IN: usize, const HID: usize, const OUT: usize> Copy
+    for InferencePerceptron<V, H, O, IN, HID, OUT>
+{
+}
+
+impl<V: PartialEq, H, O, const IN: usize, const HID: usize, const OUT: usize> PartialEq
+    for InferencePerceptron<V, H, O, IN, HID, OUT>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.input_weights == other.input_weights
+            && self.input_bias_weights == other.input_bias_weights
+            && self.hidden_weights == other.hidden_weights
+            && self.hidden_bias_weights == other.hidden_bias_weights
+    }
+}
+
+impl<V: Eq, H, O, const IN: usize, const HID: usize, const OUT: usize> Eq
+    for InferencePerceptron<V, H, O, IN, HID, OUT>
+{
+}
+
+impl<V: core::fmt::Debug, H, O, const IN: usize, const HID: usize, const OUT: usize>
+    core::fmt::Debug for InferencePerceptron<V, H, O, IN, HID, OUT>
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("InferencePerceptron")
+            .field("input_weights", &self.input_weights)
+            .field("input_bias_weights", &self.input_bias_weights)
+            .field("hidden_weights", &self.hidden_weights)
+            .field("hidden_bias_weights", &self.hidden_bias_weights)
+            .finish()
+    }
 }
 
 /// `bias.output * bias.w[target] + sum(layer[n].output * layer[n].w[target])`,
@@ -303,4 +512,102 @@ fn update_connection<V: Fixed>(c: &mut Connection<V>, (lr, momentum, acceleratio
     let current_weight = c.weight;
     c.set_delta_weight(new_delta_weight);
     c.weight = current_weight + new_delta_weight;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::activation::{Relu, Sigmoid, Tanh};
+    use crate::rand::GlibcRand;
+    use crate::{Q8_8, Q16_16};
+
+    /// The inference network built from a trainable one gives the trainable
+    /// network's outputs bit for bit, for random weights and inputs. `raw` maps
+    /// a random `i32` to a value; `wide` draws from the whole storage range, so
+    /// the sums wrap too.
+    fn same_outputs<V, H, O, const IN: usize, const HID: usize, const OUT: usize>(
+        raw: impl Fn(i32) -> V,
+        seed: u32,
+    ) where
+        V: Fixed + PartialEq + core::fmt::Debug,
+        H: Activation<V>,
+        O: Activation<V>,
+    {
+        let mut rng = GlibcRand::new(seed);
+        for trial in 0..50 {
+            let mut nn = MultilayerPerceptron::<V, H, O, IN, HID, OUT>::new(|| raw(rng.next_i32()));
+            let frozen = nn.to_inference();
+            for _ in 0..20 {
+                let input: [V; IN] = core::array::from_fn(|_| raw(rng.next_i32()));
+                nn.feed_forward(&input);
+                assert_eq!(
+                    frozen.feed_forward(&input),
+                    nn.learned_values(),
+                    "trial {trial}"
+                );
+            }
+        }
+    }
+
+    /// A value within +-2.0 (`one` is the format's 1.0 in raw units).
+    fn small(r: i32, one: i32) -> i32 {
+        r % (4 * one + 1) - 2 * one
+    }
+
+    #[test]
+    fn inference_matches_trainable_q16_16() {
+        let small_q = |r: i32| Q16_16::from_raw(small(r, 1 << 16));
+        let wide_q = |r: i32| Q16_16::from_raw(r.wrapping_mul(2_654_435_761u32 as i32));
+        same_outputs::<Q16_16, Tanh, Sigmoid, 2, 4, 1>(small_q, 1);
+        same_outputs::<Q16_16, Relu, Sigmoid, 4, 8, 3>(small_q, 2);
+        same_outputs::<Q16_16, Tanh, Sigmoid, 2, 4, 1>(wide_q, 3);
+        same_outputs::<Q16_16, Relu, Sigmoid, 4, 8, 3>(wide_q, 4);
+    }
+
+    #[test]
+    fn inference_matches_trainable_q8_8() {
+        let small_q = |r: i32| Q8_8::from_raw(small(r, 1 << 8) as i16);
+        let wide_q = |r: i32| Q8_8::from_raw(r as i16);
+        same_outputs::<Q8_8, Tanh, Sigmoid, 2, 4, 1>(small_q, 5);
+        same_outputs::<Q8_8, Relu, Sigmoid, 4, 8, 3>(small_q, 6);
+        same_outputs::<Q8_8, Tanh, Sigmoid, 2, 4, 1>(wide_q, 7);
+        same_outputs::<Q8_8, Relu, Sigmoid, 4, 8, 3>(wide_q, 8);
+    }
+
+    /// Mid-training weights convert too, and `set_weights` loads them back.
+    #[test]
+    fn train_freeze_and_reload() {
+        type Net = MultilayerPerceptron<Q16_16, Tanh, Sigmoid, 2, 4, 1>;
+        let mut rng = GlibcRand::new(9);
+        let mut nn = Net::new(|| Q16_16::from_raw(small(rng.next_i32(), 1 << 16)));
+        let samples = [(0, 0, 0), (0, 1, 1), (1, 0, 1), (1, 1, 0)];
+        for step in 0..2000 {
+            let (a, b, y) = samples[step % 4];
+            nn.feed_forward(&[Q16_16::from_int(a), Q16_16::from_int(b)]);
+            nn.train(&[Q16_16::from_int(y)]);
+        }
+        let frozen = nn.to_inference();
+        for (a, b, _) in samples {
+            let input = [Q16_16::from_int(a), Q16_16::from_int(b)];
+            nn.feed_forward(&input);
+            assert_eq!(frozen.feed_forward(&input), nn.learned_values());
+        }
+
+        let mut other = Net::new(|| Q16_16::ZERO);
+        other.set_weights(&frozen);
+        assert_eq!(other.to_inference(), frozen);
+        assert_eq!(other.input_weights(), frozen.input_weights);
+        assert_eq!(other.hidden_bias_weights(), frozen.hidden_bias_weights);
+    }
+
+    /// One value per connection and no per-neuron state.
+    #[test]
+    fn inference_network_is_smaller() {
+        use core::mem::size_of;
+        type Trainable = MultilayerPerceptron<Q16_16, Tanh, Sigmoid, 2, 4, 1>;
+        type Inference = InferencePerceptron<Q16_16, Tanh, Sigmoid, 2, 4, 1>;
+        // 2*4 + 4 + 4*1 + 1 = 17 weights of 4 bytes.
+        assert_eq!(size_of::<Inference>(), 17 * 4);
+        assert!(size_of::<Trainable>() > 4 * size_of::<Inference>());
+    }
 }

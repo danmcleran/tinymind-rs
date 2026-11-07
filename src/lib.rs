@@ -1,10 +1,13 @@
 //! Rust port of the tinymind neural network library. So far only fixed-point
 //! value types are ported; tinymind also runs its networks with `float` and `double`.
 //!
-//! Scope: enough of tinymind to run its XOR example bit-for-bit: Q16.16 and Q8.8
-//! arithmetic, the tanh and sigmoid lookup-table activations, and a trainable
-//! one-hidden-layer perceptron. The library is `no_std` and allocation-free, like
-//! tinymind's freestanding build.
+//! Scope: Q16.16 and Q8.8 arithmetic, ReLU and the tanh and sigmoid lookup-table
+//! activations, a one-hidden-layer perceptron that trains on the device
+//! ([`MultilayerPerceptron`]) or only runs trained weights
+//! ([`InferencePerceptron`], tinymind's `IsTrainable = false`), and int8
+//! affine-quantized inference ([`int8`]). Every part produces the same bits as
+//! tinymind's C++. The library is `no_std` and allocation-free, like tinymind's
+//! freestanding build.
 //!
 //! # Example
 //!
@@ -57,5 +60,5 @@ pub mod rand;
 mod kani_proofs;
 
 pub use activation::{Activation, Relu, Sigmoid, Tanh};
-pub use neuralnet::MultilayerPerceptron;
+pub use neuralnet::{InferencePerceptron, MultilayerPerceptron};
 pub use qformat::{Fixed, Q8_8, Q16_16, QValue};

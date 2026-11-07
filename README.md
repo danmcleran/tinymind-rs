@@ -16,7 +16,8 @@ Documentation, including the API reference: <https://danmcleran.github.io/tinymi
 ## Status
 
 Early. So far the port covers Q16.16 and Q8.8 arithmetic, ReLU and lookup-table
-tanh and sigmoid activations, a trainable one-hidden-layer perceptron, and int8
+tanh and sigmoid activations, a one-hidden-layer perceptron (trainable, or
+inference-only with just its weights), and int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 quantized ReLU, activation tables, and a softmax that is bit-exact with
 TFLite's). The API is not stable yet: before 1.0, a minor version may break it.
@@ -99,6 +100,9 @@ backends, and so on) is not ported.
   does the same for iris against `tests/golden/iris/`, and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`. `TINYMIND_REF` records the
   tinymind commit they were last verified against.
+- `tests/inference_mlp.rs` checks the inference-only perceptron against
+  tinymind's untrainable network (`IsTrainable = false`) with the same weights,
+  in both formats and two shapes.
 - `tests/softmax_tflite.rs` checks the int8 softmax against the TFLite Micro
   reference kernel's outputs (tinymind's unit-test goldens and sweep hashes), and
   `tests/softmax_sweep.rs` against tinymind's C++ softmax and its calibration
