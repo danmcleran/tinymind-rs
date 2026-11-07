@@ -1,3 +1,9 @@
 /target
 /output
 /.claude/settings.local.json
+# Jekyll build output (docs/ site); local builds only, CI builds its own.
+/docs/_site
+/docs/.jekyll-cache
+/docs/.bundle
+/docs/vendor
+/docs/Gemfile.lock
