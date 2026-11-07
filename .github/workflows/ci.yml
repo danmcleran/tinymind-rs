@@ -69,6 +69,20 @@ jobs:
         run: |
           cargo build --lib --release --target thumbv7em-none-eabihf
           cargo build --lib --release --target thumbv6m-none-eabi
+      # Link-time proof that no panic is reachable from the public API: a
+      # firmware image whose panic handler is an undefined symbol
+      # (ci/panic-never), at the optimisation levels firmware uses.
+      - name: No reachable panic (Cortex-M0+ and M4F, opt-level 3, s, z)
+        if: success() || failure()
+        working-directory: ci/panic-never
+        run: |
+          cargo fmt --check
+          for target in thumbv6m-none-eabi thumbv7em-none-eabihf; do
+            for opt in 3 s z; do
+              echo "== $target opt-level=$opt"
+              CARGO_PROFILE_RELEASE_OPT_LEVEL=$opt cargo build --release --target "$target"
+            done
+          done
       - name: cargo test on MSRV (${{ steps.toolchain.outputs.msrv }})
         if: success() || failure()
         run: cargo "+${{ steps.toolchain.outputs.msrv }}" test

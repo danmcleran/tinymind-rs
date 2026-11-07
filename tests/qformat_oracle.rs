@@ -520,8 +520,23 @@ fn check_representation<Q: Oracle>(t: &mut Tally, rng: &mut Rng) {
         f.int_value(1),
     );
     t.check(f, "default", &[], Q::default().to_wide(), 0);
-    for n in 0..=f.frac_bits {
-        let expected = f.wrap(1i64 << (f.frac_bits - n));
+    // Beyond FRAC, 2^-n truncates to zero.
+    let beyond = [
+        f.frac_bits + 1,
+        f.frac_bits + 2,
+        32,
+        33,
+        63,
+        64,
+        100,
+        u32::MAX,
+    ];
+    for n in (0..=f.frac_bits).chain(beyond) {
+        let expected = if n > f.frac_bits {
+            0
+        } else {
+            f.wrap(1i64 << (f.frac_bits - n))
+        };
         t.check(
             f,
             "pow2Neg",

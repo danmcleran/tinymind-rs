@@ -11,7 +11,7 @@ readme = "README.md"
 keywords = ["neural-network", "fixed-point", "embedded", "no-std", "tinyml"]
 categories = ["embedded", "no-std", "science", "algorithms"]
 # Agent guidance, not part of the published crate.
-exclude = [".claude/", "CLAUDE.md"]
+exclude = [".claude/", "CLAUDE.md", "ci/"]
 # Intended for crates.io. This guard stays until a release is deliberately cut:
 # a published version cannot be deleted, only yanked.
 publish = false

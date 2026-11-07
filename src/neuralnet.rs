@@ -248,43 +248,33 @@ where
             update_connection(&mut self.input_bias.connections[h], rates);
         }
     }
+}
 
-    // Weight accessors, in the order tinymind's NetworkPropertiesFileManager writes them.
-
-    /// Weight from input `input` to hidden neuron `hidden`.
-    ///
-    /// # Panics
-    ///
-    /// If `input >= IN` or `hidden >= HID`.
-    pub fn input_weight(&self, input: usize, hidden: usize) -> V {
-        self.input[input].connections[hidden].weight
+/// Weight getters. These need no activation bounds, so they live in their own
+/// `impl` block. Each returns a whole matrix rather than taking an index, so
+/// none of them can panic; the layout matches the order tinymind's
+/// `NetworkPropertiesFileManager` writes the weights in.
+impl<V: Copy, H, O, const IN: usize, const HID: usize, const OUT: usize>
+    MultilayerPerceptron<V, H, O, IN, HID, OUT>
+{
+    /// Input-to-hidden weights: `input_weights()[input][hidden]`.
+    pub fn input_weights(&self) -> [[V; HID]; IN] {
+        self.input.map(|n| n.connections.map(|c| c.weight))
     }
 
-    /// Weight from the input-layer bias to hidden neuron `hidden`.
-    ///
-    /// # Panics
-    ///
-    /// If `hidden >= HID`.
-    pub fn input_bias_weight(&self, hidden: usize) -> V {
-        self.input_bias.connections[hidden].weight
+    /// Input-layer bias to hidden neuron weights: `input_bias_weights()[hidden]`.
+    pub fn input_bias_weights(&self) -> [V; HID] {
+        self.input_bias.connections.map(|c| c.weight)
     }
 
-    /// Weight from hidden neuron `hidden` to output `output`.
-    ///
-    /// # Panics
-    ///
-    /// If `hidden >= HID` or `output >= OUT`.
-    pub fn hidden_weight(&self, hidden: usize, output: usize) -> V {
-        self.hidden[hidden].connections[output].weight
+    /// Hidden-to-output weights: `hidden_weights()[hidden][output]`.
+    pub fn hidden_weights(&self) -> [[V; OUT]; HID] {
+        self.hidden.map(|n| n.connections.map(|c| c.weight))
     }
 
-    /// Weight from the hidden-layer bias to output `output`.
-    ///
-    /// # Panics
-    ///
-    /// If `output >= OUT`.
-    pub fn hidden_bias_weight(&self, output: usize) -> V {
-        self.hidden_bias.connections[output].weight
+    /// Hidden-layer bias to output neuron weights: `hidden_bias_weights()[output]`.
+    pub fn hidden_bias_weights(&self) -> [V; OUT] {
+        self.hidden_bias.connections.map(|c| c.weight)
     }
 }
 

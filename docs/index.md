@@ -23,7 +23,7 @@ nav_order: 1
 
 - **`no_std` and allocation-free.** The library links only `core`. Networks are plain fixed-size arrays sized by const generics: no heap, no `alloc`, no global state.
 - **Fixed-point so far.** The ported value types are Q-format integers (Q16.16 and Q8.8), so training and inference need no FPU, and activations come from lookup tables with linear interpolation. tinymind's networks are generic over the value type and are also tested with `float` and `double`; floating-point networks are not ported yet.
-- **No `unsafe`.** The library is `#![forbid(unsafe_code)]`.
+- **No `unsafe`, no reachable panics.** The library is `#![forbid(unsafe_code)]`, and CI links a Cortex-M firmware image that calls every public function and whose panic handler does not exist: any panic path left after optimisation would fail the build.
 - **Bit-exact with C++.** The port is checked byte for byte against tinymind's own C++ build on every pull request. See [Equivalence with tinymind]({{ site.baseurl }}/equivalence).
 - **Built for microcontrollers.** CI builds the library for Cortex-M4F (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`). Minimum Rust version: 1.85.
 

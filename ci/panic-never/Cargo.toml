@@ -1,0 +1,18 @@
+# Link-time proof that the library has no reachable panic: a no_std firmware
+# image for Cortex-M whose panic handler calls a function that does not exist.
+# If any panic path survives optimisation, linking fails on that symbol.
+# Not part of the published crate; CI builds it (see .github/workflows/ci.yml).
+[package]
+name = "panic-never"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+tinymind = { path = "../.." }
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+# opt-level is set per build by CI (CARGO_PROFILE_RELEASE_OPT_LEVEL).

@@ -178,12 +178,19 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   `wrapping_add` gives the right answer and passes; with checks on it panics. (A
   planted plain `+` passed with checks off and failed with them on.) Debug-built
   tests (`cargo test`) always have them on.
-- **Panic surface** of the public API (audited 2026-11-07): `pow2_neg(n)` with
-  `n > FRAC` (asserts; a compile error in const context), the weight accessors
-  with an out-of-range index, and whatever the caller's weight closure does.
-  Nothing else panics for any input. An invalid format (`FRAC` 0 or >= the storage
-  width) is a compile error wherever its arithmetic is used. Keep it this way:
-  document any new panic under `# Panics`.
+- **No reachable panics.** `ci/panic-never` is a `no_std` Cortex-M image that calls
+  every public function with `black_box` inputs and whose panic handler is an
+  undefined symbol: if any panic path survives optimisation, linking fails. CI
+  builds it for M0+ and M4F at opt-level 3, s and z. It covers the instantiated
+  configurations (both formats, the xor and iris shapes); add new public API and
+  new configurations to it. Planted panics (an assert, a dropped index clamp in
+  the table lookup) fail it. To keep it passing, total functions over panicking
+  ones: `pow2_neg(n > FRAC)` returns `ZERO` (the truncated value) and the weight
+  getters return whole matrices instead of taking indices. Only the caller's
+  weight-init closure can panic. An invalid format (`FRAC` 0 or >= the storage
+  width) is a compile error wherever its arithmetic is used. Debug builds still
+  have overflow-check panics; the oracle and the debug-built golden runs have
+  never triggered one.
 - **Sanitizers / Miri / MSan / TSan: not needed** while the library is
   `#![forbid(unsafe_code)]` and single-threaded; safe Rust cannot have the UB they
   detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
