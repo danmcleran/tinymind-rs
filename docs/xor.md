@@ -52,6 +52,21 @@ With 1/256 resolution, training lurches for about 3,500 steps before it snaps to
 
 All four cases are classified correctly, but the surface shows how: the network outputs 0.914 at 99.6% of the grid points, and only the exact corners (0, 0) and (1, 1) fall below 0.5. It has fitted the four training inputs rather than learned an XOR boundary. tinymind's notes on this example say that Q8.8 with three hidden neurons lurched through plateaus in the same way, which is why its example uses Q16.16 with four.
 
+## Shipping a trained network
+
+tinymind can build a network without its training machinery (`IsTrainable = false`) and load trained weights into it. The port does the same with `InferencePerceptron`: it holds only the weights, one value per connection, and its outputs are bit-identical to the trainable network's. Get one from a trained `MultilayerPerceptron` with `to_inference()`, or write the weights out as a `static`, which places them in flash on a microcontroller (`InferencePerceptron::new` is a `const fn`). `set_weights` loads them back into a trainable network, for example to fine-tune on the device.
+
+Network sizes in bytes on a Cortex-M4 (C++ with arm-none-eabi-g++ 13.2; the Rust sizes are the same on a 64-bit host, and the panic-check firmware asserts them on Cortex-M):
+
+| Network | tinymind trainable | tinymind inference-only | tinymind-rs trainable | tinymind-rs inference-only |
+|---|---|---|---|---|
+| Q8.8, 2-3-1 | 228 | 88 | 150 | 26 |
+| Q8.8, 2-5-1 | 316 | 116 | 222 | 42 |
+| Q16.16, 2-4-1 (this example) | 428 | 156 | 372 | 68 |
+| Q16.16, 4-8-3 (the iris shape) | 1,364 | 436 | 1,268 | 268 |
+
+The inference-only network keeps no neuron outputs between calls: the hidden activations live on the stack during `feed_forward` (16 bytes for this example), so a network stored in flash uses no RAM of its own. Sizes are `sizeof` / `size_of`, which is what tinymind's size tables report. A test checks the inference network against tinymind's untrainable one, loaded with the same weights, in both formats and both shapes.
+
 The plots are drawn from this port's output with tinymind's plotting style (`scripts/plot-examples.py`).
 
 [Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/examples/xor.rs)

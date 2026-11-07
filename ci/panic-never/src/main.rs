@@ -7,9 +7,13 @@
 
 use core::hint::black_box;
 
+use core::mem::size_of;
 use tinymind::int8::{self, QDense, QDensePerChannel, QSoftmax, Requantizer};
 use tinymind::rand::GlibcRand;
-use tinymind::{Activation, Fixed, MultilayerPerceptron, Q8_8, Q16_16, Relu, Sigmoid, Tanh};
+
+use tinymind::{
+    Activation, Fixed, InferencePerceptron, MultilayerPerceptron, Q8_8, Q16_16, Relu, Sigmoid, Tanh,
+};
 
 /// Every `QValue` operation on run-time operands.
 fn arithmetic() {
@@ -90,7 +94,24 @@ where
     black_box(nn.learned_values());
     black_box((nn.input_weights(), nn.input_bias_weights()));
     black_box((nn.hidden_weights(), nn.hidden_bias_weights()));
+
+    // The inference-only network, and loading weights back.
+    let frozen = black_box(nn.to_inference());
+    black_box(frozen.feed_forward(&black_box([raw(1); IN])));
+    nn.set_weights(&frozen);
+    nn.set_input_weights(&black_box([[raw(3); HID]; IN]));
+    nn.set_input_bias_weights(&black_box([raw(3); HID]));
+    nn.set_hidden_weights(&black_box([[raw(3); OUT]; HID]));
+    nn.set_hidden_bias_weights(&black_box([raw(3); OUT]));
+    black_box(nn.to_inference());
 }
+
+// An inference network holds one value per connection and nothing else, on the
+// target as on the host (the sizes in docs/xor.md).
+const _: () = assert!(size_of::<InferencePerceptron<Q16_16, Tanh, Sigmoid, 2, 4, 1>>() == 68);
+const _: () = assert!(size_of::<InferencePerceptron<Q8_8, Tanh, Sigmoid, 2, 3, 1>>() == 26);
+const _: () = assert!(size_of::<MultilayerPerceptron<Q16_16, Tanh, Sigmoid, 2, 4, 1>>() == 372);
+const _: () = assert!(size_of::<MultilayerPerceptron<Q8_8, Tanh, Sigmoid, 2, 3, 1>>() == 150);
 
 /// A model written by the PyTorch importer (generated code must be panic-free too).
 #[path = "../../../examples/common/imported_mlp_model.rs"]

@@ -1,0 +1,20 @@
+q16.16 2-4-1 tanh/sigmoid set=0 sample=0 out0=8849
+q16.16 2-4-1 tanh/sigmoid set=0 sample=1 out0=14244
+q16.16 2-4-1 tanh/sigmoid hash=0x1A886FBF trainable_agrees=yes
+q8.8 2-4-1 tanh/sigmoid set=0 sample=0 out0=246
+q8.8 2-4-1 tanh/sigmoid set=0 sample=1 out0=249
+q8.8 2-4-1 tanh/sigmoid hash=0x5BCAAA87 trainable_agrees=yes
+q16.16 4-8-3 relu/sigmoid set=0 sample=0 out0=4742
+q16.16 4-8-3 relu/sigmoid set=0 sample=0 out1=64563
+q16.16 4-8-3 relu/sigmoid set=0 sample=0 out2=58975
+q16.16 4-8-3 relu/sigmoid set=0 sample=1 out0=162
+q16.16 4-8-3 relu/sigmoid set=0 sample=1 out1=162
+q16.16 4-8-3 relu/sigmoid set=0 sample=1 out2=162
+q16.16 4-8-3 relu/sigmoid hash=0x19768A66 trainable_agrees=yes
+q8.8 4-8-3 relu/sigmoid set=0 sample=0 out0=0
+q8.8 4-8-3 relu/sigmoid set=0 sample=0 out1=255
+q8.8 4-8-3 relu/sigmoid set=0 sample=0 out2=4
+q8.8 4-8-3 relu/sigmoid set=0 sample=1 out0=247
+q8.8 4-8-3 relu/sigmoid set=0 sample=1 out1=255
+q8.8 4-8-3 relu/sigmoid set=0 sample=1 out2=0
+q8.8 4-8-3 relu/sigmoid hash=0x02769701 trainable_agrees=yes
