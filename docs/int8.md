@@ -37,6 +37,25 @@ cargo run --release --features std --example int8_xor -- output
 
 Its stdout and decision surface are byte-identical to the C++ example's, including the sigmoid table, which both build from the same float math.
 
+## Importing a PyTorch model
+
+`tools/import_pytorch` in the repository turns a trained `torch.nn.Sequential` of `Linear`, `ReLU`, `Sigmoid` and `Tanh` layers into a Rust module: int8 weights and biases, integer requantizers, baked activation tables and a `forward` function. The generated module is integer-only and `no_std`, so nothing is computed on the device at startup.
+
+```python
+import tinymind_import as ti
+
+layers = ti.from_torch(net)
+ti.import_pytorch_model(layers, "input", ti.MinMaxObserver(), calibration_inputs,
+                        "my_model.rs", "my_model")
+```
+
+```rust
+mod my_model;
+let y = my_model::forward(&input);
+```
+
+It is a port of tinymind's PyTorch importer with a Rust back end: calibration (min/max, percentile or KL-divergence ranges per layer) and quantization are tinymind's code, so the int8 numbers are the same. CI imports one model with both importers and runs it on both runtimes; the outputs are byte-identical. See the importer's [README](https://github.com/danmcleran/tinymind-rs/tree/master/tools/import_pytorch).
+
 ## How it is checked
 
 - **Golden output** from the C++ example, and the live comparison in `scripts/compare-with-cpp.sh`, as for the other examples.
@@ -48,6 +67,6 @@ Where the C++ would hit undefined behaviour (an int32 accumulator overflowing, a
 
 ## Not yet
 
-Convolution, depthwise convolution, pooling, softmax and the rest of tinymind's int8 family (recurrent cells, attention, trees) are not ported yet, and neither are tinymind's model importers, which read PyTorch and ONNX models and emit C++.
+Convolution, depthwise convolution, pooling, softmax and the rest of tinymind's int8 family (recurrent cells, attention, trees) are not ported yet, so the importer accepts dense layers with ReLU, sigmoid or tanh only. tinymind's ONNX importer is not ported.
 
 The [API reference]({{ site.baseurl }}/api/tinymind/int8/) documents every function.

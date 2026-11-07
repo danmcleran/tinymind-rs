@@ -94,7 +94,7 @@ jobs:
         if: success() || failure()
         run: |
           cargo package
-          if cargo package --list | grep -E '^(\.github|\.claude|ci|bench|docs|scripts)/|^CLAUDE\.md$'; then
+          if cargo package --list | grep -E '^(\.github|\.claude|ci|bench|docs|scripts|tools)/|^CLAUDE\.md$'; then
             echo "maintainer-only files would be published" >&2
             exit 1
           fi
@@ -149,9 +149,15 @@ jobs:
           rustup default stable
           rustc --version
           g++ --version
-      - name: Byte-compare the C++ and Rust xor outputs
+      # The PyTorch importer checks in compare-with-cpp.sh need numpy.
+      - name: Python with numpy
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install -q numpy==2.5.4
+      - name: Byte-compare the C++ and Rust outputs
         env:
           TINYMIND_DIR: ${{ github.workspace }}/tinymind
+          PYTHON: ${{ runner.temp }}/venv/bin/python
         run: tinymind-rs/scripts/compare-with-cpp.sh
       # The on-board benchmark (bench/) runs by hand on real boards; CI only
       # keeps every image building. Its MLP is generated from tinymind's sources.
