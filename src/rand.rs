@@ -84,3 +84,20 @@ mod tests {
         }
     }
 }
+
+// PLANTED DEFECTS (CI proof, reverted before merge)
+pub fn planted_undocumented() -> bool {
+    planted_chain(Some(2))
+}
+
+static PLANTED_ATOMIC: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+fn planted_chain(a: Option<u8>) -> bool {
+    if let Some(x) = a
+        && x > 1
+    {
+        PLANTED_ATOMIC.load(core::sync::atomic::Ordering::Relaxed) == 0
+    } else {
+        false
+    }
+}
