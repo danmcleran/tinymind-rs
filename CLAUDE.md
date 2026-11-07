@@ -6,8 +6,8 @@ Guidance for Claude Code (and any fresh agent) working in this repository.
 
 tinymind-rs (repo `tinymind-rs`, crate `tinymind`) is a Rust port of Dan's C++ library
 [tinymind](https://github.com/danmcleran/tinymind) (checked out as a sibling at
-`../tinymind`). It started as a learning project; on 2026-11-07 Dan decided to
-publish it widely as free open source software, as tinymind is. Treat it as a
+`../tinymind`). On 2026-11-07 Dan decided to publish it widely as free open
+source software, as tinymind is. Treat it as a
 public library: documented public API, honest scope and status in the README,
 semver once released, and no shortcuts that would embarrass a published crate.
 
@@ -37,10 +37,7 @@ no way to reserve it except publishing (crates.io bans placeholder crates). CI's
    --dry-run`, then `cargo publish`, then tag `v0.1.0` and create a GitHub
    release. Later releases could use crates.io trusted publishing from CI.
 
-Dan is still learning Rust through this repo, so **explain the Rust idioms you use**
-(ownership, traits vs C++ policies, const generics, `no_std`) in replies, and point
-out where Rust forces a different shape than the C++. Code comments should serve
-future users and maintainers; keep idiom tutorials out of the public API docs.
+Code comments should serve future users and maintainers.
 
 ## Current state (2026-11-07)
 

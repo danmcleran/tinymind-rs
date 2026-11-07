@@ -8,9 +8,9 @@
 //!   test sample
 //! - `iris_confusion.csv`: the test-set confusion matrix
 //!
-//! Run: `cargo run --release --example iris -- [output_dir] [iris.data]`. The default output dir is `output`; the
-//! default data file is this repository's `data/iris.data`, the UCI file tinymind
-//! ships with the example.
+//! Run: `cargo run --release --example iris -- [output_dir] [iris.data]`. The
+//! default output dir is `output`; the default data file is this repository's
+//! `data/iris.data`, the UCI file tinymind ships with the example.
 
 use std::fs;
 use std::io::{self, BufWriter};
