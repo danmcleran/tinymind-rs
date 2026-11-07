@@ -22,8 +22,9 @@ Commits before 2026-11-07 use the project's old name, rustymind; it was dropped
 because that name is taken on crates.io.
 
 **Publishing:** `tinymind` is on crates.io (owner `danmcleran`; docs on docs.rs).
-Releases: 0.1.0 (2026-11-07, `601098f`, tag `v0.1.0`) and 0.1.1 (2026-11-07,
-`ab43794`, tag `v0.1.1`: int8 softmax), each with a GitHub release. Agents run the
+Releases, each with a tag and a GitHub release: 0.1.0 (2026-11-07, `601098f`),
+0.1.1 (2026-11-07, `ab43794`: int8 softmax) and 0.1.2 (2026-11-07, tag `v0.1.2`:
+`InferencePerceptron`). Agents run the
 whole release in a session, including `cargo publish` (Dan's preference,
 2026-11-07), but only after Dan's explicit go-ahead for that release: a version
 cannot be deleted, only yanked. Semver applies: before 1.0 a minor bump may break
