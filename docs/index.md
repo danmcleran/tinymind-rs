@@ -28,6 +28,8 @@ nav_order: 1
 - **Bit-exact with C++.** The port is checked byte for byte against tinymind's own C++ build on every pull request. See [Equivalence with tinymind]({{ site.baseurl }}/equivalence).
 - **Built for microcontrollers, checked on them.** CI builds the library for Cortex-M4F (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`), and it has been run on an STM32F411 and an STM32L031: int8 inference and on-device training match the C++ bit for bit there, at about tinymind's code size. See [On-board results]({{ site.baseurl }}/benchmarks). Minimum Rust version: 1.85.
 
+How the port is checked, and what Rust's guarantees did and did not buy: [Bit for bit]({{ site.baseurl }}/bit-for-bit).
+
 ## Status
 
 Early. The port covers what three of tinymind's examples use (XOR, iris and an int8 XOR), plus the int8 softmax:

@@ -316,8 +316,10 @@ site, published at <https://danmcleran.github.io/tinymind-rs/> by
 `master`) and adds the crate's rustdoc under `/api/`. Its `build site` job is not a
 required check.
 
-- Pages: Home, XOR example, Iris example, Q-format in Rust, Equivalence with tinymind, API
-  reference. Keep them about what is ported; link to tinymind's site for concepts
+- Pages: Home, XOR example, Iris example, Int8 inference, Q-format in Rust, On-board
+  results, Equivalence with tinymind, API reference, and "Bit for bit" (the launch write-up:
+  how the port is checked and what Rust bought; its numbers must be kept current or the
+  page dated). Keep them about what is ported; link to tinymind's site for concepts
   rather than copying its pages.
 - Do not document tinymind bugs on the site (no "findings" sections, no links to
   tinymind fix PRs, no "before #N fixed it" asides). Dan's call, 2026-11-07. They
