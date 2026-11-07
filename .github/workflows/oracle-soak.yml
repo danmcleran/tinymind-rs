@@ -1,0 +1,35 @@
+name: Oracle soak
+
+# The per-PR oracle uses a fixed sample. This reruns it nightly with a fresh
+# seed and a 10000x larger sample, as tinymind's oracle soak does. A failure prints
+# the seed and scale; rerun locally with the same two values to reproduce:
+#   TINYMIND_ORACLE_SEED=<seed> TINYMIND_ORACLE_SCALE=10000 \
+#     cargo test --release --test qformat_oracle -- --nocapture
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  soak:
+    name: oracle soak
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - name: Install Rust (stable)
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+      - name: Sampled oracle, fresh seed, scale 10000
+        env:
+          TINYMIND_ORACLE_SEED: ${{ github.run_id }}
+          TINYMIND_ORACLE_SCALE: "10000"
+          CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS: "true"
+        run: cargo test --release --test qformat_oracle -- --nocapture

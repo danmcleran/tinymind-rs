@@ -49,6 +49,15 @@ jobs:
       - name: cargo test
         if: success() || failure()
         run: cargo test
+      # Every Q8.8 operand pair through every operation, against an exact
+      # reference (tests/qformat_oracle.rs). Overflow checks stay on in release:
+      # without them an unintended plain `+` wraps to the right answer and
+      # passes.
+      - name: qformat oracle, exhaustive Q8.8 (release, overflow checks on)
+        if: success() || failure()
+        env:
+          CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS: "true"
+        run: cargo test --release --test qformat_oracle -- --ignored --nocapture
       - name: cargo doc (warnings are errors)
         if: success() || failure()
         env:
