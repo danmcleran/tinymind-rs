@@ -21,22 +21,29 @@ tinymind (C++) stays the primary product; tinymind-rs grows by porting slices of
 Commits before 2026-11-07 use the project's old name, rustymind; it was dropped
 because that name is taken on crates.io.
 
-**Publishing:** `tinymind` 0.1.0 was published to crates.io on 2026-11-07 from
-`601098f` (tag `v0.1.0`, GitHub release; owner `danmcleran`; docs on docs.rs). Never
-run `cargo publish` without Dan's explicit go-ahead: a version cannot be deleted,
-only yanked. Semver applies from here: before 1.0 a minor bump may break the API, a
-patch bump may not. CI's `cargo package` step checks what would be published. To
-release a new version:
+**Publishing:** `tinymind` is on crates.io (owner `danmcleran`; docs on docs.rs).
+Releases: 0.1.0 (2026-11-07, `601098f`, tag `v0.1.0`) and 0.1.1 (2026-11-07,
+`ab43794`, tag `v0.1.1`: int8 softmax), each with a GitHub release. Agents run the
+whole release in a session, including `cargo publish` (Dan's preference,
+2026-11-07), but only after Dan's explicit go-ahead for that release: a version
+cannot be deleted, only yanked. Semver applies: before 1.0 a minor bump may break
+the API, a patch bump may not (additions only is a patch). CI's `cargo package`
+step checks what would be published. To release a new version:
 1. A release PR: bump `version` in `Cargo.toml`, move the `CHANGELOG.md`
-   `[Unreleased]` entries under the new version with its date, and update the
-   comparison links at the bottom.
+   `[Unreleased]` entries under the new version with its date, update the
+   comparison links at the bottom, and refresh the `tinymind` entry in all three
+   lockfiles (`cargo update -p tinymind` in `.`, `ci/panic-never` and `bench`).
 2. Dan's crates.io token (scoped to `tinymind`) must be in
    `~/.cargo/credentials.toml`; he runs `cargo login` himself in a separate terminal,
-   so the token never passes through an agent. The first one was short-lived.
-3. After the PR merges and CI is green, with Dan's go-ahead: from a clean `master`,
-   `cargo publish --dry-run`, `cargo publish`, check crates.io and docs.rs, then tag
-   `vX.Y.Z` (annotated) and create the GitHub release with the CHANGELOG entry as
-   notes. Later releases could use crates.io trusted publishing from CI.
+   so the token never passes through an agent. Never read or print that file;
+   checking that it exists is fine. If `cargo publish` fails on authentication,
+   stop and ask Dan to log in again.
+3. After the PR merges and CI is green on `master`: from a clean `master`,
+   `cargo publish --dry-run`, `cargo publish`, check crates.io and docs.rs (Python
+   `urllib` with a generic User-Agent; no curl here), then tag `vX.Y.Z` (annotated)
+   and create the GitHub release with the CHANGELOG entry as notes. Crates.io
+   trusted publishing from CI (publish on a pushed tag, no token on disk) is the
+   alternative if Dan wants one.
 
 Code comments should serve future users and maintainers.
 
