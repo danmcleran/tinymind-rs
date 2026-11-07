@@ -14,6 +14,7 @@ nav_order: 1
 
 [XOR example]({{ site.baseurl }}/xor){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Iris example]({{ site.baseurl }}/iris){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Int8 inference]({{ site.baseurl }}/int8){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [API reference]({{ site.baseurl }}/api/tinymind/){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View on GitHub](https://github.com/danmcleran/tinymind-rs){: .btn .fs-5 .mb-4 .mb-md-0 }
 
@@ -22,20 +23,20 @@ nav_order: 1
 ## What it is
 
 - **`no_std` and allocation-free.** The library links only `core`. Networks are plain fixed-size arrays sized by const generics: no heap, no `alloc`, no global state.
-- **Fixed-point so far.** The ported value types are Q-format integers (Q16.16 and Q8.8), so training and inference need no FPU, and activations come from lookup tables with linear interpolation. tinymind's networks are generic over the value type and are also tested with `float` and `double`; floating-point networks are not ported yet.
+- **Fixed-point so far.** The ported value types are Q-format integers (Q16.16 and Q8.8) and int8 in the TFLite/CMSIS-NN affine model, so training and inference need no FPU, and activations come from lookup tables. tinymind's networks are generic over the value type and are also tested with `float` and `double`; floating-point networks are not ported yet.
 - **No `unsafe`, no reachable panics.** The library is `#![forbid(unsafe_code)]`, and CI links a Cortex-M firmware image that calls every public function and whose panic handler does not exist: any panic path left after optimisation would fail the build.
 - **Bit-exact with C++.** The port is checked byte for byte against tinymind's own C++ build on every pull request. See [Equivalence with tinymind]({{ site.baseurl }}/equivalence).
 - **Built for microcontrollers.** CI builds the library for Cortex-M4F (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`). Minimum Rust version: 1.85.
 
 ## Status
 
-Early. The port covers what tinymind's XOR and iris examples use:
+Early. The port covers what three of tinymind's examples use (XOR, iris and an int8 XOR):
 
 | Ported | Not yet ported |
 |---|---|
 | Q16.16 (`i32`) and Q8.8 (`i16`) arithmetic, Truncate and Wrap policies | Other Q formats, saturating and rounding policies |
-| ReLU, and tanh and sigmoid via lookup tables | The other activations (capped and leaky ReLU, linear, softmax, ...) |
-| Trainable MLP with one hidden layer, SGD with momentum | Multiple hidden layers, recurrent layers, int8 inference, SIMD |
+| ReLU, and tanh and sigmoid via lookup tables; int8 dense inference (requantizer, quantized ReLU, int8 activation tables) | The other activations (capped and leaky ReLU, linear, softmax, ...) |
+| Trainable MLP with one hidden layer, SGD with momentum | Multiple hidden layers, recurrent layers, int8 convolution and the rest of the int8 family, SIMD |
 | | Floating-point (`float`, `double`) networks |
 
 The API is not stable yet, and the crate is not on crates.io yet. tinymind itself is the full library; this port grows by porting slices of it.
@@ -48,6 +49,7 @@ cd tinymind-rs
 cargo run --release --example xor -- output                  # Q16.16; output files in ./output
 cargo run --release --example xor -- --format q8.8 output    # the same network in Q8.8
 cargo run --release --example iris -- output                 # iris species classifier
+cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo test                                               # unit, doc and golden tests
 ```
 

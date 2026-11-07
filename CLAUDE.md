@@ -45,6 +45,11 @@ Code comments should serve future users and maintainers.
   momentum, 20000 steps) is ported and runs **bit-for-bit identically** to the C++
   build: the per-step weight trajectory (`nn_fixed_xor.txt`), learning curve,
   decision surface and stdout are byte-identical.
+- tinymind's `examples/pytorch_quant/xor` (a PyTorch-trained 2-4-1 network
+  quantized to int8: QDense, qrelu, QDense, sigmoid LUT) is ported as
+  `examples/int8_xor.rs` (feature `std`) and bit-exact: stdout and the decision
+  surface. Its requantizers and sigmoid table are built from float scales on the
+  host; Rust's `f32::exp` reaches the same glibc `expf` as the C++.
 - tinymind's `examples/iris` (4-8-3, ReLU hidden, sigmoid outputs, 30000 steps) is
   ported and bit-exact too: stdout and all three CSVs.
 - The same xor example in **Q8.8** (`xor --format q8.8`, `i16` storage) is also
@@ -91,7 +96,8 @@ sessions.
 cargo build --release --examples
 cargo run --release --example xor       # writes output/ (gitignored); args: [--format q16.16|q8.8] [out_dir] [lr] [momentum]
 cargo run --release --example iris      # args: [out_dir] [data file, default data/iris.data]
-cargo test                          # unit tests + golden test against the C++ outputs
+cargo run --release --features std --example int8_xor   # args: [out_dir]
+cargo test --all-features           # unit tests + golden tests against the C++ outputs (int8 needs std)
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 scripts/compare-with-cpp.sh         # builds ../tinymind's C++ xor (Q16.16, Q8.8) and iris and byte-diffs all outputs
@@ -121,6 +127,9 @@ code follows rustfmt; do not fight the formatter.
 | `src/neuralnet.rs` | `cpp/neuralnet.hpp` | One-hidden-layer MLP, batch 1, default policies; plain arrays, no placement-new buffers |
 | `src/rand.rs` | (glibc) | Bit-exact glibc `srand`/`rand` (TYPE_3 additive feedback) |
 | `examples/xor.rs`, `examples/common/xor_driver.rs` | `examples/xor/xor.cpp`, `xornet.h` | Example `main` (arguments) + driver (the program, generic over the format, `--format q16.16\|q8.8`); the golden test includes the driver and runs it in-process |
+| `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`, `cpp/include/simd/simd_dispatch.hpp` (scalar dot) | Int8 affine inference: gemmlowp primitives, `Requantizer` (i8 output only; both C++ paths, fused and saturating), `QDense<'a, IN, OUT>` borrowing `&[[i8; IN]; OUT]` weights (flash-friendly), `qrelu`/`qrelu6`, 256-entry LUT. Integer only, no_std |
+| `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp` | Feature `std`: `quantize_multiplier` (with a ported `frexp`), `build_requantizer`, `quantize`/`dequantize`, sigmoid/tanh LUT builders |
+| `examples/int8_xor.rs`, `examples/common/int8_xor_driver.rs` | `examples/pytorch_quant/xor/xor_quant.cpp`, `weights.hpp` | Weights and scales copied from `weights.hpp` (the goldens catch any mistake) |
 | `examples/iris.rs`, `examples/common/iris_driver.rs`, `data/iris.data` | `examples/iris/iris.cpp`, `iris.data` | 4-8-3 MLP, ReLU hidden + sigmoid output, 3 outputs (exercises the MSE `/ OUT` path). Data is the UCI file, CC BY 4.0 (attribution in `NOTICE`), checked against tinymind's copy |
 | `examples/common/cppfmt.rs` | (C++ iostreams) | `fmt_g` (`ostream << double`) and `fmt_fixed` (`std::fixed`), `#[path]`-included by each driver |
 | `tests/qformat_oracle.rs` | `unit_test/qformat_oracle/qformat_oracle_unit_test.cpp` | Differential oracle: every `QValue` op vs an exact i64 reference; C++ edge values, splitmix64 sample, chains; ported formats only (signed, full width, Truncate + Wrap). Plus an exhaustive Q8.8 sweep (`#[ignore]`, CI runs it) |
@@ -128,8 +137,11 @@ code follows rustfmt; do not fight the formatter.
 | `tests/xor_golden.rs`, `tests/iris_golden.rs`, `tests/golden/` | | Goldens from the C++ runs (`q16_16/`, `q8_8/`, `iris/`); xor trajectory checked by FNV-1a hash; shared helper in `tests/common/mod.rs` |
 
 The library (`src/lib.rs`) is `#![no_std]` and allocation-free, mirroring tinymind's
-freestanding build. Only the examples and tests use `std`. Keep it that way: new
-library code must not need `alloc`. It is also `#![forbid(unsafe_code)]`, and
+freestanding build. Only the examples, the tests and the opt-in `std` feature
+(host-side `int8::calibration`, which needs `f32::exp`/`tanh`) use `std`. Keep it that
+way: new library code must not need `alloc`, and anything needing `std` goes behind
+the feature. CI runs tests with `--all-features` and also clippy on the plain
+no_std library. It is also `#![forbid(unsafe_code)]`, and
 SECURITY.md's scope depends on that: do not remove it.
 
 ## Equivalence rules (hard-won; read before changing arithmetic)
@@ -167,6 +179,13 @@ Bit-exactness against the C++ is the acceptance test. These details all matter:
    the cast came first, which truncated `rand()` to `int16_t` for Q8.8 and put the
    weights in [-1.5, 0.5]. Porting Q8.8 found it; #239 fixed it in 13 examples with
    Q16.16 output unchanged, and the Q8.8 goldens were regenerated at `e78dd7a`.
+9. **Int8: undefined behaviour becomes defined.** Where the C++ int8 code would hit
+   UB (an `int32` accumulator overflowing, a requantizer shift outside its
+   documented range, `shift - 2` overflowing), the port wraps or clamps instead,
+   so every function is total; results inside the C++ contract are identical.
+   `Requantizer::apply` takes the fused path only for `2 <= shift <= 31` (the C++
+   tests `shift >= 2`), and clamps with two `if`s, not `clamp` (which panics when
+   `qmin > qmax`).
 
 Never trust output files lying around in the tinymind tree; regenerate the C++
 reference (the compare script does). Stale ones were found there once (tinymind #237
@@ -191,7 +210,7 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   every public function with `black_box` inputs and whose panic handler is an
   undefined symbol: if any panic path survives optimisation, linking fails. CI
   builds it for M0+ and M4F at opt-level 3, s and z. It covers the instantiated
-  configurations (both formats, the xor and iris shapes); add new public API and
+  configurations (both formats, the xor and iris shapes, the int8 path); add new public API and
   new configurations to it. Planted panics (an assert, a dropped index clamp in
   the table lookup) fail it. To keep it passing, total functions over panicking
   ones: `pow2_neg(n > FRAC)` returns `ZERO` (the truncated value) and the weight
@@ -205,11 +224,14 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
   sanitizer for that code.
 - **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, about a
-  minute): 47 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
+  minute): 51 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
   and Q1.31: add/sub wrap, multiply floors then wraps, division never panics,
   `from_int`, `pow2_neg`, zero tolerance and comparisons match their definitions.
   Tanh and sigmoid (both formats) stay within their tables' range and never index
-  out of bounds; ReLU is max(0, x). Specs avoid the operations they check
+  out of bounds; ReLU is max(0, x). Int8: the requantizer's fused path equals
+  gemmlowp's two-step rounding (written as tinymind's unit test writes it) for
+  every input in its domain; the requantizer, the dense layer and the LUT never
+  panic for any field values. Specs avoid the operations they check
   (congruences, remainder inequalities, i128 where the spec could overflow).
   Planted defects (rounding multiply, `pow2_neg` off by one, no table-index
   clamp, interpolation from the upper entry) each fail their proof.
@@ -243,8 +265,11 @@ The goldens only prove the paths the examples execute. For the arithmetic:
 Natural next steps, roughly by size: more activations (capped/leaky ReLU, linear;
 `examples/energy_efficiency` is ReLU + linear output on the same MLP), multiple
 hidden layers (a trait-based layer chain instead of C++ `LayerChain`
-templates), then an int8 inference layer (`cpp/qdense.hpp` family) verified against
-tinymind's `unit_test/integration` goldens.
+templates). For int8, after the dense layer: a PyTorch/ONNX importer that emits
+Rust (tinymind's `apps/` importers emit C++), int8 softmax, then conv/depthwise/
+pooling (output shapes need const arithmetic; importer-generated code can spell
+them out). `reports/Embedded Rust ML priorities.md` (local, not committed) ranks
+the rest.
 
 Floating point is also unported: tinymind's networks are generic over the value
 type and its unit tests and `examples/lstm_sinusoid_float` run them with `float`

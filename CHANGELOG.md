@@ -18,10 +18,15 @@ its XOR and iris examples use, bit-exact with the C++ build.
   tinymind's lookup tables with linear interpolation (`Q16_16`, `Q8_8`).
 - `MultilayerPerceptron`: a trainable network with one hidden layer, trained by
   SGD with momentum, stored in fixed-size arrays.
+- `int8`: int8 affine-quantized inference in the TFLite / CMSIS-NN model, pure
+  integer at run time: `Requantizer` (gemmlowp rounding), the dense layer
+  `QDense`, `qrelu`, `qrelu6` and 256-entry activation tables.
+- `int8::calibration` (feature `std`): host-side helpers that turn float scales
+  into requantizers and sigmoid/tanh tables, and quantize/dequantize values.
 - `rand::GlibcRand`: glibc's `srand`/`rand`, bit for bit, for reproducing the
   C++ examples.
-- Examples `xor` (Q16.16 and Q8.8) and `iris`, whose output is byte-identical to
-  tinymind's C++ examples.
+- Examples `xor` (Q16.16 and Q8.8), `iris` and `int8_xor` (a PyTorch-trained
+  int8 network), whose output is byte-identical to tinymind's C++ examples.
 
 The library is `no_std`, allocation-free, `#![forbid(unsafe_code)]`, and has no
 reachable panics; the minimum supported Rust version is 1.85.

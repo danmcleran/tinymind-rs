@@ -170,3 +170,86 @@ fn relu_definition() {
     let x = Q8_8::from_raw(kani::any());
     assert!(Relu::activate(x).raw() == x.raw().max(0));
 }
+
+/// Int8 affine inference (`crate::int8`).
+mod int8 {
+    use crate::int8::{
+        LUT_SIZE, QDense, Requantizer, apply_lut, multiply_by_quantized_multiplier,
+        rounding_divide_by_pot, rounding_high_mul_divide_by_pot,
+    };
+
+    /// gemmlowp's two roundings, written as tinymind's unit test writes them:
+    /// the high multiply with a sign-dependent nudge and a division that
+    /// truncates towards zero, then the remainder/threshold divide.
+    fn two_step(x: i32, m: i32, e: i32) -> i32 {
+        let h = if x == i32::MIN && m == i32::MIN {
+            i32::MAX
+        } else {
+            let ab = i64::from(x) * i64::from(m);
+            let nudge: i64 = if ab >= 0 { 1 << 30 } else { 1 - (1 << 30) };
+            ((ab + nudge) / (1i64 << 31)) as i32
+        };
+        let mask = ((1u32 << e) - 1) as i32;
+        let threshold = (mask >> 1) + i32::from(h < 0);
+        (h >> e) + i32::from((h & mask) > threshold)
+    }
+
+    /// The requantizer's fused single-rounding path equals the two-step form
+    /// wherever it is used (multiplier >= 0, 2 <= shift <= 31).
+    #[kani::proof]
+    fn fused_requantize_matches_two_step() {
+        let (x, m, e): (i32, i32, i32) = (kani::any(), kani::any(), kani::any());
+        kani::assume(m >= 0 && (2..=31).contains(&e));
+        assert!(rounding_high_mul_divide_by_pot(x, m, e) == two_step(x, m, e));
+    }
+
+    /// The building blocks and the requantizer never panic, for any field
+    /// values, including shifts far outside the documented range.
+    #[kani::proof]
+    fn requantizer_never_panics() {
+        let (x, m, s): (i32, i32, i32) = (kani::any(), kani::any(), kani::any());
+        let _ = rounding_divide_by_pot(x, s);
+        let _ = multiply_by_quantized_multiplier(x, m, s);
+        let rq = Requantizer {
+            multiplier: m,
+            shift: s,
+            zero_point: kani::any(),
+            qmin: kani::any(),
+            qmax: kani::any(),
+        };
+        let y = rq.apply(x);
+        // With qmin <= qmax the result is inside the bounds.
+        if rq.qmin <= rq.qmax {
+            assert!(rq.qmin <= y && y <= rq.qmax);
+        }
+    }
+
+    /// A dense layer never panics, for any weights, biases, inputs and
+    /// requantizer.
+    #[kani::proof]
+    fn dense_never_panics() {
+        let weights: [[i8; 3]; 2] = kani::any();
+        let biases: [i32; 2] = kani::any();
+        let with_bias: bool = kani::any();
+        let layer = QDense {
+            weights: &weights,
+            biases: if with_bias { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizer: Requantizer {
+                multiplier: kani::any(),
+                shift: kani::any(),
+                zero_point: kani::any(),
+                qmin: kani::any(),
+                qmax: kani::any(),
+            },
+        };
+        let input: [i8; 3] = kani::any();
+        let _ = layer.forward(&input);
+    }
+
+    #[kani::proof]
+    fn lut_never_panics() {
+        let lut: [i8; LUT_SIZE] = [0; LUT_SIZE];
+        let _ = apply_lut(kani::any(), &lut);
+    }
+}
