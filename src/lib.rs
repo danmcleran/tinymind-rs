@@ -10,7 +10,7 @@ pub mod activation;
 pub mod lut;
 pub mod neuralnet;
 pub mod qformat;
-pub mod   rand;
+pub mod rand;
 
 pub use activation::{Activation, Sigmoid, Tanh};
 pub use neuralnet::MultilayerPerceptron;
