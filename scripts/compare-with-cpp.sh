@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build the tinymind C++ xor example and the Rust port in each supported format
-# (Q16.16, Q8.8), run both, and cmp every output file. Set TINYMIND_DIR to the
+# Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
+# iris), run both, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -57,6 +57,33 @@ for spec in "q16.16 16 16_16" "q8.8 8 8_8"; do
   done
 done
 
+echo "== iris"
+# The data file must be tinymind's, byte for byte: both programs read it.
+if cmp -s "$ROOT/data/iris.data" "$TINYMIND_DIR/examples/iris/iris.data"; then
+  echo "IDENTICAL  iris data/iris.data vs tinymind examples/iris/iris.data"
+else
+  echo "DIFFERENT  iris data/iris.data vs tinymind examples/iris/iris.data"
+  status=1
+fi
+mkdir -p "$TMP/iris/cpp" "$TMP/iris/rust"
+# Flags from examples/iris/Makefile's release target.
+g++ -g -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/iris/iris" \
+  "$TINYMIND_DIR/examples/iris/iris.cpp" "$TINYMIND_DIR/cpp/lookupTables.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include/" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 -DTINYMIND_USE_SIGMOID_16_16=1
+cp "$TINYMIND_DIR/examples/iris/iris.data" "$TMP/iris/cpp/"
+(cd "$TMP/iris/cpp" && ../iris > stdout.txt)
+rm "$TMP/iris/cpp/iris.data"
+"$ROOT/target/release/iris" "$TMP/iris/rust" "$ROOT/data/iris.data" > "$TMP/iris/rust/stdout.txt"
+for f in stdout.txt iris_loss.csv iris_scatter.csv iris_confusion.csv; do
+  if cmp -s "$TMP/iris/cpp/$f" "$TMP/iris/rust/$f"; then
+    echo "IDENTICAL  iris $f"
+  else
+    echo "DIFFERENT  iris $f"
+    status=1
+  fi
+done
+
 if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   # For refreshing goldens: tests/golden must come from the C++ build.
   mkdir -p "$KEEP_CPP_OUTPUT"
@@ -64,6 +91,7 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
     cp -r "$TMP/$format/cpp" "$KEEP_CPP_OUTPUT/$format"
     rm "$KEEP_CPP_OUTPUT/$format/xor"
   done
+  cp -r "$TMP/iris/cpp" "$KEEP_CPP_OUTPUT/iris"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"
 fi
 exit $status

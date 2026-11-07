@@ -2,10 +2,11 @@
 //! `cpp/lookupTable.hpp` and `cpp/interpolate.hpp`.
 //!
 //! C++ policy classes with static member functions become zero-sized Rust types
-//! implementing a trait. The trait is generic over the value type and implemented
-//! only for the formats that have lookup tables (`Q16_16`, `Q8_8`): asking for
-//! `Tanh` on another format is a compile error, as it is in C++ when the matching
-//! `TINYMIND_USE_TANH_x_y` table is not compiled in.
+//! implementing a trait. `Relu` needs no table and works for every value type.
+//! `Tanh` and `Sigmoid` are implemented only for the formats that have lookup
+//! tables (`Q16_16`, `Q8_8`): asking for `Tanh` on another format is a compile
+//! error, as it is in C++ when the matching `TINYMIND_USE_TANH_x_y` table is not
+//! compiled in.
 
 use crate::lut::{
     NUMBER_OF_ACTIVATION_TABLE_VALUES, SIGMOID_Q8_8, SIGMOID_Q16_16, TANH_Q8_8, TANH_Q16_16,
@@ -21,11 +22,26 @@ pub trait Activation<V> {
     fn derivative(y: V) -> V;
 }
 
+/// Rectified linear unit, `max(0, x)` (C++ `ReluActivationPolicy`).
+pub struct Relu;
+
 /// Hyperbolic tangent via the 96-entry lookup table.
 pub struct Tanh;
 
 /// Logistic sigmoid via the 96-entry lookup table.
 pub struct Sigmoid;
+
+impl<V: Fixed> Activation<V> for Relu {
+    fn activate(x: V) -> V {
+        if x <= V::ZERO { V::ZERO } else { x }
+    }
+
+    /// 1 where the neuron is active, else 0. The output is positive exactly when
+    /// the input was, so deciding from the output gives the C++ result.
+    fn derivative(y: V) -> V {
+        if y <= V::ZERO { V::ZERO } else { V::ONE }
+    }
+}
 
 /// `Tanh` and `Sigmoid` for one format, given its two tables.
 macro_rules! impl_table_activations {
@@ -190,5 +206,20 @@ mod tests {
             SIGMOID_Q8_8[MAX_ACTIVATION_INDEX] as i16
         );
         assert_eq!(Sigmoid::activate(Q8_8::ZERO).raw(), 128); // 0.5
+    }
+
+    #[test]
+    fn relu() {
+        for (x, y, dy) in [(-3, 0, 0), (0, 0, 0), (1, 1, 1), (5, 5, 1)] {
+            let x16 = Q16_16::from_int(x);
+            assert_eq!(Relu::activate(x16), Q16_16::from_int(y));
+            assert_eq!(Relu::derivative(Relu::activate(x16)), Q16_16::from_int(dy));
+            let x8 = Q8_8::from_int(x);
+            assert_eq!(Relu::activate(x8), Q8_8::from_int(y));
+            assert_eq!(Relu::derivative(Relu::activate(x8)), Q8_8::from_int(dy));
+        }
+        // The smallest positive value passes through.
+        assert_eq!(Relu::activate(Q16_16::from_raw(1)).raw(), 1);
+        assert_eq!(Relu::activate(Q16_16::from_raw(-1)).raw(), 0);
     }
 }
