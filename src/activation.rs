@@ -3,12 +3,14 @@
 //!
 //! C++ policy classes with static member functions become zero-sized Rust types
 //! implementing a trait. The trait is generic over the value type and implemented
-//! only for `Q16_16`, because the lookup tables are format-specific: asking for
+//! only for the formats that have lookup tables (`Q16_16`, `Q8_8`): asking for
 //! `Tanh` on another format is a compile error, as it is in C++ when the matching
 //! `TINYMIND_USE_TANH_x_y` table is not compiled in.
 
-use crate::lut::{NUMBER_OF_ACTIVATION_TABLE_VALUES, SIGMOID_Q16_16, TANH_Q16_16};
-use crate::qformat::{Q16_16, QValue};
+use crate::lut::{
+    NUMBER_OF_ACTIVATION_TABLE_VALUES, SIGMOID_Q8_8, SIGMOID_Q16_16, TANH_Q8_8, TANH_Q16_16,
+};
+use crate::qformat::{Fixed, Q8_8, Q16_16, QValue};
 
 /// A neuron activation function and its derivative.
 pub trait Activation<V> {
@@ -25,25 +27,33 @@ pub struct Tanh;
 /// Logistic sigmoid via the 96-entry lookup table.
 pub struct Sigmoid;
 
-impl Activation<Q16_16> for Tanh {
-    fn activate(x: Q16_16) -> Q16_16 {
-        lookup(x, &TANH_Q16_16)
-    }
+/// `Tanh` and `Sigmoid` for one format, given its two tables.
+macro_rules! impl_table_activations {
+    ($v:ty, $tanh:expr, $sigmoid:expr) => {
+        impl Activation<$v> for Tanh {
+            fn activate(x: $v) -> $v {
+                lookup(x, &$tanh)
+            }
 
-    fn derivative(y: Q16_16) -> Q16_16 {
-        Q16_16::ONE - (y * y)
-    }
+            fn derivative(y: $v) -> $v {
+                <$v>::ONE - (y * y)
+            }
+        }
+
+        impl Activation<$v> for Sigmoid {
+            fn activate(x: $v) -> $v {
+                lookup(x, &$sigmoid)
+            }
+
+            fn derivative(y: $v) -> $v {
+                y * (<$v>::ONE - y)
+            }
+        }
+    };
 }
 
-impl Activation<Q16_16> for Sigmoid {
-    fn activate(x: Q16_16) -> Q16_16 {
-        lookup(x, &SIGMOID_Q16_16)
-    }
-
-    fn derivative(y: Q16_16) -> Q16_16 {
-        y * (Q16_16::ONE - y)
-    }
-}
+impl_table_activations!(Q16_16, TANH_Q16_16, SIGMOID_Q16_16);
+impl_table_activations!(Q8_8, TANH_Q8_8, SIGMOID_Q8_8);
 
 /// Table domain is [-6, 6] with knots 1/8 apart (`cpp/activation.hpp`).
 const MIN_X_TABLE_VALUE: i32 = -6;
@@ -51,18 +61,48 @@ const MAX_X_TABLE_VALUE: i32 = 6;
 const ACTIVATION_DELTA_SHIFT: u32 = 3;
 const MAX_ACTIVATION_INDEX: usize = NUMBER_OF_ACTIVATION_TABLE_VALUES - 1;
 
-/// Piecewise-linear table lookup (C++ `LookupTable::getValue`).
-fn lookup<const FRAC: u32>(
-    x: QValue<FRAC>,
-    table: &[u32; NUMBER_OF_ACTIVATION_TABLE_VALUES],
-) -> QValue<FRAC> {
-    // The table entries are stored as u32 bit patterns; reinterpret as i32 raw LSBs.
-    let entry = |i: usize| QValue::<FRAC>::from_raw(table[i] as i32);
+/// What [`lookup`] needs from a format beyond [`Fixed`]: its raw value widened
+/// to `i32` (exact for both storage types; every intermediate stays far inside
+/// `i32`), and the reverse for values known to fit.
+trait TableFormat: Fixed {
+    const FRAC: u32;
+    fn raw_i32(self) -> i32;
+    fn from_raw_i32(raw: i32) -> Self;
+}
 
-    let min_x = MIN_X_TABLE_VALUE << FRAC;
-    let max_x = MAX_X_TABLE_VALUE << FRAC;
-    let delta_x = 1i32 << (FRAC - ACTIVATION_DELTA_SHIFT);
-    let v = x.raw();
+impl<const FRAC: u32> TableFormat for QValue<i32, FRAC> {
+    const FRAC: u32 = FRAC;
+    fn raw_i32(self) -> i32 {
+        self.raw()
+    }
+    fn from_raw_i32(raw: i32) -> Self {
+        Self::from_raw(raw)
+    }
+}
+
+impl<const FRAC: u32> TableFormat for QValue<i16, FRAC> {
+    const FRAC: u32 = FRAC;
+    fn raw_i32(self) -> i32 {
+        i32::from(self.raw())
+    }
+    fn from_raw_i32(raw: i32) -> Self {
+        Self::from_raw(raw as i16)
+    }
+}
+
+/// Piecewise-linear table lookup (C++ `LookupTable::getValue`). Table entries
+/// are the unsigned bit patterns of the raw values (`uint16_t`/`uint32_t` in
+/// C++); the cast through `i32` and back to the storage type reinterprets them.
+fn lookup<V: TableFormat, T: Copy + Into<u32>>(
+    x: V,
+    table: &[T; NUMBER_OF_ACTIVATION_TABLE_VALUES],
+) -> V {
+    let entry = |i: usize| V::from_raw_i32(table[i].into() as i32);
+
+    let min_x = MIN_X_TABLE_VALUE << V::FRAC;
+    let max_x = MAX_X_TABLE_VALUE << V::FRAC;
+    let delta_x = 1i32 << (V::FRAC - ACTIVATION_DELTA_SHIFT);
+    let v = x.raw_i32();
 
     if v <= min_x {
         return entry(0);
@@ -79,7 +119,7 @@ fn lookup<const FRAC: u32>(
     let lower_x = min_x + (lower as i32) * delta_x;
     let upper_x = min_x + (upper as i32) * delta_x;
 
-    if table[lower] == table[upper] {
+    if table[lower].into() == table[upper].into() {
         entry(upper)
     } else if v == lower_x {
         // x sits on a knot: the table value is exact.
@@ -87,8 +127,8 @@ fn lookup<const FRAC: u32>(
     } else {
         linear_interpolation(
             x,
-            QValue::from_raw(lower_x),
-            QValue::from_raw(upper_x),
+            V::from_raw_i32(lower_x),
+            V::from_raw_i32(upper_x),
             entry(lower),
             entry(upper),
         )
@@ -97,13 +137,7 @@ fn lookup<const FRAC: u32>(
 
 /// C++ `linearInterpolation`: `y0 + (y1 - y0) * ((x - x0) / (x1 - x0))`, in
 /// fixed point, with the same operation order (it matters for truncation).
-fn linear_interpolation<const FRAC: u32>(
-    x: QValue<FRAC>,
-    x0: QValue<FRAC>,
-    x1: QValue<FRAC>,
-    y0: QValue<FRAC>,
-    y1: QValue<FRAC>,
-) -> QValue<FRAC> {
+fn linear_interpolation<V: Fixed>(x: V, x0: V, x1: V, y0: V, y1: V) -> V {
     if x1 == x0 {
         return y0;
     }
@@ -140,5 +174,21 @@ mod tests {
         let y1 = TANH_Q16_16[49] as i32;
         let got = Tanh::activate(x).raw();
         assert!(got > y0 && got < y1);
+    }
+
+    #[test]
+    fn q8_8_knots_and_clamps() {
+        // A Q8.8 table entry's u16 bit pattern is the i16 raw value.
+        assert_eq!(Tanh::activate(Q8_8::ZERO).raw(), TANH_Q8_8[48] as i16);
+        assert_eq!(
+            Tanh::activate(Q8_8::from_int(-100)).raw(),
+            TANH_Q8_8[0] as i16
+        );
+        assert_eq!(TANH_Q8_8[0] as i16, -255);
+        assert_eq!(
+            Sigmoid::activate(Q8_8::from_int(100)).raw(),
+            SIGMOID_Q8_8[MAX_ACTIVATION_INDEX] as i16
+        );
+        assert_eq!(Sigmoid::activate(Q8_8::ZERO).raw(), 128); // 0.5
     }
 }

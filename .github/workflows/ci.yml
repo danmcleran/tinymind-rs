@@ -83,9 +83,9 @@ jobs:
           ref: ${{ steps.ref.outputs.sha }}
           path: tinymind
           persist-credentials: false
-      - name: Install Rust (stable)
+      - name: Install Rust (stable, rustfmt)
         run: |
-          rustup toolchain install stable --profile minimal
+          rustup toolchain install stable --profile minimal --component rustfmt
           rustup default stable
           rustc --version
           g++ --version
@@ -93,3 +93,10 @@ jobs:
         env:
           TINYMIND_DIR: ${{ github.workspace }}/tinymind
         run: tinymind-rs/scripts/compare-with-cpp.sh
+      - name: Check src/lut.rs matches the tables at TINYMIND_REF
+        if: success() || failure()
+        env:
+          TINYMIND_DIR: ${{ github.workspace }}/tinymind
+        run: |
+          python3 -I tinymind-rs/scripts/extract-luts.py
+          git -C tinymind-rs diff --exit-code -- src/lut.rs
