@@ -1,0 +1,10 @@
+[package]
+name = "rustymind"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "Minimal Rust port of the tinymind fixed-point neural network library (learning project)"
+repository = "https://github.com/danmcleran/rustymind"
+
+[dependencies]
