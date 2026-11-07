@@ -21,6 +21,15 @@ use core::ops::{Add, AddAssign, Div, Mul, Sub};
 ///
 /// The derived `PartialOrd`/`Ord` compare the raw integer, which is exactly what
 /// the C++ comparison operators do (they compare `getValue()`).
+///
+/// `FRAC` must be at least 1 and less than the storage width; anything else is a
+/// compile-time error wherever the format's arithmetic is used:
+///
+/// ```compile_fail
+/// // 40 fractional bits do not fit in i32 storage.
+/// let x = tinymind::QValue::<i32, 40>::default();
+/// let _ = x.to_f64();
+/// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct QValue<S, const FRAC: u32>(S);
 
@@ -68,7 +77,10 @@ macro_rules! impl_qvalue {
     ($s:ty, $wide:ty) => {
         impl<const FRAC: u32> QValue<$s, FRAC> {
             /// Compile-time format check, evaluated once per instantiated format.
-            /// The C++ library does the same job with `static_assert`.
+            /// The C++ library does the same job with `static_assert`. Every method
+            /// whose arithmetic depends on `FRAC` evaluates it, so an invalid format
+            /// such as `QValue<i32, 40>` fails to compile wherever it is used, even
+            /// when the value came from `Default`.
             const FORMAT_OK: () = assert!(
                 FRAC >= 1 && FRAC < <$s>::BITS,
                 "QValue needs at least 1 fractional bit and fewer than the storage width"
@@ -79,7 +91,7 @@ macro_rules! impl_qvalue {
             /// Number of integer bits, including the sign bit (storage width - `FRAC`).
             pub const FIXED_BITS: u32 = <$s>::BITS - FRAC;
             /// 0.0
-            pub const ZERO: Self = Self(0);
+            pub const ZERO: Self = Self::from_raw(0);
             /// 1.0. When `FRAC` is one less than the storage width (Q1.15, Q1.31)
             /// there are no integer bits besides the sign, 1.0 is not
             /// representable, and this wraps to -1.0 (the storage type's minimum).
@@ -101,7 +113,14 @@ macro_rules! impl_qvalue {
             }
 
             /// `2^-n`, used for tinymind's default learning/momentum/acceleration rates.
+            ///
+            /// # Panics
+            ///
+            /// If `n > FRAC`: `2^-n` is then below the format's resolution. (In a
+            /// constant context this is a compile-time error.) `pow2_neg(0)` is
+            /// [`ONE`](Self::ONE), with the same caveat for formats without integer bits.
             pub const fn pow2_neg(n: u32) -> Self {
+                assert!(n <= FRAC, "pow2_neg(n) needs n <= FRAC");
                 Self::from_raw((1 as $s) << (FRAC - n))
             }
 
@@ -112,6 +131,7 @@ macro_rules! impl_qvalue {
 
             /// Real-number view, computed as the C++ example does: `raw / 2^FRAC` in `f64`.
             pub fn to_f64(self) -> f64 {
+                let () = Self::FORMAT_OK;
                 f64::from(self.0) / f64::from(1u32 << FRAC)
             }
 
@@ -137,6 +157,7 @@ macro_rules! impl_qvalue {
             /// formats with more than 7 fractional bits (512 LSBs for Q16.16, 2 for
             /// Q8.8), else `|raw| < 2`.
             pub const fn is_within_zero_tolerance(self) -> bool {
+                let () = Self::FORMAT_OK;
                 let shift = if FRAC > 7 { FRAC - 7 } else { 1 };
                 let tolerance = (1 as $s) << shift;
                 self.0 == 0 || (self.0 < tolerance && self.0 > -tolerance)
@@ -180,6 +201,7 @@ macro_rules! impl_qvalue {
         impl<const FRAC: u32> Mul for QValue<$s, FRAC> {
             type Output = Self;
             fn mul(self, rhs: Self) -> Self {
+                let () = Self::FORMAT_OK;
                 // Widen, truncate (arithmetic shift right floors toward -inf), then
                 // wrap back to the storage width.
                 let product = <$wide>::from(self.0) * <$wide>::from(rhs.0);
@@ -190,6 +212,7 @@ macro_rules! impl_qvalue {
         impl<const FRAC: u32> Div for QValue<$s, FRAC> {
             type Output = Self;
             fn div(self, rhs: Self) -> Self {
+                let () = Self::FORMAT_OK;
                 if rhs.0 == 0 {
                     return Self::div_by_zero(self.0);
                 }
@@ -266,6 +289,21 @@ mod tests {
         assert_eq!((Q8_8::ONE / Q8_8::ZERO).raw(), i16::MAX);
         assert_eq!((Q8_8::from_int(-1) / Q8_8::ZERO).raw(), i16::MIN);
         assert_eq!(Q8_8::ONE.div_int(0).raw(), i16::MAX);
+    }
+
+    #[test]
+    fn pow2_neg_range() {
+        assert_eq!(Q16_16::pow2_neg(16).raw(), 1);
+        assert_eq!(Q16_16::pow2_neg(0), Q16_16::ONE);
+        assert_eq!(Q8_8::pow2_neg(8).raw(), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "pow2_neg(n) needs n <= FRAC")]
+    fn pow2_neg_below_resolution_panics() {
+        // black_box keeps this a runtime call; with a constant argument it would
+        // not compile at all.
+        let _ = Q16_16::pow2_neg(core::hint::black_box(17));
     }
 
     #[test]

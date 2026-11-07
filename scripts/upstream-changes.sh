@@ -33,6 +33,7 @@ PORTED=(
   cpp/include/nnproperties.hpp
   examples/xor
   examples/iris
+  unit_test/qformat_oracle
 )
 
 if ! git -C "$TINYMIND_DIR" cat-file -e "$REF^{commit}" 2>/dev/null; then

@@ -87,6 +87,7 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 scripts/compare-with-cpp.sh         # builds ../tinymind's C++ xor (Q16.16, Q8.8) and iris and byte-diffs all outputs
 python3 -I scripts/extract-luts.py  # regenerates src/lut.rs from ../tinymind's lookupTables.cpp
+CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true cargo test --release --test qformat_oracle -- --ignored  # every Q8.8 pair (~15 s)
 scripts/upstream-changes.sh         # tinymind commits since TINYMIND_REF touching ported sources
 ```
 
@@ -113,6 +114,8 @@ code follows rustfmt; do not fight the formatter.
 | `src/bin/xor.rs` | `examples/xor/xor.cpp`, `xornet.h` | Driver, generic over the format (`--format q16.16\|q8.8`) |
 | `src/bin/iris.rs`, `data/iris.data` | `examples/iris/iris.cpp`, `iris.data` | 4-8-3 MLP, ReLU hidden + sigmoid output, 3 outputs (exercises the MSE `/ OUT` path). Data is the UCI file, CC BY 4.0 (attribution in `NOTICE`), checked against tinymind's copy |
 | `src/bin/common/cppfmt.rs` | (C++ iostreams) | `fmt_g` (`ostream << double`) and `fmt_fixed` (`std::fixed`), `#[path]`-included by each binary |
+| `tests/qformat_oracle.rs` | `unit_test/qformat_oracle/qformat_oracle_unit_test.cpp` | Differential oracle: every `QValue` op vs an exact i64 reference; C++ edge values, splitmix64 sample, chains; ported formats only (signed, full width, Truncate + Wrap). Plus an exhaustive Q8.8 sweep (`#[ignore]`, CI runs it) |
+| `tests/glibc_rand.rs` | (glibc) | `GlibcRand` vs the real `srand`/`rand` via FFI, 212 seeds incl. >= 2^31 (Linux/glibc only) |
 | `tests/xor_golden.rs`, `tests/iris_golden.rs`, `tests/golden/` | | Goldens from the C++ runs (`q16_16/`, `q8_8/`, `iris/`); xor trajectory checked by FNV-1a hash; shared helper in `tests/common/mod.rs` |
 
 The library (`src/lib.rs`) is `#![no_std]` and allocation-free, mirroring tinymind's
@@ -159,6 +162,34 @@ Bit-exactness against the C++ is the acceptance test. These details all matter:
 Never trust output files lying around in the tinymind tree; regenerate the C++
 reference (the compare script does). Stale ones were found there once (tinymind #237
 fixed the docs that produced them).
+
+## Verification beyond the goldens
+
+The goldens only prove the paths the examples execute. For the arithmetic:
+
+- **Oracle** (`tests/qformat_oracle.rs`): a port of tinymind's qformat oracle. Its
+  known-defect list is empty at `TINYMIND_REF`, so any mismatch is a port bug. If
+  tinymind adds a known defect affecting a ported format, port its model too (the
+  C++ oracle is in `PORTED`). CI runs the sampled oracle in `cargo test`, the
+  exhaustive Q8.8 sweep on every PR, and a nightly soak with a fresh seed
+  (`oracle-soak.yml`); a soak failure prints the seed and scale to reproduce with.
+- **Overflow checks on in release** for the exhaustive run. Rust overflow is not
+  UB, but release builds wrap silently, so a plain `+` that should have been
+  `wrapping_add` gives the right answer and passes; with checks on it panics. (A
+  planted plain `+` passed with checks off and failed with them on.) Debug-built
+  tests (`cargo test`) always have them on.
+- **Panic surface** of the public API (audited 2026-11-07): `pow2_neg(n)` with
+  `n > FRAC` (asserts; a compile error in const context), the weight accessors
+  with an out-of-range index, and whatever the caller's weight closure does.
+  Nothing else panics for any input. An invalid format (`FRAC` 0 or >= the storage
+  width) is a compile error wherever its arithmetic is used. Keep it this way:
+  document any new panic under `# Panics`.
+- **Sanitizers / Miri / MSan / TSan: not needed** while the library is
+  `#![forbid(unsafe_code)]` and single-threaded; safe Rust cannot have the UB they
+  detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
+  sanitizer for that code.
+- **Not done yet:** Kani proofs (the CBMC counterpart), a coverage report, and
+  running the goldens on Cortex-M under QEMU.
 
 ## Porting the next example
 

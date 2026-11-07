@@ -71,11 +71,16 @@ backends, and so on) is not ported.
   (xor in both formats, iris) with the flags their Makefiles use, runs both
   programs, and runs `cmp` on every output file. It also checks that
   `data/iris.data` is still tinymind's file. It exits nonzero if anything differs.
+- `tests/qformat_oracle.rs`, ported from tinymind's qformat oracle, checks every
+  `QValue` operation against an exact reference: edge values and a fixed-seed
+  sample for nine formats, and every operand pair for Q8.8 (about 26 billion
+  checks, run in CI with overflow checks on). A nightly job reruns the sample with
+  a fresh seed.
 - `scripts/extract-luts.py` generates `src/lut.rs` from tinymind's
   `cpp/lookupTables.cpp`; CI regenerates it and fails if the tables differ.
-- CI runs all three on every pull request (the `cpp-equivalence` job checks out
-  tinymind at `TINYMIND_REF` for the last two), and branch protection blocks
-  merging unless they pass.
+- CI runs all of these on every pull request (the `cpp-equivalence` job checks out
+  tinymind at `TINYMIND_REF` for the compare script and the table check), and
+  branch protection blocks merging unless they pass.
 
 ## License
 
