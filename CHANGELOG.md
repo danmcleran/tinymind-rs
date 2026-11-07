@@ -7,8 +7,10 @@ break the API).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-07
+
 First release, a port of the parts of [tinymind](https://github.com/danmcleran/tinymind)
-its XOR and iris examples use, bit-exact with the C++ build.
+its XOR, iris and int8 XOR examples use, bit-exact with the C++ build.
 
 ### Added
 
@@ -30,4 +32,10 @@ its XOR and iris examples use, bit-exact with the C++ build.
   int8 network), whose output is byte-identical to tinymind's C++ examples.
 
 The library is `no_std`, allocation-free, `#![forbid(unsafe_code)]`, and has no
-reachable panics; the minimum supported Rust version is 1.85.
+reachable panics; the minimum supported Rust version is 1.85. It has been run on
+an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference and
+on-device training match tinymind's C++ bit for bit (see `bench/README.md` in the
+repository).
+
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/danmcleran/tinymind-rs/releases/tag/v0.1.0

@@ -1,5 +1,7 @@
 # tinymind-rs
 
+[![crates.io](https://img.shields.io/crates/v/tinymind.svg)](https://crates.io/crates/tinymind)
+[![docs.rs](https://docs.rs/tinymind/badge.svg)](https://docs.rs/tinymind)
 [![CI](https://github.com/danmcleran/tinymind-rs/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/danmcleran/tinymind-rs/actions/workflows/ci.yml)
 
 tinymind-rs (crate `tinymind`) brings [tinymind](https://github.com/danmcleran/tinymind),
@@ -17,7 +19,7 @@ Early. So far the port covers what three of tinymind's examples use: Q16.16 and
 Q8.8 arithmetic, ReLU and lookup-table tanh and sigmoid activations, a trainable
 one-hidden-layer perceptron, and int8 affine-quantized inference (the
 TFLite/CMSIS-NN model: requantizer, dense layer, quantized ReLU and activation
-tables). The API is not stable yet, and the crate is not on crates.io yet.
+tables). The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -25,6 +27,17 @@ the int8 layers use.
 
 The minimum supported Rust version is 1.85. CI builds the library for Cortex-M4F
 (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`).
+
+## Use it
+
+```toml
+[dependencies]
+tinymind = "0.1"
+# For host-side int8 calibration (float scales to requantizers and tables):
+# tinymind = { version = "0.1", features = ["std"] }
+```
+
+The API reference is on [docs.rs](https://docs.rs/tinymind).
 
 ## Quick start
 

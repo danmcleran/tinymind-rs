@@ -39,7 +39,7 @@ Early. The port covers what three of tinymind's examples use (XOR, iris and an i
 | Trainable MLP with one hidden layer, SGD with momentum | Multiple hidden layers, recurrent layers, int8 convolution and the rest of the int8 family, SIMD |
 | | Floating-point (`float`, `double`) networks |
 
-The API is not stable yet, and the crate is not on crates.io yet. tinymind itself is the full library; this port grows by porting slices of it.
+The crate is on [crates.io](https://crates.io/crates/tinymind); the API is not stable yet (before 1.0, a minor version may break it). tinymind itself is the full library; this port grows by porting slices of it.
 
 ## Quick start
 
@@ -53,11 +53,13 @@ cargo run --release --features std --example int8_xor -- output   # PyTorch-trai
 cargo test                                               # unit, doc and golden tests
 ```
 
-To use the library from another project before it is on crates.io:
+To use the library from another project:
 
 ```toml
 [dependencies]
-tinymind = { git = "https://github.com/danmcleran/tinymind-rs" }
+tinymind = "0.1"
+# Host-side int8 calibration (float scales to requantizers and tables):
+# tinymind = { version = "0.1", features = ["std"] }
 ```
 
 The [API reference]({{ site.baseurl }}/api/tinymind/) starts with a complete example that trains XOR; it runs as a test on every build.

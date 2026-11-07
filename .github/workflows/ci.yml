@@ -87,7 +87,7 @@ jobs:
               CARGO_PROFILE_RELEASE_OPT_LEVEL=$opt cargo build --release --target "$target"
             done
           done
-      # What crates.io would get (publish = false stays until a release is cut):
+      # What crates.io gets:
       # build the package, reject maintainer-only paths, and run the tests from
       # the unpacked package source.
       - name: cargo package (contents and tests)
