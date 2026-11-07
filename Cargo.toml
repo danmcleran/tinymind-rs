@@ -5,7 +5,7 @@ edition = "2024"
 # Edition 2024 needs 1.85. CI runs the tests on this version.
 rust-version = "1.85"
 license = "MIT"
-description = "Fixed-point neural networks for embedded Rust: a no_std, allocation-free port of the tinymind C++ library, bit-exact with it"
+description = "Neural networks for embedded Rust: a no_std, allocation-free port of the tinymind C++ library, bit-exact with it"
 repository = "https://github.com/danmcleran/tinymind-rs"
 readme = "README.md"
 keywords = ["neural-network", "fixed-point", "embedded", "no-std", "tinyml"]

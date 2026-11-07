@@ -1,4 +1,5 @@
-//! Minimal Rust port of the tinymind fixed-point neural network library.
+//! Rust port of the tinymind neural network library. So far only fixed-point
+//! value types are ported; tinymind also runs its networks with `float` and `double`.
 //!
 //! Scope: enough of tinymind to run its XOR example bit-for-bit: Q16.16 and Q8.8
 //! arithmetic, the tanh and sigmoid lookup-table activations, and a trainable

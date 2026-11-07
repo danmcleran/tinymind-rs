@@ -167,9 +167,17 @@ fixed the docs that produced them).
    with `KEEP_CPP_OUTPUT=<dir> scripts/compare-with-cpp.sh`, which copies the C++
    outputs out.
 
-Natural next steps, roughly by size: another activation (ReLU needs no table), multiple hidden layers (a trait-based layer chain instead of C++ `LayerChain`
+Natural next steps, roughly by size: another activation (ReLU needs no table),
+multiple hidden layers (a trait-based layer chain instead of C++ `LayerChain`
 templates), then an int8 inference layer (`cpp/qdense.hpp` family) verified against
 tinymind's `unit_test/integration` goldens.
+
+Floating point is also unported: tinymind's networks are generic over the value
+type and its unit tests and `examples/lstm_sinusoid_float` run them with `float`
+and `double`. Two catches for a port: `core` has no `tanh`/`exp`, so `no_std` needs
+the `libm` crate or its own implementation, and bit-exactness with glibc's libm is
+not guaranteed (compare results before promising it). The `Fixed` trait would also
+need a name that fits floats (e.g. `ValueType`); rename it before the first release.
 
 ## Docs site (GitHub Pages)
 
@@ -197,6 +205,9 @@ required check.
 
 ## Conventions
 
+- Do not describe tinymind, or this crate as a design, as fixed-point only: tinymind
+  also runs networks in `float`/`double`. "Fixed-point so far" is the accurate scope
+  of the port.
 - Project names are lowercase in prose: "tinymind" (the C++ library), "tinymind-rs"
   (this port). The crate is `tinymind`; write it in backticks when you mean the crate.
 - Copyright: `Copyright (c) 2026 Dan McLeran` (LICENSE). Code translated from tinymind
