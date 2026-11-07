@@ -1,0 +1,6 @@
+# No runtime crate: _start is the entry point, which is all a link check needs.
+[target.thumbv6m-none-eabi]
+rustflags = ["-C", "link-arg=--entry=_start"]
+
+[target.thumbv7em-none-eabihf]
+rustflags = ["-C", "link-arg=--entry=_start"]

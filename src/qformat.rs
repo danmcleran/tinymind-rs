@@ -114,13 +114,14 @@ macro_rules! impl_qvalue {
 
             /// `2^-n`, used for tinymind's default learning/momentum/acceleration rates.
             ///
-            /// # Panics
-            ///
-            /// If `n > FRAC`: `2^-n` is then below the format's resolution. (In a
-            /// constant context this is a compile-time error.) `pow2_neg(0)` is
+            /// For `n > FRAC`, `2^-n` is below the format's resolution and the result
+            /// is [`ZERO`](Self::ZERO): the value truncated to the format, as
+            /// TruncatePolicy rounds every other result. `pow2_neg(0)` is
             /// [`ONE`](Self::ONE), with the same caveat for formats without integer bits.
             pub const fn pow2_neg(n: u32) -> Self {
-                assert!(n <= FRAC, "pow2_neg(n) needs n <= FRAC");
+                if n > FRAC {
+                    return Self::from_raw(0);
+                }
                 Self::from_raw((1 as $s) << (FRAC - n))
             }
 
@@ -299,11 +300,15 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "pow2_neg(n) needs n <= FRAC")]
-    fn pow2_neg_below_resolution_panics() {
-        // black_box keeps this a runtime call; with a constant argument it would
-        // not compile at all.
-        let _ = Q16_16::pow2_neg(core::hint::black_box(17));
+    fn pow2_neg_below_resolution_truncates_to_zero() {
+        for n in [17, 20, 32, 63, 64, u32::MAX] {
+            assert_eq!(
+                Q16_16::pow2_neg(core::hint::black_box(n)),
+                Q16_16::ZERO,
+                "n = {n}"
+            );
+        }
+        assert_eq!(Q8_8::pow2_neg(9), Q8_8::ZERO);
     }
 
     #[test]

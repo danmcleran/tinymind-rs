@@ -287,26 +287,22 @@ fn store_network_properties<V: Format>(
     out: &mut impl Write,
     expected: &[V; NUMBER_OF_OUTPUTS],
     learned: &[V; NUMBER_OF_OUTPUTS],
-) -> io::Result<()>
-where
-    Tanh: Activation<V>,
-    Sigmoid: Activation<V>,
-{
-    for i in 0..NUMBER_OF_INPUTS {
-        for h in 0..NUMBER_OF_NEURONS_PER_HIDDEN_LAYER {
-            write!(out, "{},", nn.input_weight(i, h))?;
+) -> io::Result<()> {
+    for row in nn.input_weights() {
+        for w in row {
+            write!(out, "{w},")?;
         }
     }
-    for h in 0..NUMBER_OF_NEURONS_PER_HIDDEN_LAYER {
-        write!(out, "{},", nn.input_bias_weight(h))?;
+    for w in nn.input_bias_weights() {
+        write!(out, "{w},")?;
     }
-    for h in 0..NUMBER_OF_NEURONS_PER_HIDDEN_LAYER {
-        for o in 0..NUMBER_OF_OUTPUTS {
-            write!(out, "{},", nn.hidden_weight(h, o))?;
+    for row in nn.hidden_weights() {
+        for w in row {
+            write!(out, "{w},")?;
         }
     }
-    for o in 0..NUMBER_OF_OUTPUTS {
-        write!(out, "{},", nn.hidden_bias_weight(o))?;
+    for w in nn.hidden_bias_weights() {
+        write!(out, "{w},")?;
     }
     for value in expected.iter().chain(learned) {
         write!(out, "{value},")?;
