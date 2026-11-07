@@ -1,0 +1,53 @@
+---
+title: Int8 inference
+layout: default
+nav_order: 4
+---
+
+# Int8 inference
+
+Alongside the Q-format networks, the crate runs **int8 affine-quantized** models, the format TensorFlow Lite, Arm CMSIS-NN and most microcontroller NPUs use. A real value is `scale * (q - zero_point)`: activations are int8 with any zero point, weights are int8 with zero point 0, and biases and accumulators are int32. Inference is integer-only, so it needs no FPU, and the module is `no_std` like the rest of the library.
+
+## The pieces
+
+| Rust (`tinymind::int8`) | What it does | C++ (tinymind) |
+|---|---|---|
+| `Requantizer` | Rescales an int32 accumulator to the output tensor's int8 grid with a Q0.31 multiplier and a shift, adds the zero point and saturates | `Requantizer` (`cpp/qaffine.hpp`) |
+| `QDense<'a, IN, OUT>` | Fully connected layer: `acc[o] = bias[o] + sum_i w[o][i] * (x[i] - zp)`, then requantize | `QDense` (`cpp/qdense.hpp`) |
+| `qrelu`, `qrelu6` | ReLU and ReLU6 in the quantized grid | `cpp/qactivations.hpp` |
+| `apply_lut` | Any activation through a 256-entry int8 table, such as sigmoid or tanh | `qApplyLUT` |
+| `calibration` (feature `std`) | Host side: build requantizers and sigmoid/tanh tables from float scales; quantize and dequantize | `cpp/include/qcalibration.hpp` |
+
+A layer borrows its weights (`&[[i8; IN]; OUT]`, row-major as PyTorch and TFLite store them) and biases, so they can live in flash as `static` data. On a device, run the calibration on the host and embed the resulting integers; the five fields of a `Requantizer` are plain constants.
+
+## Example: a PyTorch-trained XOR network
+
+The `int8_xor` example is a port of tinymind's [PyTorch int8 XOR example](https://danmcleran.github.io/tinymind/examples/pytorch_quant_xor.html). A 2-4-1 network trained in PyTorch and quantized to int8 runs as dense layer, quantized ReLU, dense layer and sigmoid table:
+
+```bash
+cargo run --release --features std --example int8_xor -- output
+```
+
+```
+  in=(0.0000,0.0000)  q_input=(-128,-128)  q_logit=-128  prob=0.1211  pred=0  label=0
+  in=(0.0000,1.0000)  q_input=(-128,127)  q_logit=127  prob=0.8828  pred=1  label=1
+  in=(1.0000,0.0000)  q_input=(127,-128)  q_logit=127  prob=0.8828  pred=1  label=1
+  in=(1.0000,1.0000)  q_input=(127,127)  q_logit=-126  prob=0.1250  pred=0  label=0
+```
+
+Its stdout and decision surface are byte-identical to the C++ example's, including the sigmoid table, which both build from the same float math.
+
+## How it is checked
+
+- **Golden output** from the C++ example, and the live comparison in `scripts/compare-with-cpp.sh`, as for the other examples.
+- **tinymind's own known answers** for the requantizer and dense layer, including its check of the requantizer's saturating path against an exact 64-bit computation over more than ten thousand cases.
+- **Kani proofs** for every input: the requantizer's fast single-rounding path equals the standard two-step rounding (gemmlowp's, which TFLite uses) wherever it is used, and the requantizer, the dense layer and the table lookup never panic, whatever their parameters.
+- **No reachable panics**: the int8 path is part of the Cortex-M firmware image that CI links with an undefined panic handler.
+
+Where the C++ would hit undefined behaviour (an int32 accumulator overflowing, a shift outside its documented range), the Rust port wraps or clamps instead, so every function returns a value; inside the documented ranges the results are identical.
+
+## Not yet
+
+Convolution, depthwise convolution, pooling, softmax and the rest of tinymind's int8 family (recurrent cells, attention, trees) are not ported yet, and neither are tinymind's model importers, which read PyTorch and ONNX models and emit C++.
+
+The [API reference]({{ site.baseurl }}/api/tinymind/int8/) documents every function.

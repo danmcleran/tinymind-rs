@@ -22,6 +22,24 @@ publish = false
 
 [dependencies]
 
+[features]
+# Host-side helpers that need floating-point math from std: turning float
+# calibration scales into int8 requantizers and activation tables
+# (int8::calibration). The library itself stays no_std without it.
+std = []
+
+[package.metadata.docs.rs]
+all-features = true
+
+# The int8 example and its golden test calibrate from float scales.
+[[example]]
+name = "int8_xor"
+required-features = ["std"]
+
+[[test]]
+name = "int8_xor_golden"
+required-features = ["std"]
+
 [lints.rust]
 # Kani proofs (src/kani_proofs.rs) are compiled only under cfg(kani).
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }

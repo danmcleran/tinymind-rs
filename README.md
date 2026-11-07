@@ -13,9 +13,15 @@ Documentation, including the API reference: <https://danmcleran.github.io/tinymi
 
 ## Status
 
-Early. So far the port covers what tinymind's XOR and iris examples use: Q16.16
-and Q8.8 arithmetic, ReLU and lookup-table tanh and sigmoid activations, and a
-trainable one-hidden-layer perceptron. The API is not stable yet, and the crate is not on crates.io yet.
+Early. So far the port covers what three of tinymind's examples use: Q16.16 and
+Q8.8 arithmetic, ReLU and lookup-table tanh and sigmoid activations, a trainable
+one-hidden-layer perceptron, and int8 affine-quantized inference (the
+TFLite/CMSIS-NN model: requantizer, dense layer, quantized ReLU and activation
+tables). The API is not stable yet, and the crate is not on crates.io yet.
+
+The library is `no_std` by default. The `std` feature adds host-side calibration
+helpers (`int8::calibration`) that turn float scales into the integer parameters
+the int8 layers use.
 
 The minimum supported Rust version is 1.85. CI builds the library for Cortex-M4F
 (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`).
@@ -26,6 +32,7 @@ The minimum supported Rust version is 1.85. CI builds the library for Cortex-M4F
 cargo run --release --example xor -- output                  # Q16.16, output files in ./output
 cargo run --release --example xor -- --format q8.8 output    # the same network in Q8.8
 cargo run --release --example iris -- output                 # iris species classifier (ReLU hidden layer)
+cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo test                                               # golden tests against the C++ output
 scripts/compare-with-cpp.sh                              # rebuild the C++ examples and diff everything
 ```
@@ -36,7 +43,9 @@ momentum. It writes `nn_fixed_xor.txt`, `xor_training.csv` and
 `xor_decision_surface.csv` there and prints a summary on stdout. The `iris` example
 takes an optional output directory and data file (default `data/iris.data`, the
 UCI Iris dataset under CC BY 4.0; see `NOTICE`) and writes `iris_loss.csv`,
-`iris_scatter.csv` and `iris_confusion.csv`.
+`iris_scatter.csv` and `iris_confusion.csv`. The `int8_xor` example (feature
+`std`) runs a PyTorch-trained, int8-quantized 2-4-1 network and writes
+`xor_decision_surface.csv`.
 
 `scripts/compare-with-cpp.sh` needs a tinymind checkout and `g++`. It looks in
 `../tinymind` unless `TINYMIND_DIR` is set.
@@ -52,6 +61,9 @@ UCI Iris dataset under CC BY 4.0; see `NOTICE`) and writes `iris_loss.csv`,
 | `src/rand.rs` | a re-implementation of glibc `rand()`, which the C++ example uses for weight init and sampling |
 | `examples/xor.rs` | `examples/xor/xor.cpp` |
 | `examples/iris.rs` | `examples/iris/iris.cpp` |
+| `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`: requantizer, int8 dense layer, quantized ReLU, activation tables |
+| `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
+| `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
 
 Everything else in tinymind (floating-point networks, other Q formats, unsigned
 and 8/64-bit storage, the other activations, recurrent layers, the int8 quantization tiers, SIMD
@@ -65,10 +77,11 @@ backends, and so on) is not ported.
   length, line count and a 64-bit FNV-1a hash instead of being stored. The goldens
   come from the C++ build: Q16.16 from the example as shipped, Q8.8 from the same
   example with both bit counts in `xornet.h` set to 8. `tests/iris_golden.rs`
-  does the same for iris against `tests/golden/iris/`. `TINYMIND_REF` records the
+  does the same for iris against `tests/golden/iris/`, and
+  `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`. `TINYMIND_REF` records the
   tinymind commit they were last verified against.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind checkout
-  (xor in both formats, iris) with the flags their Makefiles use, runs both
+  (xor in both formats, iris, int8 xor) with the flags their Makefiles use, runs both
   programs, and runs `cmp` on every output file. It also checks that
   `data/iris.data` is still tinymind's file. It exits nonzero if anything differs.
 - `tests/qformat_oracle.rs`, ported from tinymind's qformat oracle, checks every

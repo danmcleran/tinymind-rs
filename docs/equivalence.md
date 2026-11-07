@@ -1,7 +1,7 @@
 ---
 title: Equivalence with tinymind
 layout: default
-nav_order: 5
+nav_order: 6
 ---
 
 # Equivalence with tinymind
@@ -10,10 +10,11 @@ The acceptance test for every ported path is that it produces the same bits as t
 
 ## What is compared
 
-Two of tinymind's examples are ported, and every file they write must be byte-identical to the C++ example's output:
+Three of tinymind's examples are ported, and every file they write must be byte-identical to the C++ example's output:
 
 - **XOR**, in Q16.16 and Q8.8: stdout, the per-step weight trajectory (`nn_fixed_xor.txt`, about 20,000 lines), the learning curve and the decision surface.
 - **Iris**: stdout, the loss curve, the per-sample test predictions and the confusion matrix. Its input is the dataset file tinymind ships with the example, checked byte for byte against tinymind's copy.
+- **Int8 XOR**: stdout and the decision surface of a PyTorch-trained network running in int8. tinymind's int8 path matches TensorFlow Lite's reference kernels, so this also ties the Rust port to TFLite's arithmetic on these cases.
 
 Fixed-point arithmetic makes this demanding. A multiply truncates, so `(a * b) * c` and `a * (b * c)` can differ in the last bit, and one bit early in training becomes a different weight trajectory. The port keeps the C++ operation order in every expression, and repeats details that do not affect the result's quality but do affect its bits, such as a random draw the C++ makes for a connection it never uses.
 

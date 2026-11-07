@@ -45,10 +45,14 @@ jobs:
         run: cargo fmt --check
       - name: cargo clippy
         if: success() || failure()
-        run: cargo clippy --all-targets -- -D warnings
+        # With the std feature (calibration, int8 example) and without it (the
+        # no_std library as firmware uses it).
+        run: |
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo clippy --lib -- -D warnings
       - name: cargo test
         if: success() || failure()
-        run: cargo test
+        run: cargo test --all-features
       # Every Q8.8 operand pair through every operation, against an exact
       # reference (tests/qformat_oracle.rs). Overflow checks stay on in release:
       # without them an unintended plain `+` wraps to the right answer and
@@ -62,7 +66,7 @@ jobs:
         if: success() || failure()
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc --no-deps
+        run: cargo doc --no-deps --all-features
       # The library claims no_std for microcontrollers; build it for two of them.
       - name: Build library for Cortex-M4F and Cortex-M0+
         if: success() || failure()
@@ -94,10 +98,10 @@ jobs:
             echo "maintainer-only files would be published" >&2
             exit 1
           fi
-          cargo test --manifest-path "$(ls -d target/package/tinymind-*/ | head -1)Cargo.toml"
+          cargo test --all-features --manifest-path "$(ls -d target/package/tinymind-*/ | head -1)Cargo.toml"
       - name: cargo test on MSRV (${{ steps.toolchain.outputs.msrv }})
         if: success() || failure()
-        run: cargo "+${{ steps.toolchain.outputs.msrv }}" test
+        run: cargo "+${{ steps.toolchain.outputs.msrv }}" test --all-features
 
   # Kani proofs (src/kani_proofs.rs): properties checked for every input.
   # Installed directly (pinned version) rather than through the Kani action,

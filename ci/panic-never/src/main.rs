@@ -7,6 +7,7 @@
 
 use core::hint::black_box;
 
+use tinymind::int8::{self, QDense, Requantizer};
 use tinymind::rand::GlibcRand;
 use tinymind::{Activation, Fixed, MultilayerPerceptron, Q8_8, Q16_16, Relu, Sigmoid, Tanh};
 
@@ -91,10 +92,41 @@ where
     black_box((nn.hidden_weights(), nn.hidden_bias_weights()));
 }
 
+/// The int8 path: primitives, requantizer, a dense layer, activations, tables.
+fn int8_inference() {
+    let (x, m, s) = (black_box(5), black_box(1 << 30), black_box(3));
+    black_box(int8::saturating_rounding_doubling_high_mul(x, m));
+    black_box(int8::rounding_divide_by_pot(x, s));
+    black_box(int8::multiply_by_quantized_multiplier(x, m, s));
+    let rq = Requantizer {
+        multiplier: black_box(m),
+        shift: black_box(s),
+        zero_point: black_box(-1),
+        qmin: black_box(-128),
+        qmax: black_box(127),
+    };
+    black_box(rq.apply(black_box(1000)));
+    let weights: [[i8; 4]; 3] = black_box([[1; 4]; 3]);
+    let biases: [i32; 3] = black_box([0; 3]);
+    let layer = QDense {
+        weights: &weights,
+        biases: if black_box(true) { Some(&biases) } else { None },
+        input_zero_point: black_box(-128),
+        requantizer: rq,
+    };
+    let out = layer.forward(&black_box([1i8; 4]));
+    let lut: [i8; int8::LUT_SIZE] = black_box([0; int8::LUT_SIZE]);
+    for y in out {
+        black_box((int8::qrelu(y, -128), int8::qrelu6(y, -128, 100)));
+        black_box((int8::lut_index(y), int8::apply_lut(y, &lut)));
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
     arithmetic();
     activations();
+    int8_inference();
     // The examples' configurations: xor 2-4-1 (both formats) and iris 4-8-3.
     network::<Q16_16, Tanh, Sigmoid, 2, 4, 1>(Q16_16::from_raw);
     network::<Q8_8, Tanh, Sigmoid, 2, 4, 1>(|r| Q8_8::from_raw(r as i16));

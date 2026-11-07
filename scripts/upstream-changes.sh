@@ -33,6 +33,12 @@ PORTED=(
   cpp/include/nnproperties.hpp
   examples/xor
   examples/iris
+  examples/pytorch_quant/xor
+  cpp/qaffine.hpp
+  cpp/qdense.hpp
+  cpp/qactivations.hpp
+  cpp/include/qcalibration.hpp
+  cpp/include/simd/simd_dispatch.hpp
   unit_test/qformat_oracle
 )
 

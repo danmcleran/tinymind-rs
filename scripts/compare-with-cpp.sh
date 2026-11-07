@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris), run both, and cmp every output file. Set TINYMIND_DIR to the
+# iris, the int8 pytorch_quant xor), run both, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -19,7 +19,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 CXXFLAGS=(-O2 -Wall -Wextra -Werror -Wpedantic -DTINYMIND_ENABLE_OSTREAMS=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1)
 
-(cd "$ROOT" && cargo build --release --examples)
+(cd "$ROOT" && cargo build --release --examples --features std)
 
 status=0
 # Each format: the Rust --format value, the Q-format bit count for xornet.h, and
@@ -84,6 +84,24 @@ for f in stdout.txt iris_loss.csv iris_scatter.csv iris_confusion.csv; do
   fi
 done
 
+echo "== int8_xor"
+mkdir -p "$TMP/int8_xor/cpp" "$TMP/int8_xor/rust"
+# Flags from examples/pytorch_quant/xor/Makefile's release target.
+g++ -ggdb -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/int8_xor/xor_quant" \
+  "$TINYMIND_DIR/examples/pytorch_quant/xor/xor_quant.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+(cd "$TMP/int8_xor/cpp" && ../xor_quant > stdout.txt)
+"$ROOT/target/release/examples/int8_xor" "$TMP/int8_xor/rust" > "$TMP/int8_xor/rust/stdout.txt"
+for f in stdout.txt xor_decision_surface.csv; do
+  if cmp -s "$TMP/int8_xor/cpp/$f" "$TMP/int8_xor/rust/$f"; then
+    echo "IDENTICAL  int8_xor $f"
+  else
+    echo "DIFFERENT  int8_xor $f"
+    status=1
+  fi
+done
+
 if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   # For refreshing goldens: tests/golden must come from the C++ build.
   mkdir -p "$KEEP_CPP_OUTPUT"
@@ -92,6 +110,7 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
     rm "$KEEP_CPP_OUTPUT/$format/xor"
   done
   cp -r "$TMP/iris/cpp" "$KEEP_CPP_OUTPUT/iris"
+  cp -r "$TMP/int8_xor/cpp" "$KEEP_CPP_OUTPUT/int8_xor"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"
 fi
 exit $status

@@ -50,7 +50,7 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
-          cargo doc --no-deps --lib
+          cargo doc --no-deps --lib --all-features
           cp -r target/doc docs/_site/api
           # /api/ itself has no page in rustdoc output; send it to the crate root.
           printf '%s\n' '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=tinymind/"><a href="tinymind/">tinymind API reference</a>' > docs/_site/api/index.html

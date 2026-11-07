@@ -42,7 +42,12 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+// Host-side calibration (`int8::calibration`) needs f32::exp and f32::tanh.
+#[cfg(feature = "std")]
+extern crate std;
+
 pub mod activation;
+pub mod int8;
 mod lut;
 pub mod neuralnet;
 pub mod qformat;

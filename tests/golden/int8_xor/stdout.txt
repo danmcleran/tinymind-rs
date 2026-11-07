@@ -1,0 +1,10 @@
+PyTorch -> tinymind int8 XOR inference
+  input_scale=0.0039 input_zp=-128 hidden_scale=0.0078 hidden_zp=-128
+  logit_scale=0.0157 logit_zp=-1 out_scale=0.0039 out_zp=-128
+
+  in=(0.0000,0.0000)  q_input=(-128,-128)  q_logit=-128  prob=0.1211  pred=0  label=0
+  in=(0.0000,1.0000)  q_input=(-128,127)  q_logit=127  prob=0.8828  pred=1  label=1
+  in=(1.0000,0.0000)  q_input=(127,-128)  q_logit=127  prob=0.8828  pred=1  label=1
+  in=(1.0000,1.0000)  q_input=(127,127)  q_logit=-126  prob=0.1250  pred=0  label=0
+
+int8 XOR accuracy: 4/4
