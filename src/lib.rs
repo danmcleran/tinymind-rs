@@ -5,6 +5,7 @@
 //! one-hidden-layer perceptron. The library is `no_std` and allocation-free, like
 //! tinymind's freestanding build.
 #![no_std]
+#![forbid(unsafe_code)]
 
 pub mod activation;
 pub mod lut;

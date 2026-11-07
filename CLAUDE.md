@@ -107,7 +107,8 @@ code follows rustfmt; do not fight the formatter.
 
 The library (`src/lib.rs`) is `#![no_std]` and allocation-free, mirroring tinymind's
 freestanding build. Only the `xor` binary and tests use `std`. Keep it that way: new
-library code must not need `alloc`.
+library code must not need `alloc`. It is also `#![forbid(unsafe_code)]`, and
+SECURITY.md's scope depends on that: do not remove it.
 
 ## Equivalence rules (hard-won; read before changing arithmetic)
 
