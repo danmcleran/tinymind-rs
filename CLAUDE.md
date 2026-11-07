@@ -72,10 +72,12 @@ Bit-exactness against the C++ is the acceptance test. These details all matter:
    `i32::MAX`/`i32::MIN`/0 by dividend sign. `QValue / int` (`div_int`) is a different
    operation from `QValue / QValue::from_int(n)`.
 3. **Add/sub wrap** (`wrapping_add`), comparisons are on the raw `i32`.
-4. **Static-initialisation order.** The C++ network is a global, so its constructor draws
-   the initial weights from glibc's *unseeded* stream (seed 1) before `main()` calls
-   `srand(7)`; training samples come from seed 7. The Rust driver uses two generators.
-   This was the only bug found while porting.
+4. **Two seeds.** The C++ example seeds the initial weights with `WEIGHT_INIT_SEED = 1`,
+   builds the network, then re-seeds with 7 for the training samples. The Rust driver
+   uses two generators. History: the C++ network used to be a global, built before
+   `main()` called `srand(7)`, so its weights silently came from glibc's default seed 1.
+   Porting found it; tinymind PR #236 made the init seed explicit in 11 examples with
+   byte-identical output, so the goldens did not change.
 5. **Random-draw count.** C++ output neurons own one unused connection whose
    initialisation consumes a `rand()` draw. `Neuron<V, 1>` keeps it so later draws line up.
 6. **Printing.** `QValue` `Display` prints raw LSBs (like C++ `operator<<`). Doubles use

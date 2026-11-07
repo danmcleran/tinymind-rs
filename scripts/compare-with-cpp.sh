@@ -11,7 +11,8 @@ mkdir -p "$TMP/cpp" "$TMP/rust"
 
 (
   cd "$TINYMIND_DIR"
-  g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/cpp/xor" examples/xor/xor.cpp examples/xor/xornet.cpp cpp/lookupTables.cpp -Icpp -Icpp/include -Iinclude/ -DTINYMIND_ENABLE_OSTREAMS=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_TANH_16_16=1
+  # Glob, not a file list: older tinymind revisions also have examples/xor/xornet.cpp.
+  g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/cpp/xor" examples/xor/*.cpp cpp/lookupTables.cpp -Icpp -Icpp/include -Iinclude/ -DTINYMIND_ENABLE_OSTREAMS=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_TANH_16_16=1
 )
 (cd "$TMP/cpp" && ./xor > stdout.txt)
 

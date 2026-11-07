@@ -19,8 +19,8 @@ use rustymind::{MultilayerPerceptron, Q16_16, Sigmoid, Tanh};
 const TRAINING_ITERATIONS: u32 = 20_000;
 const NUM_SAMPLES_AVG_ERROR: u32 = 100;
 const RANDOM_SEED: u32 = 7;
-/// The seed glibc's rand() uses when srand() has not been called.
-const GLIBC_DEFAULT_SEED: u32 = 1;
+/// C++ `WEIGHT_INIT_SEED`: seeds the initial weights only.
+const WEIGHT_INIT_SEED: u32 = 1;
 
 const NUMBER_OF_INPUTS: usize = 2;
 const NUMBER_OF_NEURONS_PER_HIDDEN_LAYER: usize = 4;
@@ -44,13 +44,13 @@ fn main() -> io::Result<()> {
     let momentum = args.next().map(|s| parse_arg(&s));
     fs::create_dir_all(&out_dir)?;
 
-    // C++ uses one global rand() for both weight init and training samples, but
-    // the network is a *global object*: its constructor (which draws the initial
-    // weights) runs during static initialisation, before main() calls
-    // srand(7). So the weights come from glibc's unseeded stream (seed 1) and only
-    // the training samples come from seed 7. Rust has no life-before-main, so the
-    // two streams are made explicit here.
-    let mut init_rng = GlibcRand::new(GLIBC_DEFAULT_SEED);
+    // The C++ example seeds rand() twice: srand(WEIGHT_INIT_SEED = 1), construct
+    // the network (which draws the initial weights), then srand(7) for the
+    // training samples. Re-seeding a global generator becomes two independent
+    // generator values in Rust. (The two seeds exist because the C++ network used
+    // to be a global, built before main() seeded rand(), i.e. from glibc's default
+    // seed of 1; tinymind PR #236 made that explicit without changing any output.)
+    let mut init_rng = GlibcRand::new(WEIGHT_INIT_SEED);
     let mut nn = NeuralNetwork::new(|| generate_random_weight(&mut init_rng));
     let mut rng = GlibcRand::new(RANDOM_SEED);
     if let Some(lr) = learning_rate {
