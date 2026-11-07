@@ -7,8 +7,11 @@
 
 mod common;
 
+// The example's program, run in-process (examples have no CARGO_BIN_EXE_*).
+#[path = "../examples/common/iris_driver.rs"]
+mod iris_driver;
+
 use std::fs;
-use std::process::Command;
 
 use common::assert_same;
 
@@ -19,17 +22,14 @@ fn iris_matches_cpp_golden() {
     fs::create_dir_all(&dir).unwrap();
 
     let root = env!("CARGO_MANIFEST_DIR");
-    let out = Command::new(env!("CARGO_BIN_EXE_iris"))
-        .arg(&dir)
-        .arg(format!("{root}/data/iris.data"))
-        .output()
-        .expect("failed to run iris binary");
-    assert!(out.status.success(), "iris exited with {}", out.status);
+    let mut stdout = Vec::new();
+    let data = std::path::PathBuf::from(format!("{root}/data/iris.data"));
+    iris_driver::run(&dir, &data, &mut stdout).expect("iris example failed");
 
     let golden = |f: &str| fs::read(format!("{root}/tests/golden/iris/{f}")).unwrap();
     let actual = |f: &str| fs::read(dir.join(f)).unwrap();
 
-    assert_same("stdout", &out.stdout, &golden("stdout.txt"));
+    assert_same("stdout", &stdout, &golden("stdout.txt"));
     for f in ["iris_loss.csv", "iris_scatter.csv", "iris_confusion.csv"] {
         assert_same(f, &actual(f), &golden(f));
     }

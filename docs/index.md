@@ -45,9 +45,9 @@ The API is not stable yet, and the crate is not on crates.io yet. tinymind itsel
 ```bash
 git clone https://github.com/danmcleran/tinymind-rs
 cd tinymind-rs
-cargo run --release --bin xor -- output                  # Q16.16; output files in ./output
-cargo run --release --bin xor -- --format q8.8 output    # the same network in Q8.8
-cargo run --release --bin iris -- output                 # iris species classifier
+cargo run --release --example xor -- output                  # Q16.16; output files in ./output
+cargo run --release --example xor -- --format q8.8 output    # the same network in Q8.8
+cargo run --release --example iris -- output                 # iris species classifier
 cargo test                                               # unit, doc and golden tests
 ```
 

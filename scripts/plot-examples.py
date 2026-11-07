@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render the example plots for the docs site: xor in both formats, and iris.
 
-Runs the Rust `xor` and `iris` binaries (which write byte-identical output to
+Runs the Rust `xor` and `iris` examples (which write byte-identical output to
 the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
 from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
@@ -9,7 +9,7 @@ from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
 Needs matplotlib. Use a virtual environment, for example:
 
     python3 -m venv /tmp/venv && /tmp/venv/bin/pip install matplotlib
-    cargo build --release
+    cargo build --release --examples
     /tmp/venv/bin/python -I -B scripts/plot-examples.py
 
 -B keeps Python from writing __pycache__ into the tinymind checkout.
@@ -26,8 +26,8 @@ TINYMIND_DIR = os.environ.get("TINYMIND_DIR", os.path.join(ROOT, "..", "tinymind
 sys.path.insert(0, os.path.join(TINYMIND_DIR, "examples", "plotting"))
 import tinymind_plot as tp  # noqa: E402
 
-XOR = os.path.join(ROOT, "target", "release", "xor")
-IRIS = os.path.join(ROOT, "target", "release", "iris")
+XOR = os.path.join(ROOT, "target", "release", "examples", "xor")
+IRIS = os.path.join(ROOT, "target", "release", "examples", "iris")
 IRIS_NAMES = ["setosa", "versicolor", "virginica"]
 OUT = os.path.join(ROOT, "docs", "assets", "plots")
 FORMATS = [("q16.16", "Q16.16", "q16_16"), ("q8.8", "Q8.8", "q8_8")]
@@ -123,7 +123,7 @@ def iris(out_dir, png):
 
 def main():
     if not (os.path.exists(XOR) and os.path.exists(IRIS)):
-        sys.exit("build first: cargo build --release")
+        sys.exit("build first: cargo build --release --examples")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
         with tempfile.TemporaryDirectory() as tmp:

@@ -19,7 +19,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 CXXFLAGS=(-O2 -Wall -Wextra -Werror -Wpedantic -DTINYMIND_ENABLE_OSTREAMS=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1)
 
-(cd "$ROOT" && cargo build --release)
+(cd "$ROOT" && cargo build --release --examples)
 
 status=0
 # Each format: the Rust --format value, the Q-format bit count for xornet.h, and
@@ -45,7 +45,7 @@ for spec in "q16.16 16 16_16" "q8.8 8 8_8"; do
     -o "$TMP/$format/cpp/xor" "$TMP/$format/src/"*.cpp "$TINYMIND_DIR/cpp/lookupTables.cpp" \
     -I"$TMP/$format/src" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include/"
   (cd "$TMP/$format/cpp" && ./xor > stdout.txt)
-  "$ROOT/target/release/xor" --format "$format" "$TMP/$format/rust" > "$TMP/$format/rust/stdout.txt"
+  "$ROOT/target/release/examples/xor" --format "$format" "$TMP/$format/rust" > "$TMP/$format/rust/stdout.txt"
 
   for f in stdout.txt nn_fixed_xor.txt xor_training.csv xor_decision_surface.csv; do
     if cmp -s "$TMP/$format/cpp/$f" "$TMP/$format/rust/$f"; then
@@ -74,7 +74,7 @@ g++ -g -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/iris/iris" \
 cp "$TINYMIND_DIR/examples/iris/iris.data" "$TMP/iris/cpp/"
 (cd "$TMP/iris/cpp" && ../iris > stdout.txt)
 rm "$TMP/iris/cpp/iris.data"
-"$ROOT/target/release/iris" "$TMP/iris/rust" "$ROOT/data/iris.data" > "$TMP/iris/rust/stdout.txt"
+"$ROOT/target/release/examples/iris" "$TMP/iris/rust" "$ROOT/data/iris.data" > "$TMP/iris/rust/stdout.txt"
 for f in stdout.txt iris_loss.csv iris_scatter.csv iris_confusion.csv; do
   if cmp -s "$TMP/iris/cpp/$f" "$TMP/iris/rust/$f"; then
     echo "IDENTICAL  iris $f"

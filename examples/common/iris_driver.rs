@@ -1,25 +1,15 @@
-//! Port of tinymind `examples/iris/iris.cpp`: a 4-8-3 Q16.16 perceptron (ReLU
-//! hidden, sigmoid output) classifies iris species, and writes the same files the
-//! C++ example writes, byte for byte:
-//!
-//! - stdout: the training log and the test accuracy
-//! - `iris_loss.csv`: mean |error| every 1000 training steps
-//! - `iris_scatter.csv`: petal length and width, true and predicted class, per
-//!   test sample
-//! - `iris_confusion.csv`: the test-set confusion matrix
-//!
-//! Usage: `iris [output_dir] [iris.data]`. The default output dir is `output`; the
-//! default data file is this repository's `data/iris.data`, the UCI file tinymind
-//! ships with the example.
+//! The iris example's program, shared by `examples/iris.rs` (which parses the
+//! command line) and `tests/iris_golden.rs` (which runs it in-process against the
+//! C++ goldens). Port of tinymind `examples/iris/iris.cpp`; see `examples/iris.rs`.
 
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
-use std::path::PathBuf;
+use std::path::Path;
 
 use tinymind::rand::GlibcRand;
 use tinymind::{MultilayerPerceptron, Q16_16, Relu, Sigmoid};
 
-#[path = "common/cppfmt.rs"]
+#[path = "cppfmt.rs"]
 mod cppfmt;
 use cppfmt::{fmt_fixed, fmt_g};
 
@@ -58,26 +48,19 @@ struct FeatureStats {
     stdev: [f64; 4],
 }
 
-fn main() -> io::Result<()> {
-    let mut args = std::env::args().skip(1);
-    let out_dir = PathBuf::from(args.next().unwrap_or_else(|| "output".into()));
-    let data_path = args
-        .next()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/iris.data")));
-    fs::create_dir_all(&out_dir)?;
-
+/// Train on `data_path`, evaluate, write the three CSV files into `out_dir` and
+/// the training log and accuracy to `stdout`.
+pub fn run(out_dir: &Path, data_path: &Path, stdout: &mut dyn Write) -> io::Result<()> {
     // As in the xor port: the C++ seeds rand() with WEIGHT_INIT_SEED, builds the
     // network (drawing its weights), then re-seeds with 7. Two generators here.
     let mut init_rng = GlibcRand::new(WEIGHT_INIT_SEED);
     let mut nn = NeuralNetwork::new(|| random_weight(init_rng.next_i32()));
 
-    let stdout = io::stdout();
-    let mut stdout = BufWriter::new(stdout.lock());
-
-    let Some(mut data) = load_csv(&data_path) else {
-        eprintln!("Could not open or parse {}.", data_path.display());
-        std::process::exit(1);
+    let Some(mut data) = load_csv(data_path) else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("could not open or parse {}", data_path.display()),
+        ));
     };
     // The C++ names the file it opens from the working directory.
     writeln!(stdout, "Loaded {} rows from iris.data.", data.len())?;
@@ -227,7 +210,7 @@ fn fit_stats(train: &[Sample]) -> FeatureStats {
 /// C++ `loadCsv`: 4 numbers and a species name per line; blank lines, short lines
 /// and unknown species are skipped. `None` if the file cannot be read or has no
 /// usable rows.
-fn load_csv(path: &PathBuf) -> Option<Vec<Sample>> {
+fn load_csv(path: &Path) -> Option<Vec<Sample>> {
     let text = fs::read_to_string(path).ok()?;
     let mut out = Vec::new();
     for line in text.lines() {
