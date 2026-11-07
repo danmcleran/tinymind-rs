@@ -27,12 +27,18 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
-      - name: Install Rust (stable, rustfmt, clippy)
+      - name: Install Rust (stable, MSRV, embedded targets)
+        id: toolchain
         run: |
-          rustup toolchain install stable --profile minimal --component rustfmt,clippy
+          rustup toolchain install stable --profile minimal --component rustfmt,clippy \
+            --target thumbv7em-none-eabihf,thumbv6m-none-eabi
           rustup default stable
+          msrv="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
+          test -n "$msrv"
+          rustup toolchain install "$msrv" --profile minimal
+          echo "msrv=$msrv" >> "$GITHUB_OUTPUT"
           rustc --version
-          cargo --version
+          rustc "+$msrv" --version
       # Later steps run even when an earlier one fails, so a single run reports
       # every broken gate instead of stopping at the first.
       - name: cargo fmt --check
@@ -43,6 +49,20 @@ jobs:
       - name: cargo test
         if: success() || failure()
         run: cargo test
+      - name: cargo doc (warnings are errors)
+        if: success() || failure()
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps
+      # The library claims no_std for microcontrollers; build it for two of them.
+      - name: Build library for Cortex-M4F and Cortex-M0+
+        if: success() || failure()
+        run: |
+          cargo build --lib --release --target thumbv7em-none-eabihf
+          cargo build --lib --release --target thumbv6m-none-eabi
+      - name: cargo test on MSRV (${{ steps.toolchain.outputs.msrv }})
+        if: success() || failure()
+        run: cargo "+${{ steps.toolchain.outputs.msrv }}" test
 
   cpp-equivalence:
     name: cpp-equivalence

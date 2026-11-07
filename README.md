@@ -1,5 +1,7 @@
 # tinymind-rs
 
+[![CI](https://github.com/danmcleran/tinymind-rs/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/danmcleran/tinymind-rs/actions/workflows/ci.yml)
+
 tinymind-rs (crate `tinymind`) brings [tinymind](https://github.com/danmcleran/tinymind), a
 header-only C++ library for fixed-point neural networks on embedded systems, to
 Rust. Like tinymind, it is free, open source software under the MIT license. The
@@ -12,6 +14,9 @@ decision surface are byte-identical to the C++ output.
 Early. So far the port covers what tinymind's XOR example uses: Q16.16
 arithmetic, lookup-table tanh and sigmoid, and a trainable one-hidden-layer
 perceptron. The API is not stable yet, and the crate is not on crates.io yet.
+
+The minimum supported Rust version is 1.85. CI builds the library for Cortex-M4F
+(`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`).
 
 ## Quick start
 
@@ -52,6 +57,9 @@ quantization tiers, SIMD backends, and so on) is not ported.
 - `scripts/compare-with-cpp.sh` builds the C++ example from a tinymind checkout
   with the flags the C++ build uses, runs both programs, and runs `cmp` on all
   four output files. It exits nonzero if any file differs.
+- CI runs both on every pull request: the `cpp-equivalence` job checks out
+  tinymind at `TINYMIND_REF`, builds the C++ example and byte-compares, and
+  branch protection blocks merging unless it passes.
 
 ## License
 
