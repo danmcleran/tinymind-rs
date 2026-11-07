@@ -35,8 +35,8 @@ only the output differs:
   * this emits the finished integer requantizers, baked activation tables and a
     `forward` function, so the generated module is no_std and float-free.
 
-Supported layers (what the crate can run today): Dense, ReLU, Sigmoid, Tanh, in
-a single chain. Every Dense may be followed by one activation. Observers:
+Supported layers (what the crate can run today): Dense, ReLU, Sigmoid, Tanh and
+Softmax (over the last axis), in a single chain. Observers:
 MinMaxObserver, PercentileObserver, KLDivergenceObserver (per tensor).
 
 numpy only; PyTorch is needed only to train the model, and `from_torch` imports
@@ -47,7 +47,8 @@ tinymind's buildRequantizer computes from the same float32 scales, and the
 tables equal buildQSigmoidLUT / buildQTanhLUT (and the crate's
 int8::calibration builders), because they evaluate expf / tanhf from the system
 C library through ctypes, as those do; without it they fall back to numpy and
-say so.
+say so. Softmax parameters equal buildQSoftmaxFixedPointParams (TFLite Micro's),
+for tinymind's TFLite-exact QSoftmaxFixedPoint1D and the crate's QSoftmax.
 """
 
 import ctypes
@@ -280,7 +281,13 @@ class Tanh(Layer):
     input_name: str = ""
 
 
-SUPPORTED = (Dense, ReLU, Sigmoid, Tanh)
+@dataclass
+class Softmax(Layer):
+    input_name: str = ""
+    axis: int = -1
+
+
+SUPPORTED = (Dense, ReLU, Sigmoid, Tanh, Softmax)
 
 
 # ----------------------------------------------------------------------------
@@ -306,6 +313,10 @@ def calibrate(layers: Sequence[Layer], input_name: str, input_observer: object,
                 y = 1.0 / (1.0 + np.exp(-parent))
             elif isinstance(layer, Tanh):
                 y = np.tanh(parent)
+            elif isinstance(layer, Softmax):
+                shifted = parent - np.max(parent, axis=layer.axis, keepdims=True)
+                ex = np.exp(shifted)
+                y = ex / np.sum(ex, axis=layer.axis, keepdims=True)
             else:
                 raise NotImplementedError(type(layer).__name__)
             layer.observer.observe(y)
@@ -314,6 +325,10 @@ def calibrate(layers: Sequence[Layer], input_name: str, input_observer: object,
     ranges: dict[str, tuple[float, int]] = {}
     ranges[input_name] = affine_asymmetric(*input_observer.range())
     for layer in layers:
+        if isinstance(layer, Softmax):
+            # TFLite-fixed: scale 1/256, zero_point -128.
+            ranges[layer.name] = (1.0 / 256.0, -128)
+            continue
         if isinstance(layer, Sigmoid):
             ranges[layer.name] = (1.0 / 256.0, -128)
             continue
@@ -352,6 +367,23 @@ def build_requantizer(input_scale: float, weight_scale: float, output_scale: flo
     ratio = (f32(input_scale) * f32(weight_scale)) / f32(output_scale)
     m, s = quantize_multiplier(ratio)
     return m, s, int(output_zero_point), -128, 127
+
+
+def build_softmax(input_scale: float, beta: float = 1.0) -> tuple[int, int, int]:
+    """tinymind buildQSoftmaxFixedPointParams (TFLite Micro's int8 softmax
+    parameters) on a float32 input scale: (input_multiplier, input_left_shift,
+    diff_min)."""
+    input_integer_bits = 5
+    max_real_multiplier = float((1 << 31) - 1)
+    real_multiplier = beta * f32(input_scale) * float(1 << (31 - input_integer_bits))
+    if real_multiplier > max_real_multiplier:
+        real_multiplier = max_real_multiplier
+    multiplier, shift = quantize_multiplier(real_multiplier)
+    left_shift = -shift
+    max_input_rescaled = (float((1 << input_integer_bits) - 1)
+                          * float(1 << (31 - input_integer_bits))
+                          / math.ldexp(1.0, left_shift))
+    return multiplier, left_shift, -int(math.floor(max_input_rescaled))
 
 
 def _libm_function(name: str):
@@ -429,8 +461,9 @@ def _rust_array(values: Sequence[int], per_line: int = 16, indent: str = "    ")
 
 
 def _plan(layers: Sequence[Layer], input_name: str) -> list[tuple]:
-    """Group the chain into steps: ("dense", layer, relu_or_None) and
-    ("lut", activation_layer, kind). Rejects what the crate cannot run."""
+    """Group the chain into steps: ("dense", layer, relu_or_None),
+    ("lut", activation_layer, kind) and ("softmax", layer, None). Rejects what
+    the crate cannot run."""
     current = input_name
     steps: list[tuple] = []
     i = 0
@@ -439,7 +472,7 @@ def _plan(layers: Sequence[Layer], input_name: str) -> list[tuple]:
         if not isinstance(layer, SUPPORTED):
             raise NotImplementedError(
                 f"{type(layer).__name__} is not supported by the tinymind crate yet "
-                f"(supported: Dense, ReLU, Sigmoid, Tanh)")
+                f"(supported: Dense, ReLU, Sigmoid, Tanh, Softmax)")
         if layer.input_name != current:
             raise ValueError(f"layer {layer.name!r} reads {layer.input_name!r}, but the "
                              f"chain is at {current!r}: only a single chain is supported")
@@ -454,6 +487,11 @@ def _plan(layers: Sequence[Layer], input_name: str) -> list[tuple]:
             current = layer.name
         elif isinstance(layer, (Sigmoid, Tanh)):
             steps.append(("lut", layer, "sigmoid" if isinstance(layer, Sigmoid) else "tanh"))
+            current = layer.name
+        elif isinstance(layer, Softmax):
+            if layer.axis not in (-1, 1):
+                raise NotImplementedError(f"Softmax {layer.name!r}: only the last axis is supported")
+            steps.append(("softmax", layer, None))
             current = layer.name
         else:
             raise ValueError(f"ReLU {layer.name!r} must directly follow a Dense layer")
@@ -495,6 +533,8 @@ def emit_rust_module(path: str, model_name: str, layers: Sequence[Layer],
         uses += ["LUT_SIZE", "apply_lut"]
     if any(s[0] == "dense" and s[2] is not None for s in steps):
         uses.append("qrelu")
+    if any(s[0] == "softmax" for s in steps):
+        uses.append("QSoftmax")
     out.append(f"use tinymind::int8::{{{', '.join(sorted(uses))}}};")
     out.append("")
     out.append(f"/// Number of inputs.\npub const NUM_INPUTS: usize = {n_in};")
@@ -556,6 +596,19 @@ def emit_rust_module(path: str, model_name: str, layers: Sequence[Layer],
             var = nvar
             current = target
             width = o
+        elif kind == "softmax":
+            ident = _ident(layer.name)
+            in_scale, _ = ranges[current]
+            m, ls, dmin = build_softmax(in_scale)
+            out.append(f"/// `{layer.name}`: softmax over the `{current}` logits, onto the `{layer.name}` grid "
+                       f"(scale 1/256, zero point -128).")
+            out.append(f"pub static {ident}: QSoftmax = QSoftmax {{ input_multiplier: {m}, "
+                       f"input_left_shift: {ls}, diff_min: {dmin} }};")
+            out.append("")
+            nvar = f"x{len(body)}"
+            body.append(f"    let {nvar} = {ident}.forward(&{var});")
+            var = nvar
+            current = layer.name
         else:
             ident = _ident(layer.name)
             in_scale, in_zp = ranges[current]
@@ -607,8 +660,8 @@ def import_pytorch_model(layers: Sequence[Layer], input_name: str, input_observe
 
 
 def from_torch(model, input_name: str = "input", observers: Optional[dict] = None) -> list[Layer]:
-    """Describe a torch.nn.Sequential of Linear / ReLU / Sigmoid / Tanh as layer
-    descriptors (names: fc1, relu1, ...). `observers` maps a name to an
+    """Describe a torch.nn.Sequential of Linear / ReLU / Sigmoid / Tanh /
+    Softmax as layer descriptors (names: fc1, relu1, ...). `observers` maps a name to an
     observer; the default is MinMaxObserver."""
     import torch  # lazily: only this helper needs PyTorch
 
@@ -640,6 +693,13 @@ def from_torch(model, input_name: str = "input", observers: Optional[dict] = Non
         elif isinstance(module, torch.nn.Tanh):
             name = name_for("tanh")
             layers.append(Tanh(name=name, input_name=current))
+        elif isinstance(module, torch.nn.Softmax):
+            # The chain carries one sample at a time, so dim 1 of a batch is its
+            # last axis.
+            if module.dim not in (-1, 1):
+                raise NotImplementedError(f"Softmax over dim {module.dim} is not supported")
+            name = name_for("softmax")
+            layers.append(Softmax(name=name, input_name=current))
         else:
             raise NotImplementedError(f"{type(module).__name__} is not supported yet")
         current = layers[-1].name

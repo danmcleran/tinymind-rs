@@ -2,7 +2,9 @@
 """Parity of this importer's calibration and quantization with tinymind's
 (apps/import_pytorch/tinymind_import.py, from TINYMIND_DIR, default
 ../tinymind): on several models, every tensor's (scale, zero point), every weight
-scale, and every int8 weight and int32 bias must be identical.
+scale, and every int8 weight and int32 bias must be identical. Also: the softmax
+parameters it bakes equal tinymind's C++ buildQSoftmaxFixedPointParams on the
+504 calibrations of tests/golden/softmax/stdout.txt.
 
   python3 -I -B tools/import_pytorch/test_parity.py      (needs numpy)
 """
@@ -48,6 +50,8 @@ def model(mod, sizes, observers, final, seed):
         layers.append(mod.Sigmoid(name="out", input_name=current))
     elif final == "tanh":
         layers.append(mod.Tanh(name="out", input_name=current))
+    elif final == "softmax":
+        layers.append(mod.Softmax(name="out", input_name=current))
     return layers
 
 
@@ -65,6 +69,7 @@ CASES = [
     ([5, 6, 3], [KL, MINMAX], "tanh", 3, -2.0),
     ([2, 4, 1], [MINMAX, MINMAX], "sigmoid", 1, 0.0),
     ([4, 16, 8, 8, 3], [PCT, KL, MINMAX, PCT], None, 7, -0.5),
+    ([6, 12, 5], [KL, PCT], "softmax", 5, -1.0),
 ]
 
 
@@ -89,7 +94,25 @@ def main():
         failures += not same
         print(f"case {i} {case[0]} final={case[2]}: {'IDENTICAL' if same else 'DIFFERENT'}"
               f" ({len(a[0])} tensors, {sum(len(d[2]) * len(d[2][0]) for d in a[1])} weights)")
+    failures += not softmax_params_match(ours)
     sys.exit(1 if failures else 0)
+
+
+def softmax_params_match(mod):
+    """build_softmax vs the C++ parameters in the softmax sweep golden, whose
+    input scales (1 + j/8) * 2^e are exact in float32."""
+    betas = [1.0, 0.5, 2.5]
+    n = bad = 0
+    with open(os.path.join(ROOT, "tests", "golden", "softmax", "stdout.txt")) as f:
+        for line in f:
+            fields = dict(kv.split("=") for kv in line.split())
+            e, j, b = int(fields["e"]), int(fields["j"]), int(fields["beta"])
+            want = tuple(int(v) for v in fields["params"].split(","))
+            got = mod.build_softmax((1.0 + j / 8.0) * 2.0 ** e, betas[b])
+            n += 1
+            bad += got != want
+    print(f"softmax params: {n - bad} of {n} IDENTICAL")
+    return bad == 0
 
 
 if __name__ == "__main__":

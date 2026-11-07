@@ -1,6 +1,7 @@
 //! Host-side calibration: turning float scales into the integer parameters the
 //! int8 layers use (C++ `quantizeMultiplier`, `buildRequantizer`, `quantize`,
-//! `dequantize`, `buildQSigmoidLUT`, `buildQTanhLUT`).
+//! `dequantize`, `buildQSigmoidLUT`, `buildQTanhLUT`,
+//! `buildQSoftmaxFixedPointParams`).
 //!
 //! Needs the `std` feature, for `f32::exp` and `f32::tanh`; tinymind gates the
 //! same functions on `TINYMIND_ENABLE_FLOAT && TINYMIND_ENABLE_STD`. On a device,
@@ -9,7 +10,7 @@
 //! the C++ ones on the same platform: `exp` and `tanh` come from the system math
 //! library in both.
 
-use super::{LUT_SIZE, Requantizer};
+use super::{LUT_SIZE, QSoftmax, Requantizer};
 
 /// C `frexp`: `x = mantissa * 2^exponent` with `|mantissa|` in `[0.5, 1)`.
 /// Zero, infinities and NaN come back unchanged with exponent 0.
@@ -143,6 +144,34 @@ pub fn build_tanh_lut(
         output_zero_point,
         f32::tanh,
     )
+}
+
+/// [`QSoftmax`] parameters for an input tensor of scale `input_scale` and a
+/// softmax of `beta` (1.0 for a plain softmax), computed as TFLite Micro does
+/// for an int8 softmax (`PreprocessSoftmaxScaling` with 5 integer bits, then
+/// `CalculateInputRadius`; C++ `buildQSoftmaxFixedPointParams`).
+pub fn build_softmax(input_scale: f64, beta: f64) -> QSoftmax {
+    const INPUT_INTEGER_BITS: i32 = 5;
+    let max_real_multiplier = ((1i64 << 31) - 1) as f64;
+    let mut real_multiplier = beta * input_scale * (1i64 << (31 - INPUT_INTEGER_BITS)) as f64;
+    if real_multiplier > max_real_multiplier {
+        real_multiplier = max_real_multiplier;
+    }
+
+    // quantize_multiplier returns shift = -exponent; a multiplier above one is
+    // a left shift.
+    let (input_multiplier, shift) = quantize_multiplier(real_multiplier);
+    let input_left_shift = -shift;
+
+    // 2^input_left_shift is exact in f64 (the C++ shifts an int64).
+    let max_input_rescaled = f64::from((1 << INPUT_INTEGER_BITS) - 1)
+        * (1i64 << (31 - INPUT_INTEGER_BITS)) as f64
+        / 2f64.powi(input_left_shift);
+    QSoftmax {
+        input_multiplier,
+        input_left_shift,
+        diff_min: (max_input_rescaled.floor() as i32).saturating_neg(),
+    }
 }
 
 #[cfg(test)]

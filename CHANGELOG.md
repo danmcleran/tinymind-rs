@@ -9,13 +9,20 @@ break the API).
 
 ### Added
 
+- `int8::QSoftmax`: int8 softmax over a row of logits, bit-exact with TFLite's
+  int8 softmax (the TFLite Micro reference kernel, which CMSIS-NN's
+  `arm_softmax_s8` also reproduces), in gemmlowp fixed point; integer only, no
+  table. `int8::calibration::build_softmax` (feature `std`) computes its
+  parameters from the input scale and beta as TFLite Micro does.
+
 - PyTorch importer (`tools/import_pytorch` in the repository, not part of the
-  crate): turns a trained `torch.nn.Sequential` of Linear / ReLU / Sigmoid / Tanh
-  into a `no_std` Rust module with int8 weights, integer requantizers, baked
+  crate): turns a trained `torch.nn.Sequential` of Linear / ReLU / Sigmoid / Tanh /
+  Softmax into a `no_std` Rust module with int8 weights, integer requantizers, baked
   activation tables and a `forward` function. Its quantization is identical to
   tinymind's importer, and an imported model runs bit-exact with the same model
   on tinymind's C++ runtime.
-- Example `imported_mlp` (feature `std`): a model written by the importer.
+- Example `imported_mlp` (feature `std`): two models written by the importer,
+  an MLP and a softmax classifier.
 
 ## [0.1.0] - 2026-11-07
 

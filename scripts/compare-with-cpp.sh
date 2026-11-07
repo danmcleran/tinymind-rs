@@ -102,6 +102,25 @@ for f in stdout.txt xor_decision_surface.csv; do
   fi
 done
 
+echo "== softmax"
+# tinymind's QSoftmaxFixedPoint1D over a sweep of calibrations; tests/softmax_sweep.rs
+# checks the Rust kernel against the committed golden, so the golden must still be
+# what the C++ prints.
+mkdir -p "$TMP/softmax"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/softmax/softmax_sweep" "$ROOT/scripts/cpp/softmax_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+"$TMP/softmax/softmax_sweep" > "$TMP/softmax/stdout.txt"
+if cmp -s "$TMP/softmax/stdout.txt" "$ROOT/tests/golden/softmax/stdout.txt"; then
+  echo "IDENTICAL  softmax stdout.txt (C++ vs tests/golden/softmax)"
+else
+  echo "DIFFERENT  softmax stdout.txt (C++ vs tests/golden/softmax)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test softmax_sweep >/dev/null 2>&1 \
+  && echo "IDENTICAL  softmax Rust vs tests/golden/softmax" \
+  || { echo "DIFFERENT  softmax Rust vs tests/golden/softmax"; status=1; }
+
 echo "== imported_mlp (PyTorch importer)"
 # Needs a Python with numpy (PYTHON, default python3), e.g. a venv.
 PYTHON="${PYTHON:-python3}"
@@ -113,6 +132,7 @@ export TINYMIND_DIR
 mkdir -p "$TMP/imported"
 # Same example model through tinymind's importer -> weights.hpp -> tinymind's C++ runtime.
 "$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_mlp.py" --cpp "$TMP/imported/weights.hpp" >/dev/null
+"$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_mlp.py" --model classifier --cpp "$TMP/imported/classifier.hpp" >/dev/null
 g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/imported/imported_mlp" "$ROOT/scripts/cpp/imported_mlp.cpp" \
   -I"$TMP/imported" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
   -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
@@ -124,17 +144,19 @@ else
   echo "DIFFERENT  imported_mlp stdout.txt"
   status=1
 fi
-# The committed generated module is exactly what this repo's importer writes.
-"$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_mlp.py" --rust "$TMP/imported/model.rs" >/dev/null
-if cmp -s "$TMP/imported/model.rs" "$ROOT/examples/common/imported_mlp_model.rs"; then
-  echo "IDENTICAL  imported_mlp examples/common/imported_mlp_model.rs (regenerated)"
-else
-  echo "DIFFERENT  imported_mlp examples/common/imported_mlp_model.rs (regenerated)"
-  status=1
-fi
+# The committed generated modules are exactly what this repo's importer writes.
+for model in mlp classifier; do
+  "$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_mlp.py" --model "$model" --rust "$TMP/imported/$model.rs" >/dev/null
+  if cmp -s "$TMP/imported/$model.rs" "$ROOT/examples/common/imported_${model}_model.rs"; then
+    echo "IDENTICAL  imported_mlp examples/common/imported_${model}_model.rs (regenerated)"
+  else
+    echo "DIFFERENT  imported_mlp examples/common/imported_${model}_model.rs (regenerated)"
+    status=1
+  fi
+done
 # Calibration and quantization parity with tinymind's importer on more models.
 if "$PYTHON" -I -B "$ROOT/tools/import_pytorch/test_parity.py" > "$TMP/imported/parity.txt"; then
-  echo "IDENTICAL  importer parity ($(grep -c IDENTICAL "$TMP/imported/parity.txt") models)"
+  echo "IDENTICAL  importer parity ($(grep -c "^case.*IDENTICAL" "$TMP/imported/parity.txt") models, $(grep "softmax params" "$TMP/imported/parity.txt" | cut -d" " -f3-5) softmax calibrations)"
 else
   cat "$TMP/imported/parity.txt"
   echo "DIFFERENT  importer parity"
@@ -150,6 +172,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   done
   cp -r "$TMP/iris/cpp" "$KEEP_CPP_OUTPUT/iris"
   cp -r "$TMP/int8_xor/cpp" "$KEEP_CPP_OUTPUT/int8_xor"
+  mkdir -p "$KEEP_CPP_OUTPUT/softmax"
+  cp "$TMP/softmax/stdout.txt" "$KEEP_CPP_OUTPUT/softmax/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/imported_mlp"
   cp "$TMP/imported/cpp.txt" "$KEEP_CPP_OUTPUT/imported_mlp/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"

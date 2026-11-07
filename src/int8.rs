@@ -255,6 +255,178 @@ pub fn apply_lut(x: i8, lut: &[i8; LUT_SIZE]) -> i8 {
     lut[lut_index(x)]
 }
 
+/// `x * 2^exponent`, saturating to the `i32` range, for `1 <= exponent <= 30`
+/// (gemmlowp `SaturatingRoundingMultiplyByPOT`, C++
+/// `fixedPointMulByPOTSaturating`).
+fn mul_by_pot_saturating(x: i32, exponent: u32) -> i32 {
+    let threshold = ((1u32 << (31 - exponent)) - 1) as i32;
+    if x > threshold {
+        i32::MAX
+    } else if x < -threshold {
+        i32::MIN
+    } else {
+        x * (1 << exponent)
+    }
+}
+
+/// `exp(a)` for `a <= 0`: `a` in Q5.26, the result in Q0.31 (gemmlowp
+/// `exp_on_negative_values`, C++ `fixedPointExpOnNegativeValues`). A Taylor
+/// series around -1/8 covers the fraction within a quarter; each whole quarter
+/// multiplies in a constant `exp(-2^k)`.
+pub(crate) fn exp_on_negative_values(a: i32) -> i32 {
+    const ONE_QUARTER: i32 = 1 << 24;
+    // exp(-1/8) in Q0.31.
+    const EXP_OF_MINUS_ONE_EIGHTH: i32 = 1_895_147_668;
+    // exp(-1/4), exp(-1/2), exp(-1), exp(-2), exp(-4), exp(-8), exp(-16) in Q0.31.
+    const EXP_OF_MINUS_POWER_OF_TWO: [i32; 7] = [
+        1_672_461_947,
+        1_302_514_674,
+        790_015_084,
+        290_630_308,
+        39_332_535,
+        720_401,
+        242,
+    ];
+
+    let a_mod_quarter_minus_one_quarter = (a & (ONE_QUARTER - 1)) - ONE_QUARTER;
+
+    // exp on [-1/4, 0): Taylor series around -1/8, in Q0.31. These values are
+    // bounded whatever `a` is (an exhaustive test covers every fraction).
+    let x = a_mod_quarter_minus_one_quarter * 32 + (1 << 28);
+    let x2 = saturating_rounding_doubling_high_mul(x, x);
+    let x3 = saturating_rounding_doubling_high_mul(x2, x);
+    let x4 = saturating_rounding_doubling_high_mul(x2, x2);
+    let x4_over_4 = rounding_divide_by_pot(x4, 2);
+    let series = rounding_divide_by_pot(
+        saturating_rounding_doubling_high_mul(x4_over_4 + x3, 715_827_883) + x2,
+        1,
+    );
+    let mut result = EXP_OF_MINUS_ONE_EIGHTH
+        + saturating_rounding_doubling_high_mul(EXP_OF_MINUS_ONE_EIGHTH, x + series);
+
+    // The whole quarters. Wraps only for a > 0, outside the domain.
+    let remainder = a_mod_quarter_minus_one_quarter.wrapping_sub(a);
+    for (k, &factor) in EXP_OF_MINUS_POWER_OF_TWO.iter().enumerate() {
+        if remainder & (1 << (24 + k)) != 0 {
+            result = saturating_rounding_doubling_high_mul(result, factor);
+        }
+    }
+
+    if a == 0 { i32::MAX } else { result }
+}
+
+/// `1 / (1 + a)` for `a` in `[0, 1)`, both in Q0.31, by three Newton-Raphson
+/// steps (gemmlowp `one_over_one_plus_x_for_x_in_0_1`, C++
+/// `fixedPointOneOverOnePlusX`).
+pub(crate) fn one_over_one_plus_x(a: i32) -> i32 {
+    // (1 + a) / 2, rounded half away from zero; fits i32 for every a.
+    let sum = i64::from(a) + i64::from(i32::MAX);
+    let half_denominator = ((sum + if sum >= 0 { 1 } else { -1 }) / 2) as i32;
+
+    // Newton-Raphson in Q2.29 from the initial guess 48/17 - 32/17 * d. The
+    // sums stay in range for `a` in the domain; outside it they wrap.
+    let mut x =
+        1_515_870_810 + saturating_rounding_doubling_high_mul(half_denominator, -1_010_580_540);
+    let one: i32 = 1 << 29;
+    for _ in 0..3 {
+        let one_minus_half_denominator_times_x =
+            one.wrapping_sub(saturating_rounding_doubling_high_mul(half_denominator, x));
+        x = x.wrapping_add(mul_by_pot_saturating(
+            saturating_rounding_doubling_high_mul(x, one_minus_half_denominator_times_x),
+            2,
+        ));
+    }
+    mul_by_pot_saturating(x, 1)
+}
+
+/// Int8 softmax over a row of logits, bit-exact with TFLite's int8 softmax
+/// (the TFLite Micro reference kernel, which CMSIS-NN's `arm_softmax_s8` also
+/// reproduces), in gemmlowp fixed point (C++ `QSoftmaxFixedPoint1D`).
+///
+/// The output is on TFLite's probability grid, scale 1/256 and zero point
+/// -128: -128 is 0 and 127 is 255/256. The three parameters depend only on the
+/// input tensor's scale and the softmax's beta; compute them on the host with
+/// `calibration::build_softmax` (`std` feature), as TFLite Micro does, or write
+/// them out as constants.
+///
+/// For each row: subtract the maximum, take `exp((x - max) * input_scale *
+/// beta)` in Q5.26 -> Q0.31 for every `x - max >= diff_min` (the rest
+/// contribute 0), sum the terms in Q12.19, invert the sum by Newton-Raphson and
+/// scale each term by it. Pure integer arithmetic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct QSoftmax {
+    /// Q0.31 multiplier of `input_scale * beta`.
+    pub input_multiplier: i32,
+    /// Left shift applied with the multiplier, `0..=31`.
+    pub input_left_shift: i32,
+    /// At most 0: a logit this far or further below the row's maximum gets
+    /// probability 0.
+    pub diff_min: i32,
+}
+
+impl QSoftmax {
+    /// Softmax over one row of `N` int8 logits in the input tensor's grid. `N`
+    /// must be in `1..512` (a compile error otherwise), as in TFLite: the sum
+    /// of the exponentials must fit its Q12.19 accumulator.
+    pub fn forward<const N: usize>(&self, input: &[i8; N]) -> [i8; N] {
+        const { assert!(N > 0 && N < 512, "QSoftmax needs 1 to 511 logits per row") };
+        const ACCUMULATION_INTEGER_BITS: i32 = 12;
+
+        // Out of its documented range the shift is clamped and the scaled
+        // difference wraps (the C++ would be undefined there); in range,
+        // `diff * 2^shift` cannot overflow for any `diff >= diff_min` from
+        // `calibration::build_softmax`.
+        let left_shift = self.input_left_shift.clamp(0, 31) as u32;
+        let exp_of = |diff: i32| {
+            let scaled = saturating_rounding_doubling_high_mul(
+                diff.wrapping_mul(1 << left_shift),
+                self.input_multiplier,
+            );
+            exp_on_negative_values(scaled)
+        };
+
+        let max = i32::from(input.iter().copied().fold(i8::MIN, i8::max));
+
+        // Each term is at most 1.0 = 2^19 in Q12.19, so with fewer than 512
+        // terms the sum stays below 2^28.
+        let mut sum_of_exps: i32 = 0;
+        for &x in input {
+            let diff = i32::from(x) - max;
+            if diff >= self.diff_min {
+                sum_of_exps = sum_of_exps.wrapping_add(rounding_divide_by_pot(
+                    exp_of(diff),
+                    ACCUMULATION_INTEGER_BITS,
+                ));
+            }
+        }
+
+        // The maximum contributes exactly 1.0, so the sum is at least 2^19:
+        // normalise it to [1, 2) and invert. (A sum of 0, possible only with a
+        // positive diff_min, leaves every output at -128.)
+        let headroom_plus_one = (sum_of_exps as u32).leading_zeros();
+        let shifted_sum_minus_one = (sum_of_exps as u32)
+            .checked_shl(headroom_plus_one)
+            .unwrap_or(0)
+            .wrapping_sub(1 << 31) as i32;
+        let shifted_scale = one_over_one_plus_x(shifted_sum_minus_one);
+        let exponent = (ACCUMULATION_INTEGER_BITS - headroom_plus_one as i32) + 31 - 8;
+
+        let mut output = [-128i8; N];
+        for (out, &x) in output.iter_mut().zip(input) {
+            let diff = i32::from(x) - max;
+            if diff >= self.diff_min {
+                // exponent >= 3, so the rounded value is within +-2^28.
+                let q = rounding_divide_by_pot(
+                    saturating_rounding_doubling_high_mul(shifted_scale, exp_of(diff)),
+                    exponent,
+                ) - 128;
+                *out = q.clamp(-128, 127) as i8;
+            }
+        }
+        output
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -468,5 +640,59 @@ mod tests {
             *v = (i as i32 - 128) as i8;
         }
         assert_eq!(apply_lut(-7, &lut), -7);
+    }
+
+    /// Every fraction the Taylor step of `exp_on_negative_values` can see (its
+    /// result depends on `a` only through `a mod 2^24`), with overflow checks on
+    /// in this debug build: none of its plain additions overflows. Also exp(0)
+    /// is 1 and the result never increases as `a` falls.
+    #[test]
+    fn softmax_exp_every_fraction() {
+        let mut previous = exp_on_negative_values(0);
+        assert_eq!(previous, i32::MAX);
+        for a in (-(1 << 24)..0).rev() {
+            let e = exp_on_negative_values(a);
+            assert!(
+                e > 0 && e <= previous,
+                "exp({a}) = {e}, previous {previous}"
+            );
+            previous = e;
+        }
+        // Accuracy against f64 at whole and fractional points in Q5.26.
+        for a in [-(1 << 26), -(3 << 24), -(5 << 26) - 12_345, -(31 << 26)] {
+            let got = f64::from(exp_on_negative_values(a)) / 2f64.powi(31);
+            let want = (f64::from(a) / 2f64.powi(26)).exp();
+            // gemmlowp (and so TFLite) is accurate to about 1e-7 here.
+            assert!((got - want).abs() < 1e-6, "exp({a}): {got} vs {want}");
+        }
+    }
+
+    /// `one_over_one_plus_x` across its domain [0, 1) in Q0.31, against f64.
+    #[test]
+    fn softmax_reciprocal() {
+        for a in (0..i32::MAX).step_by(4093).chain([i32::MAX]) {
+            let got = f64::from(one_over_one_plus_x(a)) / 2f64.powi(31);
+            let want = 1.0 / (1.0 + f64::from(a) / 2f64.powi(31));
+            assert!((got - want).abs() < 1e-8, "1/(1+{a}): {got} vs {want}");
+        }
+    }
+
+    #[test]
+    fn softmax_basics() {
+        // Params for input scale 0.1, beta 1 (TFLite Micro computes these).
+        let softmax = QSoftmax {
+            input_multiplier: 1_717_986_918,
+            input_left_shift: 23,
+            diff_min: -248,
+        };
+        // One logit: probability 1, which saturates to 127.
+        assert_eq!(softmax.forward(&[5]), [127]);
+        // Order is kept, and the probabilities sum to about 1 (256 steps).
+        let y = softmax.forward(&[10, 20, 30]);
+        assert!(y[0] < y[1] && y[1] < y[2]);
+        let total: i32 = y.iter().map(|&v| i32::from(v) + 128).sum();
+        assert!((254..=258).contains(&total), "{y:?}");
+        // A logit at or below diff_min from the maximum gets exactly 0.
+        assert_eq!(softmax.forward(&[127, -128])[1], -128);
     }
 }

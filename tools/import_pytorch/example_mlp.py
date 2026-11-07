@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""The importer's worked example: a 3-8-4-2 MLP (ReLU, ReLU, sigmoid) whose
-hidden layers use all three observers.
+"""The importer's worked examples:
+
+  mlp         a 3-8-4-2 MLP (ReLU, ReLU, sigmoid) whose hidden layers use all
+              three observers;
+  classifier  a 4-10-3 classifier (ReLU, softmax).
 
   python3 -I tools/import_pytorch/example_mlp.py --rust examples/common/imported_mlp_model.rs
+  python3 -I tools/import_pytorch/example_mlp.py --model classifier \
+      --rust examples/common/imported_classifier_model.rs
   python3 -I tools/import_pytorch/example_mlp.py --cpp weights.hpp   # tinymind's importer
 
 The weights and the calibration set are integer formulas, so they are exact
@@ -26,7 +31,6 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 
-SIZES = [3, 8, 4, 2]
 
 
 def weights(layer: int, n_out: int, n_in: int) -> np.ndarray:
@@ -40,9 +44,9 @@ def biases(layer: int, n_out: int) -> np.ndarray:
     return np.array([((o * 3 + layer) % 5 - 2) / 4.0 for o in range(n_out)], dtype=np.float32)
 
 
-def calibration_set() -> list:
-    """64 inputs in [-1, 1]^3."""
-    return [np.array([((s * 31 + k * 17) % 41) / 20.0 - 1.0 for k in range(3)], dtype=np.float32)
+def calibration_set(n_in: int = 3) -> list:
+    """64 inputs in [-1, 1]^n_in."""
+    return [np.array([((s * 31 + k * 17) % 41) / 20.0 - 1.0 for k in range(n_in)], dtype=np.float32)
             for s in range(64)]
 
 
@@ -63,6 +67,26 @@ def layers(mod) -> list:
     ]
 
 
+def classifier_layers(mod) -> list:
+    w1, b1 = weights(8, 10, 4), biases(8, 10)
+    w2, b2 = weights(11, 3, 10) * np.float32(2.0), biases(11, 3)
+    return [
+        mod.Dense(name="fc1", weight=w1, bias=b1, input_name="input",
+                  forward=lambda x: x @ w1.T + b1, observer=mod.MinMaxObserver()),
+        mod.ReLU(name="h1", input_name="fc1", observer=mod.PercentileObserver(0.05, 99.95)),
+        mod.Dense(name="fc2", weight=w2, bias=b2, input_name="h1",
+                  forward=lambda x: x @ w2.T + b2, observer=mod.MinMaxObserver()),
+        mod.Softmax(name="probs", input_name="fc2"),
+    ]
+
+
+# name -> (layer builder, inputs, outputs)
+MODELS = {
+    "mlp": (layers, 3, 2),
+    "classifier": (classifier_layers, 4, 3),
+}
+
+
 def load(path: str, name: str):
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
@@ -74,21 +98,24 @@ def load(path: str, name: str):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--model", choices=sorted(MODELS), default="mlp")
     ap.add_argument("--rust", help="write the Rust module (this repo's importer)")
     ap.add_argument("--cpp", help="write a weights.hpp with tinymind's importer")
     args = ap.parse_args()
+    build, n_in, n_out = MODELS[args.model]
+    model_name = f"example_{args.model}"
     if args.rust:
         mod = load(os.path.join(HERE, "tinymind_import.py"), "tinymind_import_rs")
-        ranges = mod.import_pytorch_model(layers(mod), "input", mod.MinMaxObserver(),
-                                          calibration_set(), args.rust, "example_mlp")
+        ranges = mod.import_pytorch_model(build(mod), "input", mod.MinMaxObserver(),
+                                          calibration_set(n_in), args.rust, model_name)
         print("wrote", args.rust, {k: (round(s, 6), z) for k, (s, z) in ranges.items()})
     if args.cpp:
         tm = os.environ.get("TINYMIND_DIR", os.path.join(ROOT, "..", "tinymind"))
         mod = load(os.path.join(tm, "apps", "import_pytorch", "tinymind_import.py"), "tinymind_import_cpp")
-        mod.import_pytorch_model(layers(mod), input_name="input", input_observer=mod.MinMaxObserver(),
-                                 dataset=calibration_set(), output_path=args.cpp,
-                                 namespace="example_mlp",
-                                 meta={"NumInputs": SIZES[0], "NumOutputs": SIZES[-1]})
+        mod.import_pytorch_model(build(mod), input_name="input", input_observer=mod.MinMaxObserver(),
+                                 dataset=calibration_set(n_in), output_path=args.cpp,
+                                 namespace=model_name,
+                                 meta={"NumInputs": n_in, "NumOutputs": n_out})
         print("wrote", args.cpp)
 
 

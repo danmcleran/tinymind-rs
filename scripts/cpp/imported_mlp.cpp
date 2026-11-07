@@ -1,6 +1,7 @@
-// The importer example's model (tools/import_pytorch/example_mlp.py) on
-// tinymind's C++ int8 runtime, from the weights.hpp tinymind's own importer
-// writes. It builds the requantizers and the sigmoid table at startup as
+// The importer's example models (tools/import_pytorch/example_mlp.py) on
+// tinymind's C++ int8 runtime, from the headers tinymind's own importer writes
+// (weights.hpp for the MLP, classifier.hpp for the classifier). It builds the
+// requantizers, the sigmoid table and the softmax parameters at startup as
 // tinymind's docs describe, then prints what examples/imported_mlp.rs prints,
 // so scripts/compare-with-cpp.sh can byte-compare the two.
 #include <cstdint>
@@ -10,8 +11,10 @@
 #include "qactivations.hpp"
 #include "qcalibration.hpp"
 #include "qdense.hpp"
+#include "qsoftmax_fixedpoint.hpp"
 
 #include "weights.hpp"
+#include "classifier.hpp"
 
 namespace m = example_mlp;
 
@@ -21,6 +24,57 @@ static void printRq(const char* name, const Layer& layer)
     std::printf("%s rq=%d,%d,%d,%d,%d\n", name, static_cast<int>(layer.requantizer.multiplier),
                 static_cast<int>(layer.requantizer.shift), static_cast<int>(layer.requantizer.zero_point),
                 static_cast<int>(layer.requantizer.qmin), static_cast<int>(layer.requantizer.qmax));
+}
+
+static void runClassifier()
+{
+    namespace c = example_classifier;
+    tinymind::QDense<int8_t, int8_t, int32_t, int8_t, 4, 10> fc1;
+    fc1.weights = c::kfc1_Weights;
+    fc1.biases = c::kfc1_Biases;
+    fc1.input_zero_point = static_cast<int8_t>(c::kinput_ZeroPoint);
+    fc1.requantizer = tinymind::buildRequantizer<int8_t>(c::kinput_Scale, c::kfc1_WeightScale, c::kh1_Scale, c::kh1_ZeroPoint, -128, 127);
+
+    tinymind::QDense<int8_t, int8_t, int32_t, int8_t, 10, 3> fc2;
+    fc2.weights = c::kfc2_Weights;
+    fc2.biases = c::kfc2_Biases;
+    fc2.input_zero_point = static_cast<int8_t>(c::kh1_ZeroPoint);
+    fc2.requantizer = tinymind::buildRequantizer<int8_t>(c::kh1_Scale, c::kfc2_WeightScale, c::kfc2_Scale, c::kfc2_ZeroPoint, -128, 127);
+
+    int32_t multiplier = 0;
+    int32_t leftShift = 0;
+    int32_t diffMin = 0;
+    tinymind::buildQSoftmaxFixedPointParams(c::kfc2_Scale, 1.0, multiplier, leftShift, diffMin);
+    const tinymind::QSoftmaxFixedPoint1D<1, 3> softmax = {multiplier, leftShift, diffMin};
+    std::printf("classifier softmax=%d,%d,%d\n", static_cast<int>(multiplier), static_cast<int>(leftShift),
+                static_cast<int>(diffMin));
+
+    for (int s = 0; s < 16; ++s)
+    {
+        int8_t in[4];
+        for (int k = 0; k < 4; ++k)
+        {
+            const float x = static_cast<float>((s * 19 + k * 11) % 33) / 16.0f - 1.0f;
+            in[k] = tinymind::quantize<int8_t>(x, c::kinput_Scale, c::kinput_ZeroPoint, -128, 127);
+        }
+        int8_t h1[10];
+        int8_t logits[3];
+        int8_t probs[3];
+        fc1.forward(in, h1);
+        tinymind::qreluBuffer(h1, 10, static_cast<int8_t>(c::kh1_ZeroPoint));
+        fc2.forward(h1, logits);
+        softmax.forward(logits, probs);
+        int best = 0;
+        for (int k = 1; k < 3; ++k)
+        {
+            if (probs[k] > probs[best])
+            {
+                best = k;
+            }
+        }
+        std::printf("in=%d,%d,%d,%d probs=%d,%d,%d class=%d\n", in[0], in[1], in[2], in[3],
+                    probs[0], probs[1], probs[2], best);
+    }
 }
 
 int main()
@@ -76,5 +130,6 @@ int main()
         std::printf("in=%d,%d,%d out=%d,%d\n", in[0], in[1], in[2],
                     tinymind::qApplyLUT(lg[0], lut), tinymind::qApplyLUT(lg[1], lut));
     }
+    runClassifier();
     return 0;
 }

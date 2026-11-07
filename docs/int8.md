@@ -16,7 +16,8 @@ Alongside the Q-format networks, the crate runs **int8 affine-quantized** models
 | `QDense<'a, IN, OUT>` | Fully connected layer: `acc[o] = bias[o] + sum_i w[o][i] * (x[i] - zp)`, then requantize | `QDense` (`cpp/qdense.hpp`) |
 | `qrelu`, `qrelu6` | ReLU and ReLU6 in the quantized grid | `cpp/qactivations.hpp` |
 | `apply_lut` | Any activation through a 256-entry int8 table, such as sigmoid or tanh | `qApplyLUT` |
-| `calibration` (feature `std`) | Host side: build requantizers and sigmoid/tanh tables from float scales; quantize and dequantize | `cpp/include/qcalibration.hpp` |
+| `QSoftmax` | Softmax over a row of int8 logits onto the 1/256 probability grid, bit-exact with TFLite's int8 softmax (and so with CMSIS-NN's `arm_softmax_s8`) | `QSoftmaxFixedPoint1D` (`cpp/qsoftmax_fixedpoint.hpp`) |
+| `calibration` (feature `std`) | Host side: build requantizers, sigmoid/tanh tables and softmax parameters from float scales; quantize and dequantize | `cpp/include/qcalibration.hpp` |
 
 A layer borrows its weights (`&[[i8; IN]; OUT]`, row-major as PyTorch and TFLite store them) and biases, so they can live in flash as `static` data. On a device, run the calibration on the host and embed the resulting integers; the five fields of a `Requantizer` are plain constants.
 
@@ -39,7 +40,7 @@ Its stdout and decision surface are byte-identical to the C++ example's, includi
 
 ## Importing a PyTorch model
 
-`tools/import_pytorch` in the repository turns a trained `torch.nn.Sequential` of `Linear`, `ReLU`, `Sigmoid` and `Tanh` layers into a Rust module: int8 weights and biases, integer requantizers, baked activation tables and a `forward` function. The generated module is integer-only and `no_std`, so nothing is computed on the device at startup.
+`tools/import_pytorch` in the repository turns a trained `torch.nn.Sequential` of `Linear`, `ReLU`, `Sigmoid`, `Tanh` and `Softmax` layers into a Rust module: int8 weights and biases, integer requantizers, baked activation tables and a `forward` function. The generated module is integer-only and `no_std`, so nothing is computed on the device at startup.
 
 ```python
 import tinymind_import as ti
@@ -60,13 +61,14 @@ It is a port of tinymind's PyTorch importer with a Rust back end: calibration (m
 
 - **Golden output** from the C++ example, and the live comparison in `scripts/compare-with-cpp.sh`, as for the other examples.
 - **tinymind's own known answers** for the requantizer and dense layer, including its check of the requantizer's saturating path against an exact 64-bit computation over more than ten thousand cases.
-- **Kani proofs** for every input: the requantizer's fast single-rounding path equals the standard two-step rounding (gemmlowp's, which TFLite uses) wherever it is used, and the requantizer, the dense layer and the table lookup never panic, whatever their parameters.
+- **Kani proofs** for every input: the requantizer's fast single-rounding path equals the standard two-step rounding (gemmlowp's, which TFLite uses) wherever it is used, and the requantizer, the dense layer, the table lookup and the softmax never panic, whatever their parameters.
+- **Softmax against TFLite**: the golden rows and sweep hashes that tinymind's unit test takes from the TFLite Micro reference kernel, and a sweep against tinymind's C++ softmax and its calibration over 504 input scales and betas and row lengths 1 to 511.
 - **No reachable panics**: the int8 path is part of the Cortex-M firmware image that CI links with an undefined panic handler.
 
 Where the C++ would hit undefined behaviour (an int32 accumulator overflowing, a shift outside its documented range), the Rust port wraps or clamps instead, so every function returns a value; inside the documented ranges the results are identical.
 
 ## Not yet
 
-Convolution, depthwise convolution, pooling, softmax and the rest of tinymind's int8 family (recurrent cells, attention, trees) are not ported yet, so the importer accepts dense layers with ReLU, sigmoid or tanh only. tinymind's ONNX importer is not ported.
+Convolution, depthwise convolution, pooling and the rest of tinymind's int8 family (recurrent cells, attention, trees) are not ported yet, so the importer accepts dense layers with ReLU, sigmoid, tanh or softmax only. tinymind's ONNX importer is not ported.
 
 The [API reference]({{ site.baseurl }}/api/tinymind/int8/) documents every function.
