@@ -39,6 +39,10 @@ tinymind = "0.1"
 
 The API reference is on [docs.rs](https://docs.rs/tinymind).
 
+To run a model trained in PyTorch, `tools/import_pytorch` in this repository
+turns it into a Rust module (int8 weights, integer requantizers and a `forward`
+function; `no_std`). See its README.
+
 ## Quick start
 
 ```bash
@@ -77,6 +81,8 @@ UCI Iris dataset under CC BY 4.0; see `NOTICE`) and writes `iris_loss.csv`,
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`: requantizer, int8 dense layer, quantized ReLU, activation tables |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
+| `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
+| `examples/imported_mlp.rs` | a model written by that importer, checked against tinymind's importer + C++ runtime |
 
 Everything else in tinymind (floating-point networks, other Q formats, unsigned
 and 8/64-bit storage, the other activations, recurrent layers, the int8 quantization tiers, SIMD

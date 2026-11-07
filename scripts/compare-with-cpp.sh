@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris, the int8 pytorch_quant xor), run both, and cmp every output file. Set TINYMIND_DIR to the
+# iris, the int8 pytorch_quant xor, the PyTorch importer's example), run both, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -102,6 +102,45 @@ for f in stdout.txt xor_decision_surface.csv; do
   fi
 done
 
+echo "== imported_mlp (PyTorch importer)"
+# Needs a Python with numpy (PYTHON, default python3), e.g. a venv.
+PYTHON="${PYTHON:-python3}"
+if ! "$PYTHON" -c "import numpy" 2>/dev/null; then
+  echo "the importer checks need numpy: set PYTHON to a Python that has it (e.g. a venv)" >&2
+  exit 1
+fi
+export TINYMIND_DIR
+mkdir -p "$TMP/imported"
+# Same example model through tinymind's importer -> weights.hpp -> tinymind's C++ runtime.
+"$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_mlp.py" --cpp "$TMP/imported/weights.hpp" >/dev/null
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/imported/imported_mlp" "$ROOT/scripts/cpp/imported_mlp.cpp" \
+  -I"$TMP/imported" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+"$TMP/imported/imported_mlp" > "$TMP/imported/cpp.txt"
+"$ROOT/target/release/examples/imported_mlp" > "$TMP/imported/rust.txt"
+if cmp -s "$TMP/imported/cpp.txt" "$TMP/imported/rust.txt"; then
+  echo "IDENTICAL  imported_mlp stdout.txt"
+else
+  echo "DIFFERENT  imported_mlp stdout.txt"
+  status=1
+fi
+# The committed generated module is exactly what this repo's importer writes.
+"$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_mlp.py" --rust "$TMP/imported/model.rs" >/dev/null
+if cmp -s "$TMP/imported/model.rs" "$ROOT/examples/common/imported_mlp_model.rs"; then
+  echo "IDENTICAL  imported_mlp examples/common/imported_mlp_model.rs (regenerated)"
+else
+  echo "DIFFERENT  imported_mlp examples/common/imported_mlp_model.rs (regenerated)"
+  status=1
+fi
+# Calibration and quantization parity with tinymind's importer on more models.
+if "$PYTHON" -I -B "$ROOT/tools/import_pytorch/test_parity.py" > "$TMP/imported/parity.txt"; then
+  echo "IDENTICAL  importer parity ($(grep -c IDENTICAL "$TMP/imported/parity.txt") models)"
+else
+  cat "$TMP/imported/parity.txt"
+  echo "DIFFERENT  importer parity"
+  status=1
+fi
+
 if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   # For refreshing goldens: tests/golden must come from the C++ build.
   mkdir -p "$KEEP_CPP_OUTPUT"
@@ -111,6 +150,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   done
   cp -r "$TMP/iris/cpp" "$KEEP_CPP_OUTPUT/iris"
   cp -r "$TMP/int8_xor/cpp" "$KEEP_CPP_OUTPUT/int8_xor"
+  mkdir -p "$KEEP_CPP_OUTPUT/imported_mlp"
+  cp "$TMP/imported/cpp.txt" "$KEEP_CPP_OUTPUT/imported_mlp/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"
 fi
 exit $status

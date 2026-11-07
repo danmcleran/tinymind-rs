@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""Parity of this importer's calibration and quantization with tinymind's
+(apps/import_pytorch/tinymind_import.py, from TINYMIND_DIR, default
+../tinymind): on several models, every tensor's (scale, zero point), every weight
+scale, and every int8 weight and int32 bias must be identical.
+
+  python3 -I -B tools/import_pytorch/test_parity.py      (needs numpy)
+"""
+
+import importlib.util
+import os
+import sys
+
+import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+
+
+def load(path, name):
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.dont_write_bytecode = True
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def model(mod, sizes, observers, final, seed):
+    """A chain Dense(+ReLU) ... Dense (+final activation) with formula weights."""
+    layers = []
+    current = "input"
+    n = len(sizes) - 1
+    for l in range(n):
+        n_in, n_out = sizes[l], sizes[l + 1]
+        w = np.array([[((o * 7 + i * 13 + l * 5 + seed) % 23 - 11) / (9.0 + seed)
+                       for i in range(n_in)] for o in range(n_out)], dtype=np.float32)
+        b = np.array([((o * 3 + l + seed) % 7 - 3) / 5.0 for o in range(n_out)], dtype=np.float32)
+        name = f"fc{l + 1}"
+        layers.append(mod.Dense(name=name, weight=w, bias=b, input_name=current,
+                                forward=(lambda x, w=w, b=b: x @ w.T + b),
+                                observer=observers[l](mod)))
+        current = name
+        if l + 1 < n:
+            layers.append(mod.ReLU(name=f"h{l + 1}", input_name=current, observer=observers[l](mod)))
+            current = f"h{l + 1}"
+    if final == "sigmoid":
+        layers.append(mod.Sigmoid(name="out", input_name=current))
+    elif final == "tanh":
+        layers.append(mod.Tanh(name="out", input_name=current))
+    return layers
+
+
+def dataset(n_in, seed, lo=-1.0):
+    return [np.array([((s * 31 + k * 17 + seed) % 41) / 20.0 * (1.0 - lo) / 2.0 + lo
+                      for k in range(n_in)], dtype=np.float32) for s in range(48)]
+
+
+MINMAX = lambda m: m.MinMaxObserver()
+PCT = lambda m: m.PercentileObserver(0.05, 99.95)
+KL = lambda m: m.KLDivergenceObserver()
+
+CASES = [
+    ([3, 8, 4, 2], [MINMAX, PCT, KL], "sigmoid", 0, -1.0),
+    ([5, 6, 3], [KL, MINMAX], "tanh", 3, -2.0),
+    ([2, 4, 1], [MINMAX, MINMAX], "sigmoid", 1, 0.0),
+    ([4, 16, 8, 8, 3], [PCT, KL, MINMAX, PCT], None, 7, -0.5),
+]
+
+
+def run(mod, case):
+    sizes, observers, final, seed, lo = case
+    layers = model(mod, sizes, observers, final, seed)
+    ranges = mod.calibrate(layers, "input", mod.MinMaxObserver(), dataset(sizes[0], seed, lo))
+    mod.quantize_weights(layers, ranges)
+    dense = [(l.name, l.weight_scale, l.q_weight.tolist(), l.q_bias.tolist())
+             for l in layers if type(l).__name__ == "Dense"]
+    return ranges, dense
+
+
+def main():
+    tm = os.environ.get("TINYMIND_DIR", os.path.join(ROOT, "..", "tinymind"))
+    ours = load(os.path.join(HERE, "tinymind_import.py"), "tm_import_rs")
+    theirs = load(os.path.join(tm, "apps", "import_pytorch", "tinymind_import.py"), "tm_import_cpp")
+    failures = 0
+    for i, case in enumerate(CASES):
+        a, b = run(ours, case), run(theirs, case)
+        same = a == b
+        failures += not same
+        print(f"case {i} {case[0]} final={case[2]}: {'IDENTICAL' if same else 'DIFFERENT'}"
+              f" ({len(a[0])} tensors, {sum(len(d[2]) * len(d[2][0]) for d in a[1])} weights)")
+    sys.exit(1 if failures else 0)
+
+
+if __name__ == "__main__":
+    main()

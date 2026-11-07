@@ -101,7 +101,7 @@ cargo run --release --features std --example int8_xor   # args: [out_dir]
 cargo test --all-features           # unit tests + golden tests against the C++ outputs (int8 needs std)
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
-scripts/compare-with-cpp.sh         # builds ../tinymind's C++ xor (Q16.16, Q8.8) and iris and byte-diffs all outputs
+PYTHON=<python with numpy> scripts/compare-with-cpp.sh   # all C++ comparisons; the importer checks need numpy (no system numpy here: use a venv)
 python3 -I scripts/extract-luts.py  # regenerates src/lut.rs from ../tinymind's lookupTables.cpp
 CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true cargo test --release --test qformat_oracle -- --ignored  # every Q8.8 pair (~15 s)
 scripts/upstream-changes.sh         # tinymind commits since TINYMIND_REF touching ported sources
@@ -111,8 +111,9 @@ scripts/upstream-changes.sh         # tinymind commits since TINYMIND_REF touchi
 PATH. A shell older than that install lacks it; use `~/.cargo/bin/cargo` then rather
 than `source ~/.cargo/env && ...` (compound commands trip permission checks).
 
-Gate before committing: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
-`cargo test`, and `scripts/compare-with-cpp.sh` (needs `g++` and `../tinymind`).
+Gate before committing: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
+`cargo test --all-features`, and `PYTHON=<python with numpy> scripts/compare-with-cpp.sh`
+(needs `g++`, `../tinymind` and numpy).
 CI runs the same gates; run them locally first anyway.
 
 Formatting is rustfmt default (K&R braces). Dan prefers Allman braces in C++, but Rust
@@ -132,6 +133,8 @@ code follows rustfmt; do not fight the formatter.
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp` | Feature `std`: `quantize_multiplier` (with a ported `frexp`), `build_requantizer`, `quantize`/`dequantize`, sigmoid/tanh LUT builders |
 | (same, `QDensePerChannel`) | `cpp/qpointwiseconv2d.hpp` (1x1, per channel) | Dense with one requantizer per output, as TFLite quantizes dense layers; verified on the boards against tinymind's benchmark hash |
 | `examples/int8_xor.rs`, `examples/common/int8_xor_driver.rs` | `examples/pytorch_quant/xor/xor_quant.cpp`, `weights.hpp` | Weights and scales copied from `weights.hpp` (the goldens catch any mistake) |
+| `tools/import_pytorch/tinymind_import.py` | `apps/import_pytorch/tinymind_import.py` | PyTorch importer emitting Rust. Calibration/quantization/observers copied unchanged (Dense/ReLU/Sigmoid/Tanh subset); new: integer requantizers (`buildRequantizer` on float32 scales), LUTs via libm `expf`/`tanhf` over ctypes, `forward`, `from_torch`, rustfmt'd output. `test_parity.py` vs tinymind's module; `example_mlp.py` (no torch) and `torch_xor.py` (torch) |
+| `examples/imported_mlp.rs`, `examples/common/imported_mlp_{driver,model}.rs`, `scripts/cpp/imported_mlp.cpp` | (tinymind importer + C++ runtime) | The importer's example model; the C++ program runs tinymind's `weights.hpp` for the same model. `imported_mlp_model.rs` is generated: regenerate with `example_mlp.py --rust`, never edit |
 | `examples/iris.rs`, `examples/common/iris_driver.rs`, `data/iris.data` | `examples/iris/iris.cpp`, `iris.data` | 4-8-3 MLP, ReLU hidden + sigmoid output, 3 outputs (exercises the MSE `/ OUT` path). Data is the UCI file, CC BY 4.0 (attribution in `NOTICE`), checked against tinymind's copy |
 | `examples/common/cppfmt.rs` | (C++ iostreams) | `fmt_g` (`ostream << double`) and `fmt_fixed` (`std::fixed`), `#[path]`-included by each driver |
 | `tests/qformat_oracle.rs` | `unit_test/qformat_oracle/qformat_oracle_unit_test.cpp` | Differential oracle: every `QValue` op vs an exact i64 reference; C++ edge values, splitmix64 sample, chains; ported formats only (signed, full width, Truncate + Wrap). Plus an exhaustive Q8.8 sweep (`#[ignore]`, CI runs it) |

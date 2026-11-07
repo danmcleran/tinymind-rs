@@ -34,6 +34,7 @@ PORTED=(
   examples/xor
   examples/iris
   examples/pytorch_quant/xor
+  apps/import_pytorch
   cpp/qaffine.hpp
   cpp/qdense.hpp
   cpp/qpointwiseconv2d.hpp
