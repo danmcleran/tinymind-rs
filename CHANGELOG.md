@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-07
+
 ### Added
 
 - `InferencePerceptron`: an inference-only multilayer perceptron (tinymind's
@@ -66,6 +68,7 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind's C++ bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/danmcleran/tinymind-rs/releases/tag/v0.1.0
