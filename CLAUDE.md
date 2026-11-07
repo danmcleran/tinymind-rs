@@ -90,6 +90,7 @@ than `source ~/.cargo/env && ...` (compound commands trip permission checks).
 
 Gate before committing: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
 `cargo test`, and `scripts/compare-with-cpp.sh` (needs `g++` and `../tinymind`).
+CI runs the same gates; run them locally first anyway.
 
 Formatting is rustfmt default (K&R braces). Dan prefers Allman braces in C++, but Rust
 code follows rustfmt; do not fight the formatter.
@@ -167,10 +168,18 @@ tinymind's `unit_test/integration` goldens.
 - No dependencies unless there is a real reason: the library targets `no_std`
   embedded users, and a small dependency tree is part of its value.
 - Python, if needed, goes in a venv/pyenv, never `pip install --break-system-packages`.
-- Repo is public at github.com/danmcleran/tinymind-rs. Default branch `master`. No CI or
-  branch protection yet: commits so far go straight to `master` after the local gates
-  pass. (In tinymind, "commit and push" means the full PR flow with CI; that rule does
-  not apply here unless Dan asks for it.)
+- Repo is public at github.com/danmcleran/tinymind-rs. Default branch `master`.
+- **"Commit and push" means the PR flow, the same as tinymind:** branch -> PR -> green
+  CI -> squash-merge -> delete the branch. Never push straight to `master`.
+- CI (`.github/workflows/ci.yml`) runs two jobs on every PR and on pushes to `master`:
+  `rust` (fmt, clippy, test) and `cpp-equivalence` (checks out tinymind at
+  `TINYMIND_REF` inside the workspace and runs `scripts/compare-with-cpp.sh`). Branch
+  protection is meant to require both by job name, so do not rename them, and do not
+  skip them with `paths-ignore` or a job-level `if:`: a required check that never
+  reports blocks the PR forever. Both jobs were shown to fail on planted defects
+  (a fmt error; multiply rounding instead of flooring) before the workflow landed.
+- CI uses floating `stable` Rust, so a new clippy lint can turn `master` red without a
+  code change. Fix the lint in its own PR.
 
 ## Working with Dan
 

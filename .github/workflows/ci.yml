@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Branch protection requires these jobs by their `name:` values ("rust",
+# "cpp-equivalence"). Renaming a job, or skipping it with `paths-ignore` or a
+# job-level `if:`, leaves the required check unreported and blocks every PR.
+jobs:
+  rust:
+    name: rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - name: Install Rust (stable, rustfmt, clippy)
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt,clippy
+          rustup default stable
+          rustc --version
+          cargo --version
+      # Later steps run even when an earlier one fails, so a single run reports
+      # every broken gate instead of stopping at the first.
+      - name: cargo fmt --check
+        run: cargo fmt --check
+      - name: cargo clippy
+        if: success() || failure()
+        run: cargo clippy --all-targets -- -D warnings
+      - name: cargo test
+        if: success() || failure()
+        run: cargo test
+
+  cpp-equivalence:
+    name: cpp-equivalence
+    runs-on: ubuntu-latest
+    steps:
+      # Side by side, like a local checkout: actions/checkout only writes under
+      # $GITHUB_WORKSPACE, so ../tinymind relative to the workspace root is out.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          path: tinymind-rs
+          persist-credentials: false
+      - name: Read TINYMIND_REF
+        id: ref
+        run: echo "sha=$(tr -d '[:space:]' < tinymind-rs/TINYMIND_REF)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: danmcleran/tinymind
+          ref: ${{ steps.ref.outputs.sha }}
+          path: tinymind
+          persist-credentials: false
+      - name: Install Rust (stable)
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+          g++ --version
+      - name: Byte-compare the C++ and Rust xor outputs
+        env:
+          TINYMIND_DIR: ${{ github.workspace }}/tinymind
+        run: tinymind-rs/scripts/compare-with-cpp.sh
