@@ -13,8 +13,8 @@ use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
 use std::path::PathBuf;
 
-use rustymind::rand::GlibcRand;
-use rustymind::{MultilayerPerceptron, Q16_16, Sigmoid, Tanh};
+use tinymind::rand::GlibcRand;
+use tinymind::{MultilayerPerceptron, Q16_16, Sigmoid, Tanh};
 
 const TRAINING_ITERATIONS: u32 = 20_000;
 const NUM_SAMPLES_AVG_ERROR: u32 = 100;

@@ -42,7 +42,7 @@ fn assert_same(name: &str, actual: &[u8], expected: &[u8]) {
 
 #[test]
 fn xor_matches_cpp_golden() {
-    let dir = std::env::temp_dir().join(format!("rustymind-xor-golden-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("tinymind-xor-golden-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
 

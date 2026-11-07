@@ -4,7 +4,7 @@ Guidance for Claude Code (and any fresh agent) working in this repository.
 
 ## What this is
 
-`rustymind` is a Rust port of Dan's C++ library
+tinymind-rs (repo `tinymind-rs`, crate `tinymind`) is a Rust port of Dan's C++ library
 [tinymind](https://github.com/danmcleran/tinymind) (checked out as a sibling at
 `../tinymind`). It started as a learning project; on 2026-11-07 Dan decided to
 publish it widely as free open source software, as tinymind is. Treat it as a
@@ -15,13 +15,17 @@ It is still not a full port. A full port was assessed and rejected (2026-10-22):
 stable Rust lacks `generic_const_exprs`, so tinymind's compile-time storage-type
 selection (`QTypeChooser`) and arithmetic layer shapes (`[T; IN - K + 1]`) do not
 translate, Arm DSP intrinsics (SMLAD) are nightly-only, and a C ABI erases generics.
-tinymind (C++) stays the primary product; rustymind grows by porting slices of it.
+tinymind (C++) stays the primary product; tinymind-rs grows by porting slices of it.
 
-**Publishing:** the crate name `rustymind` is taken on crates.io by an unrelated
-crate (a NeuroSky EEG driver), so `Cargo.toml` keeps `publish = false` until Dan
-picks a crate name (`tinymind`, `tinymind-rs` were free on 2026-11-07). Never run
-`cargo publish` without Dan's explicit go-ahead: a crates.io release cannot be
-deleted, only yanked.
+**Naming:** the project was called rustymind until 2026-11-07. That crate name is
+taken on crates.io by an unrelated crate (a NeuroSky EEG driver), so the repo was
+renamed to `tinymind-rs` (GitHub redirects the old URL) and the crate to `tinymind`
+(users write `use tinymind::...`). The local checkout may still live in a folder
+named `rustymind`; that is harmless.
+
+**Publishing:** `Cargo.toml` keeps `publish = false` until Dan decides to release.
+Never run `cargo publish` without Dan's explicit go-ahead: a crates.io release
+cannot be deleted, only yanked.
 
 Dan is still learning Rust through this repo, so **explain the Rust idioms you use**
 (ownership, traits vs C++ policies, const generics, `no_std`) in replies, and point
@@ -38,8 +42,8 @@ future users and maintainers; keep idiom tutorials out of the public API docs.
 
 ## Pull model: how work arrives here
 
-Porting is **pulled** from this repo: a session started at the rustymind root reads
-tinymind and brings changes over. Nothing is pushed into rustymind from tinymind
+Porting is **pulled** from this repo: a session started at the tinymind-rs root reads
+tinymind and brings changes over. Nothing is pushed into tinymind-rs from tinymind
 sessions.
 
 - **Where tinymind is:** `../tinymind` (override with `TINYMIND_DIR`).
@@ -155,14 +159,15 @@ tinymind's `unit_test/integration` goldens.
 
 ## Conventions
 
-- Project names are lowercase in prose: "tinymind", "rustymind".
+- Project names are lowercase in prose: "tinymind" (the C++ library), "tinymind-rs"
+  (this port). The crate is `tinymind`; write it in backticks when you mean the crate.
 - Copyright: `Copyright (c) 2026 Dan McLeran` (LICENSE). Code translated from tinymind
   also carries tinymind's MIT notice (Intel 2020 + Dan McLeran 2023) via `NOTICE`.
   Do not add Intel copyright lines to new files.
 - No dependencies unless there is a real reason: the library targets `no_std`
   embedded users, and a small dependency tree is part of its value.
 - Python, if needed, goes in a venv/pyenv, never `pip install --break-system-packages`.
-- Repo is public at github.com/danmcleran/rustymind. Default branch `master`. No CI or
+- Repo is public at github.com/danmcleran/tinymind-rs. Default branch `master`. No CI or
   branch protection yet: commits so far go straight to `master` after the local gates
   pass. (In tinymind, "commit and push" means the full PR flow with CI; that rule does
   not apply here unless Dan asks for it.)

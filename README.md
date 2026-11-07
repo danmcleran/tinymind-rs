@@ -1,6 +1,6 @@
-# rustymind
+# tinymind-rs
 
-rustymind brings [tinymind](https://github.com/danmcleran/tinymind), a
+tinymind-rs (crate `tinymind`) brings [tinymind](https://github.com/danmcleran/tinymind), a
 header-only C++ library for fixed-point neural networks on embedded systems, to
 Rust. Like tinymind, it is free, open source software under the MIT license. The
 library is `no_std` and allocation-free, and every ported path is verified

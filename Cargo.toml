@@ -1,18 +1,17 @@
 [package]
-name = "rustymind"
+name = "tinymind"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
 description = "Fixed-point neural networks for embedded Rust: a no_std, allocation-free port of the tinymind C++ library, bit-exact with it"
-repository = "https://github.com/danmcleran/rustymind"
+repository = "https://github.com/danmcleran/tinymind-rs"
 readme = "README.md"
 keywords = ["neural-network", "fixed-point", "embedded", "no-std", "tinyml"]
 categories = ["embedded", "no-std", "science", "algorithms"]
 # Agent guidance, not part of the published crate.
 exclude = [".claude/", "CLAUDE.md"]
-# The intent is to publish on crates.io, but the name `rustymind` is already taken
-# there by an unrelated crate (a NeuroSky EEG driver). Keep this guard until a
-# crate name is chosen; the repository name can stay as it is.
+# Intended for crates.io. This guard stays until a release is deliberately cut:
+# a published version cannot be deleted, only yanked.
 publish = false
 
 [dependencies]
