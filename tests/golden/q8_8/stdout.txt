@@ -1,13 +1,13 @@
-Iteration: 100 Average Error: 62
-Iteration: 200 Average Error: 42
-Iteration: 300 Average Error: 51
+Iteration: 100 Average Error: 69
+Iteration: 200 Average Error: 59
+Iteration: 300 Average Error: 54
 Iteration: 400 Average Error: 45
-Iteration: 500 Average Error: 52
+Iteration: 500 Average Error: 51
 Iteration: 600 Average Error: 43
 Iteration: 700 Average Error: 46
 Iteration: 800 Average Error: 48
 Iteration: 900 Average Error: 50
-Iteration: 1000 Average Error: 50
+Iteration: 1000 Average Error: 51
 Iteration: 1100 Average Error: 49
 Iteration: 1200 Average Error: 45
 Iteration: 1300 Average Error: 46
@@ -19,20 +19,20 @@ Iteration: 1800 Average Error: 47
 Iteration: 1900 Average Error: 47
 Iteration: 2000 Average Error: 51
 Iteration: 2100 Average Error: 39
-Iteration: 2200 Average Error: 45
+Iteration: 2200 Average Error: 46
 Iteration: 2300 Average Error: 49
-Iteration: 2400 Average Error: 54
+Iteration: 2400 Average Error: 55
 Iteration: 2500 Average Error: 52
 Iteration: 2600 Average Error: 41
 Iteration: 2700 Average Error: 48
 Iteration: 2800 Average Error: 54
 Iteration: 2900 Average Error: 45
-Iteration: 3000 Average Error: 45
+Iteration: 3000 Average Error: 44
 Iteration: 3100 Average Error: 51
-Iteration: 3200 Average Error: 44
+Iteration: 3200 Average Error: 43
 Iteration: 3300 Average Error: 45
 Iteration: 3400 Average Error: 41
-Iteration: 3500 Average Error: 1
+Iteration: 3500 Average Error: 12
 Iteration: 3600 Average Error: 0
 Iteration: 3700 Average Error: 0
 Iteration: 3800 Average Error: 0
@@ -198,8 +198,8 @@ Iteration: 19700 Average Error: 0
 Iteration: 19800 Average Error: 0
 Iteration: 19900 Average Error: 0
 Iteration: 20000 Average Error: 0
-  0 ^ 0 = 0  pred=0.0859375  ok
+  0 ^ 0 = 0  pred=0.0625  ok
   0 ^ 1 = 1  pred=0.914062  ok
   1 ^ 0 = 1  pred=0.914062  ok
   1 ^ 1 = 0  pred=0  ok
-4/4 patterns classified correctly. Final 4-case error: 0.0644531
+4/4 patterns classified correctly. Final 4-case error: 0.0585938

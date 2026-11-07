@@ -3,7 +3,8 @@
 // The goldens in tests/golden/<format>/ come from tinymind's C++
 // `examples/xor`: Q16.16 is the example as shipped (produced at tinymind commit
 // 4e74539, output unchanged through TINYMIND_REF); Q8.8 is the same example with
-// both bit counts in xornet.h set to 8, as `scripts/compare-with-cpp.sh` builds it.
+// both bit counts in xornet.h set to 8, as `scripts/compare-with-cpp.sh` builds it
+// (regenerated at tinymind e78dd7a: #239 changed the Q8.8 weight initialisation).
 // The 2.4-2.6 MB nn_fixed_xor.txt is not stored; it is checked by byte length,
 // newline count and 64-bit FNV-1a hash instead.
 // `scripts/compare-with-cpp.sh` rebuilds the C++ example and does the full
@@ -109,9 +110,9 @@ fn xor_q8_8_matches_cpp_golden() {
         "q8.8",
         "q8_8",
         NnFile {
-            len: 2_384_465,
+            len: 2_383_566,
             lines: 20_001,
-            fnv1a: 0x17ea_42d3_9e17_8cb3,
+            fnv1a: 0x189a_6e57_c8c2_2955,
         },
     );
 }
