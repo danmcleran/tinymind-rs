@@ -1,4 +1,4 @@
-//! PLANTED DRIFT: hand-edited header (CI proof, reverted before merge)
+//! Activation lookup tables generated from tinymind `cpp/lookupTables.cpp` by
 //! `scripts/extract-luts.py`. Do not edit by hand; rerun the script.
 
 pub const NUMBER_OF_ACTIVATION_TABLE_VALUES: usize = 96;
