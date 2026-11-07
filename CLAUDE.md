@@ -17,11 +17,9 @@ selection (`QTypeChooser`) and arithmetic layer shapes (`[T; IN - K + 1]`) do no
 translate, Arm DSP intrinsics (SMLAD) are nightly-only, and a C ABI erases generics.
 tinymind (C++) stays the primary product; tinymind-rs grows by porting slices of it.
 
-**Naming:** the project was called rustymind until 2026-11-07. That crate name is
-taken on crates.io by an unrelated crate (a NeuroSky EEG driver), so the repo was
-renamed to `tinymind-rs` (GitHub redirects the old URL) and the crate to `tinymind`
-(users write `use tinymind::...`). The local checkout may still live in a folder
-named `rustymind`; that is harmless.
+**Naming:** repo `tinymind-rs`, crate `tinymind` (users write `use tinymind::...`).
+Commits before 2026-11-07 use the project's old name, rustymind; it was dropped
+because that name is taken on crates.io.
 
 **Publishing:** `Cargo.toml` keeps `publish = false` until Dan decides to release.
 Never run `cargo publish` without Dan's explicit go-ahead: a crates.io release
@@ -170,7 +168,8 @@ tinymind's `unit_test/integration` goldens.
 - Python, if needed, goes in a venv/pyenv, never `pip install --break-system-packages`.
 - Repo is public at github.com/danmcleran/tinymind-rs. Default branch `master`.
 - **"Commit and push" means the PR flow, the same as tinymind:** branch -> PR -> green
-  CI -> squash-merge -> delete the branch. Never push straight to `master`.
+  CI -> squash-merge -> delete the branch (GitHub deletes the remote branch on merge;
+  delete the local one). Never push straight to `master`.
 - CI (`.github/workflows/ci.yml`) runs two jobs on every PR and on pushes to `master`:
   `rust` (fmt, clippy, test) and `cpp-equivalence` (checks out tinymind at
   `TINYMIND_REF` inside the workspace and runs `scripts/compare-with-cpp.sh`). Branch
