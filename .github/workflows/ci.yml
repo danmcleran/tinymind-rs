@@ -87,6 +87,27 @@ jobs:
         if: success() || failure()
         run: cargo "+${{ steps.toolchain.outputs.msrv }}" test
 
+  # Kani proofs (src/kani_proofs.rs): properties checked for every input.
+  # Installed directly (pinned version) rather than through the Kani action,
+  # which pulls in a tag-pinned third-party action.
+  kani:
+    name: kani
+    runs-on: ubuntu-latest
+    env:
+      KANI_VERSION: "0.68.0"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - name: Install Kani ${{ env.KANI_VERSION }}
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          cargo install --locked kani-verifier --version "$KANI_VERSION"
+          cargo kani setup
+      - name: cargo kani
+        run: cargo kani --output-format terse
+
   cpp-equivalence:
     name: cpp-equivalence
     runs-on: ubuntu-latest
