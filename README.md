@@ -76,6 +76,9 @@ backends, and so on) is not ported.
   sample for nine formats, and every operand pair for Q8.8 (about 26 billion
   checks, run in CI with overflow checks on). A nightly job reruns the sample with
   a fresh seed.
+- Kani proofs (`src/kani_proofs.rs`) check, for every input, that the
+  `QValue` operations match their definitions (division: that it never panics)
+  and that tanh and sigmoid stay within their tables' range.
 - `scripts/extract-luts.py` generates `src/lut.rs` from tinymind's
   `cpp/lookupTables.cpp`; CI regenerates it and fails if the tables differ.
 - CI runs all of these on every pull request (the `cpp-equivalence` job checks out

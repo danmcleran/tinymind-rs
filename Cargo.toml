@@ -17,3 +17,7 @@ exclude = [".claude/", "CLAUDE.md", "ci/"]
 publish = false
 
 [dependencies]
+
+[lints.rust]
+# Kani proofs (src/kani_proofs.rs) are compiled only under cfg(kani).
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }

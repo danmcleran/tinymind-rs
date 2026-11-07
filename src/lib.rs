@@ -48,6 +48,9 @@ pub mod neuralnet;
 pub mod qformat;
 pub mod rand;
 
+#[cfg(kani)]
+mod kani_proofs;
+
 pub use activation::{Activation, Relu, Sigmoid, Tanh};
 pub use neuralnet::MultilayerPerceptron;
 pub use qformat::{Fixed, Q8_8, Q16_16, QValue};

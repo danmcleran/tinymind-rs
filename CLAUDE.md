@@ -195,8 +195,26 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   `#![forbid(unsafe_code)]` and single-threaded; safe Rust cannot have the UB they
   detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
   sanitizer for that code.
-- **Not done yet:** Kani proofs (the CBMC counterpart), a coverage report, and
-  running the goldens on Cortex-M under QEMU.
+- **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, about a
+  minute): 47 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
+  and Q1.31: add/sub wrap, multiply floors then wraps, division never panics,
+  `from_int`, `pow2_neg`, zero tolerance and comparisons match their definitions.
+  Tanh and sigmoid (both formats) stay within their tables' range and never index
+  out of bounds; ReLU is max(0, x). Specs avoid the operations they check
+  (congruences, remainder inequalities, i128 where the spec could overflow).
+  Planted defects (rounding multiply, `pow2_neg` off by one, no table-index
+  clamp, interpolation from the upper entry) each fail their proof.
+  **Not proved: functional division** (truncation towards zero). A symbolic
+  64-bit division timed out (> 5 min, MiniSat and Kissat); it is covered by the
+  oracle instead, exhaustively for Q8.8. Kani also checks the specs: two of mine
+  overflowed (`p - scaled`, `q.abs()` on `i64::MIN`) before they were right.
+  Local setup: `cargo install --locked kani-verifier --version 0.68.0`, then
+  `cargo kani setup`, which needs `curl` (not on Dan's machine: download the
+  release bundle with `gh release download`, check its sha256 against the asset
+  `digest` from the GitHub API, then `cargo kani setup --use-local-bundle <file>`).
+  Bump `KANI_VERSION` in `ci.yml` and here together.
+- **Not done yet:** a coverage report, and running the goldens on Cortex-M under
+  QEMU.
 
 ## Porting the next example
 
