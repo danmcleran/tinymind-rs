@@ -73,13 +73,12 @@ macro_rules! impl_format {
                 <$v>::from_raw(self.raw().wrapping_abs())
             }
             fn random_weight(rand: i32) -> Self {
-                // C++: `(static_cast<FullWidthValueType>(rand()) % (2 * half + 1)) - half`
-                // with `half` = 0.5. The cast to the storage type comes first, so
-                // for 16-bit storage rand() is truncated to int16_t before the
-                // modulo and the weights land in [-1.5, 0.5], not [-0.5, 0.5].
-                // Ported as is; Q16.16 is unaffected.
+                // C++: `static_cast<FullWidthValueType>((rand() % (2 * half + 1)) - half)`
+                // with `half` = 0.5: a weight in [-0.5, 0.5], computed in int and
+                // then narrowed. (Before tinymind #239 the cast came first, which
+                // truncated rand() for 16-bit storage.)
                 let half = i32::from(<$v>::ONE.raw() / 2);
-                let weight = i32::from(rand as $s) % (2 * half + 1) - half;
+                let weight = rand % (2 * half + 1) - half;
                 <$v>::from_raw(weight as $s)
             }
         }

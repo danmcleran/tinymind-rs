@@ -141,14 +141,12 @@ Bit-exactness against the C++ is the acceptance test. These details all matter:
 6. **Printing.** `QValue` `Display` prints raw LSBs (like C++ `operator<<`). Doubles use
    `fmt_g` (printf `%g`, precision 6), not Rust's `{}`.
 7. The C++ computes input-layer node deltas that nothing reads; the port skips them.
-8. **Weight init casts first.** The example's `generateRandomWeight` computes
-   `static_cast<FullWidthValueType>(rand()) % (2 * half + 1) - half`. With 16-bit
-   storage the cast truncates `rand()` to `int16_t` before the modulo, so Q8.8 weights
-   land in [-1.5, 0.5], not the intended [-0.5, 0.5]. The driver mirrors it
-   (`random_weight` in `src/bin/xor.rs`); dropping the cast diverges on line 2.
-   Reported to Dan 2026-11-07. Every tinymind example that uses the pattern ships in
-   Q16.16, where the cast is a no-op. If tinymind changes it, regenerate the Q8.8
-   goldens.
+8. **Weight init.** The example's `generateRandomWeight` is
+   `static_cast<FullWidthValueType>((rand() % (2 * half + 1)) - half)`: computed in
+   `int`, then narrowed (`random_weight` in `src/bin/xor.rs`). Before tinymind #239
+   the cast came first, which truncated `rand()` to `int16_t` for Q8.8 and put the
+   weights in [-1.5, 0.5]. Porting Q8.8 found it; #239 fixed it in 13 examples with
+   Q16.16 output unchanged, and the Q8.8 goldens were regenerated at `e78dd7a`.
 
 Never trust output files lying around in the tinymind tree; regenerate the C++
 reference (the compare script does). Stale ones were found there once (tinymind #237
