@@ -1,5 +1,8 @@
 /target
 /ci/panic-never/target
+/bench/target
+/bench/src/gen
+/bench/results
 /output
 /.claude/settings.local.json
 # Jekyll build output (docs/ site); local builds only, CI builds its own.

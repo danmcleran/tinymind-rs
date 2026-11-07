@@ -7,7 +7,7 @@
 
 use core::hint::black_box;
 
-use tinymind::int8::{self, QDense, Requantizer};
+use tinymind::int8::{self, QDense, QDensePerChannel, Requantizer};
 use tinymind::rand::GlibcRand;
 use tinymind::{Activation, Fixed, MultilayerPerceptron, Q8_8, Q16_16, Relu, Sigmoid, Tanh};
 
@@ -115,6 +115,14 @@ fn int8_inference() {
         requantizer: rq,
     };
     let out = layer.forward(&black_box([1i8; 4]));
+    let rqs: [Requantizer; 3] = black_box([rq; 3]);
+    let per_channel = QDensePerChannel {
+        weights: &weights,
+        biases: if black_box(true) { Some(&biases) } else { None },
+        input_zero_point: black_box(-128),
+        requantizers: &rqs,
+    };
+    black_box(per_channel.forward(&black_box([1i8; 4])));
     let lut: [i8; int8::LUT_SIZE] = black_box([0; int8::LUT_SIZE]);
     for y in out {
         black_box((int8::qrelu(y, -128), int8::qrelu6(y, -128, 100)));

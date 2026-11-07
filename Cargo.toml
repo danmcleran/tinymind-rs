@@ -15,7 +15,7 @@ categories = ["embedded", "no-std", "science", "algorithms"]
 # Not part of the published crate: agent guidance, CI and its link check, the
 # docs site, and maintainer scripts (they need a tinymind checkout). Tests and
 # their goldens stay, so `cargo test` works from the published source.
-exclude = [".claude/", "CLAUDE.md", "ci/", ".github/", "docs/", "scripts/", ".gitignore"]
+exclude = [".claude/", "CLAUDE.md", "ci/", "bench/", ".github/", "docs/", "scripts/", ".gitignore"]
 # Intended for crates.io. This guard stays until a release is deliberately cut:
 # a published version cannot be deleted, only yanked.
 publish = false
