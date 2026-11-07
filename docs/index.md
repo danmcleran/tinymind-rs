@@ -30,12 +30,12 @@ nav_order: 1
 
 ## Status
 
-Early. The port covers what three of tinymind's examples use (XOR, iris and an int8 XOR):
+Early. The port covers what three of tinymind's examples use (XOR, iris and an int8 XOR), plus the int8 softmax:
 
 | Ported | Not yet ported |
 |---|---|
 | Q16.16 (`i32`) and Q8.8 (`i16`) arithmetic, Truncate and Wrap policies | Other Q formats, saturating and rounding policies |
-| ReLU, and tanh and sigmoid via lookup tables; int8 dense inference (requantizer, quantized ReLU, int8 activation tables) | The other activations (capped and leaky ReLU, linear, softmax, ...) |
+| ReLU, and tanh and sigmoid via lookup tables; int8 dense inference (requantizer, quantized ReLU, int8 activation tables, softmax bit-exact with TFLite's) | The other activations (capped and leaky ReLU, linear, ...) |
 | Trainable MLP with one hidden layer, SGD with momentum | Multiple hidden layers, recurrent layers, int8 convolution and the rest of the int8 family, SIMD |
 | | Floating-point (`float`, `double`) networks |
 

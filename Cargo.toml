@@ -45,6 +45,10 @@ required-features = ["std"]
 name = "imported_mlp_golden"
 required-features = ["std"]
 
+[[test]]
+name = "softmax_sweep"
+required-features = ["std"]
+
 [lints.rust]
 # Kani proofs (src/kani_proofs.rs) are compiled only under cfg(kani).
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }

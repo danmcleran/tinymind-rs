@@ -7,7 +7,7 @@
 
 use core::hint::black_box;
 
-use tinymind::int8::{self, QDense, QDensePerChannel, Requantizer};
+use tinymind::int8::{self, QDense, QDensePerChannel, QSoftmax, Requantizer};
 use tinymind::rand::GlibcRand;
 use tinymind::{Activation, Fixed, MultilayerPerceptron, Q8_8, Q16_16, Relu, Sigmoid, Tanh};
 
@@ -132,6 +132,13 @@ fn int8_inference() {
         black_box((int8::qrelu(y, -128), int8::qrelu6(y, -128, 100)));
         black_box((int8::lut_index(y), int8::apply_lut(y, &lut)));
     }
+    let softmax = QSoftmax {
+        input_multiplier: black_box(1 << 30),
+        input_left_shift: black_box(23),
+        diff_min: black_box(-248),
+    };
+    black_box(softmax.forward(&black_box([0i8; 1])));
+    black_box(softmax.forward(&black_box([0i8; 10])));
 }
 
 #[unsafe(no_mangle)]

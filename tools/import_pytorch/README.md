@@ -19,7 +19,7 @@ the `from_torch` helper.
 import numpy as np
 import tinymind_import as ti   # tools/import_pytorch/tinymind_import.py
 
-# A trained torch.nn.Sequential of Linear / ReLU / Sigmoid / Tanh:
+# A trained torch.nn.Sequential of Linear / ReLU / Sigmoid / Tanh / Softmax:
 layers = ti.from_torch(net)    # names: fc1, relu1, fc2, ..., sigmoid1
 
 calibration = [x.numpy() for x in representative_inputs]   # float32 arrays
@@ -62,23 +62,28 @@ int8 grids.
 ## What it supports
 
 A single chain of `Dense` layers, each optionally followed by `ReLU`, `Sigmoid`
-or `Tanh`, with per-tensor symmetric int8 weights: what the crate runs today.
-Anything else (convolution, batch norm, softmax, branches) is rejected with an
-error naming the layer. tinymind's importer covers more; those layers will come
-as the crate gains them.
+or `Tanh`, and optionally ending in `Softmax` (over the last axis), with
+per-tensor symmetric int8 weights: what the crate runs today. The softmax is the
+crate's `QSoftmax`, bit-exact with TFLite's int8 softmax; its output is the
+probability grid (scale 1/256, zero point -128). Anything else (convolution,
+batch norm, branches) is rejected with an error naming the layer. tinymind's
+importer covers more; those layers will come as the crate gains them.
 
 ## How it is checked
 
-- `test_parity.py`: on several models (layer sizes, observers, activations,
-  input ranges), every scale, zero point, weight and bias equals what tinymind's
-  importer computes.
-- `example_mlp.py` defines a 3-8-4-2 model that uses all three observers. CI
-  imports it with both importers; the C++ build runs tinymind's output on its
-  runtime (`scripts/cpp/imported_mlp.cpp`) and the Rust example
-  (`examples/imported_mlp.rs`) runs this importer's output. The two print the
-  same requantizers, table hash and outputs, byte for byte
-  (`scripts/compare-with-cpp.sh`). CI also regenerates the committed module and
-  checks it has not changed.
+- `test_parity.py`: on five models (layer sizes, observers, activations
+  including softmax, input ranges), every scale, zero point, weight and bias
+  equals what tinymind's importer computes.
+- `example_mlp.py` defines two models: a 3-8-4-2 MLP that uses all three
+  observers and ends in sigmoid, and a 4-10-3 classifier that ends in softmax.
+  CI imports both with both importers; the C++ build runs tinymind's output on
+  its runtime (`scripts/cpp/imported_mlp.cpp`, with tinymind's TFLite-exact
+  softmax) and the Rust example (`examples/imported_mlp.rs`) runs this
+  importer's output. The two print the same requantizers, table hash, softmax
+  parameters and outputs, byte for byte (`scripts/compare-with-cpp.sh`). CI also
+  regenerates the committed modules and checks they have not changed.
+- The softmax parameters equal tinymind's C++ `buildQSoftmaxFixedPointParams`
+  on 504 calibrations (`test_parity.py`).
 - The requantizers equal tinymind's `buildRequantizer` on the same float32
   scales. The sigmoid and tanh tables evaluate `expf`/`tanhf` from the system C
   library through `ctypes`, as tinymind's `buildQSigmoidLUT` and the crate's

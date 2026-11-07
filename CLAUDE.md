@@ -130,11 +130,12 @@ code follows rustfmt; do not fight the formatter.
 | `src/rand.rs` | (glibc) | Bit-exact glibc `srand`/`rand` (TYPE_3 additive feedback) |
 | `examples/xor.rs`, `examples/common/xor_driver.rs` | `examples/xor/xor.cpp`, `xornet.h` | Example `main` (arguments) + driver (the program, generic over the format, `--format q16.16\|q8.8`); the golden test includes the driver and runs it in-process |
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`, `cpp/include/simd/simd_dispatch.hpp` (scalar dot) | Int8 affine inference: gemmlowp primitives, `Requantizer` (i8 output only; both C++ paths, fused and saturating), `QDense<'a, IN, OUT>` borrowing `&[[i8; IN]; OUT]` weights (flash-friendly), `qrelu`/`qrelu6`, 256-entry LUT. Integer only, no_std |
-| `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp` | Feature `std`: `quantize_multiplier` (with a ported `frexp`), `build_requantizer`, `quantize`/`dequantize`, sigmoid/tanh LUT builders |
+| (same, `QSoftmax`) | `cpp/qsoftmax_fixedpoint.hpp` | TFLite-exact int8 softmax (`QSoftmaxFixedPoint1D`), one row per `forward::<N>` (the C++ `Rows` loop is the caller's); `N` in `1..512` checked at compile time. tinymind's other softmax, `QSoftmax1D` (exp LUT + int64 divide, TFLite to within rounding), is deliberately not ported. Checked by `tests/softmax_tflite.rs` (TFLite Micro goldens and sweep hashes, extracted by script from tinymind's unit test) and `tests/softmax_sweep.rs` (golden from `scripts/cpp/softmax_sweep.cpp`: tinymind's kernel + `buildQSoftmaxFixedPointParams`, 504 calibrations, rows of 1 to 511) |
+| `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp` | Feature `std`: `quantize_multiplier` (with a ported `frexp`), `build_requantizer`, `quantize`/`dequantize`, sigmoid/tanh LUT builders, `build_softmax` (`buildQSoftmaxFixedPointParams`) |
 | (same, `QDensePerChannel`) | `cpp/qpointwiseconv2d.hpp` (1x1, per channel) | Dense with one requantizer per output, as TFLite quantizes dense layers; verified on the boards against tinymind's benchmark hash |
 | `examples/int8_xor.rs`, `examples/common/int8_xor_driver.rs` | `examples/pytorch_quant/xor/xor_quant.cpp`, `weights.hpp` | Weights and scales copied from `weights.hpp` (the goldens catch any mistake) |
-| `tools/import_pytorch/tinymind_import.py` | `apps/import_pytorch/tinymind_import.py` | PyTorch importer emitting Rust. Calibration/quantization/observers copied unchanged (Dense/ReLU/Sigmoid/Tanh subset); new: integer requantizers (`buildRequantizer` on float32 scales), LUTs via libm `expf`/`tanhf` over ctypes, `forward`, `from_torch`, rustfmt'd output. `test_parity.py` vs tinymind's module; `example_mlp.py` (no torch) and `torch_xor.py` (torch) |
-| `examples/imported_mlp.rs`, `examples/common/imported_mlp_{driver,model}.rs`, `scripts/cpp/imported_mlp.cpp` | (tinymind importer + C++ runtime) | The importer's example model; the C++ program runs tinymind's `weights.hpp` for the same model. `imported_mlp_model.rs` is generated: regenerate with `example_mlp.py --rust`, never edit |
+| `tools/import_pytorch/tinymind_import.py` | `apps/import_pytorch/tinymind_import.py` | PyTorch importer emitting Rust. Calibration/quantization/observers copied unchanged (Dense/ReLU/Sigmoid/Tanh/Softmax subset); new: integer requantizers (`buildRequantizer` on float32 scales), LUTs via libm `expf`/`tanhf` over ctypes, softmax params (`buildQSoftmaxFixedPointParams` on the float32 scale; tinymind's importer leaves softmax to the hand-written C++), `forward`, `from_torch`, rustfmt'd output. `test_parity.py` vs tinymind's module; `example_mlp.py` (no torch) and `torch_xor.py` (torch) |
+| `examples/imported_mlp.rs`, `examples/common/imported_{mlp,classifier}_model.rs`, `examples/common/imported_mlp_driver.rs`, `scripts/cpp/imported_mlp.cpp` | (tinymind importer + C++ runtime) | The importer's two example models (sigmoid MLP, softmax classifier); the C++ program runs tinymind's headers for the same models, with `QSoftmaxFixedPoint1D`. The `*_model.rs` files are generated: regenerate with `example_mlp.py [--model classifier] --rust`, never edit |
 | `examples/iris.rs`, `examples/common/iris_driver.rs`, `data/iris.data` | `examples/iris/iris.cpp`, `iris.data` | 4-8-3 MLP, ReLU hidden + sigmoid output, 3 outputs (exercises the MSE `/ OUT` path). Data is the UCI file, CC BY 4.0 (attribution in `NOTICE`), checked against tinymind's copy |
 | `examples/common/cppfmt.rs` | (C++ iostreams) | `fmt_g` (`ostream << double`) and `fmt_fixed` (`std::fixed`), `#[path]`-included by each driver |
 | `tests/qformat_oracle.rs` | `unit_test/qformat_oracle/qformat_oracle_unit_test.cpp` | Differential oracle: every `QValue` op vs an exact i64 reference; C++ edge values, splitmix64 sample, chains; ported formats only (signed, full width, Truncate + Wrap). Plus an exhaustive Q8.8 sweep (`#[ignore]`, CI runs it) |
@@ -241,18 +242,21 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   `#![forbid(unsafe_code)]` and single-threaded; safe Rust cannot have the UB they
   detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
   sanitizer for that code.
-- **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, about a
-  minute): 51 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
+- **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, about
+  three minutes): 54 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
   and Q1.31: add/sub wrap, multiply floors then wraps, division never panics,
   `from_int`, `pow2_neg`, zero tolerance and comparisons match their definitions.
   Tanh and sigmoid (both formats) stay within their tables' range and never index
   out of bounds; ReLU is max(0, x). Int8: the requantizer's fused path equals
   gemmlowp's two-step rounding (written as tinymind's unit test writes it) for
-  every input in its domain; the requantizer, the dense layer and the LUT never
-  panic for any field values. Specs avoid the operations they check
+  every input in its domain; the requantizer, the dense layer, the LUT and the
+  softmax (its exp and reciprocal on every `i32`, and the layer for any
+  parameters and logits, about 90 s) never panic for any field values. Specs
+  avoid the operations they check
   (congruences, remainder inequalities, i128 where the spec could overflow).
   Planted defects (rounding multiply, `pow2_neg` off by one, no table-index
-  clamp, interpolation from the upper entry) each fail their proof.
+  clamp, interpolation from the upper entry, an unchecked `<<` in the softmax)
+  each fail their proof.
   **Not proved: functional division** (truncation towards zero). A symbolic
   64-bit division timed out (> 5 min, MiniSat and Kissat); it is covered by the
   oracle instead, exhaustively for Q8.8. Kani also checks the specs: two of mine
@@ -284,7 +288,7 @@ Natural next steps, roughly by size: more activations (capped/leaky ReLU, linear
 `examples/energy_efficiency` is ReLU + linear output on the same MLP), multiple
 hidden layers (a trait-based layer chain instead of C++ `LayerChain`
 templates). For int8, after the dense layer: a PyTorch/ONNX importer that emits
-Rust (tinymind's `apps/` importers emit C++), int8 softmax, then conv/depthwise/
+Rust (done, `tools/import_pytorch`), int8 softmax (done), then conv/depthwise/
 pooling (output shapes need const arithmetic; importer-generated code can spell
 them out). `reports/Embedded Rust ML priorities.md` (local, not committed) ranks
 the rest.

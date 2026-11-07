@@ -15,11 +15,11 @@ Documentation, including the API reference: <https://danmcleran.github.io/tinymi
 
 ## Status
 
-Early. So far the port covers what three of tinymind's examples use: Q16.16 and
-Q8.8 arithmetic, ReLU and lookup-table tanh and sigmoid activations, a trainable
-one-hidden-layer perceptron, and int8 affine-quantized inference (the
-TFLite/CMSIS-NN model: requantizer, dense layer, quantized ReLU and activation
-tables). The API is not stable yet: before 1.0, a minor version may break it.
+Early. So far the port covers Q16.16 and Q8.8 arithmetic, ReLU and lookup-table
+tanh and sigmoid activations, a trainable one-hidden-layer perceptron, and int8
+affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
+quantized ReLU, activation tables, and a softmax that is bit-exact with
+TFLite's). The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -78,7 +78,7 @@ UCI Iris dataset under CC BY 4.0; see `NOTICE`) and writes `iris_loss.csv`,
 | `src/rand.rs` | a re-implementation of glibc `rand()`, which the C++ example uses for weight init and sampling |
 | `examples/xor.rs` | `examples/xor/xor.cpp` |
 | `examples/iris.rs` | `examples/iris/iris.cpp` |
-| `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`: requantizer, int8 dense layer, quantized ReLU, activation tables |
+| `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`, `cpp/qsoftmax_fixedpoint.hpp`: requantizer, int8 dense layer, quantized ReLU, activation tables, softmax |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
@@ -99,6 +99,10 @@ backends, and so on) is not ported.
   does the same for iris against `tests/golden/iris/`, and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`. `TINYMIND_REF` records the
   tinymind commit they were last verified against.
+- `tests/softmax_tflite.rs` checks the int8 softmax against the TFLite Micro
+  reference kernel's outputs (tinymind's unit-test goldens and sweep hashes), and
+  `tests/softmax_sweep.rs` against tinymind's C++ softmax and its calibration
+  over 504 calibrations and row lengths 1 to 511.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind checkout
   (xor in both formats, iris, int8 xor) with the flags their Makefiles use, runs both
   programs, and runs `cmp` on every output file. It also checks that

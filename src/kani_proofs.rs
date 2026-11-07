@@ -174,8 +174,9 @@ fn relu_definition() {
 /// Int8 affine inference (`crate::int8`).
 mod int8 {
     use crate::int8::{
-        LUT_SIZE, QDense, QDensePerChannel, Requantizer, apply_lut,
-        multiply_by_quantized_multiplier, rounding_divide_by_pot, rounding_high_mul_divide_by_pot,
+        LUT_SIZE, QDense, QDensePerChannel, QSoftmax, Requantizer, apply_lut,
+        exp_on_negative_values, multiply_by_quantized_multiplier, one_over_one_plus_x,
+        rounding_divide_by_pot, rounding_high_mul_divide_by_pot,
     };
 
     /// gemmlowp's two roundings, written as tinymind's unit test writes them:
@@ -276,6 +277,26 @@ mod int8 {
         };
         let input: [i8; 3] = kani::any();
         let _ = layer.forward(&input);
+    }
+
+    /// The softmax's exponential and reciprocal never panic, for any input,
+    /// in or out of their domains.
+    #[kani::proof]
+    fn softmax_parts_never_panic() {
+        let _ = exp_on_negative_values(kani::any());
+        let _ = one_over_one_plus_x(kani::any());
+    }
+
+    /// The softmax layer never panics, for any parameters and logits.
+    #[kani::proof]
+    fn softmax_never_panics() {
+        let softmax = QSoftmax {
+            input_multiplier: kani::any(),
+            input_left_shift: kani::any(),
+            diff_min: kani::any(),
+        };
+        let input: [i8; 2] = kani::any();
+        let _ = softmax.forward(&input);
     }
 
     #[kani::proof]
