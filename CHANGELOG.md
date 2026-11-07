@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-07
+
 ### Added
 
 - `int8::QSoftmax`: int8 softmax over a row of logits, bit-exact with TFLite's
@@ -14,7 +16,6 @@ break the API).
   `arm_softmax_s8` also reproduces), in gemmlowp fixed point; integer only, no
   table. `int8::calibration::build_softmax` (feature `std`) computes its
   parameters from the input scale and beta as TFLite Micro does.
-
 - PyTorch importer (`tools/import_pytorch` in the repository, not part of the
   crate): turns a trained `torch.nn.Sequential` of Linear / ReLU / Sigmoid / Tanh /
   Softmax into a `no_std` Rust module with int8 weights, integer requantizers, baked
@@ -54,5 +55,6 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind's C++ bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/danmcleran/tinymind-rs/releases/tag/v0.1.0
