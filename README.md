@@ -1,10 +1,17 @@
 # rustymind
 
-rustymind is a learning project that ports a minimal slice of
-[tinymind](https://github.com/danmcleran/tinymind), a header-only C++ library
-for fixed-point neural networks, to Rust. The XOR example trains bit-for-bit
-identically to the C++ version: the weights, the training log and the decision
-surface it writes are byte-identical to the C++ output.
+rustymind brings [tinymind](https://github.com/danmcleran/tinymind), a
+header-only C++ library for fixed-point neural networks on embedded systems, to
+Rust. Like tinymind, it is free, open source software under the MIT license. The
+library is `no_std` and allocation-free, and every ported path is verified
+bit-for-bit against the C++ build: the XOR example's weights, training log and
+decision surface are byte-identical to the C++ output.
+
+## Status
+
+Early. So far the port covers what tinymind's XOR example uses: Q16.16
+arithmetic, lookup-table tanh and sigmoid, and a trainable one-hidden-layer
+perceptron. The API is not stable yet, and the crate is not on crates.io yet.
 
 ## Quick start
 
