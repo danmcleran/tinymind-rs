@@ -13,6 +13,7 @@ nav_order: 1
 {: .fs-6 .fw-300 }
 
 [XOR example]({{ site.baseurl }}/xor){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Iris example]({{ site.baseurl }}/iris){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [API reference]({{ site.baseurl }}/api/tinymind/){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View on GitHub](https://github.com/danmcleran/tinymind-rs){: .btn .fs-5 .mb-4 .mb-md-0 }
 
@@ -28,12 +29,12 @@ nav_order: 1
 
 ## Status
 
-Early. The port covers what tinymind's XOR example uses, in two formats:
+Early. The port covers what tinymind's XOR and iris examples use:
 
 | Ported | Not yet ported |
 |---|---|
 | Q16.16 (`i32`) and Q8.8 (`i16`) arithmetic, Truncate and Wrap policies | Other Q formats, saturating and rounding policies |
-| Tanh and sigmoid lookup-table activations | ReLU and the other activations |
+| ReLU, and tanh and sigmoid via lookup tables | The other activations (capped and leaky ReLU, linear, softmax, ...) |
 | Trainable MLP with one hidden layer, SGD with momentum | Multiple hidden layers, recurrent layers, int8 inference, SIMD |
 | | Floating-point (`float`, `double`) networks |
 
@@ -46,6 +47,7 @@ git clone https://github.com/danmcleran/tinymind-rs
 cd tinymind-rs
 cargo run --release --bin xor -- output                  # Q16.16; output files in ./output
 cargo run --release --bin xor -- --format q8.8 output    # the same network in Q8.8
+cargo run --release --bin iris -- output                 # iris species classifier
 cargo test                                               # unit, doc and golden tests
 ```
 

@@ -52,6 +52,6 @@ With 1/256 resolution, training lurches for about 3,500 steps before it snaps to
 
 All four cases are classified correctly, but the surface shows how: the network outputs 0.914 at 99.6% of the grid points, and only the exact corners (0, 0) and (1, 1) fall below 0.5. It has fitted the four training inputs rather than learned an XOR boundary. tinymind's notes on this example say that Q8.8 with three hidden neurons lurched through plateaus in the same way, which is why its example uses Q16.16 with four.
 
-The plots are drawn from this port's output with tinymind's plotting style (`scripts/plot-xor.py`).
+The plots are drawn from this port's output with tinymind's plotting style (`scripts/plot-examples.py`).
 
 [Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/src/bin/xor.rs)

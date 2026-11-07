@@ -10,8 +10,12 @@
 // `scripts/compare-with-cpp.sh` rebuilds the C++ example and does the full
 // byte-for-byte diff of all four files in both formats.
 
+mod common;
+
 use std::fs;
 use std::process::Command;
+
+use common::assert_same;
 
 /// Expected `nn_fixed_xor.txt`: byte length, newline count, FNV-1a hash.
 struct NnFile {
@@ -27,23 +31,6 @@ fn fnv1a(data: &[u8]) -> u64 {
         h = h.wrapping_mul(0x0000_0100_0000_01b3);
     }
     h
-}
-
-fn assert_same(name: &str, actual: &[u8], expected: &[u8]) {
-    if actual == expected {
-        return;
-    }
-    let a = String::from_utf8_lossy(actual);
-    let e = String::from_utf8_lossy(expected);
-    let mut al = a.split('\n');
-    let mut el = e.split('\n');
-    let mut n = 1;
-    loop {
-        match (al.next(), el.next()) {
-            (Some(x), Some(y)) if x == y => n += 1,
-            (x, y) => panic!("{name} differs at line {n}:\n  actual:   {x:?}\n  expected: {y:?}"),
-        }
-    }
 }
 
 fn check(format: &str, golden_dir: &str, nn_expected: NnFile) {

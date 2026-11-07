@@ -32,6 +32,7 @@ PORTED=(
   cpp/adam.hpp
   cpp/include/nnproperties.hpp
   examples/xor
+  examples/iris
 )
 
 if ! git -C "$TINYMIND_DIR" cat-file -e "$REF^{commit}" 2>/dev/null; then

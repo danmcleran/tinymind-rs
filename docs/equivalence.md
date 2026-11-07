@@ -1,7 +1,7 @@
 ---
 title: Equivalence with tinymind
 layout: default
-nav_order: 4
+nav_order: 5
 ---
 
 # Equivalence with tinymind
@@ -10,14 +10,17 @@ The acceptance test for every ported path is that it produces the same bits as t
 
 ## What is compared
 
-The XOR example writes four outputs: stdout, the per-step weight trajectory (`nn_fixed_xor.txt`, about 20,000 lines), the learning curve and the decision surface. For both Q16.16 and Q8.8, all four must be byte-identical to the C++ example's output.
+Two of tinymind's examples are ported, and every file they write must be byte-identical to the C++ example's output:
+
+- **XOR**, in Q16.16 and Q8.8: stdout, the per-step weight trajectory (`nn_fixed_xor.txt`, about 20,000 lines), the learning curve and the decision surface.
+- **Iris**: stdout, the loss curve, the per-sample test predictions and the confusion matrix. Its input is the dataset file tinymind ships with the example, checked byte for byte against tinymind's copy.
 
 Fixed-point arithmetic makes this demanding. A multiply truncates, so `(a * b) * c` and `a * (b * c)` can differ in the last bit, and one bit early in training becomes a different weight trajectory. The port keeps the C++ operation order in every expression, and repeats details that do not affect the result's quality but do affect its bits, such as a random draw the C++ makes for a connection it never uses.
 
 ## How it is checked
 
-- **Golden tests.** `cargo test` runs the `xor` binary in each format and compares its output with goldens produced by the C++ build. The goldens come only from C++ runs, never from the Rust output, or the test would prove nothing.
-- **Live comparison.** `scripts/compare-with-cpp.sh` builds tinymind's C++ example from a tinymind checkout, runs both programs and compares every output file. The Q8.8 build is tinymind's example with its two bit-count constants set to 8; nothing else changes.
+- **Golden tests.** `cargo test` runs the example binaries (xor in each format, and iris) and compares its output with goldens produced by the C++ build. The goldens come only from C++ runs, never from the Rust output, or the test would prove nothing.
+- **Live comparison.** `scripts/compare-with-cpp.sh` builds tinymind's C++ examples from a tinymind checkout with the flags their Makefiles use, runs both programs and compares every output file. The Q8.8 xor build is tinymind's example with its two bit-count constants set to 8; nothing else changes.
 - **Pinned tinymind commit.** The file `TINYMIND_REF` records the tinymind commit the port was last verified against. CI checks out exactly that commit.
 - **Tables.** CI regenerates the activation lookup tables from tinymind's source and fails if they differ from the committed ones.
 - **CI and branch protection.** Every pull request runs all of this, and a pull request cannot merge unless it passes. Each check was shown to fail on a deliberately planted defect before it was trusted.

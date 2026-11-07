@@ -25,3 +25,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+data/iris.data is the Iris dataset from the UCI Machine Learning Repository,
+copied unchanged from tinymind's examples/iris/iris.data:
+
+R. A. Fisher. Iris [Dataset]. 1936. UCI Machine Learning Repository.
+https://doi.org/10.24432/C56C76
+
+It is licensed under the Creative Commons Attribution 4.0 International
+license (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/), not under
+this crate's MIT license.
