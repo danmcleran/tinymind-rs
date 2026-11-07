@@ -3,156 +3,35 @@
 //! The C++ `QValue<FixedBits, FractionalBits, IsSigned, RoundingPolicy, SaturatePolicy>`
 //! picks its storage type from `FixedBits + FractionalBits` at compile time
 //! (`QTypeChooser`). Stable Rust cannot compute a type from const-generic
-//! arithmetic (that needs the nightly `generic_const_exprs` feature), so this port
-//! fixes the storage at `i32` and is generic only over the number of fractional
-//! bits: `QValue<16>` is Q16.16, `QValue<24>` would be Q8.24, and so on.
+//! arithmetic (that needs the nightly `generic_const_exprs` feature), so here the
+//! storage type is an explicit parameter: `QValue<i32, 16>` is Q16.16 and
+//! `QValue<i16, 8>` is Q8.8. The methods and operators are generated for each
+//! supported storage type by a macro, each with the wider type C++ uses for
+//! products and quotients (`i64` for `i32`, `i32` for `i16`).
 //!
 //! Only tinymind's default policies are ported: `TruncatePolicy` (multiplication
-//! drops the low bits) and `WrapPolicy` (addition and subtraction wrap modulo 2^32).
+//! drops the low bits) and `WrapPolicy` (addition and subtraction wrap modulo the
+//! storage width).
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Div, Mul, Sub};
 
-/// A signed 32-bit fixed-point value with `FRAC` fractional bits.
+/// A signed fixed-point value stored in `S` (`i16` or `i32`) with `FRAC`
+/// fractional bits.
 ///
-/// The derived `PartialOrd`/`Ord` compare the raw `i32`, which is exactly what the
-/// C++ comparison operators do (they compare `getValue()`).
+/// The derived `PartialOrd`/`Ord` compare the raw integer, which is exactly what
+/// the C++ comparison operators do (they compare `getValue()`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct QValue<const FRAC: u32>(i32);
+pub struct QValue<S, const FRAC: u32>(S);
 
-/// The format used by the XOR example: 16 integer bits (including sign), 16 fractional bits.
-pub type Q16_16 = QValue<16>;
+/// Q16.16: 16 integer bits (including sign), 16 fractional bits, `i32` storage.
+pub type Q16_16 = QValue<i32, 16>;
 
-impl<const FRAC: u32> QValue<FRAC> {
-    /// Compile-time format check, evaluated once per instantiated `FRAC`. The C++
-    /// library does the same job with `static_assert`.
-    const FORMAT_OK: () = assert!(
-        FRAC >= 1 && FRAC <= 31,
-        "QValue needs 1..=31 fractional bits"
-    );
-
-    /// Number of fractional bits (`FRAC`).
-    pub const FRACTIONAL_BITS: u32 = FRAC;
-    /// Number of integer bits, including the sign bit (`32 - FRAC`).
-    pub const FIXED_BITS: u32 = 32 - FRAC;
-    /// 0.0
-    pub const ZERO: Self = Self(0);
-    /// 1.0. With `FRAC = 31` there are no integer bits besides the sign, 1.0 is
-    /// not representable, and this wraps to -1.0 (raw `i32::MIN`).
-    pub const ONE: Self = Self::from_int(1);
-
-    /// Build from raw LSBs (C++ `QValue(FullWidthFieldType)` / `setValue(raw)`).
-    pub const fn from_raw(raw: i32) -> Self {
-        let () = Self::FORMAT_OK;
-        Self(raw)
-    }
-
-    /// Build from a whole number (C++ `QValue(fixedPart, 0)`). The fixed part is
-    /// truncated to `FIXED_BITS`, as the C++ `fromParts` does, which is the same as
-    /// shifting left and letting the high bits fall off.
-    pub const fn from_int(n: i32) -> Self {
-        let () = Self::FORMAT_OK;
-        Self(((n as u32) << FRAC) as i32)
-    }
-
-    /// `2^-n`, used for tinymind's default learning/momentum/acceleration rates.
-    pub const fn pow2_neg(n: u32) -> Self {
-        Self::from_raw(1 << (FRAC - n))
-    }
-
-    /// Raw LSBs (C++ `getValue()`).
-    pub const fn raw(self) -> i32 {
-        self.0
-    }
-
-    /// Real-number view, computed as the C++ example does: `raw / 2^FRAC` in `f64`.
-    pub fn to_f64(self) -> f64 {
-        f64::from(self.0) / f64::from(1u32 << FRAC)
-    }
-
-    /// Truncating conversion from `f64` (C++ `setValue(static_cast<int32_t>(x * 2^FRAC))`).
-    pub fn from_f64_trunc(x: f64) -> Self {
-        Self::from_raw((x * f64::from(1u32 << FRAC)) as i32)
-    }
-
-    /// Divide by a whole number, truncating toward zero (C++ `QValue::operator/=(int)`).
-    /// Note this is *not* the same as dividing by `QValue::from_int(n)`.
-    pub const fn div_int(self, n: i32) -> Self {
-        if n == 0 {
-            return Self::div_by_zero(self.0);
-        }
-        Self((self.0 as i64 / n as i64) as i32)
-    }
-
-    /// C++ `ZeroToleranceCalculator`: true when `|raw| < 1 << (FRAC - 7)` for
-    /// formats with more than 7 fractional bits (512 LSBs for Q16.16), else
-    /// `|raw| < 2`.
-    pub const fn is_within_zero_tolerance(self) -> bool {
-        let shift = if FRAC > 7 { FRAC - 7 } else { 1 };
-        let tolerance = 1i32 << shift;
-        self.0 == 0 || (self.0 < tolerance && self.0 > -tolerance)
-    }
-
-    /// The bound a quotient by zero saturates to: max for a positive dividend,
-    /// min for a negative one, 0 for 0 (C++ `WrapPolicy` division case).
-    const fn div_by_zero(dividend: i32) -> Self {
-        if dividend > 0 {
-            Self(i32::MAX)
-        } else if dividend < 0 {
-            Self(i32::MIN)
-        } else {
-            Self(0)
-        }
-    }
-}
-
-impl<const FRAC: u32> Add for QValue<FRAC> {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self {
-        // C++ adds in the unsigned counterpart to get defined wrap-around; Rust
-        // says what it means directly.
-        Self(self.0.wrapping_add(rhs.0))
-    }
-}
-
-impl<const FRAC: u32> AddAssign for QValue<FRAC> {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
-impl<const FRAC: u32> Sub for QValue<FRAC> {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self {
-        Self(self.0.wrapping_sub(rhs.0))
-    }
-}
-
-impl<const FRAC: u32> Mul for QValue<FRAC> {
-    type Output = Self;
-    fn mul(self, rhs: Self) -> Self {
-        // Widen to i64 (C++ MultiplicationResultFullWidthValueType), truncate
-        // (arithmetic shift right), then wrap back to the 32-bit word.
-        let product = i64::from(self.0) * i64::from(rhs.0);
-        Self((product >> FRAC) as i32)
-    }
-}
-
-impl<const FRAC: u32> Div for QValue<FRAC> {
-    type Output = Self;
-    fn div(self, rhs: Self) -> Self {
-        if rhs.0 == 0 {
-            return Self::div_by_zero(self.0);
-        }
-        // Scale the dividend up by 2^FRAC in i64, divide (truncating toward zero,
-        // like C++), then wrap back to 32 bits.
-        let dividend = i64::from(self.0) * (1i64 << FRAC);
-        Self((dividend / i64::from(rhs.0)) as i32)
-    }
-}
+/// Q8.8: 8 integer bits (including sign), 8 fractional bits, `i16` storage.
+pub type Q8_8 = QValue<i16, 8>;
 
 /// Prints the raw LSBs, matching the C++ `operator<<` (not the real value).
-impl<const FRAC: u32> fmt::Display for QValue<FRAC> {
+impl<S: fmt::Display, const FRAC: u32> fmt::Display for QValue<S, FRAC> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
     }
@@ -182,16 +61,160 @@ pub trait Fixed:
     fn div_int(self, n: i32) -> Self;
 }
 
-impl<const FRAC: u32> Fixed for QValue<FRAC> {
-    const ZERO: Self = Self::ZERO;
-    const ONE: Self = Self::ONE;
-    fn pow2_neg(n: u32) -> Self {
-        Self::pow2_neg(n)
-    }
-    fn div_int(self, n: i32) -> Self {
-        self.div_int(n)
-    }
+/// Generates everything that depends on the storage type: `$s` is the storage,
+/// `$wide` the C++ `MultiplicationResultFullWidthValueType` /
+/// `DivisionResultFullWidthValueType` for it (twice the width).
+macro_rules! impl_qvalue {
+    ($s:ty, $wide:ty) => {
+        impl<const FRAC: u32> QValue<$s, FRAC> {
+            /// Compile-time format check, evaluated once per instantiated format.
+            /// The C++ library does the same job with `static_assert`.
+            const FORMAT_OK: () = assert!(
+                FRAC >= 1 && FRAC < <$s>::BITS,
+                "QValue needs at least 1 fractional bit and fewer than the storage width"
+            );
+
+            /// Number of fractional bits (`FRAC`).
+            pub const FRACTIONAL_BITS: u32 = FRAC;
+            /// Number of integer bits, including the sign bit (storage width - `FRAC`).
+            pub const FIXED_BITS: u32 = <$s>::BITS - FRAC;
+            /// 0.0
+            pub const ZERO: Self = Self(0);
+            /// 1.0. When `FRAC` is one less than the storage width (Q1.15, Q1.31)
+            /// there are no integer bits besides the sign, 1.0 is not
+            /// representable, and this wraps to -1.0 (the storage type's minimum).
+            pub const ONE: Self = Self::from_int(1);
+
+            /// Build from raw LSBs (C++ `QValue(FullWidthFieldType)` / `setValue(raw)`).
+            pub const fn from_raw(raw: $s) -> Self {
+                let () = Self::FORMAT_OK;
+                Self(raw)
+            }
+
+            /// Build from a whole number (C++ `QValue(fixedPart, 0)`). The fixed part
+            /// is truncated to `FIXED_BITS`, as the C++ `fromParts` does, which is the
+            /// same as shifting left and letting the high bits fall off: in Q8.8, 200
+            /// becomes -56.
+            pub const fn from_int(n: i32) -> Self {
+                let () = Self::FORMAT_OK;
+                Self(((n as u32) << FRAC) as $s)
+            }
+
+            /// `2^-n`, used for tinymind's default learning/momentum/acceleration rates.
+            pub const fn pow2_neg(n: u32) -> Self {
+                Self::from_raw((1 as $s) << (FRAC - n))
+            }
+
+            /// Raw LSBs (C++ `getValue()`).
+            pub const fn raw(self) -> $s {
+                self.0
+            }
+
+            /// Real-number view, computed as the C++ example does: `raw / 2^FRAC` in `f64`.
+            pub fn to_f64(self) -> f64 {
+                f64::from(self.0) / f64::from(1u32 << FRAC)
+            }
+
+            /// Truncating conversion from `f64` (C++
+            /// `setValue(static_cast<FullWidthValueType>(x * 2^FRAC))`). Out-of-range
+            /// input saturates; in C++ it is undefined behaviour.
+            pub fn from_f64_trunc(x: f64) -> Self {
+                Self::from_raw((x * f64::from(1u32 << FRAC)) as $s)
+            }
+
+            /// Divide by a whole number, truncating toward zero (C++
+            /// `QValue::operator/=(int)`). This is *not* the same as dividing by
+            /// `QValue::from_int(n)`.
+            pub const fn div_int(self, n: i32) -> Self {
+                if n == 0 {
+                    return Self::div_by_zero(self.0);
+                }
+                // C++ applyInteger works in int64 for every format up to 32 bits.
+                Self((self.0 as i64 / n as i64) as $s)
+            }
+
+            /// C++ `ZeroToleranceCalculator`: true when `|raw| < 1 << (FRAC - 7)` for
+            /// formats with more than 7 fractional bits (512 LSBs for Q16.16, 2 for
+            /// Q8.8), else `|raw| < 2`.
+            pub const fn is_within_zero_tolerance(self) -> bool {
+                let shift = if FRAC > 7 { FRAC - 7 } else { 1 };
+                let tolerance = (1 as $s) << shift;
+                self.0 == 0 || (self.0 < tolerance && self.0 > -tolerance)
+            }
+
+            /// The bound a quotient by zero saturates to: max for a positive dividend,
+            /// min for a negative one, 0 for 0 (C++ `WrapPolicy` division case).
+            const fn div_by_zero(dividend: $s) -> Self {
+                if dividend > 0 {
+                    Self(<$s>::MAX)
+                } else if dividend < 0 {
+                    Self(<$s>::MIN)
+                } else {
+                    Self(0)
+                }
+            }
+        }
+
+        impl<const FRAC: u32> Add for QValue<$s, FRAC> {
+            type Output = Self;
+            fn add(self, rhs: Self) -> Self {
+                // C++ adds in the unsigned counterpart to get defined wrap-around;
+                // Rust says what it means directly.
+                Self(self.0.wrapping_add(rhs.0))
+            }
+        }
+
+        impl<const FRAC: u32> AddAssign for QValue<$s, FRAC> {
+            fn add_assign(&mut self, rhs: Self) {
+                *self = *self + rhs;
+            }
+        }
+
+        impl<const FRAC: u32> Sub for QValue<$s, FRAC> {
+            type Output = Self;
+            fn sub(self, rhs: Self) -> Self {
+                Self(self.0.wrapping_sub(rhs.0))
+            }
+        }
+
+        impl<const FRAC: u32> Mul for QValue<$s, FRAC> {
+            type Output = Self;
+            fn mul(self, rhs: Self) -> Self {
+                // Widen, truncate (arithmetic shift right floors toward -inf), then
+                // wrap back to the storage width.
+                let product = <$wide>::from(self.0) * <$wide>::from(rhs.0);
+                Self((product >> FRAC) as $s)
+            }
+        }
+
+        impl<const FRAC: u32> Div for QValue<$s, FRAC> {
+            type Output = Self;
+            fn div(self, rhs: Self) -> Self {
+                if rhs.0 == 0 {
+                    return Self::div_by_zero(self.0);
+                }
+                // Scale the dividend up by 2^FRAC in the wide type, divide
+                // (truncating toward zero, like C++), then wrap back.
+                let dividend = <$wide>::from(self.0) * ((1 as $wide) << FRAC);
+                Self((dividend / <$wide>::from(rhs.0)) as $s)
+            }
+        }
+
+        impl<const FRAC: u32> Fixed for QValue<$s, FRAC> {
+            const ZERO: Self = Self::ZERO;
+            const ONE: Self = Self::ONE;
+            fn pow2_neg(n: u32) -> Self {
+                Self::pow2_neg(n)
+            }
+            fn div_int(self, n: i32) -> Self {
+                self.div_int(n)
+            }
+        }
+    };
 }
+
+impl_qvalue!(i32, i64);
+impl_qvalue!(i16, i32);
 
 #[cfg(test)]
 mod tests {
@@ -202,6 +225,17 @@ mod tests {
         assert_eq!(Q16_16::ONE.raw(), 65536);
         assert_eq!(Q16_16::from_int(-1).raw(), -65536);
         assert_eq!(Q16_16::pow2_neg(2).raw(), 16384);
+        assert_eq!(Q8_8::ONE.raw(), 256);
+        assert_eq!(Q8_8::from_int(-1).raw(), -256);
+        assert_eq!(Q8_8::pow2_neg(4).raw(), 16);
+        assert_eq!((Q8_8::FIXED_BITS, Q8_8::FRACTIONAL_BITS), (8, 8));
+    }
+
+    #[test]
+    fn from_int_truncates_the_fixed_part() {
+        // tinymind's own example (qformat.hpp, applyInteger comment): Q8.8 200 -> -56.
+        assert_eq!(Q8_8::from_int(200), Q8_8::from_int(-56));
+        assert_eq!(Q8_8::from_int(127).raw(), 127 * 256);
     }
 
     #[test]
@@ -211,6 +245,15 @@ mod tests {
         assert_eq!(r.raw(), -1);
         let r = Q16_16::from_raw(1) * Q16_16::pow2_neg(1);
         assert_eq!(r.raw(), 0);
+        assert_eq!((Q8_8::from_raw(-1) * Q8_8::pow2_neg(1)).raw(), -1);
+        assert_eq!((Q8_8::from_raw(1) * Q8_8::pow2_neg(1)).raw(), 0);
+    }
+
+    #[test]
+    fn multiply_wraps_to_the_storage_width() {
+        // 100.0 * 2.0 = 200.0 does not fit Q8.8; the product wraps to -56.0.
+        let r = Q8_8::from_int(100) * Q8_8::from_int(2);
+        assert_eq!(r, Q8_8::from_int(-56));
     }
 
     #[test]
@@ -219,12 +262,18 @@ mod tests {
         assert_eq!((Q16_16::ONE / Q16_16::ZERO).raw(), i32::MAX);
         assert_eq!((Q16_16::from_int(-1) / Q16_16::ZERO).raw(), i32::MIN);
         assert_eq!((Q16_16::ZERO / Q16_16::ZERO).raw(), 0);
+        assert_eq!((Q8_8::from_raw(-3) / Q8_8::from_int(2)).raw(), -1);
+        assert_eq!((Q8_8::ONE / Q8_8::ZERO).raw(), i16::MAX);
+        assert_eq!((Q8_8::from_int(-1) / Q8_8::ZERO).raw(), i16::MIN);
+        assert_eq!(Q8_8::ONE.div_int(0).raw(), i16::MAX);
     }
 
     #[test]
     fn add_wraps() {
         let r = Q16_16::from_raw(i32::MAX) + Q16_16::from_raw(1);
         assert_eq!(r.raw(), i32::MIN);
+        let r = Q8_8::from_raw(i16::MAX) + Q8_8::from_raw(1);
+        assert_eq!(r.raw(), i16::MIN);
     }
 
     #[test]
@@ -232,5 +281,9 @@ mod tests {
         assert!(Q16_16::from_raw(511).is_within_zero_tolerance());
         assert!(Q16_16::from_raw(-511).is_within_zero_tolerance());
         assert!(!Q16_16::from_raw(512).is_within_zero_tolerance());
+        assert!(Q8_8::from_raw(1).is_within_zero_tolerance());
+        assert!(Q8_8::from_raw(-1).is_within_zero_tolerance());
+        assert!(!Q8_8::from_raw(2).is_within_zero_tolerance());
+        assert!(!Q8_8::from_raw(-2).is_within_zero_tolerance());
     }
 }

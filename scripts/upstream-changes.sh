@@ -12,6 +12,9 @@ REF="$(tr -d '[:space:]' < "$ROOT/TINYMIND_REF")"
 
 PORTED=(
   cpp/qformat.hpp
+  cpp/typeChooser.hpp
+  cpp/tanh.hpp
+  cpp/sigmoid.hpp
   cpp/activation.hpp
   cpp/activationFunctions.hpp
   cpp/lookupTable.hpp

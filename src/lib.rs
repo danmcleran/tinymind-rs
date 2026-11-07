@@ -16,4 +16,4 @@ pub mod rand;
 
 pub use activation::{Activation, Sigmoid, Tanh};
 pub use neuralnet::MultilayerPerceptron;
-pub use qformat::{Fixed, Q16_16, QValue};
+pub use qformat::{Fixed, Q8_8, Q16_16, QValue};

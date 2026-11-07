@@ -1,18 +1,23 @@
-// Golden test for the xor example.
+// Golden tests for the xor example, one per format.
 //
-// The goldens in tests/golden/ were produced by tinymind's C++ `examples/xor`
-// at tinymind commit 4e74539 (output unchanged through TINYMIND_REF). The 2.6 MB
-// nn_fixed_xor.txt is not stored; it is checked by byte length, newline count and
-// 64-bit FNV-1a hash instead.
+// The goldens in tests/golden/<format>/ come from tinymind's C++
+// `examples/xor`: Q16.16 is the example as shipped (produced at tinymind commit
+// 4e74539, output unchanged through TINYMIND_REF); Q8.8 is the same example with
+// both bit counts in xornet.h set to 8, as `scripts/compare-with-cpp.sh` builds it.
+// The 2.4-2.6 MB nn_fixed_xor.txt is not stored; it is checked by byte length,
+// newline count and 64-bit FNV-1a hash instead.
 // `scripts/compare-with-cpp.sh` rebuilds the C++ example and does the full
-// byte-for-byte diff of all four files.
+// byte-for-byte diff of all four files in both formats.
 
 use std::fs;
 use std::process::Command;
 
-const NN_LEN: usize = 2_587_725;
-const NN_LINES: usize = 20_001;
-const NN_FNV1A: u64 = 0x0f6d_21c3_e3a5_076b;
+/// Expected `nn_fixed_xor.txt`: byte length, newline count, FNV-1a hash.
+struct NnFile {
+    len: usize,
+    lines: usize,
+    fnv1a: u64,
+}
 
 fn fnv1a(data: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
@@ -40,20 +45,28 @@ fn assert_same(name: &str, actual: &[u8], expected: &[u8]) {
     }
 }
 
-#[test]
-fn xor_matches_cpp_golden() {
-    let dir = std::env::temp_dir().join(format!("tinymind-xor-golden-{}", std::process::id()));
+fn check(format: &str, golden_dir: &str, nn_expected: NnFile) {
+    let dir = std::env::temp_dir().join(format!(
+        "tinymind-xor-golden-{golden_dir}-{}",
+        std::process::id()
+    ));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
 
     let out = Command::new(env!("CARGO_BIN_EXE_xor"))
+        .args(["--format", format])
         .arg(&dir)
         .output()
         .expect("failed to run xor binary");
     assert!(out.status.success(), "xor exited with {}", out.status);
 
-    let golden =
-        |f: &str| fs::read(format!("{}/tests/golden/{f}", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let golden = |f: &str| {
+        fs::read(format!(
+            "{}/tests/golden/{golden_dir}/{f}",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap()
+    };
 
     let nn = fs::read(dir.join("nn_fixed_xor.txt")).unwrap();
     let train = fs::read(dir.join("xor_training.csv")).unwrap();
@@ -68,11 +81,37 @@ fn xor_matches_cpp_golden() {
         &golden("xor_decision_surface.csv"),
     );
 
-    assert_eq!(nn.len(), NN_LEN, "nn_fixed_xor.txt length");
+    assert_eq!(nn.len(), nn_expected.len, "nn_fixed_xor.txt length");
     assert_eq!(
         nn.iter().filter(|&&b| b == b'\n').count(),
-        NN_LINES,
+        nn_expected.lines,
         "nn_fixed_xor.txt line count"
     );
-    assert_eq!(fnv1a(&nn), NN_FNV1A, "nn_fixed_xor.txt FNV-1a");
+    assert_eq!(fnv1a(&nn), nn_expected.fnv1a, "nn_fixed_xor.txt FNV-1a");
+}
+
+#[test]
+fn xor_q16_16_matches_cpp_golden() {
+    check(
+        "q16.16",
+        "q16_16",
+        NnFile {
+            len: 2_587_725,
+            lines: 20_001,
+            fnv1a: 0x0f6d_21c3_e3a5_076b,
+        },
+    );
+}
+
+#[test]
+fn xor_q8_8_matches_cpp_golden() {
+    check(
+        "q8.8",
+        "q8_8",
+        NnFile {
+            len: 2_384_465,
+            lines: 20_001,
+            fnv1a: 0x17ea_42d3_9e17_8cb3,
+        },
+    );
 }
