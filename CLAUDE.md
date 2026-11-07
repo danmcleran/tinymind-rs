@@ -190,6 +190,9 @@ required check.
 - Pages: Home, XOR example, Q-format in Rust, Equivalence with tinymind, API
   reference. Keep them about what is ported; link to tinymind's site for concepts
   rather than copying its pages.
+- Do not document tinymind bugs on the site (no "findings" sections, no links to
+  tinymind fix PRs, no "before #N fixed it" asides). Dan's call, 2026-11-07. They
+  belong in CLAUDE.md, commit messages and write-ups to Dan.
 - Code examples live in rustdoc (the crate-level XOR doctest runs in `cargo test`),
   not in the site's Markdown, where nothing would compile them.
 - Numbers on the pages (settling step, predictions, surface shares) come from the
