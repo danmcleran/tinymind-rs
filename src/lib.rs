@@ -9,7 +9,7 @@
 //! # Example
 //!
 //! Train a 2-4-1 network on XOR in Q16.16, as tinymind's `examples/xor` does
-//! (the `xor` binary in this repository is the full port, bit-exact with the C++):
+//! (the `xor` example in this repository is the full port, bit-exact with the C++):
 //!
 //! ```
 //! use tinymind::rand::GlibcRand;

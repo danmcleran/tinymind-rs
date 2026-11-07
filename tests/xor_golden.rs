@@ -12,8 +12,11 @@
 
 mod common;
 
+// The example's program, run in-process (examples have no CARGO_BIN_EXE_*).
+#[path = "../examples/common/xor_driver.rs"]
+mod xor_driver;
+
 use std::fs;
-use std::process::Command;
 
 use common::assert_same;
 
@@ -41,12 +44,9 @@ fn check(format: &str, golden_dir: &str, nn_expected: NnFile) {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
 
-    let out = Command::new(env!("CARGO_BIN_EXE_xor"))
-        .args(["--format", format])
-        .arg(&dir)
-        .output()
-        .expect("failed to run xor binary");
-    assert!(out.status.success(), "xor exited with {}", out.status);
+    assert!(xor_driver::FORMATS.contains(&format));
+    let mut stdout = Vec::new();
+    xor_driver::run_format(format, &dir, None, None, &mut stdout).expect("xor example failed");
 
     let golden = |f: &str| {
         fs::read(format!(
@@ -61,7 +61,7 @@ fn check(format: &str, golden_dir: &str, nn_expected: NnFile) {
     let surface = fs::read(dir.join("xor_decision_surface.csv")).unwrap();
     let _ = fs::remove_dir_all(&dir);
 
-    assert_same("stdout", &out.stdout, &golden("stdout.txt"));
+    assert_same("stdout", &stdout, &golden("stdout.txt"));
     assert_same("xor_training.csv", &train, &golden("xor_training.csv"));
     assert_same(
         "xor_decision_surface.csv",

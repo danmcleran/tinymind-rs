@@ -83,6 +83,18 @@ jobs:
               CARGO_PROFILE_RELEASE_OPT_LEVEL=$opt cargo build --release --target "$target"
             done
           done
+      # What crates.io would get (publish = false stays until a release is cut):
+      # build the package, reject maintainer-only paths, and run the tests from
+      # the unpacked package source.
+      - name: cargo package (contents and tests)
+        if: success() || failure()
+        run: |
+          cargo package
+          if cargo package --list | grep -E '^(\.github|\.claude|ci|docs|scripts)/|^CLAUDE\.md$'; then
+            echo "maintainer-only files would be published" >&2
+            exit 1
+          fi
+          cargo test --manifest-path "$(ls -d target/package/tinymind-*/ | head -1)Cargo.toml"
       - name: cargo test on MSRV (${{ steps.toolchain.outputs.msrv }})
         if: success() || failure()
         run: cargo "+${{ steps.toolchain.outputs.msrv }}" test

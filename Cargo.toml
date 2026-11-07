@@ -7,11 +7,15 @@ rust-version = "1.85"
 license = "MIT"
 description = "Neural networks for embedded Rust: a no_std, allocation-free port of the tinymind C++ library, bit-exact with it"
 repository = "https://github.com/danmcleran/tinymind-rs"
+homepage = "https://danmcleran.github.io/tinymind-rs/"
+documentation = "https://docs.rs/tinymind"
 readme = "README.md"
 keywords = ["neural-network", "fixed-point", "embedded", "no-std", "tinyml"]
 categories = ["embedded", "no-std", "science", "algorithms"]
-# Agent guidance, not part of the published crate.
-exclude = [".claude/", "CLAUDE.md", "ci/"]
+# Not part of the published crate: agent guidance, CI and its link check, the
+# docs site, and maintainer scripts (they need a tinymind checkout). Tests and
+# their goldens stay, so `cargo test` works from the published source.
+exclude = [".claude/", "CLAUDE.md", "ci/", ".github/", "docs/", "scripts/", ".gitignore"]
 # Intended for crates.io. This guard stays until a release is deliberately cut:
 # a published version cannot be deleted, only yanked.
 publish = false

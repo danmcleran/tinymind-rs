@@ -1,25 +1,15 @@
-//! Port of tinymind `examples/xor/xor.cpp`: train a 2-4-1 perceptron (tanh
-//! hidden, sigmoid output) on XOR and write the same files the C++ example
-//! writes, byte for byte:
-//!
-//! - `nn_fixed_xor.txt`: every weight, the target, the output and the error after
-//!   each of the 20000 training steps (raw LSBs)
-//! - `xor_training.csv`: the 4-case XOR error every 100 steps
-//! - `xor_decision_surface.csv`: the trained network over a 41x41 input grid
-//!
-//! Usage: `xor [--format q16.16|q8.8] [output_dir] [learning_rate] [momentum]`.
-//! The default format is Q16.16, as in the C++ example; Q8.8 matches the C++
-//! example built with `NUMBER_OF_FIXED_BITS` and `NUMBER_OF_FRACTIONAL_BITS` set
-//! to 8 in `xornet.h`. The default output dir is `output`.
+//! The xor example's program, shared by `examples/xor.rs` (which parses the
+//! command line) and `tests/xor_golden.rs` (which runs it in-process against the
+//! C++ goldens). Port of tinymind `examples/xor/xor.cpp`; see `examples/xor.rs`.
 
 use std::fmt::Display;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use tinymind::rand::GlibcRand;
 
-#[path = "common/cppfmt.rs"]
+#[path = "cppfmt.rs"]
 mod cppfmt;
 use cppfmt::fmt_g;
 use tinymind::{Activation, Fixed, MultilayerPerceptron, Q8_8, Q16_16, Sigmoid, Tanh};
@@ -92,44 +82,33 @@ macro_rules! impl_format {
 impl_format!(Q16_16, i32);
 impl_format!(Q8_8, i16);
 
-fn main() -> io::Result<()> {
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
-    let format = if args.first().map(String::as_str) == Some("--format") {
-        if args.len() < 2 {
-            usage("--format needs a value");
-        }
-        let f = args.remove(1);
-        args.remove(0);
-        f
-    } else {
-        "q16.16".into()
-    };
-    let mut args = args.into_iter();
-    let out_dir = PathBuf::from(args.next().unwrap_or_else(|| "output".into()));
-    let learning_rate = args.next().map(|s| parse_arg(&s));
-    let momentum = args.next().map(|s| parse_arg(&s));
-    if args.next().is_some() {
-        usage("too many arguments");
-    }
-    fs::create_dir_all(&out_dir)?;
+/// The formats the example runs in, as `--format` spells them.
+pub const FORMATS: [&str; 2] = ["q16.16", "q8.8"];
 
-    match format.as_str() {
-        "q16.16" => run::<Q16_16>(&out_dir, learning_rate, momentum),
-        "q8.8" => run::<Q8_8>(&out_dir, learning_rate, momentum),
-        other => usage(&format!("unknown format {other:?}")),
+/// Train and evaluate the network in `format` (one of [`FORMATS`]), writing the
+/// three output files into `out_dir` and the summary to `stdout`.
+pub fn run_format(
+    format: &str,
+    out_dir: &Path,
+    learning_rate: Option<f64>,
+    momentum: Option<f64>,
+    stdout: &mut dyn Write,
+) -> io::Result<()> {
+    match format {
+        "q16.16" => run::<Q16_16>(out_dir, learning_rate, momentum, stdout),
+        "q8.8" => run::<Q8_8>(out_dir, learning_rate, momentum, stdout),
+        other => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("unknown format {other:?}"),
+        )),
     }
-}
-
-fn usage(problem: &str) -> ! {
-    eprintln!("xor: {problem}");
-    eprintln!("usage: xor [--format q16.16|q8.8] [output_dir] [learning_rate] [momentum]");
-    std::process::exit(2);
 }
 
 fn run<V: Format>(
     out_dir: &Path,
     learning_rate: Option<f64>,
     momentum: Option<f64>,
+    stdout: &mut dyn Write,
 ) -> io::Result<()>
 where
     Tanh: Activation<V>,
@@ -151,8 +130,6 @@ where
         nn.set_momentum_rate(V::from_f64_trunc(m));
     }
 
-    let stdout = io::stdout();
-    let mut stdout = BufWriter::new(stdout.lock());
     let mut results = BufWriter::new(File::create(out_dir.join("nn_fixed_xor.txt"))?);
     let mut curve = BufWriter::new(File::create(out_dir.join("xor_training.csv"))?);
     writeln!(curve, "iteration,avg_error")?;
@@ -220,11 +197,6 @@ where
     curve.flush()?;
     surf.flush()?;
     stdout.flush()
-}
-
-fn parse_arg(s: &str) -> f64 {
-    s.parse()
-        .unwrap_or_else(|_| usage(&format!("expected a number, got {s:?}")))
 }
 
 fn generate_xor_training_value<V: Format>(rng: &mut GlibcRand) -> ([V; 2], [V; 1]) {

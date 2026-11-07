@@ -1,6 +1,6 @@
-//! C++ iostream number formatting, shared by the example binaries
-//! (`#[path]`-included; a directory under `src/bin/` without `main.rs` is not a
-//! binary of its own).
+//! C++ iostream number formatting, shared by the examples' drivers
+//! (`#[path]`-included; a directory under `examples/` without `main.rs` is not an
+//! example of its own).
 
 // Each binary compiles its own copy and uses a subset of these.
 #![allow(dead_code)]

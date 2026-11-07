@@ -6,7 +6,7 @@ nav_order: 2
 
 # XOR example
 
-The `xor` binary is a port of tinymind's [XOR example](https://danmcleran.github.io/tinymind/examples/xor.html): a multilayer perceptron with 2 inputs, 4 tanh hidden neurons and 1 sigmoid output learns the XOR function, trained entirely in fixed-point arithmetic.
+The `xor` example is a port of tinymind's [XOR example](https://danmcleran.github.io/tinymind/examples/xor.html): a multilayer perceptron with 2 inputs, 4 tanh hidden neurons and 1 sigmoid output learns the XOR function, trained entirely in fixed-point arithmetic.
 
 ## How it works
 
@@ -17,9 +17,9 @@ The `xor` binary is a port of tinymind's [XOR example](https://danmcleran.github
 ## Run it
 
 ```bash
-cargo run --release --bin xor -- output                  # Q16.16 (the C++ example's format)
-cargo run --release --bin xor -- --format q8.8 output    # Q8.8
-cargo run --release --bin xor -- output 0.25 0.5         # optional learning rate and momentum
+cargo run --release --example xor -- output                  # Q16.16 (the C++ example's format)
+cargo run --release --example xor -- --format q8.8 output    # Q8.8
+cargo run --release --example xor -- output 0.25 0.5         # optional learning rate and momentum
 ```
 
 It writes three files into the output directory, the same files the C++ example writes, byte for byte:
@@ -54,4 +54,4 @@ All four cases are classified correctly, but the surface shows how: the network 
 
 The plots are drawn from this port's output with tinymind's plotting style (`scripts/plot-examples.py`).
 
-[Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/src/bin/xor.rs)
+[Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/examples/xor.rs)
