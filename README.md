@@ -2,12 +2,12 @@
 
 [![CI](https://github.com/danmcleran/tinymind-rs/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/danmcleran/tinymind-rs/actions/workflows/ci.yml)
 
-tinymind-rs (crate `tinymind`) brings [tinymind](https://github.com/danmcleran/tinymind), a
-header-only C++ library for fixed-point neural networks on embedded systems, to
-Rust. Like tinymind, it is free, open source software under the MIT license. The
-library is `no_std` and allocation-free, and every ported path is verified
-bit-for-bit against the C++ build: the XOR example's weights, training log and
-decision surface are byte-identical to the C++ output.
+tinymind-rs (crate `tinymind`) brings [tinymind](https://github.com/danmcleran/tinymind),
+a header-only C++ library for neural networks on embedded systems, to Rust. Like
+tinymind, it is free, open source software under the MIT license. The library is
+`no_std` and allocation-free, and every ported path is verified bit-for-bit
+against the C++ build: the XOR example's weights, training log and decision
+surface are byte-identical to the C++ output.
 
 Documentation, including the API reference: <https://danmcleran.github.io/tinymind-rs/>
 
@@ -49,8 +49,9 @@ stdout.
 | `src/rand.rs` | a re-implementation of glibc `rand()`, which the C++ example uses for weight init and sampling |
 | `src/bin/xor.rs` | `examples/xor/xor.cpp` |
 
-Everything else in tinymind (other Q formats, unsigned and 8/64-bit storage, recurrent layers, the int8
-quantization tiers, SIMD backends, and so on) is not ported.
+Everything else in tinymind (floating-point networks, other Q formats, unsigned
+and 8/64-bit storage, recurrent layers, the int8 quantization tiers, SIMD
+backends, and so on) is not ported.
 
 ## How equivalence is proven
 

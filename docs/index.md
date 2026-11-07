@@ -6,7 +6,7 @@ nav_order: 1
 
 <img src="{{ site.baseurl }}/assets/tinymind_logo.png" alt="tinymind logo" width="160" style="display:block;margin:0 auto 1rem;">
 
-# Fixed-point neural networks for embedded Rust
+# Neural networks for embedded Rust
 {: .fs-9 }
 
 **tinymind-rs** (crate `tinymind`) is a Rust port of [tinymind](https://danmcleran.github.io/tinymind/), a C++ library for neural networks on microcontrollers. Every ported path produces the same bits as the C++ build.
@@ -21,7 +21,7 @@ nav_order: 1
 ## What it is
 
 - **`no_std` and allocation-free.** The library links only `core`. Networks are plain fixed-size arrays sized by const generics: no heap, no `alloc`, no global state.
-- **Fixed-point only.** Weights, activations and gradients are Q-format integers, so training and inference need no FPU. Activations come from lookup tables with linear interpolation.
+- **Fixed-point so far.** The ported value types are Q-format integers (Q16.16 and Q8.8), so training and inference need no FPU, and activations come from lookup tables with linear interpolation. tinymind's networks are generic over the value type and are also tested with `float` and `double`; floating-point networks are not ported yet.
 - **No `unsafe`.** The library is `#![forbid(unsafe_code)]`.
 - **Bit-exact with C++.** The port is checked byte for byte against tinymind's own C++ build on every pull request. See [Equivalence with tinymind]({{ site.baseurl }}/equivalence).
 - **Built for microcontrollers.** CI builds the library for Cortex-M4F (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`). Minimum Rust version: 1.85.
@@ -35,6 +35,7 @@ Early. The port covers what tinymind's XOR example uses, in two formats:
 | Q16.16 (`i32`) and Q8.8 (`i16`) arithmetic, Truncate and Wrap policies | Other Q formats, saturating and rounding policies |
 | Tanh and sigmoid lookup-table activations | ReLU and the other activations |
 | Trainable MLP with one hidden layer, SGD with momentum | Multiple hidden layers, recurrent layers, int8 inference, SIMD |
+| | Floating-point (`float`, `double`) networks |
 
 The API is not stable yet, and the crate is not on crates.io yet. tinymind itself is the full library; this port grows by porting slices of it.
 
