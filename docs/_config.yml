@@ -1,0 +1,16 @@
+theme: just-the-docs
+title: tinymind-rs
+description: "Fixed-point neural networks for embedded Rust: a no_std, allocation-free port of the tinymind C++ library, bit-exact with it."
+logo: "/assets/tinymind_logo.png"
+baseurl: "/tinymind-rs"
+url: "https://danmcleran.github.io"
+aux_links:
+  "GitHub": "https://github.com/danmcleran/tinymind-rs"
+  "tinymind (C++)": "https://danmcleran.github.io/tinymind/"
+footer_content: "Dan McLeran &mdash; danmcleran@gmail.com &mdash; MIT License"
+search_enabled: true
+search.button: true
+heading_anchors: true
+back_to_top: true
+back_to_top_text: "Back to top"
+color_scheme: dark

@@ -173,6 +173,30 @@ Natural next steps, roughly by size: another activation (ReLU needs no table), m
 templates), then an int8 inference layer (`cpp/qdense.hpp` family) verified against
 tinymind's `unit_test/integration` goldens.
 
+## Docs site (GitHub Pages)
+
+`docs/` is a Jekyll site with the just-the-docs theme, the same setup as tinymind's
+site, published at <https://danmcleran.github.io/tinymind-rs/> by
+`.github/workflows/pages.yml`. That workflow builds on every PR (deploys only from
+`master`) and adds the crate's rustdoc under `/api/`. Its `build site` job is not a
+required check.
+
+- Pages: Home, XOR example, Q-format in Rust, Equivalence with tinymind, API
+  reference. Keep them about what is ported; link to tinymind's site for concepts
+  rather than copying its pages.
+- Code examples live in rustdoc (the crate-level XOR doctest runs in `cargo test`),
+  not in the site's Markdown, where nothing would compile them.
+- Numbers on the pages (settling step, predictions, surface shares) come from the
+  golden outputs. When outputs change, recheck them and rerun
+  `scripts/plot-xor.py` (needs matplotlib in a venv; see its docstring).
+- `docs/assets/tinymind_logo.png` is copied from tinymind; the OG banner
+  `tinymind-rs_og.png` was drawn with Pillow in tinymind's OG layout.
+- Not yet: a Releases page (tinymind's `render_releases_page.py` exits when a repo
+  has no releases; add it, and `pages-on-release.yml`, with the first release) and
+  the knowledge graph (not worth it at this size).
+- No local Ruby is needed: the PR build checks the site. To preview locally:
+  `cd docs && bundle install && bundle exec jekyll serve`.
+
 ## Conventions
 
 - Project names are lowercase in prose: "tinymind" (the C++ library), "tinymind-rs"

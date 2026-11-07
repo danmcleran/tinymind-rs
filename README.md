@@ -9,6 +9,8 @@ library is `no_std` and allocation-free, and every ported path is verified
 bit-for-bit against the C++ build: the XOR example's weights, training log and
 decision surface are byte-identical to the C++ output.
 
+Documentation, including the API reference: <https://danmcleran.github.io/tinymind-rs/>
+
 ## Status
 
 Early. So far the port covers what tinymind's XOR example uses: Q16.16 and
