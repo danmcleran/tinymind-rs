@@ -129,7 +129,7 @@ impl<const FRAC: u32> Mul for QValue<FRAC> {
         // Widen to i64 (C++ MultiplicationResultFullWidthValueType), truncate
         // (arithmetic shift right), then wrap back to the 32-bit word.
         let product = i64::from(self.0) * i64::from(rhs.0);
-        Self((product >> FRAC) as i32)
+        Self(((product + ((1i64 << FRAC) >> 1)) >> FRAC) as i32)
     }
 }
 
