@@ -1,8 +1,9 @@
 // Golden test for the xor example.
 //
 // The goldens in tests/golden/ were produced by tinymind's C++ `examples/xor`
-// at tinymind commit 4e74539. The 2.6 MB nn_fixed_xor.txt is not stored; it is
-// checked by byte length, newline count and 64-bit FNV-1a hash instead.
+// at tinymind commit 4e74539 (output unchanged through TINYMIND_REF). The 2.6 MB
+// nn_fixed_xor.txt is not stored; it is checked by byte length, newline count and
+// 64-bit FNV-1a hash instead.
 // `scripts/compare-with-cpp.sh` rebuilds the C++ example and does the full
 // byte-for-byte diff of all four files.
 

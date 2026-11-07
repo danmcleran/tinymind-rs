@@ -23,19 +23,55 @@ out where Rust forces a different shape than the C++.
   momentum, 20000 steps) is ported and runs **bit-for-bit identically** to the C++
   build: the per-step weight trajectory (`nn_fixed_xor.txt`), learning curve,
   decision surface and stdout are byte-identical.
-- Reference tinymind commit for the goldens: `4e74539`.
+- Ported against the tinymind commit in `TINYMIND_REF` (verified byte-identical there).
+
+## Pull model: how work arrives here
+
+Porting is **pulled** from this repo: a session started at the rustymind root reads
+tinymind and brings changes over. Nothing is pushed into rustymind from tinymind
+sessions.
+
+- **Where tinymind is:** `../tinymind` (override with `TINYMIND_DIR`).
+  `.claude/settings.json` adds it as a working directory and denies edits under
+  `~/code/tinymind` (`Edit(...)` rules cover every file-writing tool). Tested
+  2026-11-07: a relative `Edit(../tinymind/**)` deny rule does *not* match, so the deny
+  uses the home-relative path; a checkout elsewhere via `TINYMIND_DIR` is not covered
+  by it, only by the rule below. Project settings apply only once the folder-trust
+  dialog has been accepted for this repo in an interactive session.
+- **tinymind is read-only from here.** Do not edit, commit, switch branches, pull,
+  stash or run `make` inside it (`make` writes build outputs into its tree). The
+  compare script builds the C++ in a temp dir; that is the only way to build it
+  from here. Read-only git is fine: `git -C ../tinymind log/show/diff/blame`.
+- **If you find a tinymind bug** (as porting xor found the seed bug fixed in
+  tinymind #236), do not work around it silently and do not fix it from here.
+  Write it up for Dan (file:line, C++ behaviour, minimal repro, proposed fix); he
+  fixes it in a tinymind session. Mirror the C++ as it is until the fix lands.
+- **Start of a session:** run `scripts/upstream-changes.sh` (`-p` for patches). It
+  lists tinymind commits since `TINYMIND_REF` that touch the sources this crate ports.
+  For each one, decide whether the Rust needs the change, port it, regenerate
+  goldens if outputs changed, pass every gate, then set `TINYMIND_REF` to the
+  tinymind commit you verified against (`git -C ../tinymind rev-parse HEAD`) in the
+  same commit.
+- **When porting a new tinymind file,** add it to `PORTED` in
+  `scripts/upstream-changes.sh` and to the layout table below.
+- **Goldens always come from the C++ build** (copy them out of the compare script's
+  C++ run), never from the Rust output, or the golden test proves nothing.
 
 ## Commands
 
 ```bash
-source ~/.cargo/env                 # rustup is user-level; cargo is not on the default PATH
 cargo build --release
 cargo run --release --bin xor       # writes output/ (gitignored); args: [out_dir] [lr] [momentum]
 cargo test                          # unit tests + golden test against the C++ outputs
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 scripts/compare-with-cpp.sh         # builds ../tinymind's C++ xor and byte-diffs all outputs
+scripts/upstream-changes.sh         # tinymind commits since TINYMIND_REF touching ported sources
 ```
+
+`cargo` comes from a user-level rustup install that `~/.profile`/`~/.bashrc` put on
+PATH. A shell older than that install lacks it; use `~/.cargo/bin/cargo` then rather
+than `source ~/.cargo/env && ...` (compound commands trip permission checks).
 
 Gate before committing: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
 `cargo test`, and `scripts/compare-with-cpp.sh` (needs `g++` and `../tinymind`).
@@ -84,9 +120,9 @@ Bit-exactness against the C++ is the acceptance test. These details all matter:
    `fmt_g` (printf `%g`, precision 6), not Rust's `{}`.
 7. The C++ computes input-layer node deltas that nothing reads; the port skips them.
 
-`examples/xor/nn_fixed_xor.txt` etc. inside the tinymind tree are **stale, untracked**
-files from an older build (they differ from line 825). Always regenerate the C++
-reference (the compare script does) rather than trusting those.
+Never trust output files lying around in the tinymind tree; regenerate the C++
+reference (the compare script does). Stale ones were found there once (tinymind #237
+fixed the docs that produced them).
 
 ## Porting the next example
 
@@ -114,4 +150,18 @@ tinymind's `unit_test/integration` goldens.
   Do not add Intel copyright lines to new files.
 - No dependencies unless there is a real reason; the point is to learn the language.
 - Python, if needed, goes in a venv/pyenv, never `pip install --break-system-packages`.
-- Repo is public at github.com/danmcleran/rustymind. Default branch `master`.
+- Repo is public at github.com/danmcleran/rustymind. Default branch `master`. No CI or
+  branch protection yet: commits so far go straight to `master` after the local gates
+  pass. (In tinymind, "commit and push" means the full PR flow with CI; that rule does
+  not apply here unless Dan asks for it.)
+
+## Working with Dan
+
+These live in tinymind's session memory, which sessions started here do not load:
+
+- Be critical, not agreeable: when an idea has a concrete failure mode, say so and
+  propose something better.
+- A zero exit status or green check is not evidence. Confirm the result directly, and
+  show that any new test or gate fails on a planted defect before trusting it.
+- Ask before outward-facing actions (pushing to a new remote, publishing, deleting).
+- Use the lowercase project names in all prose.

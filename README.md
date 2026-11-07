@@ -41,7 +41,7 @@ quantization tiers, SIMD backends, and so on) is not ported.
 - `tests/xor_golden.rs` runs the `xor` binary and compares its stdout and the
   two CSV files byte-for-byte with the goldens in `tests/golden/`. The 2.6 MB
   `nn_fixed_xor.txt` is checked by length, line count and a 64-bit FNV-1a hash
-  instead of being stored. The goldens come from tinymind commit `4e74539`.
+  instead of being stored. The goldens come from the C++ build; `TINYMIND_REF` records the tinymind commit they were last verified against.
 - `scripts/compare-with-cpp.sh` builds the C++ example from a tinymind checkout
   with the flags the C++ build uses, runs both programs, and runs `cmp` on all
   four output files. It exits nonzero if any file differs.

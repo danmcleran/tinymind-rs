@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "../tinymind"
+    ],
+    "allow": [
+      "Bash(cargo *)",
+      "Bash(scripts/compare-with-cpp.sh)",
+      "Bash(scripts/upstream-changes.sh)",
+      "Bash(scripts/upstream-changes.sh *)"
+    ],
+    "deny": [
+      "Edit(~/code/tinymind/**)"
+    ]
+  }
+}
