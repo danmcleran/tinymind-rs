@@ -7,8 +7,10 @@ break the API).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-07
+
 First release, a port of the parts of [tinymind](https://github.com/danmcleran/tinymind)
-its XOR and iris examples use, bit-exact with the C++ build.
+its XOR, iris and int8 XOR examples use, bit-exact with the C++ build.
 
 ### Added
 
@@ -31,3 +33,6 @@ its XOR and iris examples use, bit-exact with the C++ build.
 
 The library is `no_std`, allocation-free, `#![forbid(unsafe_code)]`, and has no
 reachable panics; the minimum supported Rust version is 1.85.
+
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/danmcleran/tinymind-rs/releases/tag/v0.1.0

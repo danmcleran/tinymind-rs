@@ -8,4 +8,4 @@ nav_order: 8
 
 The [API reference]({{ site.baseurl }}/api/tinymind/) is the crate's `rustdoc` output, built from `master` with every deploy of this site. It starts with a complete example that trains XOR, which also runs as a test.
 
-Once the crate is published on crates.io, its documentation will also be on docs.rs.
+The documentation of each published version is also on [docs.rs](https://docs.rs/tinymind).
