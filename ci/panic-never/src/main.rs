@@ -191,6 +191,10 @@ const _: () = assert!(size_of::<MultilayerPerceptron<Q8_8, Tanh, Sigmoid, 2, 3, 
 #[path = "../../../examples/common/imported_mlp_model.rs"]
 mod imported;
 
+/// A model written by the tree importer (generated code must be panic-free too).
+#[path = "../../../examples/common/imported_trees_gbdt_model.rs"]
+mod imported_trees;
+
 /// The int8 path: primitives, requantizer, a dense layer, activations, tables.
 fn int8_inference() {
     let (x, m, s) = (black_box(5), black_box(1 << 30), black_box(3));
@@ -272,6 +276,9 @@ pub extern "C" fn _start() -> ! {
     trees::<u8>(black_box(1), black_box(2));
     trees::<i16>(black_box(1), black_box(2));
     black_box(imported::forward(&black_box([0i8; imported::NUM_INPUTS])));
+    let q = black_box([0i8; imported_trees::NUM_FEATURES]);
+    black_box((imported_trees::predict(&q), imported_trees::predict_inline(&q)));
+    black_box(imported_trees::quantize_features(&black_box([0.0; imported_trees::NUM_FEATURES])));
     // The examples' configurations: xor 2-4-1 (both formats) and iris 4-8-3.
     network::<Q16_16, Tanh, Sigmoid, 2, 4, 1>(Q16_16::from_raw);
     network::<Q8_8, Tanh, Sigmoid, 2, 4, 1>(|r| Q8_8::from_raw(r as i16));

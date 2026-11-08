@@ -37,6 +37,7 @@ PORTED=(
   examples/energy_efficiency
   examples/pytorch_quant/xor
   apps/import_pytorch
+  apps/import_trees
   cpp/qaffine.hpp
   cpp/qdense.hpp
   cpp/qpointwiseconv2d.hpp

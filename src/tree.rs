@@ -54,8 +54,10 @@
 //!
 //! Not ported: the C++ compile-time models (`QStaticDecisionTree`,
 //! `QStaticGBDT`) and their evaluation policies. Rust cannot run a pool through
-//! the type system the way C++ templates do; generated code (an importer
-//! emitting nested `if`s) is the equivalent of the inline policy.
+//! the type system the way C++ templates do. The repository's tree importer
+//! (`tools/import_trees`, for scikit-learn, XGBoost and LightGBM models) writes
+//! a module with both forms instead: a pool walked by these types, and the same
+//! trees as nested `if`s (the inline policy).
 
 /// One node of a quantized decision tree (C++ `QTreeNode`).
 ///

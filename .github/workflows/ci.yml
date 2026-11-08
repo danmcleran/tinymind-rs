@@ -154,11 +154,15 @@ jobs:
           rustup default stable
           rustc --version
           g++ --version
-      # The PyTorch importer checks in compare-with-cpp.sh need numpy.
-      - name: Python with numpy
+      # The importer checks in compare-with-cpp.sh need numpy (PyTorch
+      # importer) and scikit-learn, XGBoost and LightGBM (tree importer). The
+      # committed example models are retrained and must come out identical, so
+      # every package that can touch training is pinned.
+      - name: Python with numpy and the tree libraries
         run: |
           python3 -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/pip" install -q numpy==2.5.4
+          "$RUNNER_TEMP/venv/bin/pip" install -q numpy==2.5.4 scipy==1.18.1 scikit-learn==1.9.1 \
+            joblib==1.6.0 threadpoolctl==3.8.0 xgboost-cpu==3.4.1 lightgbm==4.7.0
       - name: Byte-compare the C++ and Rust outputs
         env:
           TINYMIND_DIR: ${{ github.workspace }}/tinymind

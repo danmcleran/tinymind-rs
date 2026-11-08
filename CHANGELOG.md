@@ -19,6 +19,12 @@ break the API).
 - Example `gbdt_tabular_int8` (feature `std`), byte-identical to tinymind's.
 - `int8::calibration::affine_params_asymmetric` (tinymind's
   `computeAffineParamsAsymmetric`).
+- A tree importer in the repository (`tools/import_trees`, not part of the
+  crate): scikit-learn, XGBoost and LightGBM tree models to a `no_std` Rust
+  module with a pool-walk form and a nested-`if` form. It produces the same
+  integer trees as tinymind's importer. Example `imported_trees` runs two
+  scikit-learn classifiers for the UCI Wine data, byte-identical to tinymind's
+  C++ runtime running the same models.
 
 ## [0.1.4] - 2026-11-07
 
