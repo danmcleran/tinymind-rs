@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-11-08
+
 ### Added
 
 - Decision trees (`tinymind::tree`, tinymind (C++)'s `cpp/qtree.hpp`): `QTreeNode`,
@@ -23,8 +25,8 @@ break the API).
   crate): scikit-learn, XGBoost and LightGBM tree models to a `no_std` Rust
   module with a pool-walk form and a nested-`if` form. It produces the same
   integer trees as tinymind (C++)'s importer. Example `imported_trees` runs two
-  scikit-learn classifiers for the UCI Wine data, byte-identical to tinymind (C++)'s
-  C++ runtime running the same models.
+  scikit-learn classifiers for the UCI Wine data, byte-identical to the tinymind (C++)
+  runtime running the same models.
 
 ## [0.1.4] - 2026-11-07
 
@@ -142,7 +144,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.1...v0.1.2

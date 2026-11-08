@@ -13,8 +13,8 @@
 //! in `i32`, then a [`Requantizer`] rescales `acc` to the output tensor's int8 grid
 //! with a fixed-point multiplier, adds the output zero point and saturates.
 //!
-//! Results match tinymind (C++) (and therefore TFLite's reference kernels, which
-//! tinymind (C++) matches) bit for bit. Where the C++ would hit undefined behaviour
+//! Results match tinymind (C++), and therefore TFLite's reference kernels, which
+//! it matches, bit for bit. Where the C++ would hit undefined behaviour
 //! (an `i32` accumulator overflow, a shift out of its documented range), this
 //! port wraps or clamps instead, so every function is total and none panics.
 

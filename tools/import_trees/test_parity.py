@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Parity of this importer with tinymind's (apps/import_trees, from TINYMIND_DIR,
-default ../tinymind), and of the generated Rust with tinymind's C++.
+"""Parity of this importer with tinymind (C++)'s (apps/import_trees, from TINYMIND_DIR,
+default ../tinymind), and of the generated Rust with the tinymind (C++) runtime.
 
 For every model family (and features far from zero), both importers export the same trained model on the
 same feature grid. The integer models must be identical: every tree's nodes,
 thresholds and leaves, the tree classes, the base scores, the output scale and
 the feature grids. Then each output is checked on its own runtime against the
-shared integer reference: tinymind's header with g++ under all three of its
+shared integer reference: tinymind (C++)'s header with g++ under all three of its
 evaluation policies, and the Rust module with cargo in both of its forms (pool
 walk and nested ifs), including quantize_features. Equal references and two
 runtimes that each match theirs make the Rust and the C++ bit-identical.

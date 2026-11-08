@@ -31,7 +31,7 @@ The int8 ensemble agrees with the float trees on 2,256 of the 2,304 grid points 
 
 - The example's three outputs (the report, the CSV and the compact golden report) are byte-identical to the C++ example's.
 - A C++ program on tinymind (C++)'s `QDecisionTree` and `QGBDT` (`scripts/cpp/tree_sweep.cpp`) runs 72 random ensembles: int8, uint8 and int16 thresholds, eight trees of depth up to 5 sharing a 512-node pool, with and without base scores, small leaf values so that classes tie, and inputs on or next to the thresholds. The Rust trees produce the same scores and predictions for every input.
-- Kani proves that the walk, the ensemble and the validity checks never panic, for any node pool (indices in or out of range, cycles), root, class, base score and input. The Cortex-M panic gate links them too.
+- Kani proves that the walk, the ensemble and the validity checks never panic for every value of every field of small `i8` node pools (indices in or out of range, cycles), and every root, class, base score and input. The Cortex-M panic gate links them for `i8`, `u8` and `i16` at fixed sizes.
 
 ## Importing a trained model
 
@@ -50,7 +50,7 @@ cargo run --release --example imported_trees
 | Gradient boosting, 30 rounds of depth-2 trees | int8 | 90 (one per class per round) | 53 (scikit-learn: 53) |
 | Random forest, 15 voting trees of depth 4 | int16 | 15 | 53 (scikit-learn: 53) |
 
-The same two models imported with tinymind (C++)'s importer and run on the tinymind (C++) runtime print byte-identical output, and so do 16 more models across every supported family when checked against the importers' shared integer reference.
+The same two models imported with tinymind (C++)'s importer and run on the tinymind (C++) runtime print byte-identical output, and so do 18 more models across every supported family when checked against the importers' shared integer reference.
 
 ## Not ported
 

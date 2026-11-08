@@ -10,13 +10,13 @@
   python3 -I tools/import_trees/example_trees.py --model forest \\
       --rust examples/common/imported_trees_forest_model.rs
   python3 -I tools/import_trees/example_trees.py --data-rust examples/common/imported_trees_data.rs
-  python3 -I tools/import_trees/example_trees.py --model gbdt --cpp gbdt.hpp   # tinymind's importer
+  python3 -I tools/import_trees/example_trees.py --model gbdt --cpp gbdt.hpp   # tinymind (C++)'s importer
   python3 -I tools/import_trees/example_trees.py --data-cpp trees_data.hpp
 
 --data-* writes the held-out 30% (54 samples) for the example programs.
---cpp runs tinymind's own importer (apps/import_trees, from TINYMIND_DIR,
+--cpp runs tinymind (C++)'s own importer (apps/import_trees, from TINYMIND_DIR,
 default ../tinymind) on the same model; scripts/compare-with-cpp.sh runs that
-header on tinymind's C++ runtime and byte-compares the output with the Rust
+header on the tinymind (C++) runtime and byte-compares the output with the Rust
 example's. Training is deterministic (fixed random_state), so with the same
 scikit-learn version the generated files are reproducible.
 
@@ -104,7 +104,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", choices=["gbdt", "forest"], default="gbdt")
     ap.add_argument("--rust", help="write the Rust module (this repo's importer)")
-    ap.add_argument("--cpp", help="write a C++ header with tinymind's importer")
+    ap.add_argument("--cpp", help="write a C++ header with tinymind (C++)'s importer")
     ap.add_argument("--data-rust", help="write the test samples as a Rust module")
     ap.add_argument("--data-cpp", help="write the test samples as a C++ header")
     a = ap.parse_args()

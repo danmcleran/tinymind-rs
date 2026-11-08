@@ -191,6 +191,9 @@ const _: () = assert!(size_of::<MultilayerPerceptron<Q8_8, Tanh, Sigmoid, 2, 3, 
 #[path = "../../../examples/common/imported_mlp_model.rs"]
 mod imported;
 
+/// The voting form (one `QDecisionTree` per tree), on `i16` inputs.
+#[path = "../../../examples/common/imported_trees_forest_model.rs"]
+mod imported_forest;
 /// A model written by the tree importer (generated code must be panic-free too).
 #[path = "../../../examples/common/imported_trees_gbdt_model.rs"]
 mod imported_trees;
@@ -280,6 +283,11 @@ pub extern "C" fn _start() -> ! {
     black_box((
         imported_trees::predict(&q),
         imported_trees::predict_inline(&q),
+    ));
+    let f = black_box([0i16; imported_forest::NUM_FEATURES]);
+    black_box((
+        imported_forest::predict(&f),
+        imported_forest::predict_inline(&f),
     ));
     black_box(imported_trees::quantize_features(&black_box(
         [0.0; imported_trees::NUM_FEATURES],

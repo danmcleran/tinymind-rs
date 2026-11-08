@@ -108,8 +108,8 @@ cargo run --release --example imported_trees
 
 ## How it is checked
 
-- `test_parity.py`: 16 models (every supported family; int8, uint8, int16 and
-  integer grids) exported by both importers. Every integer must be identical:
+- `test_parity.py`: 18 models (every supported family, and features far from
+  zero; int8, uint8, int16 and integer grids) exported by both importers. Every integer must be identical:
   nodes, thresholds, leaves, tree classes, base scores, output scale, grids.
   Then tinymind (C++)'s header is compiled with g++ and run under its three
   evaluation policies, and the Rust module is built with cargo and run in both
@@ -121,4 +121,5 @@ cargo run --release --example imported_trees
   this crate, and byte-compares the outputs; it also regenerates the committed
   modules and checks they are current. CI runs it with the library versions
   pinned.
-- The generated code is in the Cortex-M panic gate: no reachable panics.
+- Both of the example's generated modules (the gradient-boosted pool and the
+  voting forest) are in the Cortex-M panic gate: no reachable panics.

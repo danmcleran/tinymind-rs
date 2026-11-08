@@ -12,12 +12,13 @@ The port has one rule that shapes everything else: **every ported path produces 
 
 ## What is in the crate
 
-As of 0.1.4:
+As of 0.1.5:
 
 - Q16.16 and Q8.8 fixed-point arithmetic (`QValue<i32, 16>`, `QValue<i16, 8>`), with ReLU, linear, and lookup-table tanh and sigmoid activations.
 - Networks that train on the device with SGD and momentum, Adam or RMSprop (optionally with gradient clipping): any number of hidden layers (`NeuralNetwork` over `Dense` layers), and a one-hidden-layer perceptron (`MultilayerPerceptron`) with an inference-only version that holds nothing but its weights (`InferencePerceptron`).
 - int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), quantized ReLU, activation tables, and a softmax that is bit-exact with TFLite's.
-- A PyTorch importer (in the repository, not the crate) that turns a trained `nn.Sequential` into a `no_std` Rust module.
+- Quantized decision trees and gradient-boosted ensembles (`QDecisionTree`, `QGbdt`) over a node pool that can live in flash, with int8, uint8 or int16 thresholds.
+- Two importers (in the repository, not the crate) that write `no_std` Rust modules: one for a trained PyTorch `nn.Sequential`, one for scikit-learn, XGBoost and LightGBM tree models.
 
 The library is `no_std`, allocation-free, has no dependencies, and is `#![forbid(unsafe_code)]`.
 
@@ -43,7 +44,7 @@ The examples only exercise the paths they use, so the arithmetic gets more:
 
 - **A differential oracle**, ported from tinymind (C++)'s, checks every Q-format operation against an exact 64-bit reference. For Q8.8 it is exhaustive: every pair of values, about four billion, in roughly fifteen seconds.
 - **Overflow checks on, in release.** Rust overflow is not undefined behaviour, but release builds wrap silently, so a plain `+` that should have been `wrapping_add` gives the right answer and passes. The exhaustive run is built with `overflow-checks = true`, which turns that mistake into a panic. I planted one to make sure: it passed with checks off and failed with them on.
-- **Kani proofs** (56 harnesses) for every input rather than a sample: add and subtract wrap, multiply floors then wraps, for six Q formats; the int8 requantizer's single-rounding fast path equals gemmlowp's two-step rounding wherever it is used; and the requantizer, dense layers, tables, softmax and decision trees never panic, whatever their parameters or model.
+- **Kani proofs** (56 harnesses) for every input rather than a sample: add and subtract wrap, multiply floors then wraps, for six Q formats; the int8 requantizer's single-rounding fast path equals gemmlowp's two-step rounding wherever it is used; and the requantizer, dense layers, tables and softmax never panic, whatever their parameters, and the decision trees never panic for any field values of small node pools.
 
 One thing Kani could not do: prove that 64-bit fixed-point division truncates toward zero. The symbolic division timed out after five minutes with two different SAT solvers. That property is covered by the oracle instead, exhaustively for Q8.8.
 

@@ -25,7 +25,7 @@ Parts that no tinymind (C++) example exercises are compared through small C++ pr
 - **Int8 softmax**: tinymind (C++)'s TFLite-exact softmax and its calibration over 504 calibrations and row lengths from 1 to 511, plus the golden rows tinymind (C++)'s tests take from the TensorFlow Lite Micro reference kernel.
 - **Decision trees**: tinymind (C++)'s `QDecisionTree` and `QGBDT` over 72 random ensembles with int8, uint8 and int16 thresholds, base scores, tied classes and inputs on the thresholds.
 - **PyTorch importer**: the same models imported with tinymind (C++)'s importer and with this repository's, run on both runtimes.
-- **Tree importer**: 16 scikit-learn, XGBoost and LightGBM models imported with both importers must give identical integer trees, and each output must match on its own runtime; two models for the UCI Wine data run on both runtimes with byte-identical output.
+- **Tree importer**: 18 scikit-learn, XGBoost and LightGBM models imported with both importers must give identical integer trees, and each output must match on its own runtime; two models for the UCI Wine data run on both runtimes with byte-identical output.
 
 Fixed-point arithmetic makes this demanding. A multiply truncates, so `(a * b) * c` and `a * (b * c)` can differ in the last bit, and one bit early in training becomes a different weight trajectory. The port keeps the C++ operation order in every expression, and repeats details that do not affect the result's quality but do affect its bits, such as a random draw the C++ makes for a connection it never uses.
 

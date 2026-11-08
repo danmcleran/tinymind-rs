@@ -23,17 +23,17 @@ SOFTWARE.
 from __future__ import annotations
 
 """
-Tree-ensemble importer: scikit-learn / XGBoost / LightGBM -> tinymind (Rust).
+Tree-ensemble importer: scikit-learn / XGBoost / LightGBM -> tinymind-rs (Rust).
 
-A port of tinymind's apps/import_trees/tinymind_import_trees.py that writes a
+A port of tinymind (C++)'s apps/import_trees/tinymind_import_trees.py that writes a
 Rust module for the `tinymind` crate instead of a C++ header. Reading the
 model, quantizing features and thresholds, scaling the leaves and measuring
-the base score are tinymind's code, unchanged, so a model imported here has
-the same integer trees as the same model imported with tinymind; only the
+the base score are tinymind (C++)'s code, unchanged, so a model imported here has
+the same integer trees as the same model imported with tinymind (C++); only the
 output is Rust. The module is integer-only and `no_std`, and gives each model
 two equivalent forms: a node pool walked by `tinymind::tree` (`forward`,
 `predict`), and the same trees compiled to nested `if`s (`forward_inline`,
-`predict_inline`, tinymind's QTreeInlineEval).
+`predict_inline`, tinymind (C++)'s QTreeInlineEval).
 
 Supported models:
 
@@ -43,7 +43,7 @@ Supported models:
   XGBoost       XGBClassifier / XGBRegressor / Booster (gbtree)
   LightGBM      LGBMClassifier / LGBMRegressor / Booster
 
-How the integer model is built (tinymind's rules):
+How the integer model is built (tinymind (C++)'s rules):
 
   * Features are quantized per feature onto an integer grid,
     q = round(x / scale) + zero_point, in int8, uint8 or int16
