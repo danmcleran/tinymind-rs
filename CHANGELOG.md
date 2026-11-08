@@ -7,6 +7,15 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- `NeuralNetwork` and `Dense`: trainable networks with any number of hidden
+  layers (tinymind's `NeuralNetwork<..., HiddenLayers<...>, ...>`), written as a
+  tuple of 1 to 8 `Dense` layers whose sizes the compiler checks. Each layer
+  has its own activation. Training is SGD with momentum, bit-identical to
+  tinymind's network with the same initial weights, and to
+  `MultilayerPerceptron` for one hidden layer.
+
 ## [0.1.2] - 2026-11-07
 
 ### Added

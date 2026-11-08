@@ -29,7 +29,7 @@ pub(crate) struct Connection<V> {
 
 impl<V: Copy> Connection<V> {
     /// C++ `setDeltaWeight`: the old delta becomes the previous delta.
-    fn set_delta_weight(&mut self, value: V) {
+    pub(crate) fn set_delta_weight(&mut self, value: V) {
         self.previous_delta_weight = self.delta_weight;
         self.delta_weight = value;
     }
@@ -506,7 +506,10 @@ fn weighted_sum<V: Fixed, const N: usize, const C: usize>(
 
 /// SGD with momentum and "acceleration" (C++ `updateConnectionWeightsImpl`, SGD path):
 /// `dw = lr * g + momentum * dw[t-1] + acceleration * dw[t-2]`, `w += dw`.
-fn update_connection<V: Fixed>(c: &mut Connection<V>, (lr, momentum, acceleration): (V, V, V)) {
+pub(crate) fn update_connection<V: Fixed>(
+    c: &mut Connection<V>,
+    (lr, momentum, acceleration): (V, V, V),
+) {
     let new_delta_weight =
         (lr * c.gradient) + (momentum * c.delta_weight) + (acceleration * c.previous_delta_weight);
     let current_weight = c.weight;

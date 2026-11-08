@@ -16,6 +16,13 @@ Three of tinymind's examples are ported, and every file they write must be byte-
 - **Iris**: stdout, the loss curve, the per-sample test predictions and the confusion matrix. Its input is the dataset file tinymind ships with the example, checked byte for byte against tinymind's copy.
 - **Int8 XOR**: stdout and the decision surface of a PyTorch-trained network running in int8. tinymind's int8 path matches TensorFlow Lite's reference kernels, so this also ties the Rust port to TFLite's arithmetic on these cases.
 
+Parts that no tinymind example exercises are compared through small C++ programs built on tinymind's library (in `scripts/cpp/`), whose output must match the Rust port's in the same way:
+
+- **Networks with several hidden layers**: tinymind's `NeuralNetwork` with two and three hidden layers, in both formats, trained for thousands of steps, with a hash of every weight after every step.
+- **Inference-only networks**: tinymind's network built with `IsTrainable = false`, loaded with the same weights as the Rust `InferencePerceptron`.
+- **Int8 softmax**: tinymind's TFLite-exact softmax and its calibration over 504 calibrations and row lengths from 1 to 511, plus the golden rows tinymind's tests take from the TensorFlow Lite Micro reference kernel.
+- **PyTorch importer**: the same models imported with tinymind's importer and with this repository's, run on both runtimes.
+
 Fixed-point arithmetic makes this demanding. A multiply truncates, so `(a * b) * c` and `a * (b * c)` can differ in the last bit, and one bit early in training becomes a different weight trajectory. The port keeps the C++ operation order in every expression, and repeats details that do not affect the result's quality but do affect its bits, such as a random draw the C++ makes for a connection it never uses.
 
 ## How it is checked

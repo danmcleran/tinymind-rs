@@ -1,0 +1,44 @@
+q16.16 2-4-4-1 step=500 error=505 hash=0xDB3E5993
+q16.16 2-4-4-1 step=1000 error=72 hash=0xCA132C3E
+q16.16 2-4-4-1 step=1500 error=41 hash=0x2E450FB8
+q16.16 2-4-4-1 step=2000 error=10 hash=0x985415C2
+q16.16 2-4-4-1 step=2500 error=8 hash=0x9FA7169F
+q16.16 2-4-4-1 step=3000 error=15 hash=0xEFA7F374
+q16.16 2-4-4-1 step=3500 error=15 hash=0x53DC51FD
+q16.16 2-4-4-1 step=4000 error=4 hash=0x64D36922
+q16.16 2-4-4-1 final0 546
+q16.16 2-4-4-1 final1 546
+q16.16 2-4-4-1 final2 64679
+q16.16 2-4-4-1 final3 889
+q8.8 2-4-4-1 step=500 error=82 hash=0x57873889
+q8.8 2-4-4-1 step=1000 error=72 hash=0xCAB49391
+q8.8 2-4-4-1 step=1500 error=25 hash=0x0B726B47
+q8.8 2-4-4-1 step=2000 error=139 hash=0xFB3F4CB1
+q8.8 2-4-4-1 step=2500 error=160 hash=0x85803061
+q8.8 2-4-4-1 step=3000 error=25 hash=0xC5CB1ADB
+q8.8 2-4-4-1 step=3500 error=133 hash=0xF410F0DF
+q8.8 2-4-4-1 step=4000 error=254 hash=0x7CCE4E72
+q8.8 2-4-4-1 final0 255
+q8.8 2-4-4-1 final1 255
+q8.8 2-4-4-1 final2 255
+q8.8 2-4-4-1 final3 255
+q16.16 4-8-6-5-3 step=500 error=20845 hash=0xA91F898F
+q16.16 4-8-6-5-3 step=1000 error=4169 hash=0x46EE2C9A
+q16.16 4-8-6-5-3 step=1500 error=2 hash=0xEC562AA0
+q16.16 4-8-6-5-3 step=2000 error=0 hash=0x433D4CC5
+q16.16 4-8-6-5-3 step=2500 error=19 hash=0xF44920A2
+q16.16 4-8-6-5-3 step=3000 error=17328 hash=0x3B5F7F34
+q16.16 4-8-6-5-3 final0 65352 412 162
+q16.16 4-8-6-5-3 final1 15953 30435 18855
+q16.16 4-8-6-5-3 final2 15953 30435 18855
+q16.16 4-8-6-5-3 final3 65352 764 162
+q8.8 4-8-6-3 step=500 error=58 hash=0x468751A5
+q8.8 4-8-6-3 step=1000 error=55 hash=0x639C2BF3
+q8.8 4-8-6-3 step=1500 error=55 hash=0x158A4235
+q8.8 4-8-6-3 step=2000 error=54 hash=0x23E21EF5
+q8.8 4-8-6-3 step=2500 error=43 hash=0x67B3C392
+q8.8 4-8-6-3 step=3000 error=170 hash=0x7EE517C9
+q8.8 4-8-6-3 final0 255 255 0
+q8.8 4-8-6-3 final1 255 0 0
+q8.8 4-8-6-3 final2 0 0 255
+q8.8 4-8-6-3 final3 255 0 255

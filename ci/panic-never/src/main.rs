@@ -12,7 +12,8 @@ use tinymind::int8::{self, QDense, QDensePerChannel, QSoftmax, Requantizer};
 use tinymind::rand::GlibcRand;
 
 use tinymind::{
-    Activation, Fixed, InferencePerceptron, MultilayerPerceptron, Q8_8, Q16_16, Relu, Sigmoid, Tanh,
+    Activation, Dense, Fixed, InferencePerceptron, MultilayerPerceptron, NeuralNetwork, Q8_8,
+    Q16_16, Relu, Sigmoid, Tanh,
 };
 
 /// Every `QValue` operation on run-time operands.
@@ -106,6 +107,36 @@ where
     black_box(nn.to_inference());
 }
 
+/// A network with three hidden layers, trained and read the same way.
+fn deep_network<V: Fixed, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V) {
+    let mut rng = GlibcRand::new(black_box(1));
+    let mut nn = NeuralNetwork::<(
+        Dense<V, H, 4, 8>,
+        Dense<V, H, 8, 6>,
+        Dense<V, H, 6, 5>,
+        Dense<V, O, 5, 3>,
+    )>::new(|| raw(rng.next_i32()));
+    nn.set_learning_rate(raw(black_box(8192)));
+    nn.set_momentum_rate(raw(black_box(4096)));
+    for _ in 0..black_box(10) {
+        nn.feed_forward(&black_box([raw(1); 4]));
+        let target = black_box([raw(2); 3]);
+        if black_box(nn.calculate_error(&target)) != V::ZERO {
+            nn.train(&target);
+        }
+    }
+    black_box(nn.learned_values());
+    let layers = nn.layers_mut();
+    black_box((
+        layers.0.weights(),
+        layers.0.bias_weights(),
+        layers.3.outputs(),
+    ));
+    layers.1.set_weights(&black_box([[raw(3); 6]; 8]));
+    layers.2.set_bias_weights(&black_box([raw(3); 5]));
+    black_box(layers.1.weights());
+}
+
 // An inference network holds one value per connection and nothing else, on the
 // target as on the host (the sizes in docs/xor.md).
 const _: () = assert!(size_of::<InferencePerceptron<Q16_16, Tanh, Sigmoid, 2, 4, 1>>() == 68);
@@ -172,6 +203,9 @@ pub extern "C" fn _start() -> ! {
     network::<Q16_16, Tanh, Sigmoid, 2, 4, 1>(Q16_16::from_raw);
     network::<Q8_8, Tanh, Sigmoid, 2, 4, 1>(|r| Q8_8::from_raw(r as i16));
     network::<Q16_16, Relu, Sigmoid, 4, 8, 3>(Q16_16::from_raw);
+    // Multiple hidden layers, both formats.
+    deep_network::<Q16_16, Relu, Sigmoid>(Q16_16::from_raw);
+    deep_network::<Q8_8, Tanh, Sigmoid>(|r| Q8_8::from_raw(r as i16));
     #[allow(clippy::empty_loop)]
     loop {}
 }

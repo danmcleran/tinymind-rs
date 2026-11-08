@@ -2,8 +2,9 @@
 //! value types are ported; tinymind also runs its networks with `float` and `double`.
 //!
 //! Scope: Q16.16 and Q8.8 arithmetic, ReLU and the tanh and sigmoid lookup-table
-//! activations, a one-hidden-layer perceptron that trains on the device
-//! ([`MultilayerPerceptron`]) or only runs trained weights
+//! activations, trainable networks with any number of hidden layers
+//! ([`NeuralNetwork`] over [`Dense`] layers), a one-hidden-layer perceptron that
+//! trains on the device ([`MultilayerPerceptron`]) or only runs trained weights
 //! ([`InferencePerceptron`], tinymind's `IsTrainable = false`), and int8
 //! affine-quantized inference ([`int8`]). Every part produces the same bits as
 //! tinymind's C++. The library is `no_std` and allocation-free, like tinymind's
@@ -52,6 +53,7 @@ extern crate std;
 pub mod activation;
 pub mod int8;
 mod lut;
+pub mod network;
 pub mod neuralnet;
 pub mod qformat;
 pub mod rand;
@@ -60,5 +62,6 @@ pub mod rand;
 mod kani_proofs;
 
 pub use activation::{Activation, Relu, Sigmoid, Tanh};
+pub use network::{Dense, Layers, NeuralNetwork};
 pub use neuralnet::{InferencePerceptron, MultilayerPerceptron};
 pub use qformat::{Fixed, Q8_8, Q16_16, QValue};
