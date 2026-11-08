@@ -121,7 +121,12 @@ def quantize_multiplier(ratio: float) -> tuple[int, int]:
     if q == (1 << 31):
         q >>= 1
         exponent += 1
-    return int(q), -int(exponent)
+    shift = -int(exponent)
+    # Keep the shift in -31..31, Requantizer's contract: a smaller ratio
+    # rounds every int32 accumulator to 0, a larger left shift saturates.
+    if shift > 31:
+        return 0, 0
+    return int(q), max(shift, -31)
 
 
 # ----------------------------------------------------------------------------

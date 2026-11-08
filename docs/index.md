@@ -34,7 +34,7 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-Early. The port covers what four of tinymind's examples use (XOR, iris, energy efficiency and an int8 XOR), plus the int8 softmax:
+Early. The port covers what four of tinymind's examples use (XOR, iris, energy efficiency and an int8 XOR), plus networks with several hidden layers, the Adam and RMSprop optimizers and the int8 softmax:
 
 | Ported | Not yet ported |
 |---|---|

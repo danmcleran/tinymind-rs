@@ -115,7 +115,9 @@ pub fn multiply_by_quantized_multiplier(x: i32, multiplier: i32, shift: i32) -> 
 pub struct Requantizer {
     /// Q0.31 fixed-point multiplier, normally in `[2^30, 2^31)`.
     pub multiplier: i32,
-    /// Power-of-two exponent: positive divides, negative multiplies.
+    /// Power-of-two exponent: positive divides, negative multiplies. tinymind's
+    /// contract is `-31..=31` (what `calibration::quantize_multiplier` returns);
+    /// outside it the result is still defined (see the module docs).
     pub shift: i32,
     /// Output tensor zero point.
     pub zero_point: i8,

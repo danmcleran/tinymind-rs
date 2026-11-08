@@ -32,7 +32,8 @@ use crate::qformat::{Fixed, Sqrt};
 pub struct Sgd;
 
 /// Adam (C++ `AdamOptimizer`): per-weight first and second moment estimates
-/// with bias correction for the first 100 steps. Uses the network's learning
+/// with bias correction while its step count (layer updates, see the module
+/// docs) is below 100. Uses the network's learning
 /// rate; the momentum and acceleration rates do not apply.
 ///
 /// C++ `AdamOptimizer<ValueType, B1I, B1F, B2I, B2F, EI, EF>` takes each

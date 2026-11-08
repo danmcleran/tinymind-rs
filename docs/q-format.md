@@ -41,6 +41,7 @@ The port implements tinymind's default policies, `TruncatePolicy` and `WrapPolic
 | `a.div_int(n)` | Division by a whole number, computed in `i64`; not the same as `a / QValue::from_int(n)` |
 | `QValue::from_int(n)` | `n` truncated to the integer bits: in Q8.8, 200 becomes -56 |
 | comparisons | On the raw integer |
+| `a.sqrt()` (trait `Sqrt`) | Floor of the exact root: integer Newton iteration on `raw << FRAC` in the wide type; 0 for zero and negative values |
 
 `Display` prints the raw integer, as the C++ `operator<<` does.
 

@@ -1,4 +1,4 @@
-// tinymind's NeuralNetwork with two and three hidden layers (HiddenLayers<...>),
+// tinymind's NeuralNetwork with one, two and three hidden layers (HiddenLayers<...>),
 // trained with its default SGD with momentum, plus two regressions with a linear
 // output and gradient clipping, and runs with the Adam and RMSprop optimizers. Weights are initialised from
 // glibc rand() as tinymind's examples do; samples come from an LCG. After every

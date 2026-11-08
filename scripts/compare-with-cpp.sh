@@ -132,7 +132,7 @@ for f in stdout.txt xor_decision_surface.csv; do
 done
 
 echo "== deep_mlp"
-# tinymind's NeuralNetwork with two and three hidden layers, trained; every weight
+# tinymind's NeuralNetwork with one, two and three hidden layers, trained; every weight
 # hashed after every step. tests/deep_mlp.rs checks the Rust network against the
 # committed golden, so the golden must still be what the C++ prints.
 mkdir -p "$TMP/deep_mlp"
