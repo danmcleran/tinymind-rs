@@ -6,8 +6,10 @@
 //! The C++ network is assembled from layer, neuron, connection, gradient-manager
 //! and training-policy templates, stored in placement-new byte buffers. This port
 //! keeps only what the default MLP configuration actually executes
-//! (`FixedPointTransferFunctions` with default policies, batch size 1, no
-//! recurrence, one hidden layer) and stores everything in plain fixed-size arrays:
+//! (`FixedPointTransferFunctions` with default policies, plus optional
+//! `GradientClipByValue`; batch size 1, no recurrence, one hidden layer; for more
+//! hidden layers see [`NeuralNetwork`](crate::NeuralNetwork)) and stores everything
+//! in plain fixed-size arrays:
 //! no heap, so the crate stays `#![no_std]`.
 //!
 //! Every arithmetic step keeps the C++ operation order, because fixed-point

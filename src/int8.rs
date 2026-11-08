@@ -1,5 +1,6 @@
 //! Int8 affine-quantized inference, ported from tinymind `cpp/qaffine.hpp`,
-//! `cpp/qdense.hpp` and `cpp/qactivations.hpp`.
+//! `cpp/qdense.hpp`, `cpp/qpointwiseconv2d.hpp` (per-channel dense),
+//! `cpp/qactivations.hpp` and `cpp/qsoftmax_fixedpoint.hpp`.
 //!
 //! This is the TFLite / CMSIS-NN quantization model, separate from the Q-format
 //! [`QValue`](crate::QValue) pipeline: a real value is `scale * (q - zero_point)`,

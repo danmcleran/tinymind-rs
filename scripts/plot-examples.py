@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Render the example plots for the docs site: xor in both formats, and iris.
+"""Render the example plots for the docs site: xor in both formats, iris and
+energy efficiency.
 
-Runs the Rust `xor` and `iris` examples (which write byte-identical output to
+Runs the Rust `xor`, `iris` and `energy_efficiency` examples (which write byte-identical output to
 the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
 from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
@@ -28,6 +29,7 @@ import tinymind_plot as tp  # noqa: E402
 
 XOR = os.path.join(ROOT, "target", "release", "examples", "xor")
 IRIS = os.path.join(ROOT, "target", "release", "examples", "iris")
+ENERGY = os.path.join(ROOT, "target", "release", "examples", "energy_efficiency")
 IRIS_NAMES = ["setosa", "versicolor", "virginica"]
 OUT = os.path.join(ROOT, "docs", "assets", "plots")
 FORMATS = [("q16.16", "Q16.16", "q16_16"), ("q8.8", "Q8.8", "q8_8")]
@@ -121,8 +123,51 @@ def iris(out_dir, png):
     tp.plt.close(fig)
 
 
+def _regression_metrics(true, pred):
+    n = len(true)
+    mae = sum(abs(pred[i] - true[i]) for i in range(n)) / n
+    mean_true = sum(true) / n
+    ss_res = sum((pred[i] - true[i]) ** 2 for i in range(n))
+    ss_tot = sum((true[i] - mean_true) ** 2 for i in range(n))
+    r2 = 1.0 - ss_res / ss_tot if ss_tot > 1e-9 else 0.0
+    return mae, r2
+
+
+def _predicted_vs_actual(ax, true, pred, name, color):
+    mae, r2 = _regression_metrics(true, pred)
+    lo = min(min(true), min(pred))
+    hi = max(max(true), max(pred))
+    ax.plot([lo, hi], [lo, hi], color=tp.MUTED, linestyle="--", linewidth=1.2, label="y = x")
+    ax.scatter(true, pred, s=30, color=color, edgecolor="white", linewidth=0.5,
+               label="test samples")
+    ax.set_xlabel("actual %s" % name)
+    ax.set_ylabel("predicted %s" % name)
+    ax.set_title("%s  (MAE=%.2f, R²=%.3f)" % (name, mae, r2), fontsize=10, color=tp.MUTED)
+    ax.legend()
+
+
+def energy(out_dir, png):
+    """The figure tinymind's examples/energy_efficiency/plot.py draws: loss and
+    predicted-vs-actual for both loads."""
+    loss, _ = tp.read_csv(os.path.join(out_dir, "energy_loss.csv"))
+    pred, _ = tp.read_csv(os.path.join(out_dir, "energy_pred.csv"))
+
+    tp.apply_style()
+    fig, (ax1, ax2, ax3) = tp.plt.subplots(1, 3, figsize=(15, 4.6))
+    fig.suptitle("tinymind-rs: Energy Efficiency regression (Q16.16 MLP 8-16-2)",
+                 fontsize=14, fontweight="bold")
+    tp.line(ax1, loss["iter"], {"avg |error|": loss["avg_err"]},
+            xlabel="training iteration", ylabel="average |error|")
+    ax1.set_title("training loss", fontsize=10, color=tp.MUTED)
+    _predicted_vs_actual(ax2, pred["y1_true"], pred["y1_pred"], "heating load", tp.PALETTE[3])
+    _predicted_vs_actual(ax3, pred["y2_true"], pred["y2_pred"], "cooling load", tp.PALETTE[0])
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(png)
+    tp.plt.close(fig)
+
+
 def main():
-    if not (os.path.exists(XOR) and os.path.exists(IRIS)):
+    if not (os.path.exists(XOR) and os.path.exists(IRIS) and os.path.exists(ENERGY)):
         sys.exit("build first: cargo build --release --examples")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
@@ -140,6 +185,12 @@ def main():
                        check=True, stdout=subprocess.DEVNULL)
         png = os.path.join(OUT, "iris_classifier.png")
         iris(tmp, png)
+        print("wrote", os.path.relpath(png, ROOT))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([ENERGY, tmp, os.path.join(ROOT, "data", "ENB2012_data.csv")],
+                       check=True, stdout=subprocess.DEVNULL)
+        png = os.path.join(OUT, "energy_regression.png")
+        energy(tmp, png)
         print("wrote", os.path.relpath(png, ROOT))
 
 

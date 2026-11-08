@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris, the int8 pytorch_quant xor, the PyTorch importer's example), run both, and cmp every output file. Set TINYMIND_DIR to the
+# iris, energy_efficiency, the int8 pytorch_quant xor), plus the C++ programs in
+# scripts/cpp/ (deep networks, inference-only networks, the int8 softmax sweep,
+# the PyTorch importer's models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail

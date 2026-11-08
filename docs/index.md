@@ -14,6 +14,7 @@ nav_order: 1
 
 [XOR example]({{ site.baseurl }}/xor){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Iris example]({{ site.baseurl }}/iris){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Energy example]({{ site.baseurl }}/energy){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Int8 inference]({{ site.baseurl }}/int8){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [API reference]({{ site.baseurl }}/api/tinymind/){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View on GitHub](https://github.com/danmcleran/tinymind-rs){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -53,7 +54,8 @@ cargo run --release --example xor -- --format q8.8 output    # the same network 
 cargo run --release --example iris -- output                 # iris species classifier
 cargo run --release --example energy_efficiency -- output    # building energy-load regression
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
-cargo test                                               # unit, doc and golden tests
+cargo run --release --features std --example imported_mlp    # models written by the PyTorch importer
+cargo test --all-features                                # unit, doc and golden tests
 ```
 
 To use the library from another project:

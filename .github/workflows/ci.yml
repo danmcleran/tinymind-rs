@@ -68,6 +68,11 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --no-deps --all-features
       # The library claims no_std for microcontrollers; build it for two of them.
+      # Examples in the quick starts, site links, nav order, CHANGELOG entry for
+      # the version, data attribution. Prose is checked by review (CLAUDE.md).
+      - name: Docs are current (mechanical checks)
+        if: success() || failure()
+        run: scripts/check-docs.sh
       - name: Build library for Cortex-M4F and Cortex-M0+
         if: success() || failure()
         run: |

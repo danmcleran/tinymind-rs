@@ -1,7 +1,7 @@
 ---
 title: Equivalence with tinymind
 layout: default
-nav_order: 7
+nav_order: 8
 ---
 
 # Equivalence with tinymind
@@ -28,10 +28,11 @@ Fixed-point arithmetic makes this demanding. A multiply truncates, so `(a * b) *
 
 ## How it is checked
 
-- **Golden tests.** `cargo test` runs the examples (xor in each format, and iris) and compares their output with goldens produced by the C++ build. The goldens come only from C++ runs, never from the Rust output, or the test would prove nothing.
-- **Live comparison.** `scripts/compare-with-cpp.sh` builds tinymind's C++ examples from a tinymind checkout with the flags their Makefiles use, runs both programs and compares every output file. The Q8.8 xor build is tinymind's example with its two bit-count constants set to 8; nothing else changes.
+- **Golden tests.** `cargo test --all-features` runs the examples (xor in each format, iris, energy efficiency, int8 xor and the importer's models) and the comparisons above, and checks their output against goldens produced by the C++ build. The goldens come only from C++ runs, never from the Rust output, or the test would prove nothing.
+- **Live comparison.** `scripts/compare-with-cpp.sh` builds tinymind's C++ examples from a tinymind checkout with the flags their Makefiles use, and the C++ programs in `scripts/cpp/`, runs both sides and compares every output file: 29 comparisons today. The Q8.8 xor build is tinymind's example with its two bit-count constants set to 8; nothing else changes.
 - **Pinned tinymind commit.** The file `TINYMIND_REF` records the tinymind commit the port was last verified against. CI checks out exactly that commit.
 - **Arithmetic oracle.** Ported from tinymind's own oracle: every `QValue` operation is checked against an exact integer reference, on edge values and a random sample for nine formats, and on every pair of operands for Q8.8, about 26 billion checks per pull request. That run keeps Rust's integer-overflow checks on, so an overflow that happens to give the right answer still fails. A nightly job repeats the sample with a fresh seed.
-- **Proofs.** [Kani](https://model-checking.github.io/kani/), a model checker built on the same CBMC engine tinymind uses for its own proofs, checks properties for every possible input rather than a sample: that addition, subtraction and multiplication wrap and round exactly as specified, that division never panics, and that tanh and sigmoid never index outside their tables or leave their range.
+- **Proofs.** [Kani](https://model-checking.github.io/kani/), a model checker built on the same CBMC engine tinymind uses for its own proofs, checks properties for every possible input rather than a sample: that addition, subtraction and multiplication wrap and round exactly as specified, that division never panics, that tanh and sigmoid never index outside their tables or leave their range, that the int8 requantizer's fast path equals gemmlowp's two-step rounding, and that the requantizer, the int8 dense layers, the tables and the softmax never panic, whatever their parameters.
+- **No reachable panics.** CI links a Cortex-M firmware image that calls every public function and has no panic handler, for Cortex-M0+ and M4F at three optimisation levels; a panic path that survives optimisation fails the build.
 - **Tables.** CI regenerates the activation lookup tables from tinymind's source and fails if they differ from the committed ones.
 - **CI and branch protection.** Every pull request runs all of this, and a pull request cannot merge unless it passes. Each check was shown to fail on a deliberately planted defect before it was trusted.

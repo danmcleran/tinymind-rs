@@ -1,13 +1,14 @@
 //! A bit-exact re-implementation of glibc's `srand()`/`rand()`.
 //!
-//! The C++ XOR example seeds `rand()` with 7 and draws both its initial weights and
-//! its training samples from it. Reproducing the C++ run bit-for-bit therefore
-//! needs the identical random sequence. glibc's default generator is the TYPE_3
+//! tinymind's examples (xor, iris, energy efficiency) draw their initial weights
+//! from `rand()` seeded with 1, then re-seed it with 7 for the shuffle and the
+//! training samples. Reproducing a C++ run bit-for-bit therefore needs the
+//! identical random sequences. glibc's default generator is the TYPE_3
 //! additive feedback generator: `r[i] = r[i-3] + r[i-31]` (mod 2^32), seeded by a
 //! Park-Miller LCG, with the first 310 outputs discarded and the low bit dropped.
 //!
-//! This is not part of tinymind itself; it exists so the example can be compared
-//! against the C++ build on Linux/glibc.
+//! This is not part of tinymind itself; it exists so the examples can be compared
+//! against the C++ builds on Linux/glibc.
 
 /// glibc `rand()` state. `next()` returns values in `0..=0x7FFF_FFFF`, like `rand()`.
 #[derive(Clone, Debug)]
