@@ -268,6 +268,8 @@ if cmp -s "$TMP/kws_int8/tensors.txt" "$ROOT/tests/golden/kws_int8/tensors.txt";
   same "kws_int8 tensors.txt (C++ vs tests/golden/kws_int8)"
 else
   echo "DIFFERENT  kws_int8 tensors.txt (C++ vs tests/golden/kws_int8)"
+  # Which tensors: one line each, so the names say where it starts.
+  diff "$ROOT/tests/golden/kws_int8/tensors.txt" "$TMP/kws_int8/tensors.txt" | cut -c1-200 | head -20
   status=1
 fi
 cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test kws_int8_golden >/dev/null 2>&1 \
