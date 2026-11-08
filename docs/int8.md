@@ -52,6 +52,25 @@ cargo run --release --features std --example int8_xor -- output
 
 Its stdout and decision surface are byte-identical to the C++ example's, including the sigmoid table, which both build from the same float math.
 
+## Example: a keyword-spotting shaped CNN
+
+The `kws_cortex_m_int8` example is a port of tinymind (C++)'s example of the same name: a network shaped like a small keyword spotter, with synthetic weights, run once with a per-layer report.
+
+```
+input [20 x 20 x 1] -> QConv2D 3x3, 8 filters    -> [18 x 18 x 8]
+                    -> QMaxPool2D 2x2            -> [9 x 9 x 8]
+                    -> QDepthwiseConv2D 3x3      -> [7 x 7 x 8]   (one requantizer per channel)
+                    -> QPointwiseConv2D 8 -> 16  -> [7 x 7 x 16]
+                    -> QGlobalAvgPool2D          -> [16]
+                    -> QPointwiseConv2D 16 -> 10 -> 10 logits
+```
+
+```bash
+cargo run --release --features std --example kws_cortex_m_int8
+```
+
+The weights and the input are drawn from C++'s `std::mt19937` through libstdc++'s `uniform_real_distribution<float>`, reproduced in the example, and calibrated with `calibration::per_channel_symmetric_scales`, `build_requantizer` and `quantize`. Every tensor (the quantized input, every weight table and requantizer, and each layer's output) is byte-identical to the C++ example's, which CI compiles unchanged and dumps. The report's sizes and timings are each build's own (the Rust max-pool layer has no state, so it reports 0 bytes where the C++ empty struct reports 1). With these synthetic weights the signal shrinks at every layer and the ten logits come out 0 in both versions; the comparison of the intermediate tensors is what checks the layers.
+
 ## Importing a PyTorch model
 
 `tools/import_pytorch` in the repository turns a trained `torch.nn.Sequential` of `Linear`, `ReLU`, `Sigmoid`, `Tanh` and `Softmax` layers into a Rust module: int8 weights and biases, integer requantizers, baked activation tables and a `forward` function. The generated module is integer-only and `no_std`, so nothing is computed on the device at startup.
@@ -73,7 +92,7 @@ It is a port of tinymind (C++)'s PyTorch importer with a Rust back end: calibrat
 
 ## How it is checked
 
-- **Golden output** from the C++ example, and the live comparison in `scripts/compare-with-cpp.sh`, as for the other examples.
+- **Golden output** from the C++ examples (for `kws_cortex_m_int8`, every tensor), and the live comparison in `scripts/compare-with-cpp.sh`, as for the other examples.
 - **tinymind (C++)'s own known answers** for the requantizer and dense layer, including its check of the requantizer's saturating path against an exact 64-bit computation over more than ten thousand cases.
 - **Kani proofs** for every input: the requantizer's fast single-rounding path equals the standard two-step rounding (gemmlowp's, which TFLite uses) wherever it is used, and the requantizer, the dense layer, the convolutions, the pooling layers, the table lookup and the softmax never panic, whatever their parameters; the pooling divide rounds half away from zero.
 - **Convolution and pooling against tinymind (C++)**: 57 layer configurations over random tensors, among them every path the C++ takes in its portable build (windows gathered into patches and read row by row, several tiles per output row, odd filter counts and output widths, strides above the kernel size, asymmetric padding and windows wholly in the padding), with requantizers on both paths and pooling ranges with `qmin > qmax`. Ten planted defects (padding with 0 instead of the zero point, swapped strides, one requantizer for every filter, rounding toward zero, ...) each fail it. (tinymind (C++)'s Arm DSP kernels add the same products in another order, so they give the same integers; the comparison runs the portable build.)

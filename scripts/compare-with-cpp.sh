@@ -253,6 +253,27 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --test conv_sweep >/dev/null 2>
   && same "conv Rust vs tests/golden/conv" \
   || { echo "DIFFERENT  conv Rust vs tests/golden/conv"; status=1; }
 
+echo "== kws_int8"
+# tinymind's examples/kws_cortex_m_int8, compiled unchanged inside
+# scripts/cpp/kws_int8_dump.cpp, which prints every tensor (its own stdout
+# carries host timings). tests/kws_int8_golden.rs checks the Rust port against
+# the committed golden, so the golden must still be what the C++ prints.
+mkdir -p "$TMP/kws_int8"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/kws_int8/kws_int8_dump" "$ROOT/scripts/cpp/kws_int8_dump.cpp" \
+  -I"$TINYMIND_DIR/examples/kws_cortex_m_int8" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_QUANTIZATION=1
+"$TMP/kws_int8/kws_int8_dump" > "$TMP/kws_int8/tensors.txt"
+if cmp -s "$TMP/kws_int8/tensors.txt" "$ROOT/tests/golden/kws_int8/tensors.txt"; then
+  same "kws_int8 tensors.txt (C++ vs tests/golden/kws_int8)"
+else
+  echo "DIFFERENT  kws_int8 tensors.txt (C++ vs tests/golden/kws_int8)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test kws_int8_golden >/dev/null 2>&1 \
+  && same "kws_int8 Rust vs tests/golden/kws_int8" \
+  || { echo "DIFFERENT  kws_int8 Rust vs tests/golden/kws_int8"; status=1; }
+
 echo "== imported_mlp (PyTorch importer)"
 # Needs a Python with numpy (PYTHON, default python3), e.g. a venv.
 PYTHON="${PYTHON:-python3}"
@@ -368,6 +389,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/trees/cpp.txt" "$KEEP_CPP_OUTPUT/imported_trees/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/tree"
   cp "$TMP/tree/stdout.txt" "$KEEP_CPP_OUTPUT/tree/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/kws_int8"
+  cp "$TMP/kws_int8/tensors.txt" "$KEEP_CPP_OUTPUT/kws_int8/tensors.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/conv"
   cp "$TMP/conv/stdout.txt" "$KEEP_CPP_OUTPUT/conv/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"

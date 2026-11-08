@@ -45,6 +45,14 @@ required-features = ["std"]
 name = "gbdt_tabular_int8"
 required-features = ["std"]
 
+[[example]]
+name = "kws_cortex_m_int8"
+required-features = ["std"]
+
+[[test]]
+name = "kws_int8_golden"
+required-features = ["std"]
+
 [[test]]
 name = "gbdt_golden"
 required-features = ["std"]

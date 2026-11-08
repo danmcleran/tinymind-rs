@@ -102,6 +102,31 @@ pub fn affine_params_asymmetric(fmin: f32, fmax: f32, qmin: i32, qmax: i32) -> (
     (scale, zp as i32)
 }
 
+/// One symmetric weight scale per output channel, `max |w| / qmax` over each
+/// channel's weights (C++ `computePerChannelSymmetricScales`), as TFLite
+/// quantizes depthwise and convolution weights. A channel of zeros, or a
+/// `qmax` of 0 or below, gets scale 1.0.
+pub fn per_channel_symmetric_scales<const C: usize, const N: usize>(
+    weights: &[[f32; N]; C],
+    qmax: i32,
+) -> [f32; C] {
+    let mut scales = [1.0f32; C];
+    for (scale, channel) in scales.iter_mut().zip(weights) {
+        // Comparisons as the C++ writes them, so a NaN is skipped the same way.
+        let mut absmax = 0.0f32;
+        for &v in channel {
+            let a = if v < 0.0 { -v } else { v };
+            if a > absmax {
+                absmax = a;
+            }
+        }
+        if absmax != 0.0 && qmax > 0 {
+            *scale = absmax / qmax as f32;
+        }
+    }
+    scales
+}
+
 /// Quantize a real value to int8: `round(x / scale) + zero_point`, ties away
 /// from zero (as TFLite), saturated to `[qmin, qmax]` (C++ `quantize<int8_t>`).
 pub fn quantize(x: f32, scale: f32, zero_point: i32, qmin: i32, qmax: i32) -> i8 {

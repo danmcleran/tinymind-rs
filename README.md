@@ -66,6 +66,7 @@ cargo run --release --example anomaly -- output              # anomaly detection
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo run --release --features std --example imported_mlp    # two models written by the PyTorch importer
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
+cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN, per-layer report
 cargo run --release --example imported_trees                 # scikit-learn tree models via the tree importer
 cargo test --all-features                                # unit, doc and golden tests against the C++ output
 PYTHON=<python with numpy and scikit-learn> scripts/compare-with-cpp.sh   # rebuild the C++ side and diff everything
@@ -89,7 +90,10 @@ there. The `int8_xor` example (feature
 quantizes a five-tree ensemble onto an int8 feature grid, compares it with the
 float trees over a 48x48 grid and writes `gbdt_tabular_int8.csv` (the predicted
 class at each point); `--golden` before the directory prints tinymind (C++)'s compact
-golden report instead. The `imported_trees` example runs two scikit-learn
+golden report instead. The `kws_cortex_m_int8` example (feature `std`) runs a
+keyword-spotting shaped int8 network (convolution, max pooling, depthwise and
+pointwise convolution, global average pooling, a dense head) with synthetic
+weights and prints each layer's size and time. The `imported_trees` example runs two scikit-learn
 classifiers for the UCI Wine data (CC BY 4.0), written by the tree importer, on
 the held-out samples and on random inputs.
 
@@ -121,6 +125,7 @@ set.
 | `src/tree.rs` | `cpp/qtree.hpp`: quantized decision tree (`QDecisionTree`) and gradient-boosted ensemble (`QGbdt`) over a shared node pool; not the compile-time `QStatic*` forms |
 | `examples/gbdt_tabular_int8.rs` | `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp` |
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
+| `examples/kws_cortex_m_int8.rs` | `examples/kws_cortex_m_int8/kws_cortex_m_int8.cpp` |
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
 | `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer, emitting Rust |
 | `examples/imported_trees.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
@@ -158,6 +163,11 @@ the int8 quantization tiers, SIMD backends, and so on.
   reference kernel's outputs (tinymind (C++)'s unit-test goldens and sweep hashes), and
   `tests/softmax_sweep.rs` against the tinymind (C++) softmax and its calibration
   over 504 calibrations and row lengths 1 to 511.
+- `tests/kws_int8_golden.rs` checks every tensor of the `kws_cortex_m_int8`
+  example (quantized input, weights, requantizers and each layer's output)
+  against `tests/golden/kws_int8/`, printed by tinymind (C++)'s example compiled
+  unchanged (`scripts/cpp/kws_int8_dump.cpp`). The example's own stdout is not
+  compared: it reports host timings and each build's sizes.
 - `tests/conv_sweep.rs` checks the int8 convolution and pooling layers against
   tinymind (C++)'s over random tensors: 13 convolution shapes (per tensor and per
   channel), 7 depthwise, 5 pointwise (both), 5 pooling windows (max and average)
@@ -173,7 +183,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (42 checks today, including
+  example does, runs both sides, and compares every output file (44 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

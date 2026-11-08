@@ -35,7 +35,7 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-Early. The port covers what five of tinymind (C++)'s examples use (XOR, iris, energy efficiency, an int8 XOR and int8 gradient-boosted trees), plus networks with several hidden layers, the Adam and RMSprop optimizers and the int8 softmax:
+Early. The port covers what six of tinymind (C++)'s examples use (XOR, iris, energy efficiency, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, the Adam and RMSprop optimizers, the int8 softmax and the rest of the int8 convolution and pooling layers:
 
 | Ported | Not yet ported |
 |---|---|
@@ -59,6 +59,7 @@ cargo run --release --example anomaly -- output              # autoencoder train
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo run --release --features std --example imported_mlp    # models written by the PyTorch importer
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
+cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN
 cargo run --release --example imported_trees                 # scikit-learn trees via the tree importer
 cargo test --all-features                                # unit, doc and golden tests
 ```
