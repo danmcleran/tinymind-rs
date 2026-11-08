@@ -112,6 +112,18 @@ python3 -I scripts/cpp-name.py --check README.md CHANGELOG.md docs/*.md tools/*/
   bench/README.md src/*.rs src/*/*.rs examples/*.rs examples/common/*.rs >&2 \
   || fail "bare 'tinymind' in prose: run python3 -I scripts/cpp-name.py --fix on those files"
 
+# 12. The dependency lines readers copy (README.md, the site's quick start) ask
+#     for the current version, the minimum that has everything the docs
+#     describe: "0.1" would also accept 0.1.0, and a lockfile pinned to an
+#     older 0.1.x would not upgrade. The release PR bumps them with Cargo.toml.
+for doc in README.md docs/index.md; do
+  deps="$(grep -oE 'tinymind = (\{ version = )?"[^"]*"' "$doc" | sed -E 's/.*"([^"]*)"$/\1/' || true)"
+  [ -n "$deps" ] || fail "$doc has no 'tinymind = \"$version\"' dependency line"
+  for v in $deps; do
+    [ "$v" = "$version" ] || fail "$doc asks for tinymind \"$v\", not \"$version\" (Cargo.toml)"
+  done
+done
+
 # Release mode: the release PR must leave nothing pointing at the old version.
 if [ -n "$release" ]; then
   [ "$version" = "$release" ] || fail "Cargo.toml version is $version, not $release"

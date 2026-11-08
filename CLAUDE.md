@@ -391,7 +391,8 @@ example in both quick starts, the README table and on a site page; every public
 module in the README table and the crate docs; every test suite and tool named
 in the README; site links; distinct `nav_order`; a CHANGELOG entry for the
 version and for every top-level public item added since the last tag; data
-attribution; lowercase project names. `--release X.Y.Z` adds the release PR's
+attribution; lowercase project names; the `tinymind = "X.Y.Z"` lines in README.md
+and docs/index.md equal to the Cargo.toml version. `--release X.Y.Z` adds the release PR's
 checks (version, CHANGELOG heading and links, lockfiles, `As of`, tag free).
 The counts the docs quote are checked where they are computed:
 `scripts/check-counts.sh`, called by `compare-with-cpp.sh` ("N checks today")

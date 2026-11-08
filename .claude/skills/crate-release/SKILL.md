@@ -72,8 +72,9 @@ top-level public item is not named in the CHANGELOG.
 a. **Mechanical:** `scripts/check-docs.sh` prints `check-docs: ok`. It checks
    examples (both quick starts, the README table, a site page), public modules
    (README table, crate docs), test suites and tools (README), site links,
-   nav order, data attribution, new public items in the CHANGELOG, and
-   lowercase project names. The two counts the docs quote are checked where
+   nav order, data attribution, new public items in the CHANGELOG,
+   lowercase project names, and the README/site dependency lines asking for
+   the Cargo.toml version. The two counts the docs quote are checked where
    they are computed: run `PYTHON=<venv python> scripts/compare-with-cpp.sh`
    (it ends with `check-counts: comparisons = N ...`) and let CI's kani job
    check the harness count.
@@ -111,7 +112,9 @@ d. **Land the fixes** in a docs PR before the release PR, or in the release PR
 
 On a branch `release-X.Y.Z`:
 
-- `Cargo.toml` `version = "X.Y.Z"`
+- `Cargo.toml` `version = "X.Y.Z"`, and the dependency lines in README.md
+  ("Use it") and docs/index.md to `tinymind = "X.Y.Z"` (the minimum version
+  with everything the docs describe; `check-docs.sh` fails until they match)
 - CHANGELOG: move `[Unreleased]` entries under `## [X.Y.Z] - YYYY-MM-DD`,
   leave `[Unreleased]` empty, update the comparison links at the bottom
 - `cargo update -p tinymind` in `.`, `ci/panic-never` and `bench`
