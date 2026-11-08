@@ -21,6 +21,7 @@ The crate has been run on two microcontroller boards, with the same boards, cloc
 | xor training, Q16.16: all 20,000 steps equal the golden trajectory | match | match |
 | xor training, Q8.8: all 20,000 steps equal the golden trajectory | match | match |
 | anomaly detection: training and every decision equal the host run | match | match |
+| imported decision trees: every score and class on the 54 Wine samples equals the host run | match | match |
 
 The int8 MLP is tinymind (C++)'s 64-32-16-10 digits classifier with per-channel requantizers (`QDensePerChannel`). tinymind (C++) and TensorFlow Lite for Microcontrollers produce the same output hash on these boards, so the Rust port matches both. For training, the board hashes the exact bytes of the weight trajectory the xor example writes, every weight after every step.
 
@@ -68,6 +69,19 @@ The [anomaly-detection example]({{ site.baseurl }}/anomaly) on the boards: an 8-
 | Training, 3,000 steps (signal generation included) | 0.14 s | 4.2 s |
 | One training step | 4,249 cycles | 35,336 cycles |
 | One detection | 1,332 cycles | 8,104 cycles |
+
+## Decision trees, imported from scikit-learn
+
+The [`imported_trees` example]({{ site.baseurl }}/trees) on the boards: a 90-tree gradient-boosted model (int8 inputs) and a 15-tree voting forest (int16), both 53 of 54 correct on the held-out Wine samples, as on the host. Cycles for one prediction:
+
+| | F411 | L031 |
+|---|---:|---:|
+| Gradient boosting, walking the node pool | 9,095 (91 µs) | 17,780 (556 µs) |
+| Gradient boosting, nested `if`s | 1,841 (18 µs) | 2,627 (82 µs) |
+| Random forest, pool / nested `if`s | 2,024 / 462 | 3,936 / 820 |
+| 36 trees (3 KB of nodes) read from flash / from an SRAM copy | 3,480 / 3,129 | 6,586 / 6,170 |
+
+The model is read-only data, so the linker places it in flash, and the CPU reads it from there as it reads its instructions; nothing is copied to SRAM. Reading it from flash costs 11-13% on the F411 and 7% on the L031 compared with an SRAM copy, while the nested-`if` form is 4 to 7 times faster than the pool walk. The 7.5 KB gradient-boosting pool would not fit beside the stack in the L031's 8 KB of SRAM.
 
 ## What these show
 
