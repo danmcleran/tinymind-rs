@@ -52,7 +52,8 @@ The API reference is on [docs.rs](https://docs.rs/tinymind).
 
 To run a model trained in PyTorch, `tools/import_pytorch` in this repository
 turns it into a Rust module (int8 weights, integer requantizers and a `forward`
-function; `no_std`). See its README.
+function; `no_std`). See its README. `tools/import_trees` does the same for
+scikit-learn, XGBoost and LightGBM tree models.
 
 ## Quick start
 
@@ -65,6 +66,7 @@ cargo run --release --example anomaly -- output              # anomaly detection
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo run --release --features std --example imported_mlp    # two models written by the PyTorch importer
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
+cargo run --release --example imported_trees                 # scikit-learn tree models via the tree importer
 cargo test --all-features                                # unit, doc and golden tests against the C++ output
 PYTHON=<python with numpy> scripts/compare-with-cpp.sh   # rebuild the C++ side and diff everything
 ```
@@ -87,10 +89,13 @@ there. The `int8_xor` example (feature
 quantizes a five-tree ensemble onto an int8 feature grid, compares it with the
 float trees over a 48x48 grid and writes `gbdt_tabular_int8.csv` (the predicted
 class at each point); `--golden` before the directory prints tinymind's compact
-golden report instead.
+golden report instead. The `imported_trees` example runs two scikit-learn
+classifiers for the UCI Wine data (CC BY 4.0), written by the tree importer, on
+the held-out samples and on random inputs.
 
 `scripts/compare-with-cpp.sh` needs a tinymind checkout, `g++`, and a Python with
-numpy for the PyTorch importer checks (set `PYTHON`, for example to a virtual
+numpy and scikit-learn for the importer checks (plus XGBoost and LightGBM for
+all of the tree importer's) (set `PYTHON`, for example to a virtual
 environment's interpreter). It looks in `../tinymind` unless `TINYMIND_DIR` is
 set.
 
@@ -115,6 +120,8 @@ set.
 | `examples/gbdt_tabular_int8.rs` | `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp` |
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
+| `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer, emitting Rust |
+| `examples/imported_trees.rs` | two models written by that importer, checked against tinymind's importer + C++ runtime |
 | `examples/imported_mlp.rs` | two models written by that importer, checked against tinymind's importer + C++ runtime |
 
 Everything else in tinymind (floating-point networks, other Q formats, unsigned
@@ -153,10 +160,12 @@ backends, and so on) is not ported.
   `tests/golden/gbdt/`, and `tests/tree_sweep.rs` checks the trees against
   tinymind's `QDecisionTree` and `QGBDT` over 72 random ensembles (int8, uint8
   and int16 thresholds, ties, inputs on the thresholds).
+  `tests/imported_trees_golden.rs` checks the imported-trees example against
+  tinymind's C++ runtime running the same models imported by tinymind.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind checkout
   (xor in both formats, iris, energy efficiency, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (34 checks today, including
+  example does, runs both sides, and compares every output file (40 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind's files). It exits nonzero if anything differs.
 - `tests/qformat_oracle.rs`, ported from tinymind's qformat oracle, checks every
   `QValue` operation against an exact reference: edge values and a fixed-seed

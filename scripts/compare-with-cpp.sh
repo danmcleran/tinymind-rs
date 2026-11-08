@@ -2,7 +2,7 @@
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
 # iris, energy_efficiency, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
-# int8 softmax sweep, the tree sweep, the PyTorch importer's models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# int8 softmax sweep, the tree sweep, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -231,8 +231,8 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test softmax_s
 echo "== imported_mlp (PyTorch importer)"
 # Needs a Python with numpy (PYTHON, default python3), e.g. a venv.
 PYTHON="${PYTHON:-python3}"
-if ! "$PYTHON" -c "import numpy" 2>/dev/null; then
-  echo "the importer checks need numpy: set PYTHON to a Python that has it (e.g. a venv)" >&2
+if ! "$PYTHON" -c "import numpy, sklearn" 2>/dev/null; then
+  echo "the importer checks need numpy and scikit-learn: set PYTHON to a Python that has them (e.g. a venv)" >&2
   exit 1
 fi
 export TINYMIND_DIR
@@ -270,6 +270,56 @@ else
   status=1
 fi
 
+echo "== imported_trees (tree importer)"
+# Needs scikit-learn in PYTHON; XGBoost and LightGBM for all of test_parity.py.
+mkdir -p "$TMP/trees"
+# The same models through tinymind's importer -> headers -> tinymind's C++ runtime.
+for model in gbdt forest; do
+  "$PYTHON" -I -B "$ROOT/tools/import_trees/example_trees.py" --model "$model" --cpp "$TMP/trees/$model.hpp" >/dev/null
+done
+"$PYTHON" -I -B "$ROOT/tools/import_trees/example_trees.py" --data-cpp "$TMP/trees/trees_data.hpp"
+g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/trees/imported_trees" "$ROOT/scripts/cpp/imported_trees.cpp" \
+  -I"$TMP/trees" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" -DTINYMIND_ENABLE_FLOAT=1
+"$TMP/trees/imported_trees" > "$TMP/trees/cpp.txt"
+"$ROOT/target/release/examples/imported_trees" > "$TMP/trees/rust.txt"
+if cmp -s "$TMP/trees/cpp.txt" "$TMP/trees/rust.txt"; then
+  echo "IDENTICAL  imported_trees stdout.txt"
+else
+  echo "DIFFERENT  imported_trees stdout.txt"
+  status=1
+fi
+if cmp -s "$TMP/trees/cpp.txt" "$ROOT/tests/golden/imported_trees/stdout.txt"; then
+  echo "IDENTICAL  imported_trees stdout.txt (C++ vs tests/golden/imported_trees)"
+else
+  echo "DIFFERENT  imported_trees stdout.txt (C++ vs tests/golden/imported_trees)"
+  status=1
+fi
+# The committed generated modules are exactly what this repo's importer writes.
+for model in gbdt forest; do
+  "$PYTHON" -I -B "$ROOT/tools/import_trees/example_trees.py" --model "$model" --rust "$TMP/trees/$model.rs" >/dev/null
+  if cmp -s "$TMP/trees/$model.rs" "$ROOT/examples/common/imported_trees_${model}_model.rs"; then
+    echo "IDENTICAL  imported_trees examples/common/imported_trees_${model}_model.rs (regenerated)"
+  else
+    echo "DIFFERENT  imported_trees examples/common/imported_trees_${model}_model.rs (regenerated)"
+    status=1
+  fi
+done
+"$PYTHON" -I -B "$ROOT/tools/import_trees/example_trees.py" --data-rust "$TMP/trees/data.rs"
+if cmp -s "$TMP/trees/data.rs" "$ROOT/examples/common/imported_trees_data.rs"; then
+  echo "IDENTICAL  imported_trees examples/common/imported_trees_data.rs (regenerated)"
+else
+  echo "DIFFERENT  imported_trees examples/common/imported_trees_data.rs (regenerated)"
+  status=1
+fi
+# Integer-model parity with tinymind's importer, and both runtimes, on more models.
+if "$PYTHON" -I -B "$ROOT/tools/import_trees/test_parity.py" > "$TMP/trees/parity.txt"; then
+  echo "IDENTICAL  tree importer parity ($(grep -c "^case.*IDENTICAL" "$TMP/trees/parity.txt") models)"
+else
+  cat "$TMP/trees/parity.txt"
+  echo "DIFFERENT  tree importer parity"
+  status=1
+fi
+
 if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   # For refreshing goldens: tests/golden must come from the C++ build.
   mkdir -p "$KEEP_CPP_OUTPUT"
@@ -289,6 +339,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   mkdir -p "$KEEP_CPP_OUTPUT/imported_mlp"
   cp "$TMP/imported/cpp.txt" "$KEEP_CPP_OUTPUT/imported_mlp/stdout.txt"
   cp -r "$TMP/gbdt/cpp" "$KEEP_CPP_OUTPUT/gbdt"
+  mkdir -p "$KEEP_CPP_OUTPUT/imported_trees"
+  cp "$TMP/trees/cpp.txt" "$KEEP_CPP_OUTPUT/imported_trees/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/tree"
   cp "$TMP/tree/stdout.txt" "$KEEP_CPP_OUTPUT/tree/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"

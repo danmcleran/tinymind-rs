@@ -50,3 +50,17 @@ Learning Repository. https://doi.org/10.24432/C51307
 It is licensed under the Creative Commons Attribution 4.0 International
 license (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/), not under
 this crate's MIT license.
+
+---
+
+examples/common/imported_trees_data.rs holds the held-out 30% of the Wine
+dataset from the UCI Machine Learning Repository, as scikit-learn ships it
+(sklearn.datasets.load_wine), and the generated models in
+examples/common/imported_trees_*_model.rs were trained on the rest:
+
+S. Aeberhard and M. Forina. Wine [Dataset]. 1992. UCI Machine Learning
+Repository. https://doi.org/10.24432/C5PC7J
+
+It is licensed under the Creative Commons Attribution 4.0 International
+license (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/), not under
+this crate's MIT license.

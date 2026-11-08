@@ -33,6 +33,25 @@ The int8 ensemble agrees with the float trees on 2,256 of the 2,304 grid points 
 - A C++ program on tinymind's `QDecisionTree` and `QGBDT` (`scripts/cpp/tree_sweep.cpp`) runs 72 random ensembles: int8, uint8 and int16 thresholds, eight trees of depth up to 5 sharing a 512-node pool, with and without base scores, small leaf values so that classes tie, and inputs on or next to the thresholds. The Rust trees produce the same scores and predictions for every input.
 - Kani proves that the walk, the ensemble and the validity checks never panic, for any node pool (indices in or out of range, cycles), root, class, base score and input. The Cortex-M panic gate links them too.
 
-## Not ported yet
+## Importing a trained model
 
-tinymind's compile-time models (`QStaticDecisionTree`, `QStaticGBDT`) and their three evaluation policies, and its importer for scikit-learn, XGBoost and LightGBM models (`apps/import_trees`). In Rust, an importer that emits code is the equivalent of the compile-time models.
+`tools/import_trees` turns a scikit-learn, XGBoost or LightGBM model (single trees, random forests, extra trees, gradient boosting) into a Rust module: the feature grids, the integer trees, a `quantize_features` function for float samples, and `forward` and `predict`. It is a port of tinymind's tree importer; reading the model, placing the thresholds on the grid, scaling the leaves and measuring the base score are tinymind's code, unchanged, so both importers produce the same integer trees.
+
+Each module has two forms of the same trees, with the same results: `forward`/`predict` walk a node pool with `tinymind::tree` (smaller), and `forward_inline`/`predict_inline` run the trees compiled to nested `if`s (faster, larger code). Usage and the conversion rules are in the [importer's README](https://github.com/danmcleran/tinymind-rs/tree/master/tools/import_trees).
+
+The `imported_trees` example runs two scikit-learn classifiers for the UCI Wine data (13 chemical measurements, three cultivars), trained on 70% of it, on the other 54 samples:
+
+```bash
+cargo run --release --example imported_trees
+```
+
+| Model | Inputs | Trees | Correct on the 54 held-out samples |
+|---|---|---|---|
+| Gradient boosting, 30 rounds of depth-2 trees | int8 | 90 (one per class per round) | 53 (scikit-learn: 53) |
+| Random forest, 15 voting trees of depth 4 | int16 | 15 | 52 (scikit-learn: 53) |
+
+The same two models imported with tinymind's importer and run on tinymind's C++ runtime print byte-identical output, and so do 16 more models across every supported family when checked against the importers' shared integer reference.
+
+## Not ported
+
+tinymind's compile-time models (`QStaticDecisionTree`, `QStaticGBDT`) and their packed `QTreeCompactEval` form. The importer's two forms cover the walk and inline policies.
