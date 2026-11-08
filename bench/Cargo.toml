@@ -23,6 +23,8 @@ xor-q16 = []
 xor-q8 = []
 # The anomaly-detection demo: an autoencoder trained on the device.
 anomaly = []
+# The imported scikit-learn tree models: results, both forms, flash vs SRAM.
+trees = []
 # Per-layer cycles for the MLP (a separate image, like tinymind's PROFILE build).
 profile = ["mlp"]
 

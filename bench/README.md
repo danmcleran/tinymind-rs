@@ -31,6 +31,12 @@ samples, so the numbers sit next to the tinymind (C++) ones.
   windows. The report must equal the host's, and its hash (every trained weight
   and every score) must equal `EXPECT_HASH` in `src/anomaly.rs`, which the host
   run and `tests/anomaly_golden.rs` pin. No C++ counterpart.
+- **`trees`**: the two imported scikit-learn models of the `imported_trees`
+  example (gradient boosting, 90 trees on int8 inputs; random forest, 15
+  voting trees on int16) classify the 54 held-out UCI Wine samples; the hash of
+  every raw output and class must equal the host's (`EXPECT_HASH` in
+  `src/trees.rs`). Both forms are timed, and the pool walk is timed from flash
+  and from a copy in SRAM. The L031 image is built at `opt-level = "s"` to fit.
 - **baseline** (no workload feature): the MLP harness with a do-nothing network,
   for size and stack deltas. **`profile`**: the MLP with per-layer timing.
 
@@ -101,6 +107,37 @@ The flash delta includes the demo's signal generator and its formatted report.
 The L031 image is within about 200 bytes of the part's 32 KB; the training step
 and the scorer are `#[inline(never)]` so the training and timing loops share
 one copy (inlined twice at `opt-level = 3` it did not fit).
+
+### Decision trees, imported from scikit-learn
+
+Cycles for one prediction (median of 33), first held-out sample.
+
+| | F411 | L031 |
+|---|---:|---:|
+| Correct on 54 held-out samples (gbdt / forest), hash matches host | 53 / 53, yes | 53 / 53, yes |
+| Gradient boosting, pool walk (pool in flash) | 9,095 (91 µs) | 17,780 (556 µs) |
+| Gradient boosting, pool walk (pool copied to SRAM) | 8,027 | does not fit |
+| Gradient boosting, nested `if`s | 1,841 (18 µs) | 2,627 (82 µs) |
+| Random forest, pool walk / nested `if`s | 2,024 / 462 | 3,936 / 820 |
+| First 36 trees (256 nodes, 3 KB): flash / SRAM copy | 3,480 / 3,129 | 6,586 / 6,170 |
+| `quantize_features` (13 float divisions) | 608 | 11,292 |
+| Flash (text), whole image | 48,972 B | 32,520 B (opt-level s) |
+
+- **Where the model is.** The node pools are immutable `static`s, so
+  cortex-m-rt's linker script puts them in `.rodata`, in flash (the
+  image reports the pool's address, in the 0x0800_0000 flash range); `.data` is empty and
+  nothing is copied to SRAM at start-up. The CPU reads the pool from flash, as
+  it reads every instruction.
+- **Flash versus SRAM.** Reading the pool from flash costs 11-13% on the F411
+  (three wait states at 100 MHz, mostly hidden by the ART accelerator's prefetch
+  and caches) and 7% on the L031 (one wait state at 32 MHz). The 7.5 KB pool
+  would not fit beside the stack in the L031's 8 KB of SRAM anyway.
+- **The form matters far more.** The nested-`if` form is 4.4-6.8 times faster
+  than walking the pool: it compares against constants in the instruction
+  stream and has no loop or index arithmetic. The pool is the smaller form.
+- **Placement.** The same gradient-boosting walk measured 14,044 cycles on the
+  L031 in an image that differed only in an extra test; as with the int8 MLP,
+  the M0+ with one wait state is sensitive to code placement.
 
 ### Reading these
 

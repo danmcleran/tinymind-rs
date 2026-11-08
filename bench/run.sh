@@ -32,7 +32,11 @@ run_image() { # board target cfg serial features name
   local port elf raw
   port="$(ls /dev/serial/by-id/*STLink_"$serial"-if02 2>/dev/null | head -1)"
   [ -n "$port" ] || { echo "no VCP for ST-LINK $serial" >&2; exit 1; }
-  (cd "$HERE" && cargo build -q --release --target "$target" --features "$features")
+  # The trees image fits the L031's 32 KB only at opt-level s: at 3 the
+  # nested-if form of the 90-tree model is expanded further.
+  local opt=3
+  [ "$board-$name" = l031-trees ] && opt=s
+  (cd "$HERE" && CARGO_PROFILE_RELEASE_OPT_LEVEL=$opt cargo build -q --release --target "$target" --features "$features")
   elf="$HERE/target/$target/release/tinymind-bench"
   cp "$elf" "$OUT/$board-$name.elf"
   arm-none-eabi-size "$elf" | tail -1 | awk -v n="$board-$name" '{print n": text="$1" data="$2" bss="$3}' >> "$OUT/sizes.txt"
@@ -54,7 +58,7 @@ for board in "${@:-f411 l031}"; do
   for b in $board; do
     read -r target cfg serial n <<< "$(board_info "$b")"
     python3 -I "$HERE/gen.py" "$n" >/dev/null
-    for wl in ${WORKLOADS:-baseline mlp profile xor-q16 xor-q8 anomaly}; do
+    for wl in ${WORKLOADS:-baseline mlp profile xor-q16 xor-q8 anomaly trees}; do
       features="$b"; [ "$wl" = baseline ] || features="$b,$wl"
       echo "### $b $wl"
       run_image "$b" "$target" "$cfg" "$serial" "$features" "$wl"

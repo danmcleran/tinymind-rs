@@ -8,8 +8,15 @@
 #[cfg(feature = "anomaly")]
 mod anomaly;
 mod board;
-#[cfg(not(any(feature = "xor-q16", feature = "xor-q8", feature = "anomaly")))]
+#[cfg(not(any(
+    feature = "xor-q16",
+    feature = "xor-q8",
+    feature = "anomaly",
+    feature = "trees"
+)))]
 mod mlp;
+#[cfg(feature = "trees")]
+mod trees;
 #[cfg(any(feature = "xor-q16", feature = "xor-q8"))]
 mod xor;
 
@@ -35,8 +42,15 @@ fn main() -> ! {
     let _ = writeln!(out, "\n# begin bench");
     let _ = writeln!(out, "board={}", board::NAME);
     let _ = writeln!(out, "mhz={}", board::MHZ);
-    #[cfg(not(any(feature = "xor-q16", feature = "xor-q8", feature = "anomaly")))]
+    #[cfg(not(any(
+        feature = "xor-q16",
+        feature = "xor-q8",
+        feature = "anomaly",
+        feature = "trees"
+    )))]
     mlp::run(&mut out);
+    #[cfg(feature = "trees")]
+    trees::run(&mut out);
     #[cfg(feature = "anomaly")]
     anomaly::run(&mut out);
     #[cfg(feature = "xor-q16")]
