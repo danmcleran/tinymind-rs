@@ -39,7 +39,7 @@ Early. The port covers what four of tinymind's examples use (XOR, iris, energy e
 |---|---|
 | Q16.16 (`i32`) and Q8.8 (`i16`) arithmetic, Truncate and Wrap policies | Other Q formats, saturating and rounding policies |
 | ReLU, linear, and tanh and sigmoid via lookup tables; int8 dense inference (requantizer, quantized ReLU, int8 activation tables, softmax bit-exact with TFLite's) | The other activations (capped and leaky ReLU, ...) |
-| Trainable networks with any number of hidden layers (SGD with momentum, optional gradient clipping); one-hidden-layer networks also inference-only (weights only, can live in flash) | Other optimizers (Adam, RMSprop), recurrent layers, int8 convolution and the rest of the int8 family, SIMD |
+| Trainable networks with any number of hidden layers (SGD with momentum, Adam or RMSprop; optional gradient clipping); one-hidden-layer networks also inference-only (weights only, can live in flash) | Weight decay and learning-rate schedules, recurrent layers, int8 convolution and the rest of the int8 family, SIMD |
 | | Floating-point (`float`, `double`) networks |
 
 The crate is on [crates.io](https://crates.io/crates/tinymind); the API is not stable yet (before 1.0, a minor version may break it). tinymind itself is the full library; this port grows by porting slices of it.

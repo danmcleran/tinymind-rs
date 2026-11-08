@@ -1,6 +1,6 @@
 // NeuralNetwork with two and three hidden layers against tinymind's
-// NeuralNetwork<..., HiddenLayers<...>, ...>, and two regressions with a linear
-// output and gradient clipping. tests/golden/deep_mlp/stdout.txt is
+// NeuralNetwork<..., HiddenLayers<...>, ...>, two regressions with a linear
+// output and gradient clipping, and runs with the Adam and RMSprop optimizers. tests/golden/deep_mlp/stdout.txt is
 // the output of scripts/cpp/deep_mlp.cpp: the same initial weights (glibc
 // rand(), as tinymind's examples draw them), the same samples, and an FNV-1a
 // hash of every weight after every training step. scripts/compare-with-cpp.sh
@@ -9,7 +9,10 @@
 use std::fmt::Write;
 
 use tinymind::rand::GlibcRand;
-use tinymind::{Dense, Fixed, Layers, Linear, NeuralNetwork, Q8_8, Q16_16, Relu, Sigmoid, Tanh};
+use tinymind::{
+    Adam, Dense, Fixed, Layers, Linear, MultilayerPerceptron, NeuralNetwork, Q8_8, Q16_16, Relu,
+    RmsProp, Sigmoid, Tanh,
+};
 
 struct Lcg(u32);
 
@@ -131,13 +134,17 @@ macro_rules! run {
 /// The C++ regression: 3 inputs in [-1, 1), two targets up to about 9, a linear
 /// output and clipped gradients (bias gradients are not clipped).
 macro_rules! run_regression {
-    ($out:expr, $name:expr, $layers:ty, [$($idx:tt),+], $clip:expr, $seed:expr, $steps:expr) => {{
+    ($out:expr, $name:expr, $layers:ty, [$($idx:tt),+], $clip:expr, $seed:expr, $steps:expr) => {
+        run_regression!($out, $name, $layers, [$($idx),+], $clip, $seed, $steps, tinymind::Sgd)
+    };
+    ($out:expr, $name:expr, $layers:ty, [$($idx:tt),+], $clip:expr, $seed:expr, $steps:expr, $opt:expr) => {{
         let one = Q16_16::ONE_RAW;
         let half = one / 2;
         let mut rng = GlibcRand::new($seed);
-        let mut nn = NeuralNetwork::<$layers>::new(|| {
-            Q16_16::from_raw_i32(rng.next_i32() % (2 * half + 1) - half)
-        });
+        let mut nn = NeuralNetwork::<$layers, _>::with_optimizer(
+            || Q16_16::from_raw_i32(rng.next_i32() % (2 * half + 1) - half),
+            $opt,
+        );
         nn.set_learning_rate(Q16_16::from_raw(one / 64));
         nn.set_gradient_clip(Some($clip));
         let mut lcg = Lcg($seed);
@@ -155,6 +162,33 @@ macro_rules! run_regression {
             absorb_layers!(&mut hash, nn, $($idx),+);
             if step % 500 == 0 {
                 writeln!($out, "{} step={step} error={} hash=0x{hash:08X}", $name, error.raw()).unwrap();
+            }
+        }
+    }};
+}
+
+/// run! with an adaptive optimizer and an explicit learning rate (raw units);
+/// the C++ runAdaptive prints no final outputs.
+macro_rules! run_adaptive {
+    ($out:expr, $name:expr, $v:ty, $in:expr, $outn:expr, $layers:ty, [$($idx:tt),+], $opt:expr, $seed:expr, $steps:expr, $lr:expr) => {{
+        let one = <$v as Raw>::ONE_RAW;
+        let half = one / 2;
+        let mut rng = GlibcRand::new($seed);
+        let mut nn = NeuralNetwork::<$layers, _>::with_optimizer(
+            || <$v>::from_raw_i32(rng.next_i32() % (2 * half + 1) - half),
+            $opt,
+        );
+        nn.set_learning_rate(<$v>::from_raw_i32($lr));
+        let mut lcg = Lcg($seed);
+        let mut hash: u32 = 0x811C_9DC5;
+        for step in 1..=$steps {
+            let (x, t) = sample::<$v, $in, $outn>(&mut lcg);
+            nn.feed_forward(&x);
+            let error = nn.calculate_error(&t);
+            nn.train(&t);
+            absorb_layers!(&mut hash, nn, $($idx),+);
+            if step % 500 == 0 {
+                writeln!($out, "{} step={step} error={} hash=0x{hash:08X}", $name, error.to_raw_i32()).unwrap();
             }
         }
     }};
@@ -246,6 +280,81 @@ fn deep_mlp_matches_cpp() {
         2000
     );
 
+    // Adaptive optimizers: tinymind's default hyperparameters in Q8.8 (raw 230,
+    // 255 and 1), and Q16.16 values (0.9 = raw 58982, 0.999 = raw 65470,
+    // epsilon raw 16), as the C++ program sets them.
+    let adam8 = Adam::new(Q8_8::from_raw(230), Q8_8::from_raw(255), Q8_8::from_raw(1));
+    let adam16 = Adam::new(
+        Q16_16::from_raw(58982),
+        Q16_16::from_raw(65470),
+        Q16_16::from_raw(16),
+    );
+    let rmsprop8 = RmsProp::new(Q8_8::from_raw(230), Q8_8::from_raw(1));
+    let rmsprop16 = RmsProp::new(Q16_16::from_raw(58982), Q16_16::from_raw(16));
+    run_adaptive!(
+        out,
+        "q8.8 2-4-4-1 adam",
+        Q8_8,
+        2,
+        1,
+        Xor8,
+        [0, 1, 2],
+        adam8,
+        7,
+        2000,
+        16
+    );
+    run_adaptive!(
+        out,
+        "q16.16 4-8-6-5-3 adam",
+        Q16_16,
+        4,
+        3,
+        Deep16,
+        [0, 1, 2, 3],
+        adam16,
+        8,
+        2000,
+        1 << 11
+    );
+    one_hidden_adam(&mut out, adam16);
+    run_adaptive!(
+        out,
+        "q16.16 2-4-4-1 rmsprop",
+        Q16_16,
+        2,
+        1,
+        Xor16,
+        [0, 1, 2],
+        rmsprop16,
+        9,
+        2000,
+        1 << 10
+    );
+    run_adaptive!(
+        out,
+        "q8.8 4-8-6-3 rmsprop",
+        Q8_8,
+        4,
+        3,
+        Deep8,
+        [0, 1, 2],
+        rmsprop8,
+        10,
+        2000,
+        8
+    );
+    run_regression!(
+        out,
+        "q16.16 3-6-4-2 linear clip[-1,1] adam",
+        Reg2,
+        [0, 1, 2],
+        unit,
+        11,
+        2000,
+        adam16
+    );
+
     let golden = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/golden/deep_mlp/stdout.txt"
@@ -255,4 +364,49 @@ fn deep_mlp_matches_cpp() {
         assert_eq!(got, want, "line {}", n + 1);
     }
     assert_eq!(out.lines().count(), golden.lines().count());
+}
+
+/// The C++ one-hidden-layer Adam run (`HiddenLayers<4>`, which is tinymind's
+/// MultilayerPerceptron), here with MultilayerPerceptron itself.
+fn one_hidden_adam(out: &mut String, adam: Adam<Q16_16>) {
+    let name = "q16.16 2-4-1 adam";
+    let half = Q16_16::ONE_RAW / 2;
+    let mut rng = GlibcRand::new(12);
+    let mut nn = MultilayerPerceptron::<Q16_16, Tanh, Sigmoid, 2, 4, 1, _>::with_optimizer(
+        || Q16_16::from_raw(rng.next_i32() % (2 * half + 1) - half),
+        adam,
+    );
+    nn.set_learning_rate(Q16_16::from_raw(1 << 11));
+    let mut lcg = Lcg(12);
+    let mut hash: u32 = 0x811C_9DC5;
+    for step in 1..=2000 {
+        let (x, t) = sample::<Q16_16, 2, 1>(&mut lcg);
+        nn.feed_forward(&x);
+        let error = nn.calculate_error(&t);
+        nn.train(&t);
+        for row in nn.input_weights() {
+            for w in row {
+                absorb(&mut hash, w.raw());
+            }
+        }
+        for w in nn.input_bias_weights() {
+            absorb(&mut hash, w.raw());
+        }
+        for row in nn.hidden_weights() {
+            for w in row {
+                absorb(&mut hash, w.raw());
+            }
+        }
+        for w in nn.hidden_bias_weights() {
+            absorb(&mut hash, w.raw());
+        }
+        if step % 500 == 0 {
+            writeln!(
+                out,
+                "{name} step={step} error={} hash=0x{hash:08X}",
+                error.raw()
+            )
+            .unwrap();
+        }
+    }
 }

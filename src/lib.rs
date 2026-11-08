@@ -3,8 +3,9 @@
 //!
 //! Scope: Q16.16 and Q8.8 arithmetic; ReLU, [`Linear`] and the tanh and sigmoid
 //! lookup-table activations; trainable networks with any number of hidden layers
-//! ([`NeuralNetwork`] over [`Dense`] layers, SGD with momentum and optional
-//! gradient clipping); a one-hidden-layer perceptron that
+//! ([`NeuralNetwork`] over [`Dense`] layers, trained with SGD and momentum,
+//! [`Adam`] or [`RmsProp`], with optional gradient clipping); a one-hidden-layer
+//! perceptron that
 //! trains on the device ([`MultilayerPerceptron`]) or only runs trained weights
 //! ([`InferencePerceptron`], tinymind's `IsTrainable = false`), and int8
 //! affine-quantized inference ([`int8`]: dense layers, quantized activations and a
@@ -57,6 +58,7 @@ pub mod int8;
 mod lut;
 pub mod network;
 pub mod neuralnet;
+pub mod optimizer;
 pub mod qformat;
 pub mod rand;
 
@@ -66,4 +68,5 @@ mod kani_proofs;
 pub use activation::{Activation, Linear, Relu, Sigmoid, Tanh};
 pub use network::{Dense, Layers, NeuralNetwork};
 pub use neuralnet::{InferencePerceptron, MultilayerPerceptron};
-pub use qformat::{Fixed, Q8_8, Q16_16, QValue};
+pub use optimizer::{Adam, Optimizer, RmsProp, Sgd};
+pub use qformat::{Fixed, Q8_8, Q16_16, QValue, Sqrt};

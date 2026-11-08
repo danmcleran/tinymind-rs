@@ -70,6 +70,15 @@ pub trait Fixed:
     fn div_int(self, n: i32) -> Self;
 }
 
+/// Square root of a non-negative value (C++ `SquareRootApproximation`):
+/// integer Newton iteration on `raw << FRAC` in the wide type, which gives the
+/// floor of the exact root in raw units. Zero and negative values give zero. The
+/// Adam and RMSprop optimizers use it.
+pub trait Sqrt {
+    /// `floor(sqrt(self))` in this format; 0 for `self <= 0`.
+    fn sqrt(self) -> Self;
+}
+
 /// Generates everything that depends on the storage type: `$s` is the storage,
 /// `$wide` the C++ `MultiplicationResultFullWidthValueType` /
 /// `DivisionResultFullWidthValueType` for it (twice the width).
@@ -224,6 +233,29 @@ macro_rules! impl_qvalue {
             }
         }
 
+        impl<const FRAC: u32> Sqrt for QValue<$s, FRAC> {
+            fn sqrt(self) -> Self {
+                let () = Self::FORMAT_OK;
+                if self.0 <= 0 {
+                    return Self(0);
+                }
+                // n < 2^(storage bits - 1 + FRAC), so it and every sum below fit
+                // the wide type, and x stays >= 1.
+                let n = <$wide>::from(self.0) << FRAC;
+                let mut x = n;
+                let mut y = (x + 1) / 2;
+                while y < x {
+                    x = y;
+                    // x >= 1 here, but the compiler cannot prove it; the
+                    // fallback is unreachable and keeps the function panic-free.
+                    y = (x + n.checked_div(x).unwrap_or(0)) / 2;
+                }
+                // The C++ narrows with static_cast; for the formats with one
+                // integer bit the root can exceed the storage range and wraps.
+                Self(x as $s)
+            }
+        }
+
         impl<const FRAC: u32> Fixed for QValue<$s, FRAC> {
             const ZERO: Self = Self::ZERO;
             const ONE: Self = Self::ONE;
@@ -243,6 +275,50 @@ impl_qvalue!(i16, i32);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `sqrt` is the floor of the exact root of `raw << FRAC`: r*r <= n < (r+1)^2.
+    fn check_floor_root(raw: i64, frac: u32, root: i64) {
+        let n = raw << frac;
+        assert!(
+            root * root <= n && (root + 1) * (root + 1) > n,
+            "raw {raw}: root {root}"
+        );
+    }
+
+    #[test]
+    fn sqrt_every_q8_8_value() {
+        for raw in i16::MIN..=i16::MAX {
+            let r = i64::from(Q8_8::from_raw(raw).sqrt().raw());
+            if raw <= 0 {
+                assert_eq!(r, 0);
+            } else {
+                check_floor_root(i64::from(raw), 8, r);
+            }
+        }
+        assert_eq!(Q8_8::from_int(4).sqrt(), Q8_8::from_int(2));
+    }
+
+    #[test]
+    fn sqrt_q16_16_sample_and_edges() {
+        let mut x: u32 = 1;
+        let edges = [1, 2, 3, 65_535, 65_536, 65_537, i32::MAX - 1, i32::MAX];
+        for raw in edges.into_iter().chain((0..100_000).map(|_| {
+            x = x.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            (x >> 1) as i32
+        })) {
+            check_floor_root(
+                i64::from(raw),
+                16,
+                i64::from(Q16_16::from_raw(raw).sqrt().raw()),
+            );
+        }
+        assert_eq!(Q16_16::from_int(9).sqrt(), Q16_16::from_int(3));
+        assert_eq!(Q16_16::from_int(-9).sqrt(), Q16_16::ZERO);
+        // Formats with one integer bit: the root of a value near 1 is near 1 and
+        // does not fit; it wraps as the C++ static_cast does, without panicking.
+        let _ = QValue::<i32, 31>::from_raw(i32::MAX).sqrt();
+        let _ = QValue::<i16, 15>::from_raw(i16::MAX).sqrt();
+    }
 
     #[test]
     fn constants() {

@@ -7,6 +7,25 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- Optimizers for both trainable networks (`tinymind::optimizer`): `Adam` and
+  `RmsProp` (tinymind's `AdamOptimizer` and `RmsPropOptimizer`), alongside the
+  default `Sgd`. The optimizer is a type parameter that defaults to `Sgd`, so
+  existing code and network sizes are unchanged; pick another with
+  `with_optimizer`. As in tinymind, the step count for Adam's bias correction
+  advances once per layer update, and the adaptive optimizers leave the bias
+  weights unchanged.
+- `Sqrt`: fixed-point square root (tinymind's `SquareRootApproximation`), the
+  floor of the exact root.
+
+### Fixed
+
+- `MultilayerPerceptron`'s forward pass and the new square root could keep an
+  unreachable panic path (a bounds check, a division) when the compiler did not
+  inline enough to see it was unreachable, as at opt-level `s` and `z` for some
+  network shapes. Both are now total; results are unchanged.
+
 ## [0.1.3] - 2026-11-07
 
 ### Added

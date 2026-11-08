@@ -1,6 +1,6 @@
 // tinymind's NeuralNetwork with two and three hidden layers (HiddenLayers<...>),
 // trained with its default SGD with momentum, plus two regressions with a linear
-// output and gradient clipping. Weights are initialised from
+// output and gradient clipping, and runs with the Adam and RMSprop optimizers. Weights are initialised from
 // glibc rand() as tinymind's examples do; samples come from an LCG. After every
 // training step an FNV-1a hash absorbs every weight, so any difference at any
 // step changes the printed hashes. tests/golden/deep_mlp/stdout.txt is this
@@ -16,6 +16,8 @@
 #include "fixedPointTransferFunctions.hpp"
 #include "neuralnet.hpp"
 #include "gradientClipping.hpp"
+#include "adam.hpp"
+#include "rmsprop.hpp"
 
 static uint32_t gState;
 
@@ -142,7 +144,8 @@ static void run(const char* name, const size_t (&sizes)[L], const unsigned seed,
 // two targets up to about 9 in magnitude, so the output and bias gradients go
 // well past the clip range (tinymind clips the weights' gradients, not the
 // biases').
-template<typename ValueType, size_t IN, typename HL, size_t L, size_t OUT, typename Clip>
+template<typename ValueType, size_t IN, typename HL, size_t L, size_t OUT, typename Clip,
+         typename Opt = tinymind::NullOptimizerPolicy<ValueType> >
 static void runRegression(const char* name, const size_t (&sizes)[L], const unsigned seed, const int steps)
 {
     typedef typename ValueType::FullWidthValueType Raw;
@@ -151,7 +154,9 @@ static void runRegression(const char* name, const size_t (&sizes)[L], const unsi
                                                   tinymind::LinearActivationPolicy<ValueType>, OUT,
                                                   tinymind::DefaultNetworkInitializer<ValueType>,
                                                   tinymind::MeanSquaredErrorCalculator<ValueType, OUT>,
-                                                  tinymind::ZeroToleranceCalculator<ValueType>, Clip> TF;
+                                                  tinymind::ZeroToleranceCalculator<ValueType>, Clip,
+                                                  tinymind::NullWeightDecayPolicy<ValueType>,
+                                                  tinymind::FixedLearningRatePolicy<ValueType>, Opt> TF;
     typedef tinymind::NeuralNetwork<ValueType, IN, HL, OUT, TF> NN;
     const int one = static_cast<int>(tinymind::Constants<ValueType>::one().getValue());
 
@@ -183,6 +188,44 @@ static void runRegression(const char* name, const size_t (&sizes)[L], const unsi
     }
 }
 
+// run() with an adaptive optimizer (Adam or RMSprop) and an explicit learning
+// rate in raw units.
+template<typename ValueType, template<typename> class Hidden, size_t IN, typename HL, size_t L, size_t OUT, typename Opt>
+static void runAdaptive(const char* name, const size_t (&sizes)[L], const unsigned seed, const int steps, const int lrRaw)
+{
+    typedef typename ValueType::FullWidthValueType Raw;
+    typedef tinymind::FixedPointTransferFunctions<ValueType, RandomWeights<ValueType>, Hidden<ValueType>,
+                                                  tinymind::SigmoidActivationPolicy<ValueType>, OUT,
+                                                  tinymind::DefaultNetworkInitializer<ValueType>,
+                                                  tinymind::MeanSquaredErrorCalculator<ValueType, OUT>,
+                                                  tinymind::ZeroToleranceCalculator<ValueType>,
+                                                  tinymind::NullGradientClippingPolicy<ValueType>,
+                                                  tinymind::NullWeightDecayPolicy<ValueType>,
+                                                  tinymind::FixedLearningRatePolicy<ValueType>, Opt> TF;
+    typedef tinymind::NeuralNetwork<ValueType, IN, HL, OUT, TF> NN;
+    const int one = static_cast<int>(tinymind::Constants<ValueType>::one().getValue());
+
+    srand(seed);
+    static NN nn;
+    nn.setLearningRate(ValueType(static_cast<Raw>(lrRaw)));
+    gState = seed;
+    uint32_t hash = 0x811C9DC5u;
+    ValueType x[IN];
+    ValueType t[OUT];
+    for (int step = 1; step <= steps; ++step)
+    {
+        sample<ValueType, IN, OUT>(x, t, one);
+        nn.feedForward(x);
+        const ValueType error = nn.calculateError(t);
+        nn.trainNetwork(t);
+        absorbWeights<NN, ValueType, IN, L>(nn, hash, sizes, OUT);
+        if (step % 500 == 0)
+        {
+            std::printf("%s step=%d error=%d hash=0x%08X\n", name, step, static_cast<int>(error.getValue()), hash);
+        }
+    }
+}
+
 int main()
 {
     typedef tinymind::QValue<16, 16, true> Q16;
@@ -200,5 +243,24 @@ int main()
         "q16.16 3-6-4-2 linear clip[-1,1]", reg2, 5, 2000);
     runRegression<Q16, 3, tinymind::HiddenLayers<6>, 1, 2, tinymind::GradientClipByValue<Q16, 2, 0x8000> >(
         "q16.16 3-6-2 linear clip[-1.5,2.5]", reg1, 6, 2000);
+
+    // Adaptive optimizers. Q8.8 runs use tinymind's default hyperparameters
+    // (raw 230, 255 and 1, tuned for Q8.8); Q16.16 runs use values written for
+    // Q16.16: 0.9 = raw 58982, 0.999 = raw 65470, epsilon raw 16.
+    typedef tinymind::AdamOptimizer<Q16, 0, 58982, 0, 65470, 0, 16> Adam16;
+    typedef tinymind::RmsPropOptimizer<Q16, 0, 58982, 0, 16> RmsProp16;
+    static const size_t one4[1] = {4};
+    runAdaptive<Q8, tinymind::TanhActivationPolicy, 2, tinymind::HiddenLayers<4, 4>, 2, 1, tinymind::AdamOptimizer<Q8> >(
+        "q8.8 2-4-4-1 adam", xorSizes, 7, 2000, 16);
+    runAdaptive<Q16, tinymind::ReluActivationPolicy, 4, tinymind::HiddenLayers<8, 6, 5>, 3, 3, Adam16>(
+        "q16.16 4-8-6-5-3 adam", deep3, 8, 2000, 1 << 11);
+    runAdaptive<Q16, tinymind::TanhActivationPolicy, 2, tinymind::HiddenLayers<4>, 1, 1, Adam16>(
+        "q16.16 2-4-1 adam", one4, 12, 2000, 1 << 11);
+    runAdaptive<Q16, tinymind::TanhActivationPolicy, 2, tinymind::HiddenLayers<4, 4>, 2, 1, RmsProp16>(
+        "q16.16 2-4-4-1 rmsprop", xorSizes, 9, 2000, 1 << 10);
+    runAdaptive<Q8, tinymind::ReluActivationPolicy, 4, tinymind::HiddenLayers<8, 6>, 2, 3, tinymind::RmsPropOptimizer<Q8> >(
+        "q8.8 4-8-6-3 rmsprop", deep2, 10, 2000, 8);
+    runRegression<Q16, 3, tinymind::HiddenLayers<6, 4>, 2, 2, tinymind::GradientClipByValue<Q16>, Adam16>(
+        "q16.16 3-6-4-2 linear clip[-1,1] adam", reg2, 11, 2000);
     return 0;
 }
