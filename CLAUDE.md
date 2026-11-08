@@ -146,6 +146,7 @@ code follows rustfmt; do not fight the formatter.
 | (same, `QSoftmax`) | `cpp/qsoftmax_fixedpoint.hpp` | TFLite-exact int8 softmax (`QSoftmaxFixedPoint1D`), one row per `forward::<N>` (the C++ `Rows` loop is the caller's); `N` in `1..512` checked at compile time. tinymind's other softmax, `QSoftmax1D` (exp LUT + int64 divide, TFLite to within rounding), is deliberately not ported. Checked by `tests/softmax_tflite.rs` (TFLite Micro goldens and sweep hashes, extracted by script from tinymind's unit test) and `tests/softmax_sweep.rs` (golden from `scripts/cpp/softmax_sweep.cpp`: tinymind's kernel + `buildQSoftmaxFixedPointParams`, 504 calibrations, rows of 1 to 511) |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp` | Feature `std`: `quantize_multiplier` (with a ported `frexp`), `build_requantizer`, `quantize`/`dequantize`, sigmoid/tanh LUT builders, `build_softmax` (`buildQSoftmaxFixedPointParams`) |
 | (same, `QDensePerChannel`) | `cpp/qpointwiseconv2d.hpp` (1x1, per channel) | Dense with one requantizer per output, as TFLite quantizes dense layers; verified on the boards against tinymind's benchmark hash |
+| `src/int8/conv.rs`, `src/int8/pool.rs` (re-exported from `int8`) | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp` | `QConv2D`/`QConv2DPerChannel`, `QDepthwiseConv2D`, `QPointwiseConv2D`/`...PerChannel`, `QMaxPool2D`, `QAvgPool2D`, `QGlobalAvgPool2D`. NHWC nested arrays (`[[[i8; C]; W]; H]`, conv weights OHWI); kernel, strides and padding are layer const params (defaults: stride 1 / pool stride = window, no padding); `forward(&self, input, &mut output)` takes H, W, OH, OW from the arrays and checks `OH == (H+PT+PB-KH)/SH+1` etc. in an inline `const { assert!() }` (stable since 1.79), so a wrong size or invalid layer is a compile error: this is how stable Rust gets around `OutputHeight` arithmetic. Plain loops: a padded tap (zero point) adds nothing and is skipped; the C++ patch gathering, row tiles, filter pairs, padded-row ring and depthwise zero-point folding are speed-only (same `i32` sums mod 2^32). Checked by `tests/conv_sweep.rs` (golden from `scripts/cpp/conv_sweep.cpp`: 57 configurations x 3 trials, every C++ path incl. patch/row/tiles/odd filters/all-padding windows, both requantizer paths and the C++ FastRequantizer vs general form, pool ranges with qmin > qmax); ten planted defects each fail it. Not ported yet: `QAdd`, `QPad2D` (ResNet-8 needs them) |
 | `examples/int8_xor.rs`, `examples/common/int8_xor_driver.rs` | `examples/pytorch_quant/xor/xor_quant.cpp`, `weights.hpp` | Weights and scales copied from `weights.hpp` (the goldens catch any mistake) |
 | `tools/import_pytorch/tinymind_import.py` | `apps/import_pytorch/tinymind_import.py` | PyTorch importer emitting Rust. Calibration/quantization/observers copied unchanged (Dense/ReLU/Sigmoid/Tanh/Softmax subset); new: integer requantizers (`buildRequantizer` on float32 scales), LUTs via libm `expf`/`tanhf` over ctypes, softmax params (`buildQSoftmaxFixedPointParams` on the float32 scale; tinymind's importer leaves softmax to the hand-written C++), `forward`, `from_torch`, rustfmt'd output. `test_parity.py` vs tinymind's module; `example_mlp.py` (no torch) and `torch_xor.py` (torch) |
 | `examples/imported_mlp.rs`, `examples/common/imported_{mlp,classifier}_model.rs`, `examples/common/imported_mlp_driver.rs`, `scripts/cpp/imported_mlp.cpp` | (tinymind importer + C++ runtime) | The importer's two example models (sigmoid MLP, softmax classifier); the C++ program runs tinymind's headers for the same models, with `QSoftmaxFixedPoint1D`. The `*_model.rs` files are generated: regenerate with `example_mlp.py [--model classifier] --rust`, never edit |
@@ -276,7 +277,7 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
   sanitizer for that code.
 - **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, about
-  three minutes): 56 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
+  seven minutes): 64 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
   and Q1.31: add/sub wrap, multiply floors then wraps, division never panics,
   `from_int`, `pow2_neg`, zero tolerance and comparisons match their definitions.
   Tanh and sigmoid (both formats) stay within their tables' range and never index
@@ -284,7 +285,12 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   gemmlowp's two-step rounding (written as tinymind's unit test writes it) for
   every input in its domain; the requantizer, the dense layer, the LUT and the
   softmax (its exp and reciprocal on every `i32`, and the layer for any
-  parameters and logits, about 90 s) never panic for any field values. Trees:
+  parameters and logits, about 90 s) never panic for any field values; so do
+  every convolution and pooling layer on small shapes with taps in the padding,
+  and the pooling divide rounds half away from zero (spec in i64; a planted
+  round-toward-zero fails it). The conv harnesses need `#[kani::unwind(4)]`:
+  without a bound, CBMC unwound the pointwise layer's `flatten`/`zip` loops for
+  30+ minutes; with it each harness takes under 90 s. Trees:
   the walk, the ensemble and `is_valid` never panic for any 3-4 node pool
   (indices in or out of range, cycles), root, class, base score and input. Specs
   avoid the operations they check
@@ -327,8 +333,12 @@ Adam/RMSprop (2C), the on-device anomaly-detection demo on both boards (2D).
 Priority 2 is complete; head-only fine-tuning (train only the last layer) is the
 one idea from the report not done. Trees: the runtime (`src/tree.rs`, 3A) and
 the importer (`tools/import_trees`, 3B) are done; tinymind's packed
-`QTreeCompactEval` form is not. Next: int8 conv (output shapes need const
-arithmetic; importer-generated code can spell them out). An inference-only
+`QTreeCompactEval` form is not. Int8 conv (priority 4): the layers are done
+(4A, 2026-11-08: output sizes spelled out by the caller and checked at compile
+time). Next: 4B port `examples/kws_cortex_m_int8` bit-exact; 4C MLPerf Tiny
+DS-CNN on the F411 hash-matching tinymind (`benchmarks/framework_comparison_f411`,
+about 53 KB, too big for the L031; the Rust layers are plain loops, so time them
+against the C++ first); 4D Conv2D (+ folded BatchNorm) in the PyTorch importer. An inference-only
 version of the multi-layer `NeuralNetwork` is not done yet (`InferencePerceptron`
 covers one hidden layer).
 

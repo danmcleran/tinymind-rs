@@ -16,11 +16,24 @@ Alongside the Q-format networks, the crate runs **int8 affine-quantized** models
 | `QDense<'a, IN, OUT>` | Fully connected layer: `acc[o] = bias[o] + sum_i w[o][i] * (x[i] - zp)`, then requantize | `QDense` (`cpp/qdense.hpp`) |
 | `QDensePerChannel<'a, IN, OUT>` | The same with one requantizer per output, as TFLite quantizes dense layers by default | `QPointwiseConv2DPerChannel` on a 1x1 input (`cpp/qpointwiseconv2d.hpp`) |
 | `qrelu`, `qrelu6` | ReLU and ReLU6 in the quantized grid | `cpp/qactivations.hpp` |
+| `QConv2D<'a, C, KH, KW, F, SH, SW, PT, PB, PL, PR>` | 2D convolution over an NHWC tensor: `F` filters of `KH` x `KW` x `C`, strides `SH`, `SW` (default 1) and zero-point padding on each side (default 0); one requantizer | `QConv2D` (`cpp/qconv2d.hpp`) |
+| `QConv2DPerChannel<...>` | The same with one requantizer per filter, as TFLite quantizes convolutions | `QConv2DPerChannel` |
+| `QDepthwiseConv2D<'a, C, KH, KW, SH, SW, PT, PB, PL, PR>` | One `KH` x `KW` filter per channel, channels not mixed; one requantizer per channel | `QDepthwiseConv2D` (`cpp/qdepthwiseconv2d.hpp`) |
+| `QPointwiseConv2D<'a, C, F>`, `QPointwiseConv2DPerChannel<'a, C, F>` | 1x1 convolution: the same `C`-to-`F` dense layer at every pixel | `QPointwiseConv2D`, `QPointwiseConv2DPerChannel` (`cpp/qpointwiseconv2d.hpp`) |
+| `QMaxPool2D<PH, PW, SH, SW>`, `QAvgPool2D<...>`, `QGlobalAvgPool2D` | Max, average (rounded half away from zero) and global average pooling, in the input's scale | `cpp/qpool2d.hpp` |
 | `apply_lut` | Any activation through a 256-entry int8 table, such as sigmoid or tanh | `qApplyLUT` |
 | `QSoftmax` | Softmax over a row of int8 logits onto the 1/256 probability grid, bit-exact with TFLite's int8 softmax (and so with CMSIS-NN's `arm_softmax_s8`) | `QSoftmaxFixedPoint1D` (`cpp/qsoftmax_fixedpoint.hpp`) |
 | `calibration` (feature `std`) | Host side: build requantizers, sigmoid/tanh tables and softmax parameters from float scales; affine parameters from a float range; quantize and dequantize | `cpp/include/qcalibration.hpp` |
 
 A layer borrows its weights (`&[[i8; IN]; OUT]`, row-major as PyTorch and TFLite store them) and biases, so they can live in flash as `static` data. On a device, run the calibration on the host and embed the resulting integers; the five fields of a `Requantizer` are plain constants.
+
+## Convolution and pooling
+
+Tensors are NHWC without the batch axis, as nested arrays: an input is `[[[i8; C]; W]; H]`, and convolution weights are `[[[[i8; C]; KW]; KH]; F]` (OHWI, as TFLite stores them). Kernel, strides and padding are const parameters of the layer type, and `forward` takes the input and a caller-owned output, so layers can share buffers. The output's size must be the one the layer produces, `(H + PT + PB - KH) / SH + 1` rows and likewise columns: a wrong size, a zero stride or a kernel larger than the padded input is a compile error, not a run-time check. Stable Rust cannot compute that size from the input's (C++ does it with template arithmetic), so the output array spells it out, and the compiler checks it. Padding holds the input zero point, as TFLite pads, so `PT = PB = PL = PR = 1` around a 3x3 kernel is TFLite's SAME padding at stride 1.
+
+The [`int8` API reference]({{ site.baseurl }}/api/tinymind/int8/) has a compiled example: a convolution followed by max pooling.
+
+The C++ layers gather patches, tile output rows and pair filters for speed; those add the same integer products, so the results are the same. The Rust layers are plain loops for now.
 
 ## Example: a PyTorch-trained XOR network
 
@@ -62,7 +75,8 @@ It is a port of tinymind (C++)'s PyTorch importer with a Rust back end: calibrat
 
 - **Golden output** from the C++ example, and the live comparison in `scripts/compare-with-cpp.sh`, as for the other examples.
 - **tinymind (C++)'s own known answers** for the requantizer and dense layer, including its check of the requantizer's saturating path against an exact 64-bit computation over more than ten thousand cases.
-- **Kani proofs** for every input: the requantizer's fast single-rounding path equals the standard two-step rounding (gemmlowp's, which TFLite uses) wherever it is used, and the requantizer, the dense layer, the table lookup and the softmax never panic, whatever their parameters.
+- **Kani proofs** for every input: the requantizer's fast single-rounding path equals the standard two-step rounding (gemmlowp's, which TFLite uses) wherever it is used, and the requantizer, the dense layer, the convolutions, the pooling layers, the table lookup and the softmax never panic, whatever their parameters; the pooling divide rounds half away from zero.
+- **Convolution and pooling against tinymind (C++)**: 57 layer configurations over random tensors, among them every path the C++ takes in its portable build (windows gathered into patches and read row by row, several tiles per output row, odd filter counts and output widths, strides above the kernel size, asymmetric padding and windows wholly in the padding), with requantizers on both paths and pooling ranges with `qmin > qmax`. Ten planted defects (padding with 0 instead of the zero point, swapped strides, one requantizer for every filter, rounding toward zero, ...) each fail it. (tinymind (C++)'s Arm DSP kernels add the same products in another order, so they give the same integers; the comparison runs the portable build.)
 - **Softmax against TFLite**: the golden rows and sweep hashes that tinymind (C++)'s unit test takes from the TFLite Micro reference kernel, and a sweep against the tinymind (C++) softmax and its calibration over 504 input scales and betas and row lengths 1 to 511.
 - **No reachable panics**: the int8 path is part of the Cortex-M firmware image that CI links with an undefined panic handler.
 
@@ -70,6 +84,6 @@ Where the C++ would hit undefined behaviour (an int32 accumulator overflowing, a
 
 ## Not yet
 
-Convolution, depthwise convolution, pooling and the rest of tinymind (C++)'s int8 family (recurrent cells, attention) are not ported yet, so the importer accepts dense layers with ReLU, sigmoid, tanh or softmax only. tinymind (C++)'s ONNX importer is not ported. Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
+The rest of tinymind (C++)'s int8 family (residual add, explicit padding, recurrent cells, attention) is not ported yet, and the importer does not emit convolutions yet: it accepts dense layers with ReLU, sigmoid, tanh or softmax only. tinymind (C++)'s ONNX importer is not ported. Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
 
 The [API reference]({{ site.baseurl }}/api/tinymind/int8/) documents every function.

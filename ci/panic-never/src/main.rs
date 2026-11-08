@@ -8,7 +8,11 @@
 use core::hint::black_box;
 
 use core::mem::size_of;
-use tinymind::int8::{self, QDense, QDensePerChannel, QSoftmax, Requantizer};
+use tinymind::int8::{
+    self, QAvgPool2D, QConv2D, QConv2DPerChannel, QDense, QDensePerChannel, QDepthwiseConv2D,
+    QGlobalAvgPool2D, QMaxPool2D, QPointwiseConv2D, QPointwiseConv2DPerChannel, QSoftmax,
+    Requantizer,
+};
 use tinymind::rand::GlibcRand;
 use tinymind::tree::{self, QDecisionTree, QGbdt, QTreeNode};
 
@@ -243,6 +247,97 @@ fn int8_inference() {
     black_box(softmax.forward(&black_box([0i8; 10])));
 }
 
+/// Convolutions and pooling: padded and unpadded, strided, per tensor and per
+/// channel, with every parameter and tensor opaque.
+fn int8_conv() {
+    let rq = Requantizer {
+        multiplier: black_box(1 << 30),
+        shift: black_box(7),
+        zero_point: black_box(-3),
+        qmin: black_box(-128),
+        qmax: black_box(127),
+    };
+    let rqs: [Requantizer; 4] = black_box([rq; 4]);
+    let biases: [i32; 4] = black_box([1; 4]);
+    let bias = || if black_box(true) { Some(&biases) } else { None };
+    let zp = black_box(-5);
+    let input: [[[i8; 2]; 7]; 6] = black_box([[[1; 2]; 7]; 6]);
+
+    let weights: [[[[i8; 2]; 2]; 3]; 4] = black_box([[[[1; 2]; 2]; 3]; 4]);
+    // SAME-style padding, stride 2 down, 1 across: 4 x 8 x 4.
+    let conv: QConv2D<'_, 2, 3, 2, 4, 2, 1, 1, 2, 1, 1> = QConv2D {
+        weights: &weights,
+        biases: bias(),
+        input_zero_point: zp,
+        requantizer: rq,
+    };
+    let mut out = [[[0i8; 4]; 8]; 4];
+    conv.forward(&input, &mut out);
+    black_box(&out);
+    // VALID: 4 x 6 x 4.
+    let conv: QConv2DPerChannel<'_, 2, 3, 2, 4> = QConv2DPerChannel {
+        weights: &weights,
+        biases: bias(),
+        input_zero_point: zp,
+        requantizers: &rqs,
+    };
+    let mut out = [[[0i8; 4]; 6]; 4];
+    conv.forward(&input, &mut out);
+    black_box(&out);
+
+    let dw_weights: [[[i8; 3]; 3]; 2] = black_box([[[1; 3]; 3]; 2]);
+    let dw_biases: [i32; 2] = black_box([1; 2]);
+    let dw_rqs: [Requantizer; 2] = black_box([rq; 2]);
+    let depthwise: QDepthwiseConv2D<'_, 2, 3, 3, 2, 2, 1, 1, 1, 1> = QDepthwiseConv2D {
+        weights: &dw_weights,
+        biases: if black_box(true) {
+            Some(&dw_biases)
+        } else {
+            None
+        },
+        input_zero_point: zp,
+        requantizers: &dw_rqs,
+    };
+    let mut out = [[[0i8; 2]; 4]; 3];
+    depthwise.forward(&input, &mut out);
+    black_box(&out);
+
+    let pw_weights: [[i8; 2]; 4] = black_box([[1; 2]; 4]);
+    let pointwise = QPointwiseConv2D {
+        weights: &pw_weights,
+        biases: bias(),
+        input_zero_point: zp,
+        requantizer: rq,
+    };
+    let mut out = [[[0i8; 4]; 7]; 6];
+    pointwise.forward(&input, &mut out);
+    black_box(&out);
+    let pointwise = QPointwiseConv2DPerChannel {
+        weights: &pw_weights,
+        biases: bias(),
+        input_zero_point: zp,
+        requantizers: &rqs,
+    };
+    pointwise.forward(&input, &mut out);
+    black_box(&out);
+
+    let mut out = [[[0i8; 2]; 3]; 3];
+    QMaxPool2D::<2, 2>.forward(&input, &mut out);
+    black_box(&out);
+    let mut out = [[[0i8; 2]; 5]; 2];
+    let avg = QAvgPool2D::<3, 3, 2, 1> {
+        qmin: black_box(-128),
+        qmax: black_box(127),
+    };
+    avg.forward(&input, &mut out);
+    black_box(&out);
+    let global = QGlobalAvgPool2D {
+        qmin: black_box(-128),
+        qmax: black_box(127),
+    };
+    black_box(global.forward(&input));
+}
+
 /// Trees and ensembles with every field opaque, so any index may be out of
 /// range: the walk, the ensemble and the validity checks must stay total.
 fn trees<T: Copy + Into<i32>>(threshold: T, input: T) {
@@ -275,6 +370,7 @@ pub extern "C" fn _start() -> ! {
     arithmetic();
     activations();
     int8_inference();
+    int8_conv();
     trees::<i8>(black_box(1), black_box(2));
     trees::<u8>(black_box(1), black_box(2));
     trees::<i16>(black_box(1), black_box(2));
