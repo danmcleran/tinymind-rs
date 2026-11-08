@@ -167,6 +167,9 @@ backends, and so on) is not ported.
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
   example does, runs both sides, and compares every output file (40 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind's files). It exits nonzero if anything differs.
+- `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
+  against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
+  examples draw their weights and samples from it, as tinymind's do.
 - `tests/qformat_oracle.rs`, ported from tinymind's qformat oracle, checks every
   `QValue` operation against an exact reference: edge values and a fixed-seed
   sample for nine formats, and every operand pair for Q8.8 (about 26 billion

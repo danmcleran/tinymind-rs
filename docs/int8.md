@@ -56,7 +56,7 @@ mod my_model;
 let y = my_model::forward(&input);
 ```
 
-It is a port of tinymind's PyTorch importer with a Rust back end: calibration (min/max, percentile or KL-divergence ranges per layer) and quantization are tinymind's code, so the int8 numbers are the same. CI imports one model with both importers and runs it on both runtimes; the outputs are byte-identical. See the importer's [README](https://github.com/danmcleran/tinymind-rs/tree/master/tools/import_pytorch).
+It is a port of tinymind's PyTorch importer with a Rust back end: calibration (min/max, percentile or KL-divergence ranges per layer) and quantization are tinymind's code, so the int8 numbers are the same. The `imported_mlp` example runs two models written by the importer (a sigmoid MLP and a softmax classifier); CI imports the same two models with tinymind's importer, runs them on tinymind's C++ runtime, and checks the outputs are byte-identical. See the importer's [README](https://github.com/danmcleran/tinymind-rs/tree/master/tools/import_pytorch).
 
 ## How it is checked
 
@@ -70,6 +70,6 @@ Where the C++ would hit undefined behaviour (an int32 accumulator overflowing, a
 
 ## Not yet
 
-Convolution, depthwise convolution, pooling and the rest of tinymind's int8 family (recurrent cells, attention, trees) are not ported yet, so the importer accepts dense layers with ReLU, sigmoid, tanh or softmax only. tinymind's ONNX importer is not ported.
+Convolution, depthwise convolution, pooling and the rest of tinymind's int8 family (recurrent cells, attention) are not ported yet, so the importer accepts dense layers with ReLU, sigmoid, tanh or softmax only. tinymind's ONNX importer is not ported. Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
 
 The [API reference]({{ site.baseurl }}/api/tinymind/int8/) documents every function.

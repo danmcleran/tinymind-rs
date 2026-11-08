@@ -24,6 +24,12 @@ CXXFLAGS=(-O2 -Wall -Wextra -Werror -Wpedantic -DTINYMIND_ENABLE_OSTREAMS=1 -DTI
 (cd "$ROOT" && cargo build --release --examples --features std)
 
 status=0
+identical=0
+# One passed comparison: report it and count it (the docs quote the count).
+same() {
+  echo "IDENTICAL  $*"
+  identical=$((identical + 1))
+}
 # Each format: the Rust --format value, the Q-format bit count for xornet.h, and
 # the tinymind table macros it needs.
 for spec in "q16.16 16 16_16" "q8.8 8 8_8"; do
@@ -51,7 +57,7 @@ for spec in "q16.16 16 16_16" "q8.8 8 8_8"; do
 
   for f in stdout.txt nn_fixed_xor.txt xor_training.csv xor_decision_surface.csv; do
     if cmp -s "$TMP/$format/cpp/$f" "$TMP/$format/rust/$f"; then
-      echo "IDENTICAL  $format $f"
+      same "$format $f"
     else
       echo "DIFFERENT  $format $f"
       status=1
@@ -62,7 +68,7 @@ done
 echo "== iris"
 # The data file must be tinymind's, byte for byte: both programs read it.
 if cmp -s "$ROOT/data/iris.data" "$TINYMIND_DIR/examples/iris/iris.data"; then
-  echo "IDENTICAL  iris data/iris.data vs tinymind examples/iris/iris.data"
+  same "iris data/iris.data vs tinymind examples/iris/iris.data"
 else
   echo "DIFFERENT  iris data/iris.data vs tinymind examples/iris/iris.data"
   status=1
@@ -79,7 +85,7 @@ rm "$TMP/iris/cpp/iris.data"
 "$ROOT/target/release/examples/iris" "$TMP/iris/rust" "$ROOT/data/iris.data" > "$TMP/iris/rust/stdout.txt"
 for f in stdout.txt iris_loss.csv iris_scatter.csv iris_confusion.csv; do
   if cmp -s "$TMP/iris/cpp/$f" "$TMP/iris/rust/$f"; then
-    echo "IDENTICAL  iris $f"
+    same "iris $f"
   else
     echo "DIFFERENT  iris $f"
     status=1
@@ -89,7 +95,7 @@ done
 echo "== energy_efficiency"
 # The data file must be tinymind's, byte for byte (CRLF in both working trees).
 if cmp -s "$ROOT/data/ENB2012_data.csv" "$TINYMIND_DIR/examples/energy_efficiency/ENB2012_data.csv"; then
-  echo "IDENTICAL  energy data/ENB2012_data.csv vs tinymind examples/energy_efficiency/ENB2012_data.csv"
+  same "energy data/ENB2012_data.csv vs tinymind examples/energy_efficiency/ENB2012_data.csv"
 else
   echo "DIFFERENT  energy data/ENB2012_data.csv vs tinymind examples/energy_efficiency/ENB2012_data.csv"
   status=1
@@ -106,7 +112,7 @@ rm "$TMP/energy/cpp/ENB2012_data.csv"
 "$ROOT/target/release/examples/energy_efficiency" "$TMP/energy/rust" "$ROOT/data/ENB2012_data.csv" > "$TMP/energy/rust/stdout.txt"
 for f in stdout.txt energy_loss.csv energy_pred.csv; do
   if cmp -s "$TMP/energy/cpp/$f" "$TMP/energy/rust/$f"; then
-    echo "IDENTICAL  energy $f"
+    same "energy $f"
   else
     echo "DIFFERENT  energy $f"
     status=1
@@ -124,7 +130,7 @@ g++ -ggdb -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/int8_xor/xor_quant" \
 "$ROOT/target/release/examples/int8_xor" "$TMP/int8_xor/rust" > "$TMP/int8_xor/rust/stdout.txt"
 for f in stdout.txt xor_decision_surface.csv; do
   if cmp -s "$TMP/int8_xor/cpp/$f" "$TMP/int8_xor/rust/$f"; then
-    echo "IDENTICAL  int8_xor $f"
+    same "int8_xor $f"
   else
     echo "DIFFERENT  int8_xor $f"
     status=1
@@ -142,13 +148,13 @@ g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/deep_mlp/deep_mlp" "$ROOT/scri
   -DTINYMIND_USE_SIGMOID_8_8=1 -DTINYMIND_USE_TANH_8_8=1
 "$TMP/deep_mlp/deep_mlp" > "$TMP/deep_mlp/stdout.txt"
 if cmp -s "$TMP/deep_mlp/stdout.txt" "$ROOT/tests/golden/deep_mlp/stdout.txt"; then
-  echo "IDENTICAL  deep_mlp stdout.txt (C++ vs tests/golden/deep_mlp)"
+  same "deep_mlp stdout.txt (C++ vs tests/golden/deep_mlp)"
 else
   echo "DIFFERENT  deep_mlp stdout.txt (C++ vs tests/golden/deep_mlp)"
   status=1
 fi
 cargo test -q --manifest-path "$ROOT/Cargo.toml" --test deep_mlp >/dev/null 2>&1 \
-  && echo "IDENTICAL  deep_mlp Rust vs tests/golden/deep_mlp" \
+  && same "deep_mlp Rust vs tests/golden/deep_mlp" \
   || { echo "DIFFERENT  deep_mlp Rust vs tests/golden/deep_mlp"; status=1; }
 
 echo "== inference_mlp"
@@ -162,13 +168,13 @@ g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/inference_mlp/inference_mlp" "
   -DTINYMIND_USE_SIGMOID_8_8=1 -DTINYMIND_USE_TANH_8_8=1
 "$TMP/inference_mlp/inference_mlp" > "$TMP/inference_mlp/stdout.txt"
 if cmp -s "$TMP/inference_mlp/stdout.txt" "$ROOT/tests/golden/inference_mlp/stdout.txt"; then
-  echo "IDENTICAL  inference_mlp stdout.txt (C++ vs tests/golden/inference_mlp)"
+  same "inference_mlp stdout.txt (C++ vs tests/golden/inference_mlp)"
 else
   echo "DIFFERENT  inference_mlp stdout.txt (C++ vs tests/golden/inference_mlp)"
   status=1
 fi
 cargo test -q --manifest-path "$ROOT/Cargo.toml" --test inference_mlp >/dev/null 2>&1 \
-  && echo "IDENTICAL  inference_mlp Rust vs tests/golden/inference_mlp" \
+  && same "inference_mlp Rust vs tests/golden/inference_mlp" \
   || { echo "DIFFERENT  inference_mlp Rust vs tests/golden/inference_mlp"; status=1; }
 
 echo "== gbdt"
@@ -184,7 +190,7 @@ g++ -g -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/gbdt/gbdt_tabular_int8" \
 "$ROOT/target/release/examples/gbdt_tabular_int8" --golden "$TMP/gbdt/rust" > "$TMP/gbdt/rust/gbdt_tabular_int8.golden"
 for f in stdout.txt gbdt_tabular_int8.csv gbdt_tabular_int8.golden; do
   if cmp -s "$TMP/gbdt/cpp/$f" "$TMP/gbdt/rust/$f"; then
-    echo "IDENTICAL  gbdt $f"
+    same "gbdt $f"
   else
     echo "DIFFERENT  gbdt $f"
     status=1
@@ -200,13 +206,13 @@ g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/tree/tree_sweep" "$ROOT/script
   -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include"
 "$TMP/tree/tree_sweep" > "$TMP/tree/stdout.txt"
 if cmp -s "$TMP/tree/stdout.txt" "$ROOT/tests/golden/tree/stdout.txt"; then
-  echo "IDENTICAL  tree stdout.txt (C++ vs tests/golden/tree)"
+  same "tree stdout.txt (C++ vs tests/golden/tree)"
 else
   echo "DIFFERENT  tree stdout.txt (C++ vs tests/golden/tree)"
   status=1
 fi
 cargo test -q --manifest-path "$ROOT/Cargo.toml" --test tree_sweep >/dev/null 2>&1 \
-  && echo "IDENTICAL  tree Rust vs tests/golden/tree" \
+  && same "tree Rust vs tests/golden/tree" \
   || { echo "DIFFERENT  tree Rust vs tests/golden/tree"; status=1; }
 
 echo "== softmax"
@@ -219,13 +225,13 @@ g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/softmax/softmax_sweep" "$ROOT/
   -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
 "$TMP/softmax/softmax_sweep" > "$TMP/softmax/stdout.txt"
 if cmp -s "$TMP/softmax/stdout.txt" "$ROOT/tests/golden/softmax/stdout.txt"; then
-  echo "IDENTICAL  softmax stdout.txt (C++ vs tests/golden/softmax)"
+  same "softmax stdout.txt (C++ vs tests/golden/softmax)"
 else
   echo "DIFFERENT  softmax stdout.txt (C++ vs tests/golden/softmax)"
   status=1
 fi
 cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test softmax_sweep >/dev/null 2>&1 \
-  && echo "IDENTICAL  softmax Rust vs tests/golden/softmax" \
+  && same "softmax Rust vs tests/golden/softmax" \
   || { echo "DIFFERENT  softmax Rust vs tests/golden/softmax"; status=1; }
 
 echo "== imported_mlp (PyTorch importer)"
@@ -246,7 +252,7 @@ g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/imported/imported_mlp" "$ROOT/
 "$TMP/imported/imported_mlp" > "$TMP/imported/cpp.txt"
 "$ROOT/target/release/examples/imported_mlp" > "$TMP/imported/rust.txt"
 if cmp -s "$TMP/imported/cpp.txt" "$TMP/imported/rust.txt"; then
-  echo "IDENTICAL  imported_mlp stdout.txt"
+  same "imported_mlp stdout.txt"
 else
   echo "DIFFERENT  imported_mlp stdout.txt"
   status=1
@@ -255,7 +261,7 @@ fi
 for model in mlp classifier; do
   "$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_mlp.py" --model "$model" --rust "$TMP/imported/$model.rs" >/dev/null
   if cmp -s "$TMP/imported/$model.rs" "$ROOT/examples/common/imported_${model}_model.rs"; then
-    echo "IDENTICAL  imported_mlp examples/common/imported_${model}_model.rs (regenerated)"
+    same "imported_mlp examples/common/imported_${model}_model.rs (regenerated)"
   else
     echo "DIFFERENT  imported_mlp examples/common/imported_${model}_model.rs (regenerated)"
     status=1
@@ -263,7 +269,7 @@ for model in mlp classifier; do
 done
 # Calibration and quantization parity with tinymind's importer on more models.
 if "$PYTHON" -I -B "$ROOT/tools/import_pytorch/test_parity.py" > "$TMP/imported/parity.txt"; then
-  echo "IDENTICAL  importer parity ($(grep -c "^case.*IDENTICAL" "$TMP/imported/parity.txt") models, $(grep "softmax params" "$TMP/imported/parity.txt" | cut -d" " -f3-5) softmax calibrations)"
+  same "importer parity ($(grep -c "^case.*IDENTICAL" "$TMP/imported/parity.txt") models, $(grep "softmax params" "$TMP/imported/parity.txt" | cut -d" " -f3-5) softmax calibrations)"
 else
   cat "$TMP/imported/parity.txt"
   echo "DIFFERENT  importer parity"
@@ -283,13 +289,13 @@ g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/trees/imported_trees" "$ROOT/s
 "$TMP/trees/imported_trees" > "$TMP/trees/cpp.txt"
 "$ROOT/target/release/examples/imported_trees" > "$TMP/trees/rust.txt"
 if cmp -s "$TMP/trees/cpp.txt" "$TMP/trees/rust.txt"; then
-  echo "IDENTICAL  imported_trees stdout.txt"
+  same "imported_trees stdout.txt"
 else
   echo "DIFFERENT  imported_trees stdout.txt"
   status=1
 fi
 if cmp -s "$TMP/trees/cpp.txt" "$ROOT/tests/golden/imported_trees/stdout.txt"; then
-  echo "IDENTICAL  imported_trees stdout.txt (C++ vs tests/golden/imported_trees)"
+  same "imported_trees stdout.txt (C++ vs tests/golden/imported_trees)"
 else
   echo "DIFFERENT  imported_trees stdout.txt (C++ vs tests/golden/imported_trees)"
   status=1
@@ -298,7 +304,7 @@ fi
 for model in gbdt forest; do
   "$PYTHON" -I -B "$ROOT/tools/import_trees/example_trees.py" --model "$model" --rust "$TMP/trees/$model.rs" >/dev/null
   if cmp -s "$TMP/trees/$model.rs" "$ROOT/examples/common/imported_trees_${model}_model.rs"; then
-    echo "IDENTICAL  imported_trees examples/common/imported_trees_${model}_model.rs (regenerated)"
+    same "imported_trees examples/common/imported_trees_${model}_model.rs (regenerated)"
   else
     echo "DIFFERENT  imported_trees examples/common/imported_trees_${model}_model.rs (regenerated)"
     status=1
@@ -306,14 +312,14 @@ for model in gbdt forest; do
 done
 "$PYTHON" -I -B "$ROOT/tools/import_trees/example_trees.py" --data-rust "$TMP/trees/data.rs"
 if cmp -s "$TMP/trees/data.rs" "$ROOT/examples/common/imported_trees_data.rs"; then
-  echo "IDENTICAL  imported_trees examples/common/imported_trees_data.rs (regenerated)"
+  same "imported_trees examples/common/imported_trees_data.rs (regenerated)"
 else
   echo "DIFFERENT  imported_trees examples/common/imported_trees_data.rs (regenerated)"
   status=1
 fi
 # Integer-model parity with tinymind's importer, and both runtimes, on more models.
 if "$PYTHON" -I -B "$ROOT/tools/import_trees/test_parity.py" > "$TMP/trees/parity.txt"; then
-  echo "IDENTICAL  tree importer parity ($(grep -c "^case.*IDENTICAL" "$TMP/trees/parity.txt") models)"
+  same "tree importer parity ($(grep -c "^case.*IDENTICAL" "$TMP/trees/parity.txt") models)"
 else
   cat "$TMP/trees/parity.txt"
   echo "DIFFERENT  tree importer parity"
@@ -344,5 +350,9 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   mkdir -p "$KEEP_CPP_OUTPUT/tree"
   cp "$TMP/tree/stdout.txt" "$KEEP_CPP_OUTPUT/tree/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"
+fi
+# Every comparison passed: the count the docs quote must be this one.
+if [ "$status" -eq 0 ]; then
+  "$ROOT/scripts/check-counts.sh" comparisons "$identical" || status=1
 fi
 exit $status
