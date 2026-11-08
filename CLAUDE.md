@@ -321,7 +321,7 @@ site, published at <https://danmcleran.github.io/tinymind-rs/> by
 `master`) and adds the crate's rustdoc under `/api/`. Its `build site` job is not a
 required check.
 
-- Pages: Home, XOR example, Iris example, Int8 inference, Q-format in Rust, On-board
+- Pages: Home, XOR example, Iris example, Energy example, Int8 inference, Q-format in Rust, On-board
   results, Equivalence with tinymind, API reference, and "Bit for bit" (the launch write-up:
   how the port is checked and what Rust bought; its numbers must be kept current or the
   page dated). Keep them about what is ported; link to tinymind's site for concepts
@@ -341,6 +341,31 @@ required check.
   the knowledge graph (not worth it at this size).
 - No local Ruby is needed: the PR build checks the site. To preview locally:
   `cd docs && bundle install && bundle exec jekyll serve`.
+
+## Keeping the docs current
+
+Dan asked (2026-11-07) that the crate docs and the site stay up to date. The
+rendered output updates itself: docs.rs builds each crates.io release, and
+`pages.yml` redeploys the site, including the API reference built from `master`,
+on every merge. The hand-written prose does not, so every PR that adds or changes
+public API, an example or a check updates, in the same PR:
+
+- `README.md` (what crates.io shows): Status, Quick start, the "What is ported"
+  table, "How equivalence is proven".
+- `src/lib.rs` crate docs (the docs.rs front page) and the module docs of any
+  module it touches.
+- The site: `docs/index.md` status table and quick start, `docs/equivalence.md`
+  ("What is compared", "How it is checked"), the example's page (each example
+  has one, with a plot from `scripts/plot-examples.py`), `docs/int8.md` for int8
+  API, and `docs/bit-for-bit.md` when its "As of" version or its counts change.
+- `CHANGELOG.md` `[Unreleased]`.
+
+`scripts/check-docs.sh` (CI, `rust` job) catches the mechanical part: examples
+missing from either quick start, broken site links, duplicate `nav_order`, no
+CHANGELOG entry for the version, unattributed data files. For the prose, a
+fresh-eyes audit (a subagent given the current facts, read-only) found four real
+errors and a dozen omissions on 2026-11-07 after three quick releases; repeat it
+before each release.
 
 ## Conventions
 

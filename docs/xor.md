@@ -56,7 +56,7 @@ All four cases are classified correctly, but the surface shows how: the network 
 
 tinymind can build a network without its training machinery (`IsTrainable = false`) and load trained weights into it. The port does the same with `InferencePerceptron`: it holds only the weights, one value per connection, and its outputs are bit-identical to the trainable network's. Get one from a trained `MultilayerPerceptron` with `to_inference()`, or write the weights out as a `static`, which places them in flash on a microcontroller (`InferencePerceptron::new` is a `const fn`). `set_weights` loads them back into a trainable network, for example to fine-tune on the device.
 
-Network sizes in bytes on a Cortex-M4 (C++ with arm-none-eabi-g++ 13.2; the Rust sizes are the same on a 64-bit host, and the panic-check firmware asserts them on Cortex-M):
+Network sizes in bytes on a Cortex-M4 (C++ with arm-none-eabi-g++ 13.2; the Rust sizes are the same on a 64-bit host; the panic-check firmware asserts the 2-3-1 and 2-4-1 sizes on Cortex-M):
 
 | Network | tinymind trainable | tinymind inference-only | tinymind-rs trainable | tinymind-rs inference-only |
 |---|---|---|---|---|
