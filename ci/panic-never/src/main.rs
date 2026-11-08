@@ -277,8 +277,13 @@ pub extern "C" fn _start() -> ! {
     trees::<i16>(black_box(1), black_box(2));
     black_box(imported::forward(&black_box([0i8; imported::NUM_INPUTS])));
     let q = black_box([0i8; imported_trees::NUM_FEATURES]);
-    black_box((imported_trees::predict(&q), imported_trees::predict_inline(&q)));
-    black_box(imported_trees::quantize_features(&black_box([0.0; imported_trees::NUM_FEATURES])));
+    black_box((
+        imported_trees::predict(&q),
+        imported_trees::predict_inline(&q),
+    ));
+    black_box(imported_trees::quantize_features(&black_box(
+        [0.0; imported_trees::NUM_FEATURES],
+    )));
     // The examples' configurations: xor 2-4-1 (both formats) and iris 4-8-3.
     network::<Q16_16, Tanh, Sigmoid, 2, 4, 1>(Q16_16::from_raw);
     network::<Q8_8, Tanh, Sigmoid, 2, 4, 1>(|r| Q8_8::from_raw(r as i16));
