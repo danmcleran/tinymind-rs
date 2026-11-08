@@ -145,6 +145,7 @@ code follows rustfmt; do not fight the formatter.
 | `examples/int8_xor.rs`, `examples/common/int8_xor_driver.rs` | `examples/pytorch_quant/xor/xor_quant.cpp`, `weights.hpp` | Weights and scales copied from `weights.hpp` (the goldens catch any mistake) |
 | `tools/import_pytorch/tinymind_import.py` | `apps/import_pytorch/tinymind_import.py` | PyTorch importer emitting Rust. Calibration/quantization/observers copied unchanged (Dense/ReLU/Sigmoid/Tanh/Softmax subset); new: integer requantizers (`buildRequantizer` on float32 scales), LUTs via libm `expf`/`tanhf` over ctypes, softmax params (`buildQSoftmaxFixedPointParams` on the float32 scale; tinymind's importer leaves softmax to the hand-written C++), `forward`, `from_torch`, rustfmt'd output. `test_parity.py` vs tinymind's module; `example_mlp.py` (no torch) and `torch_xor.py` (torch) |
 | `examples/imported_mlp.rs`, `examples/common/imported_{mlp,classifier}_model.rs`, `examples/common/imported_mlp_driver.rs`, `scripts/cpp/imported_mlp.cpp` | (tinymind importer + C++ runtime) | The importer's two example models (sigmoid MLP, softmax classifier); the C++ program runs tinymind's headers for the same models, with `QSoftmaxFixedPoint1D`. The `*_model.rs` files are generated: regenerate with `example_mlp.py [--model classifier] --rust`, never edit |
+| `examples/energy_efficiency.rs`, `examples/common/energy_driver.rs`, `data/ENB2012_data.csv` | `examples/energy_efficiency/energy_efficiency.cpp`, `ENB2012_data.csv` | 8-16-2 regression: ReLU hidden, `Linear` output, `set_gradient_clip((-1, 1))`, lr 0.02, momentum and acceleration 0. Data is CRLF in tinymind's working tree (`eol=crlf`), so `.gitattributes` here pins the same; CC BY 4.0 (`NOTICE`). Gradient clipping (`cpp/gradientClipping.hpp`) applies to weights only: tinymind's `BiasNeuronConnectionWeightUpdater` uses the raw gradient (and no weight decay). This example never pushes a bias gradient past 1, so `scripts/cpp/deep_mlp.cpp` adds two clipped regressions that do (a planted bias clip fails them) |
 | `examples/iris.rs`, `examples/common/iris_driver.rs`, `data/iris.data` | `examples/iris/iris.cpp`, `iris.data` | 4-8-3 MLP, ReLU hidden + sigmoid output, 3 outputs (exercises the MSE `/ OUT` path). Data is the UCI file, CC BY 4.0 (attribution in `NOTICE`), checked against tinymind's copy |
 | `examples/common/cppfmt.rs` | (C++ iostreams) | `fmt_g` (`ostream << double`) and `fmt_fixed` (`std::fixed`), `#[path]`-included by each driver |
 | `tests/qformat_oracle.rs` | `unit_test/qformat_oracle/qformat_oracle_unit_test.cpp` | Differential oracle: every `QValue` op vs an exact i64 reference; C++ edge values, splitmix64 sample, chains; ported formats only (signed, full width, Truncate + Wrap). Plus an exhaustive Q8.8 sweep (`#[ignore]`, CI runs it) |
@@ -296,8 +297,8 @@ The goldens only prove the paths the examples execute. For the arithmetic:
 Next steps follow `reports/Embedded Rust ML priorities.md` (local, not committed):
 Dan chose to port what matters most to embedded Rust developers, not the smallest
 piece. Done: int8 dense + softmax, the PyTorch importer, multiple hidden layers
-(2A). Next in priority 2 (on-device training): 2B linear output + gradient
-clipping (`examples/energy_efficiency`), 2C Adam/RMSprop, 2D an on-device
+(2A), linear output + gradient clipping (2B, `examples/energy_efficiency`).
+Next in priority 2 (on-device training): 2C Adam/RMSprop, 2D an on-device
 anomaly-detection autoencoder demo on the boards. Then trees/GBDT (cheap, with
 an sklearn/XGBoost importer), then int8 conv (output shapes need const
 arithmetic; importer-generated code can spell them out). An inference-only

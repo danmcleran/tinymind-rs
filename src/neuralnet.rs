@@ -81,6 +81,7 @@ pub struct MultilayerPerceptron<V, H, O, const IN: usize, const HID: usize, cons
     learning_rate: V,
     momentum_rate: V,
     acceleration_rate: V,
+    gradient_clip: Option<(V, V)>,
     /// `H` and `O` are only used in static calls; `PhantomData` records that the
     /// type "uses" them. `fn() -> _` keeps the struct `Send`/`Sync` regardless.
     activations: PhantomData<fn() -> (H, O)>,
@@ -110,6 +111,7 @@ where
             learning_rate: V::pow2_neg(2),
             momentum_rate: V::pow2_neg(1),
             acceleration_rate: V::pow2_neg(4),
+            gradient_clip: None,
             activations: PhantomData,
         };
         nn.input_bias.output = V::ONE;
@@ -138,6 +140,21 @@ where
     /// Replace the momentum rate (default `2^-1`).
     pub fn set_momentum_rate(&mut self, rate: V) {
         self.momentum_rate = rate;
+    }
+
+    /// Replace the acceleration rate, the weight on the delta weight from two
+    /// steps back (default `2^-4`).
+    pub fn set_acceleration_rate(&mut self, rate: V) {
+        self.acceleration_rate = rate;
+    }
+
+    /// Clip each weight's gradient to `[min, max]` before the update, or
+    /// `None` (the default) to leave gradients alone. C++
+    /// `GradientClipByValue<ValueType, I, F>` is `Some((QValue(-I, F), QValue(I,
+    /// F)))`, so the default `GradientClipByValue<ValueType>` is `Some((-1.0,
+    /// 1.0))`. As in the C++, bias weights are never clipped.
+    pub fn set_gradient_clip(&mut self, range: Option<(V, V)>) {
+        self.gradient_clip = range;
     }
 
     /// Run one forward pass: load `inputs`, then compute the hidden and output
@@ -235,19 +252,21 @@ where
             self.acceleration_rate,
         );
 
+        let clip = self.gradient_clip;
+
         // Output layer first, then the hidden layer, each neuron's incoming
-        // connections followed by its bias connection.
+        // connections followed by its bias connection (never clipped).
         for o in 0..OUT {
             for h in 0..HID {
-                update_connection(&mut self.hidden[h].connections[o], rates);
+                update_connection(&mut self.hidden[h].connections[o], rates, clip);
             }
-            update_connection(&mut self.hidden_bias.connections[o], rates);
+            update_connection(&mut self.hidden_bias.connections[o], rates, None);
         }
         for h in 0..HID {
             for i in 0..IN {
-                update_connection(&mut self.input[i].connections[h], rates);
+                update_connection(&mut self.input[i].connections[h], rates, clip);
             }
-            update_connection(&mut self.input_bias.connections[h], rates);
+            update_connection(&mut self.input_bias.connections[h], rates, None);
         }
     }
 }
@@ -506,15 +525,38 @@ fn weighted_sum<V: Fixed, const N: usize, const C: usize>(
 
 /// SGD with momentum and "acceleration" (C++ `updateConnectionWeightsImpl`, SGD path):
 /// `dw = lr * g + momentum * dw[t-1] + acceleration * dw[t-2]`, `w += dw`.
+///
+/// `clip` is the gradient clipping range, `(min, max)` (C++
+/// `GradientClipByValue`). The C++ applies it to the weights only: bias
+/// connections are updated by `BiasNeuronConnectionWeightUpdater`, which uses the
+/// raw gradient, so callers pass `None` for them.
 pub(crate) fn update_connection<V: Fixed>(
     c: &mut Connection<V>,
     (lr, momentum, acceleration): (V, V, V),
+    clip: Option<(V, V)>,
 ) {
+    let gradient = match clip {
+        Some(range) => clip_gradient(c.gradient, range),
+        None => c.gradient,
+    };
     let new_delta_weight =
-        (lr * c.gradient) + (momentum * c.delta_weight) + (acceleration * c.previous_delta_weight);
+        (lr * gradient) + (momentum * c.delta_weight) + (acceleration * c.previous_delta_weight);
     let current_weight = c.weight;
     c.set_delta_weight(new_delta_weight);
     c.weight = current_weight + new_delta_weight;
+}
+
+/// C++ `GradientClipByValue::clip`: two tests, max first, so a range with
+/// `min > max` gives `max` for large gradients and `min` for small ones rather
+/// than panicking as `clamp` would.
+pub(crate) fn clip_gradient<V: Fixed>(gradient: V, (min, max): (V, V)) -> V {
+    if gradient > max {
+        max
+    } else if gradient < min {
+        min
+    } else {
+        gradient
+    }
 }
 
 #[cfg(test)]

@@ -60,10 +60,10 @@ Network sizes in bytes on a Cortex-M4 (C++ with arm-none-eabi-g++ 13.2; the Rust
 
 | Network | tinymind trainable | tinymind inference-only | tinymind-rs trainable | tinymind-rs inference-only |
 |---|---|---|---|---|
-| Q8.8, 2-3-1 | 228 | 88 | 150 | 26 |
-| Q8.8, 2-5-1 | 316 | 116 | 222 | 42 |
-| Q16.16, 2-4-1 (this example) | 428 | 156 | 372 | 68 |
-| Q16.16, 4-8-3 (the iris shape) | 1,364 | 436 | 1,268 | 268 |
+| Q8.8, 2-3-1 | 228 | 88 | 156 | 26 |
+| Q8.8, 2-5-1 | 316 | 116 | 228 | 42 |
+| Q16.16, 2-4-1 (this example) | 428 | 156 | 384 | 68 |
+| Q16.16, 4-8-3 (the iris shape) | 1,364 | 436 | 1,280 | 268 |
 
 The inference-only network keeps no neuron outputs between calls: the hidden activations live on the stack during `feed_forward` (16 bytes for this example), so a network stored in flash uses no RAM of its own. Sizes are `sizeof` / `size_of`, which is what tinymind's size tables report. A test checks the inference network against tinymind's untrainable one, loaded with the same weights, in both formats and both shapes.
 

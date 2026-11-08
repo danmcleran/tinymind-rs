@@ -2,7 +2,8 @@
 //! `cpp/lookupTable.hpp` and `cpp/interpolate.hpp`.
 //!
 //! C++ policy classes with static member functions become zero-sized Rust types
-//! implementing a trait. `Relu` needs no table and works for every value type.
+//! implementing a trait. `Relu` and `Linear` need no table and work for every
+//! value type.
 //! `Tanh` and `Sigmoid` are implemented only for the formats that have lookup
 //! tables (`Q16_16`, `Q8_8`): asking for `Tanh` on another format is a compile
 //! error, as it is in C++ when the matching `TINYMIND_USE_TANH_x_y` table is not
@@ -25,6 +26,10 @@ pub trait Activation<V> {
 /// Rectified linear unit, `max(0, x)` (C++ `ReluActivationPolicy`).
 pub struct Relu;
 
+/// The identity, for a regression output layer (C++ `LinearActivationPolicy`).
+/// Its gradient is unbounded; see `set_gradient_clip` on the networks.
+pub struct Linear;
+
 /// Hyperbolic tangent via the 96-entry lookup table.
 pub struct Tanh;
 
@@ -40,6 +45,17 @@ impl<V: Fixed> Activation<V> for Relu {
     /// the input was, so deciding from the output gives the C++ result.
     fn derivative(y: V) -> V {
         if y <= V::ZERO { V::ZERO } else { V::ONE }
+    }
+}
+
+impl<V: Fixed> Activation<V> for Linear {
+    fn activate(x: V) -> V {
+        x
+    }
+
+    /// Always 1.0 (the C++ returns `Constants<ValueType>::one()`, a real 1.0).
+    fn derivative(_y: V) -> V {
+        V::ONE
     }
 }
 

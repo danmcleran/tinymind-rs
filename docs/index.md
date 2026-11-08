@@ -32,13 +32,13 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-Early. The port covers what three of tinymind's examples use (XOR, iris and an int8 XOR), plus the int8 softmax:
+Early. The port covers what four of tinymind's examples use (XOR, iris, energy efficiency and an int8 XOR), plus the int8 softmax:
 
 | Ported | Not yet ported |
 |---|---|
 | Q16.16 (`i32`) and Q8.8 (`i16`) arithmetic, Truncate and Wrap policies | Other Q formats, saturating and rounding policies |
-| ReLU, and tanh and sigmoid via lookup tables; int8 dense inference (requantizer, quantized ReLU, int8 activation tables, softmax bit-exact with TFLite's) | The other activations (capped and leaky ReLU, linear, ...) |
-| Trainable networks with any number of hidden layers (SGD with momentum); one-hidden-layer networks also inference-only (weights only, can live in flash) | Other optimizers (Adam, RMSprop), gradient clipping, recurrent layers, int8 convolution and the rest of the int8 family, SIMD |
+| ReLU, linear, and tanh and sigmoid via lookup tables; int8 dense inference (requantizer, quantized ReLU, int8 activation tables, softmax bit-exact with TFLite's) | The other activations (capped and leaky ReLU, ...) |
+| Trainable networks with any number of hidden layers (SGD with momentum, optional gradient clipping); one-hidden-layer networks also inference-only (weights only, can live in flash) | Other optimizers (Adam, RMSprop), recurrent layers, int8 convolution and the rest of the int8 family, SIMD |
 | | Floating-point (`float`, `double`) networks |
 
 The crate is on [crates.io](https://crates.io/crates/tinymind); the API is not stable yet (before 1.0, a minor version may break it). tinymind itself is the full library; this port grows by porting slices of it.
@@ -51,6 +51,7 @@ cd tinymind-rs
 cargo run --release --example xor -- output                  # Q16.16; output files in ./output
 cargo run --release --example xor -- --format q8.8 output    # the same network in Q8.8
 cargo run --release --example iris -- output                 # iris species classifier
+cargo run --release --example energy_efficiency -- output    # building energy-load regression
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo test                                               # unit, doc and golden tests
 ```

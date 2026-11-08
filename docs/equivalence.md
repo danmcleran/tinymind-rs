@@ -10,15 +10,16 @@ The acceptance test for every ported path is that it produces the same bits as t
 
 ## What is compared
 
-Three of tinymind's examples are ported, and every file they write must be byte-identical to the C++ example's output:
+Four of tinymind's examples are ported, and every file they write must be byte-identical to the C++ example's output:
 
 - **XOR**, in Q16.16 and Q8.8: stdout, the per-step weight trajectory (`nn_fixed_xor.txt`, about 20,000 lines), the learning curve and the decision surface.
 - **Iris**: stdout, the loss curve, the per-sample test predictions and the confusion matrix. Its input is the dataset file tinymind ships with the example, checked byte for byte against tinymind's copy.
+- **Energy efficiency**: stdout, the loss curve and the per-sample test predictions of a regression (linear output, clipped gradients) on the UCI Energy Efficiency data, again read from tinymind's own copy of the file.
 - **Int8 XOR**: stdout and the decision surface of a PyTorch-trained network running in int8. tinymind's int8 path matches TensorFlow Lite's reference kernels, so this also ties the Rust port to TFLite's arithmetic on these cases.
 
 Parts that no tinymind example exercises are compared through small C++ programs built on tinymind's library (in `scripts/cpp/`), whose output must match the Rust port's in the same way:
 
-- **Networks with several hidden layers**: tinymind's `NeuralNetwork` with two and three hidden layers, in both formats, trained for thousands of steps, with a hash of every weight after every step.
+- **Networks with several hidden layers**: tinymind's `NeuralNetwork` with two and three hidden layers, in both formats, trained for thousands of steps, with a hash of every weight after every step; and two regressions with a linear output and gradient clipping, sized so that the clipping and tinymind's unclipped bias weights both change the result.
 - **Inference-only networks**: tinymind's network built with `IsTrainable = false`, loaded with the same weights as the Rust `InferencePerceptron`.
 - **Int8 softmax**: tinymind's TFLite-exact softmax and its calibration over 504 calibrations and row lengths from 1 to 511, plus the golden rows tinymind's tests take from the TensorFlow Lite Micro reference kernel.
 - **PyTorch importer**: the same models imported with tinymind's importer and with this repository's, run on both runtimes.

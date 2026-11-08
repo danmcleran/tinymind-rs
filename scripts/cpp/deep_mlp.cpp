@@ -1,5 +1,6 @@
 // tinymind's NeuralNetwork with two and three hidden layers (HiddenLayers<...>),
-// trained with its default SGD with momentum. Weights are initialised from
+// trained with its default SGD with momentum, plus two regressions with a linear
+// output and gradient clipping. Weights are initialised from
 // glibc rand() as tinymind's examples do; samples come from an LCG. After every
 // training step an FNV-1a hash absorbs every weight, so any difference at any
 // step changes the printed hashes. tests/golden/deep_mlp/stdout.txt is this
@@ -14,6 +15,7 @@
 #include "activationFunctions.hpp"
 #include "fixedPointTransferFunctions.hpp"
 #include "neuralnet.hpp"
+#include "gradientClipping.hpp"
 
 static uint32_t gState;
 
@@ -136,6 +138,51 @@ static void run(const char* name, const size_t (&sizes)[L], const unsigned seed,
     }
 }
 
+// Regression with a linear output and gradient clipping: 3 inputs in [-1, 1),
+// two targets up to about 9 in magnitude, so the output and bias gradients go
+// well past the clip range (tinymind clips the weights' gradients, not the
+// biases').
+template<typename ValueType, size_t IN, typename HL, size_t L, size_t OUT, typename Clip>
+static void runRegression(const char* name, const size_t (&sizes)[L], const unsigned seed, const int steps)
+{
+    typedef typename ValueType::FullWidthValueType Raw;
+    typedef tinymind::FixedPointTransferFunctions<ValueType, RandomWeights<ValueType>,
+                                                  tinymind::ReluActivationPolicy<ValueType>,
+                                                  tinymind::LinearActivationPolicy<ValueType>, OUT,
+                                                  tinymind::DefaultNetworkInitializer<ValueType>,
+                                                  tinymind::MeanSquaredErrorCalculator<ValueType, OUT>,
+                                                  tinymind::ZeroToleranceCalculator<ValueType>, Clip> TF;
+    typedef tinymind::NeuralNetwork<ValueType, IN, HL, OUT, TF> NN;
+    const int one = static_cast<int>(tinymind::Constants<ValueType>::one().getValue());
+
+    srand(seed);
+    static NN nn;
+    nn.setLearningRate(ValueType(static_cast<Raw>(one / 64)));
+    gState = seed;
+    uint32_t hash = 0x811C9DC5u;
+    ValueType x[IN];
+    ValueType t[OUT];
+    for (int step = 1; step <= steps; ++step)
+    {
+        int v[IN];
+        for (size_t i = 0; i < IN; ++i)
+        {
+            v[i] = static_cast<int>((nextU32() >> 8) % static_cast<uint32_t>(2 * one)) - one;
+            x[i] = ValueType(static_cast<Raw>(v[i]));
+        }
+        t[0] = ValueType(static_cast<Raw>(3 * v[0] - 2 * v[1] + 4 * v[2]));
+        t[1] = ValueType(static_cast<Raw>(-2 * v[0] + 3 * v[2] + 2 * one));
+        nn.feedForward(x);
+        const ValueType error = nn.calculateError(t);
+        nn.trainNetwork(t);
+        absorbWeights<NN, ValueType, IN, L>(nn, hash, sizes, OUT);
+        if (step % 500 == 0)
+        {
+            std::printf("%s step=%d error=%d hash=0x%08X\n", name, step, static_cast<int>(error.getValue()), hash);
+        }
+    }
+}
+
 int main()
 {
     typedef tinymind::QValue<16, 16, true> Q16;
@@ -147,5 +194,11 @@ int main()
     run<Q8, tinymind::TanhActivationPolicy, 2, tinymind::HiddenLayers<4, 4>, 2, 1>("q8.8 2-4-4-1", xorSizes, 2, 4000);
     run<Q16, tinymind::ReluActivationPolicy, 4, tinymind::HiddenLayers<8, 6, 5>, 3, 3>("q16.16 4-8-6-5-3", deep3, 3, 3000);
     run<Q8, tinymind::ReluActivationPolicy, 4, tinymind::HiddenLayers<8, 6>, 2, 3>("q8.8 4-8-6-3", deep2, 4, 3000);
+    static const size_t reg2[2] = {6, 4};
+    static const size_t reg1[1] = {6};
+    runRegression<Q16, 3, tinymind::HiddenLayers<6, 4>, 2, 2, tinymind::GradientClipByValue<Q16> >(
+        "q16.16 3-6-4-2 linear clip[-1,1]", reg2, 5, 2000);
+    runRegression<Q16, 3, tinymind::HiddenLayers<6>, 1, 2, tinymind::GradientClipByValue<Q16, 2, 0x8000> >(
+        "q16.16 3-6-2 linear clip[-1.5,2.5]", reg1, 6, 2000);
     return 0;
 }

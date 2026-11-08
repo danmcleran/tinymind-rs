@@ -37,3 +37,16 @@ https://doi.org/10.24432/C56C76
 It is licensed under the Creative Commons Attribution 4.0 International
 license (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/), not under
 this crate's MIT license.
+
+---
+
+data/ENB2012_data.csv is the Energy Efficiency dataset from the UCI Machine
+Learning Repository, copied unchanged from tinymind's
+examples/energy_efficiency/ENB2012_data.csv:
+
+A. Tsanas and A. Xifara. Energy Efficiency [Dataset]. 2012. UCI Machine
+Learning Repository. https://doi.org/10.24432/C51307
+
+It is licensed under the Creative Commons Attribution 4.0 International
+license (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/), not under
+this crate's MIT license.

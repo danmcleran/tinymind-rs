@@ -12,8 +12,8 @@ use tinymind::int8::{self, QDense, QDensePerChannel, QSoftmax, Requantizer};
 use tinymind::rand::GlibcRand;
 
 use tinymind::{
-    Activation, Dense, Fixed, InferencePerceptron, MultilayerPerceptron, NeuralNetwork, Q8_8,
-    Q16_16, Relu, Sigmoid, Tanh,
+    Activation, Dense, Fixed, InferencePerceptron, Linear, MultilayerPerceptron, NeuralNetwork,
+    Q8_8, Q16_16, Relu, Sigmoid, Tanh,
 };
 
 /// Every `QValue` operation on run-time operands.
@@ -83,6 +83,8 @@ where
     let mut nn = MultilayerPerceptron::<V, H, O, IN, HID, OUT>::new(|| raw(rng.next_i32()));
     nn.set_learning_rate(raw(black_box(8192)));
     nn.set_momentum_rate(raw(black_box(4096)));
+    nn.set_acceleration_rate(raw(black_box(2048)));
+    nn.set_gradient_clip(black_box(Some((raw(-4096), raw(4096)))));
     for _ in 0..black_box(10) {
         let input = [raw(black_box(1)); IN];
         let target = [raw(black_box(2)); OUT];
@@ -118,6 +120,8 @@ fn deep_network<V: Fixed, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V)
     )>::new(|| raw(rng.next_i32()));
     nn.set_learning_rate(raw(black_box(8192)));
     nn.set_momentum_rate(raw(black_box(4096)));
+    nn.set_acceleration_rate(raw(black_box(2048)));
+    nn.set_gradient_clip(black_box(Some((raw(-4096), raw(4096)))));
     for _ in 0..black_box(10) {
         nn.feed_forward(&black_box([raw(1); 4]));
         let target = black_box([raw(2); 3]);
@@ -141,8 +145,8 @@ fn deep_network<V: Fixed, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V)
 // target as on the host (the sizes in docs/xor.md).
 const _: () = assert!(size_of::<InferencePerceptron<Q16_16, Tanh, Sigmoid, 2, 4, 1>>() == 68);
 const _: () = assert!(size_of::<InferencePerceptron<Q8_8, Tanh, Sigmoid, 2, 3, 1>>() == 26);
-const _: () = assert!(size_of::<MultilayerPerceptron<Q16_16, Tanh, Sigmoid, 2, 4, 1>>() == 372);
-const _: () = assert!(size_of::<MultilayerPerceptron<Q8_8, Tanh, Sigmoid, 2, 3, 1>>() == 150);
+const _: () = assert!(size_of::<MultilayerPerceptron<Q16_16, Tanh, Sigmoid, 2, 4, 1>>() == 384);
+const _: () = assert!(size_of::<MultilayerPerceptron<Q8_8, Tanh, Sigmoid, 2, 3, 1>>() == 156);
 
 /// A model written by the PyTorch importer (generated code must be panic-free too).
 #[path = "../../../examples/common/imported_mlp_model.rs"]
@@ -205,6 +209,9 @@ pub extern "C" fn _start() -> ! {
     network::<Q16_16, Relu, Sigmoid, 4, 8, 3>(Q16_16::from_raw);
     // Multiple hidden layers, both formats.
     deep_network::<Q16_16, Relu, Sigmoid>(Q16_16::from_raw);
+    // A regression head (linear output), as in the energy_efficiency example.
+    network::<Q16_16, Relu, Linear, 8, 16, 2>(Q16_16::from_raw);
+    deep_network::<Q16_16, Relu, Linear>(Q16_16::from_raw);
     deep_network::<Q8_8, Tanh, Sigmoid>(|r| Q8_8::from_raw(r as i16));
     #[allow(clippy::empty_loop)]
     loop {}

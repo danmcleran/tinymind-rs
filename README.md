@@ -50,6 +50,7 @@ function; `no_std`). See its README.
 cargo run --release --example xor -- output                  # Q16.16, output files in ./output
 cargo run --release --example xor -- --format q8.8 output    # the same network in Q8.8
 cargo run --release --example iris -- output                 # iris species classifier (ReLU hidden layer)
+cargo run --release --example energy_efficiency -- output    # energy-load regression (linear output, clipped gradients)
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo test                                               # golden tests against the C++ output
 scripts/compare-with-cpp.sh                              # rebuild the C++ examples and diff everything
@@ -61,7 +62,9 @@ momentum. It writes `nn_fixed_xor.txt`, `xor_training.csv` and
 `xor_decision_surface.csv` there and prints a summary on stdout. The `iris` example
 takes an optional output directory and data file (default `data/iris.data`, the
 UCI Iris dataset under CC BY 4.0; see `NOTICE`) and writes `iris_loss.csv`,
-`iris_scatter.csv` and `iris_confusion.csv`. The `int8_xor` example (feature
+`iris_scatter.csv` and `iris_confusion.csv`. The `energy_efficiency` example
+reads `data/ENB2012_data.csv` (the UCI Energy Efficiency dataset, CC BY 4.0) the
+same way and writes `energy_loss.csv` and `energy_pred.csv`. The `int8_xor` example (feature
 `std`) runs a PyTorch-trained, int8-quantized 2-4-1 network and writes
 `xor_decision_surface.csv`.
 
@@ -79,6 +82,7 @@ UCI Iris dataset under CC BY 4.0; see `NOTICE`) and writes `iris_loss.csv`,
 | `src/rand.rs` | a re-implementation of glibc `rand()`, which the C++ example uses for weight init and sampling |
 | `examples/xor.rs` | `examples/xor/xor.cpp` |
 | `examples/iris.rs` | `examples/iris/iris.cpp` |
+| `examples/energy_efficiency.rs` | `examples/energy_efficiency/energy_efficiency.cpp` |
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`, `cpp/qsoftmax_fixedpoint.hpp`: requantizer, int8 dense layer, quantized ReLU, activation tables, softmax |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
@@ -97,7 +101,8 @@ backends, and so on) is not ported.
   length, line count and a 64-bit FNV-1a hash instead of being stored. The goldens
   come from the C++ build: Q16.16 from the example as shipped, Q8.8 from the same
   example with both bit counts in `xornet.h` set to 8. `tests/iris_golden.rs`
-  does the same for iris against `tests/golden/iris/`, and
+  does the same for iris against `tests/golden/iris/`, `tests/energy_golden.rs`
+  for energy_efficiency against `tests/golden/energy/`, and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`. `TINYMIND_REF` records the
   tinymind commit they were last verified against.
 - `tests/deep_mlp.rs` checks networks with two and three hidden layers against
@@ -111,9 +116,9 @@ backends, and so on) is not ported.
   `tests/softmax_sweep.rs` against tinymind's C++ softmax and its calibration
   over 504 calibrations and row lengths 1 to 511.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind checkout
-  (xor in both formats, iris, int8 xor) with the flags their Makefiles use, runs both
+  (xor in both formats, iris, energy efficiency, int8 xor) with the flags their Makefiles use, runs both
   programs, and runs `cmp` on every output file. It also checks that
-  `data/iris.data` is still tinymind's file. It exits nonzero if anything differs.
+  `data/iris.data` and `data/ENB2012_data.csv` are still tinymind's files. It exits nonzero if anything differs.
 - `tests/qformat_oracle.rs`, ported from tinymind's qformat oracle, checks every
   `QValue` operation against an exact reference: edge values and a fixed-seed
   sample for nine formats, and every operand pair for Q8.8 (about 26 billion

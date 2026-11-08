@@ -1,0 +1,5 @@
+# data/ENB2012_data.csv must stay byte-identical to tinymind's copy, which
+# tinymind's .gitattributes checks out with CRLF line endings (the repository
+# stores LF). The same rule here keeps the two working trees identical, which
+# scripts/compare-with-cpp.sh checks.
+data/ENB2012_data.csv text eol=crlf

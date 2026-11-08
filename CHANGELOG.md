@@ -15,6 +15,15 @@ break the API).
   has its own activation. Training is SGD with momentum, bit-identical to
   tinymind's network with the same initial weights, and to
   `MultilayerPerceptron` for one hidden layer.
+- `Linear`: the identity activation, for a regression output layer.
+- Gradient clipping by value (`set_gradient_clip` on `MultilayerPerceptron` and
+  `NeuralNetwork`, tinymind's `GradientClipByValue`). As in tinymind, bias
+  weights are never clipped. It adds 12 bytes to a trainable Q16.16 network
+  (6 in Q8.8) whether or not it is used.
+- `set_acceleration_rate` on both trainable networks.
+- Example `energy_efficiency`: a regression on the UCI Energy Efficiency
+  dataset (ReLU hidden layer, linear output, clipped gradients), byte-identical
+  to tinymind's example. The dataset is in `data/` under CC BY 4.0.
 
 ## [0.1.2] - 2026-11-07
 
