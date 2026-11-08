@@ -234,6 +234,18 @@ to "goldens come from the C++": the demo has no tinymind counterpart, so it is a
 regression pin, said so in the test. The L031 anomaly image leaves only ~200 B of
 its 32 KB flash: library growth can overflow it, and CI's bench build will say so
 (`train_step` and `score` are `#[inline(never)]` for this reason).
+The `kws` workload (4C) is tinymind's framework-comparison KWS-shaped CNN
+(`gen/out/kws_tinymind.hpp`, generated into `bench/src/gen/kws.rs` by `gen.py`;
+hash `TM_KWS_HASH`), with per-layer cycles in `kws-profile`. Rust is level with
+the C++ scalar build overall (F411 255,516 vs 254,900; L031 729,806 vs
+746,112), faster on the stem conv, 1.3-2.2x slower on depthwise/pointwise (the
+C++ hoists weights and a FastRequantizer per filter; Rust bounds-checks taps and
+re-decodes the requantizer per output): the place to tune. Typed tensors cannot
+share a ping-pong buffer, so `infer` scopes them (LLVM overlaps the slots); the
+profile runs in its own `#[inline(never)]` frame, or the L031 overflows 8 KB.
+The MLPerf DS-CNN needs a TFLite-to-Rust translator (tinymind's
+`gen/make_mlperf.py` needs TensorFlow, downloads Apache-2.0 models and writes
+into tinymind's tree): not done.
 `WORKLOADS="anomaly" bench/run.sh f411 l031` runs one workload. Results and method are in
 `bench/README.md`; rerun after changing arithmetic and update the tables.
 `bench/gen.py` generates the MLP from tinymind's headers (never hand-copied).
