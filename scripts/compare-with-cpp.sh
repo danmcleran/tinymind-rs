@@ -102,6 +102,26 @@ for f in stdout.txt xor_decision_surface.csv; do
   fi
 done
 
+echo "== deep_mlp"
+# tinymind's NeuralNetwork with two and three hidden layers, trained; every weight
+# hashed after every step. tests/deep_mlp.rs checks the Rust network against the
+# committed golden, so the golden must still be what the C++ prints.
+mkdir -p "$TMP/deep_mlp"
+g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/deep_mlp/deep_mlp" "$ROOT/scripts/cpp/deep_mlp.cpp" \
+  "$TINYMIND_DIR/cpp/lookupTables.cpp" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_TANH_16_16=1 \
+  -DTINYMIND_USE_SIGMOID_8_8=1 -DTINYMIND_USE_TANH_8_8=1
+"$TMP/deep_mlp/deep_mlp" > "$TMP/deep_mlp/stdout.txt"
+if cmp -s "$TMP/deep_mlp/stdout.txt" "$ROOT/tests/golden/deep_mlp/stdout.txt"; then
+  echo "IDENTICAL  deep_mlp stdout.txt (C++ vs tests/golden/deep_mlp)"
+else
+  echo "DIFFERENT  deep_mlp stdout.txt (C++ vs tests/golden/deep_mlp)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --test deep_mlp >/dev/null 2>&1 \
+  && echo "IDENTICAL  deep_mlp Rust vs tests/golden/deep_mlp" \
+  || { echo "DIFFERENT  deep_mlp Rust vs tests/golden/deep_mlp"; status=1; }
+
 echo "== inference_mlp"
 # tinymind's inference-only MultilayerPerceptron (IsTrainable = false) with loaded
 # weights; tests/inference_mlp.rs checks InferencePerceptron against the committed
@@ -192,6 +212,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   done
   cp -r "$TMP/iris/cpp" "$KEEP_CPP_OUTPUT/iris"
   cp -r "$TMP/int8_xor/cpp" "$KEEP_CPP_OUTPUT/int8_xor"
+  mkdir -p "$KEEP_CPP_OUTPUT/deep_mlp"
+  cp "$TMP/deep_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/deep_mlp/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/inference_mlp"
   cp "$TMP/inference_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/inference_mlp/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/softmax"
