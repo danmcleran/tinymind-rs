@@ -1,7 +1,7 @@
 ---
 title: On-board results
 layout: default
-nav_order: 7
+nav_order: 8
 ---
 
 # On-board results
@@ -20,6 +20,7 @@ The crate has been run on two microcontroller boards, with the same boards, cloc
 | int8 digits MLP: output hash over every test sample equals tinymind's | match | match |
 | xor training, Q16.16: all 20,000 steps equal the golden trajectory | match | match |
 | xor training, Q8.8: all 20,000 steps equal the golden trajectory | match | match |
+| anomaly detection: training and every decision equal the host run | match | match |
 
 The int8 MLP is tinymind's 64-32-16-10 digits classifier with per-channel requantizers (`QDensePerChannel`). tinymind's C++ and TensorFlow Lite for Microcontrollers produce the same output hash on these boards, so the Rust port matches both. For training, the board hashes the exact bytes of the weight trajectory the xor example writes, every weight after every step.
 
@@ -57,6 +58,16 @@ The xor network (2-4-1, tanh hidden, sigmoid output, SGD with momentum), trained
 | Cycles per training step | 1,207 | 343 | 5,929 | 2,238 |
 | Time per step | 12.1 µs | 3.4 µs | 185 µs | 70 µs |
 | Inference cycles | 1,118 | 193 | 4,119 | 619 |
+
+## Anomaly detection, trained on the device
+
+The [anomaly-detection example]({{ site.baseurl }}/anomaly) on the boards: an 8-4-8 Q16.16 autoencoder trains for 3,000 steps on the device, then screens 512 windows. Its report and hash (every trained weight and every score) match the host run on both boards.
+
+| | F411 | L031 |
+|---|---:|---:|
+| Training, 3,000 steps | 0.14 s | 4.2 s |
+| One training step | 4,249 cycles | 35,336 cycles |
+| One detection | 1,332 cycles | 8,104 cycles |
 
 ## What these show
 

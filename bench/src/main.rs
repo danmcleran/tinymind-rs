@@ -5,8 +5,10 @@
 #![no_std]
 #![no_main]
 
+#[cfg(feature = "anomaly")]
+mod anomaly;
 mod board;
-#[cfg(not(any(feature = "xor-q16", feature = "xor-q8")))]
+#[cfg(not(any(feature = "xor-q16", feature = "xor-q8", feature = "anomaly")))]
 mod mlp;
 #[cfg(any(feature = "xor-q16", feature = "xor-q8"))]
 mod xor;
@@ -33,8 +35,10 @@ fn main() -> ! {
     let _ = writeln!(out, "\n# begin bench");
     let _ = writeln!(out, "board={}", board::NAME);
     let _ = writeln!(out, "mhz={}", board::MHZ);
-    #[cfg(not(any(feature = "xor-q16", feature = "xor-q8")))]
+    #[cfg(not(any(feature = "xor-q16", feature = "xor-q8", feature = "anomaly")))]
     mlp::run(&mut out);
+    #[cfg(feature = "anomaly")]
+    anomaly::run(&mut out);
     #[cfg(feature = "xor-q16")]
     xor::run::<tinymind::Q16_16>(&mut out, "xor-q16.16", xor::Q16_EXPECT);
     #[cfg(feature = "xor-q8")]

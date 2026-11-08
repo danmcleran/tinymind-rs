@@ -16,6 +16,11 @@ break the API).
   `with_optimizer`. As in tinymind, the step count for Adam's bias correction
   advances once per layer update, and the adaptive optimizers leave the bias
   weights unchanged.
+- Example `anomaly`: an 8-4-8 autoencoder trained on the device on synthetic
+  normal vibration windows flags faults by reconstruction error (0 of 256 false
+  alarms; frequency, harmonic and impulse faults all caught; a stalled sensor
+  half the time). The same code runs on an STM32F411 and an STM32L031, where it
+  trains and decides bit for bit as on the host.
 - `Sqrt`: fixed-point square root (tinymind's `SquareRootApproximation`), the
   floor of the exact root.
 
