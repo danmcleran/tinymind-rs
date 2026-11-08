@@ -30,6 +30,15 @@ the int8 layers use.
 The minimum supported Rust version is 1.85. CI builds the library for Cortex-M4F
 (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`).
 
+It has also run on two boards, an STM32F411 (Cortex-M4F, 100 MHz) and an
+STM32L031 (Cortex-M0+, 32 MHz, 32 KB flash, 8 KB RAM). On both, tinymind's int8
+digits classifier gives the same output hash as the C++ (214 µs per inference on
+the M4F, 1.33 ms on the M0+), XOR trained on the board reproduces the desktop
+weight trajectory bit for bit, and the anomaly example trains on the chip in
+0.14 s and 4.2 s respectively. Results and method:
+[On-board results](https://danmcleran.github.io/tinymind-rs/benchmarks) and
+`bench/`.
+
 ## Use it
 
 ```toml
