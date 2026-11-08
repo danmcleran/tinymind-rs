@@ -65,13 +65,13 @@ The [anomaly-detection example]({{ site.baseurl }}/anomaly) on the boards: an 8-
 
 | | F411 | L031 |
 |---|---:|---:|
-| Training, 3,000 steps | 0.14 s | 4.2 s |
+| Training, 3,000 steps (signal generation included) | 0.14 s | 4.2 s |
 | One training step | 4,249 cycles | 35,336 cycles |
 | One detection | 1,332 cycles | 8,104 cycles |
 
 ## What these show
 
-- Exactness holds on both cores: int8 inference and every training step match the C++ bit for bit on the chips themselves, not only on a desktop.
+- Exactness holds on both cores: int8 inference and every training step match the C++ (and, for the anomaly demo, the host run) bit for bit on the chips themselves, not only on a desktop.
 - Against tinymind's portable C++ the Rust port is 4% slower on the Cortex-M4F and 7–18% slower on the Cortex-M0+, at about the same code size. It has no equivalent of tinymind's SMLAD backend: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee.
 - These are two boards, one model per task and one compiler version.
 

@@ -32,6 +32,11 @@ fn frexp(x: f64) -> (f64, i32) {
 /// Decompose a positive real scale ratio into a Q0.31 multiplier and a shift
 /// (C++ `quantizeMultiplier`). Returns `(multiplier, shift)`: `shift < 0` for a
 /// ratio above 1, `shift > 0` below 1. A zero ratio gives `(0, 0)`.
+///
+/// The shift always lies in `-31..=31`, the [`Requantizer`]'s contract. A ratio
+/// below 2^-32 rounds every `i32` accumulator to 0 and comes back as `(0, 0)`;
+/// a ratio of 2^31 or more gets shift -31, which already saturates every
+/// non-zero accumulator.
 pub fn quantize_multiplier(ratio: f64) -> (i32, i32) {
     if ratio == 0.0 {
         return (0, 0);
@@ -44,7 +49,12 @@ pub fn quantize_multiplier(ratio: f64) -> (i32, i32) {
         q >>= 1;
         exponent += 1;
     }
-    (q as i32, -exponent)
+    let shift = -exponent;
+    if shift > 31 {
+        (0, 0)
+    } else {
+        (q as i32, shift.max(-31))
+    }
 }
 
 /// Build a [`Requantizer`] for `(input_scale * weight_scale) / output_scale`
@@ -187,6 +197,33 @@ mod tests {
         assert_eq!(quantize_multiplier(0.5), (1 << 30, 0));
         // A mantissa that rounds up to 2^31 is renormalised.
         assert_eq!(quantize_multiplier(1.0 - 1e-10), (1 << 30, -1));
+        // The shift stays in -31..=31 (tinymind #247); values from the C++.
+        assert_eq!(quantize_multiplier(2f64.powi(-31)), (1 << 30, 30));
+        assert_eq!(quantize_multiplier(2f64.powi(-32)), (1 << 30, 31));
+        assert_eq!(quantize_multiplier(0.75 * 2f64.powi(-32)), (0, 0));
+        assert_eq!(quantize_multiplier(2f64.powi(-40)), (0, 0));
+        assert_eq!(quantize_multiplier(1e-12), (0, 0));
+        assert_eq!(quantize_multiplier(2f64.powi(30)), (1 << 30, -31));
+        assert_eq!(quantize_multiplier(2f64.powi(31)), (1 << 30, -31));
+        assert_eq!(
+            quantize_multiplier(0.75 * 2f64.powi(32)),
+            (1_610_612_736, -31)
+        );
+        assert_eq!(quantize_multiplier(2f64.powi(40)), (1 << 30, -31));
+        assert_eq!(quantize_multiplier(1e15), (1_907_348_633, -31));
+        // A ratio below 2^-32 rounds every accumulator to 0, so the output is
+        // the zero point; a left shift past 31 saturates exactly as 31 does.
+        let rq = |(multiplier, shift)| Requantizer {
+            multiplier,
+            shift,
+            zero_point: 3,
+            qmin: -128,
+            qmax: 127,
+        };
+        for acc in [i32::MIN, -1 << 20, -2, -1, 0, 1, 2, 1 << 20, i32::MAX] {
+            assert_eq!(rq(quantize_multiplier(2f64.powi(-40))).apply(acc), 3);
+            assert_eq!(rq((1 << 30, -41)).apply(acc), rq((1 << 30, -31)).apply(acc));
+        }
         let unity = build_requantizer(1.0, 1.0, 1.0, 0, -128, 127);
         assert_eq!(unity.apply(42), 42);
         let half = build_requantizer(1.0, 0.5, 1.0, 0, -128, 127);

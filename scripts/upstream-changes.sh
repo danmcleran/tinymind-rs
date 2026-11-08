@@ -30,6 +30,7 @@ PORTED=(
   cpp/gradientClipping.hpp
   cpp/weightDecay.hpp
   cpp/adam.hpp
+  cpp/rmsprop.hpp
   cpp/include/nnproperties.hpp
   examples/xor
   examples/iris

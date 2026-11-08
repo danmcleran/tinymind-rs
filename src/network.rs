@@ -38,7 +38,8 @@
 //! network uses one activation for every hidden layer, which is the special
 //! case where they are all the same. Tuples of 1 to 8 layers are supported.
 //!
-//! Training is SGD with momentum, with optional gradient clipping
+//! Training is SGD with momentum by default, or Adam or RMSprop ([`crate::optimizer`],
+//! through [`NeuralNetwork::with_optimizer`]), with optional gradient clipping
 //! ([`NeuralNetwork::set_gradient_clip`]), and every result is bit-identical to the C++
 //! network with the same layer sizes, activations and initial weights (and to
 //! [`MultilayerPerceptron`](crate::MultilayerPerceptron) for one hidden layer).

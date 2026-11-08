@@ -1,7 +1,7 @@
 //! Rust port of the tinymind neural network library. So far only fixed-point
 //! value types are ported; tinymind also runs its networks with `float` and `double`.
 //!
-//! Scope: Q16.16 and Q8.8 arithmetic; ReLU, [`Linear`] and the tanh and sigmoid
+//! Scope: Q16.16 and Q8.8 arithmetic and a fixed-point square root ([`Sqrt`]); ReLU, [`Linear`] and the tanh and sigmoid
 //! lookup-table activations; trainable networks with any number of hidden layers
 //! ([`NeuralNetwork`] over [`Dense`] layers, trained with SGD and momentum,
 //! [`Adam`] or [`RmsProp`], with optional gradient clipping); a one-hidden-layer

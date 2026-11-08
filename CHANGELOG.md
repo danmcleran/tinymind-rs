@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-07
+
 ### Added
 
 - Optimizers for both trainable networks (`tinymind::optimizer`): `Adam` and
@@ -15,7 +17,10 @@ break the API).
   existing code and network sizes are unchanged; pick another with
   `with_optimizer`. As in tinymind, the step count for Adam's bias correction
   advances once per layer update, and the adaptive optimizers leave the bias
-  weights unchanged.
+  weights unchanged. The sealed `Optimizer` trait names them; `optimizer()`
+  returns a network's optimizer, and `Adam::timestep()` its step count. Neither
+  `Adam` nor `RmsProp` implements `Default`: tinymind's default rates are raw
+  values tuned for Q8.8, so pass rates suited to your format to `new`.
 - Example `anomaly`: an 8-4-8 autoencoder trained on the device on synthetic
   normal vibration windows flags faults by reconstruction error (0 of 256 false
   alarms; frequency, harmonic and impulse faults all caught; a stalled sensor
@@ -26,10 +31,16 @@ break the API).
 
 ### Fixed
 
-- `MultilayerPerceptron`'s forward pass and the new square root could keep an
-  unreachable panic path (a bounds check, a division) when the compiler did not
-  inline enough to see it was unreachable, as at opt-level `s` and `z` for some
-  network shapes. Both are now total; results are unchanged.
+- `MultilayerPerceptron`'s forward pass could keep an unreachable panic path (a
+  bounds check) when the compiler did not inline enough to see it was
+  unreachable, as at opt-level `s` and `z` for some network shapes. It is now
+  total; results are unchanged.
+- `int8::calibration::quantize_multiplier` keeps the shift in `-31..=31`, the
+  requantizer's range, as tinymind now does: a ratio below 2^-32 gives
+  `(0, 0)` and a ratio of 2^31 or more gets shift -31. Before, such a tiny ratio
+  could requantize an accumulator near `i32::MIN` to one below the zero point
+  instead of to the zero point. Ratios from real models are unaffected. The
+  PyTorch importer's copy does the same.
 
 ## [0.1.3] - 2026-11-07
 
@@ -112,7 +123,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind's C++ bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.0...v0.1.1

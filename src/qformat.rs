@@ -250,8 +250,8 @@ macro_rules! impl_qvalue {
                     // fallback is unreachable and keeps the function panic-free.
                     y = (x + n.checked_div(x).unwrap_or(0)) / 2;
                 }
-                // The C++ narrows with static_cast; for the formats with one
-                // integer bit the root can exceed the storage range and wraps.
+                // n < 2^(2 * storage bits - 2), so the root is below 2^(storage
+                // bits - 1) and the narrowing (the C++ static_cast) never truncates.
                 Self(x as $s)
             }
         }

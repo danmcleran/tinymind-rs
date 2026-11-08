@@ -116,6 +116,7 @@ one copy (inlined twice at `opt-level = 3` it did not fit).
 ```bash
 python3 -I bench/gen.py 360     # or 32 for the L031; run.sh does this
 bench/run.sh                    # both boards; or: bench/run.sh f411
+WORKLOADS="anomaly" bench/run.sh f411 l031   # only some workloads
 ```
 
 `run.sh` builds each image, records its size, flashes it with OpenOCD (ST-LINK

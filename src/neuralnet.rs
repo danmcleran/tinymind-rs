@@ -7,7 +7,7 @@
 //! and training-policy templates, stored in placement-new byte buffers. This port
 //! keeps only what the default MLP configuration actually executes
 //! (`FixedPointTransferFunctions` with default policies, plus optional
-//! `GradientClipByValue`; batch size 1, no recurrence, one hidden layer; for more
+//! `GradientClipByValue` and an optional Adam or RMSprop optimizer; batch size 1, no recurrence, one hidden layer; for more
 //! hidden layers see [`NeuralNetwork`](crate::NeuralNetwork)) and stores everything
 //! in plain fixed-size arrays:
 //! no heap, so the crate stays `#![no_std]`.
@@ -225,7 +225,8 @@ where
         error
     }
 
-    /// One back-propagation step with momentum (C++ `ChainBackPropagationPolicy`).
+    /// One back-propagation step with the network's optimizer (C++
+    /// `ChainBackPropagationPolicy`).
     pub fn train(&mut self, targets: &[V; OUT]) {
         self.calculate_node_deltas(targets);
         self.calculate_gradients();
