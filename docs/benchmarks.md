@@ -22,6 +22,7 @@ The crate has been run on two microcontroller boards, with the same boards, cloc
 | xor training, Q8.8: all 20,000 steps equal the golden trajectory | match | match |
 | anomaly detection: training and every decision equal the host run | match | match |
 | imported decision trees: every score and class on the 54 Wine samples equals the host run | match | match |
+| int8 KWS-shaped CNN (convolutions): output hash equals tinymind (C++)'s | match | match |
 
 The int8 MLP is tinymind (C++)'s 64-32-16-10 digits classifier with per-channel requantizers (`QDensePerChannel`). tinymind (C++) and TensorFlow Lite for Microcontrollers produce the same output hash on these boards, so the Rust port matches both. For training, the board hashes the exact bytes of the weight trajectory the xor example writes, every weight after every step.
 
@@ -49,6 +50,32 @@ Cycles are the median of 33 warm inferences; code + weights excludes the harness
 | emlearn float32 (software float) | 707,113 | 22.1 ms | 18.7–19.0 KB | 972 B |
 
 The same Rust code measured 38,456 cycles in a second image whose extra code moves it in flash; with one flash wait state the M0+ is sensitive to code placement, which tinymind (C++) also observed.
+
+## int8 convolutions: a KWS-shaped CNN
+
+tinymind (C++)'s keyword-spotting shaped benchmark network: a 20x20x1 input, a 3x3 convolution with 8 filters, 2x2 max pooling, a 3x3 depthwise and an 8-to-16 pointwise convolution, global average pooling and a 16-to-10 dense head, with per-channel requantizers and random weights. Same weights and inputs as the C++ benchmark; the output hash over its 8 test inputs equals tinymind (C++)'s and TFLM's on both boards.
+
+| | F411 (100 MHz) | L031 (32 MHz) |
+|---|---:|---:|
+| **tinymind-rs**, cycles | **255,516** (2.56 ms) | **729,806** (22.8 ms) |
+| tinymind (C++) scalar, `-O3` | 254,900 | 746,112 |
+| tinymind (C++) +SMLAD, `-O3` | 181,568 | – (no SMLAD on the M0+) |
+| TFLM int8 (CMSIS-NN), `-O3` | 576,368 | does not fit in 32 KB |
+| **tinymind-rs**, code + weights / RAM | **5,168 B / 4,660 B** | **5,292 B / 4,752 B** |
+| tinymind (C++) scalar `-O3`, flash / RAM | 6,848 B / 5,332 B | 8,452 B / 5,488 B |
+
+Per layer (cycles, each layer timed separately; C++ scalar `-O3` in brackets):
+
+| Layer | F411 | L031 |
+|---|---:|---:|
+| conv 3x3, 8 filters | 112,051 (173,164) | 414,052 (516,155) |
+| max pool 2x2 | 10,714 (10,156) | 20,192 (24,921) |
+| depthwise 3x3 | 46,049 (21,054) | 102,429 (73,079) |
+| pointwise 8 -> 16 | 78,614 (44,258) | 184,693 (137,483) |
+| global average pool | 2,505 (2,282) | 4,703 (5,756) |
+| dense 16 -> 10 | 1,479 (1,281) | 3,360 (2,830) |
+
+Overall the Rust port runs level with tinymind (C++)'s portable build (0.2% slower on the M4F, 2.2% faster on the M0+) in less flash and RAM. Per layer it differs: the stem convolution is 20-35% faster, while depthwise and pointwise are 1.3-2.2x slower, because the C++ hoists each filter's weights and requantizer out of the pixel loop. tinymind (C++)'s SMLAD build takes 29% fewer cycles on the M4F.
 
 ## On-device training
 
@@ -86,7 +113,7 @@ The model is read-only data, so the linker places it in flash, and the CPU reads
 ## What these show
 
 - Exactness holds on both cores: int8 inference and every training step match the C++ (and, for the anomaly demo, the host run) bit for bit on the chips themselves, not only on a desktop.
-- Against tinymind (C++)'s portable C++ the Rust port is 4% slower on the Cortex-M4F and 7–18% slower on the Cortex-M0+, at about the same code size. It has no equivalent of tinymind (C++)'s SMLAD backend: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee.
+- Against tinymind (C++)'s portable C++ the Rust MLP is 4% slower on the Cortex-M4F and 7–18% slower on the Cortex-M0+, at about the same code size; the convolutional network runs level with it (0.2% slower on the M4F, 2.2% faster on the M0+) in less flash and RAM. It has no equivalent of tinymind (C++)'s SMLAD backend: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee.
 - These are two boards, one model per task and one compiler version.
 
 The harness, method and raw details are in [`bench/`](https://github.com/danmcleran/tinymind-rs/tree/master/bench) in the repository.

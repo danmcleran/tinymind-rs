@@ -8,11 +8,14 @@
 #[cfg(feature = "anomaly")]
 mod anomaly;
 mod board;
+#[cfg(feature = "kws")]
+mod kws;
 #[cfg(not(any(
     feature = "xor-q16",
     feature = "xor-q8",
     feature = "anomaly",
-    feature = "trees"
+    feature = "trees",
+    feature = "kws"
 )))]
 mod mlp;
 #[cfg(feature = "trees")]
@@ -46,9 +49,12 @@ fn main() -> ! {
         feature = "xor-q16",
         feature = "xor-q8",
         feature = "anomaly",
-        feature = "trees"
+        feature = "trees",
+        feature = "kws"
     )))]
     mlp::run(&mut out);
+    #[cfg(feature = "kws")]
+    kws::run(&mut out);
     #[cfg(feature = "trees")]
     trees::run(&mut out);
     #[cfg(feature = "anomaly")]

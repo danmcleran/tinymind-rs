@@ -27,6 +27,9 @@ anomaly = []
 trees = []
 # Per-layer cycles for the MLP (a separate image, like tinymind's PROFILE build).
 profile = ["mlp"]
+# tinymind's KWS-shaped int8 CNN, and its per-layer cycles (a separate image).
+kws = []
+kws-profile = ["kws"]
 
 [profile.release]
 opt-level = 3

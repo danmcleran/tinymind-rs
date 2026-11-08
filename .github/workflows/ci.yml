@@ -188,7 +188,7 @@ jobs:
           rustup target add thumbv7em-none-eabihf thumbv6m-none-eabi
           python3 -I gen.py 32
           for spec in f411:thumbv7em-none-eabihf l031:thumbv6m-none-eabi; do
-            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",trees"; do
+            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",trees" ",kws" ",kws-profile"; do
               echo "== ${spec%%:*}$wl"
               # As run.sh: the L031 trees image fits 32 KB only at opt-level s.
               opt=3; [ "${spec%%:*}$wl" = "l031,trees" ] && opt=s
