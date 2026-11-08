@@ -41,7 +41,7 @@ stays stale on crates.io until the next release.
 7. **Public prose in full sentences** (release notes, tag annotation, LinkedIn
    post), even when a compressed chat style is active. Project names lowercase;
    the C++ library is "tinymind (C++)", this project "tinymind-rs", the crate
-   `tinymind` in backticks (`scripts/cpp-name.py --check` on the notes file). No invented numbers: every figure comes from the
+   `tinymind` in backticks; release titles say "tinymind-rs X.Y.Z". No invented numbers: every figure comes from the
    tree, a run, or the goldens.
 8. **PR flow** for every change: branch, PR, CI green, squash-merge, delete the
    branch. Never push to `master`.
@@ -144,10 +144,11 @@ cargo publish                                 # rule 1 and rule 2
 
 ### 6. Tag
 
-Write the notes file (`$NOTES`, in the scratchpad):
+Write the notes file (`$NOTES`, in the scratchpad), then check its naming with
+`python3 -I scripts/cpp-name.py --check "$NOTES"`:
 
 ```
-## tinymind X.Y.Z: <themed title>
+## tinymind-rs X.Y.Z: <themed title>
 
 <the CHANGELOG entry for X.Y.Z: ### Added / ### Changed / ### Fixed>
 
@@ -170,7 +171,7 @@ git push origin vX.Y.Z                        # only after OK
 
 ```bash
 gh release create vX.Y.Z --repo danmcleran/tinymind-rs --verify-tag \
-  --title "tinymind X.Y.Z: <themed title>" --notes-file "$NOTES"
+  --title "tinymind-rs X.Y.Z: <themed title>" --notes-file "$NOTES"
 B=$(gh release view vX.Y.Z --repo danmcleran/tinymind-rs --json body -q .body)
 printf '%s\n' "$B" | tail -3 | grep -q 'danmcleran.github.io/tinymind-rs' \
   && echo "OK: Pages link at the end" || echo "FAIL: Pages link missing at the end"
