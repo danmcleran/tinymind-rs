@@ -75,7 +75,10 @@ These are tinymind (C++)'s rules (see its README for the details):
   (ties away from zero, clamped), in `int8`, `uint8` or `int16`.
   `FeatureQuant.integer(n)` is for features that already are integers (ADC
   counts, pixels, bins): scale 1, and every split is reproduced exactly.
-  `FeatureQuant.from_data(X, dtype)` calibrates each feature's min/max.
+  `FeatureQuant.from_data(X, dtype)` calibrates each feature's min/max onto
+  the whole grid; a range that excludes 0 gets a zero point outside the
+  storage range (it is `i32` in the module). Only a feature so far from 0 that
+  `quantize_features`' `i32` sum could overflow is widened to include 0.
 - **Thresholds.** A split `x <= t` (scikit-learn, LightGBM) becomes
   `q <= floor(t/scale + zp)`, and XGBoost's `x < t` becomes
   `q <= ceil(t/scale + zp) - 1`. The one grid cell that straddles a threshold

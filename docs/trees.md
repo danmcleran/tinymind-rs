@@ -48,7 +48,7 @@ cargo run --release --example imported_trees
 | Model | Inputs | Trees | Correct on the 54 held-out samples |
 |---|---|---|---|
 | Gradient boosting, 30 rounds of depth-2 trees | int8 | 90 (one per class per round) | 53 (scikit-learn: 53) |
-| Random forest, 15 voting trees of depth 4 | int16 | 15 | 52 (scikit-learn: 53) |
+| Random forest, 15 voting trees of depth 4 | int16 | 15 | 53 (scikit-learn: 53) |
 
 The same two models imported with tinymind (C++)'s importer and run on the tinymind (C++) runtime print byte-identical output, and so do 16 more models across every supported family when checked against the importers' shared integer reference.
 

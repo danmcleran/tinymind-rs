@@ -2,7 +2,7 @@
 """Parity of this importer with tinymind's (apps/import_trees, from TINYMIND_DIR,
 default ../tinymind), and of the generated Rust with tinymind's C++.
 
-For every model family, both importers export the same trained model on the
+For every model family (and features far from zero), both importers export the same trained model on the
 same feature grid. The integer models must be identical: every tree's nodes,
 thresholds and leaves, the tree classes, the base scores, the output scale and
 the feature grids. Then each output is checked on its own runtime against the
@@ -87,6 +87,11 @@ def models():
         yield "LGBMClassifier multiclass", lgb.LGBMClassifier(**kw), 3, {}
         yield "LGBMClassifier binary", lgb.LGBMClassifier(**kw), 2, {}
         yield "LGBMRegressor", lgb.LGBMRegressor(**kw), 0, {}
+    # Features whose range excludes 0, as most sensor data does: the grid's zero
+    # point lies outside the storage range. The second also has one feature so
+    # far from 0 that its grid is widened to include 0.
+    yield "RandomForestClassifier offset", RandomForestClassifier(n_estimators=8, max_depth=4, random_state=0), 3, {"offset": 50.0}
+    yield "GradientBoostingRegressor far", GradientBoostingRegressor(n_estimators=10, max_depth=3, random_state=0), 0, {"offset": 1.0e6}
 
 
 def same_integer_model(a, b):
@@ -113,7 +118,16 @@ def main():
         for k, (name, model, classes, kw) in enumerate(models()):
             # Calibrated grids in each type, and integer features, by turns.
             dtype = ("int8", "uint8", "int16", "integer")[k % 4]
+            kw = dict(kw)
+            offset = kw.pop("offset", 0.0)
+            if offset:
+                dtype = "int8"
             X, y = data(240, 5, classes, seed=k, integer=(dtype == "integer"))
+            if offset == 1.0e6:
+                X[:, 0] = offset + X[:, 0] * 1.0e-4   # tiny span, far from 0
+                X[:, 1:] += 50.0
+            elif offset:
+                X += offset
             model.fit(X, y)
             quant = (RS.FeatureQuant.integer(5, "int16") if dtype == "integer"
                      else RS.FeatureQuant.from_data(X, dtype))
