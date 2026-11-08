@@ -7,6 +7,18 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- Int8 convolution and pooling (tinymind (C++)'s `cpp/qconv2d.hpp`,
+  `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp` and `cpp/qpool2d.hpp`),
+  in `tinymind::int8`: `QConv2D` and `QConv2DPerChannel`, `QDepthwiseConv2D`,
+  `QPointwiseConv2D` and `QPointwiseConv2DPerChannel`, `QMaxPool2D`,
+  `QAvgPool2D` and `QGlobalAvgPool2D`. NHWC tensors are nested arrays; strides
+  and zero-point padding (SAME or any asymmetric amount) are const parameters,
+  and an output size that does not match the input, kernel, strides and padding
+  is a compile error. Bit-identical to tinymind (C++), checked over 57 random
+  layer configurations.
+
 ## [0.1.5] - 2026-11-08
 
 ### Added

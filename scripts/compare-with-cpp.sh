@@ -234,6 +234,25 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test softmax_s
   && same "softmax Rust vs tests/golden/softmax" \
   || { echo "DIFFERENT  softmax Rust vs tests/golden/softmax"; status=1; }
 
+echo "== conv"
+# tinymind's int8 convolution and pooling layers over random tensors;
+# tests/conv_sweep.rs checks the Rust layers against the committed golden, so
+# the golden must still be what the C++ prints.
+mkdir -p "$TMP/conv"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/conv/conv_sweep" "$ROOT/scripts/cpp/conv_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1
+"$TMP/conv/conv_sweep" > "$TMP/conv/stdout.txt"
+if cmp -s "$TMP/conv/stdout.txt" "$ROOT/tests/golden/conv/stdout.txt"; then
+  same "conv stdout.txt (C++ vs tests/golden/conv)"
+else
+  echo "DIFFERENT  conv stdout.txt (C++ vs tests/golden/conv)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --test conv_sweep >/dev/null 2>&1 \
+  && same "conv Rust vs tests/golden/conv" \
+  || { echo "DIFFERENT  conv Rust vs tests/golden/conv"; status=1; }
+
 echo "== imported_mlp (PyTorch importer)"
 # Needs a Python with numpy (PYTHON, default python3), e.g. a venv.
 PYTHON="${PYTHON:-python3}"
@@ -349,6 +368,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/trees/cpp.txt" "$KEEP_CPP_OUTPUT/imported_trees/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/tree"
   cp "$TMP/tree/stdout.txt" "$KEEP_CPP_OUTPUT/tree/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/conv"
+  cp "$TMP/conv/stdout.txt" "$KEEP_CPP_OUTPUT/conv/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"
 fi
 # Every comparison passed: the count the docs quote must be this one.

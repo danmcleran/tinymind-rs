@@ -350,3 +350,150 @@ mod tree {
         let _ = (gbdt.forward(&x), gbdt.predict(&x), gbdt.is_valid());
     }
 }
+
+/// Int8 convolutions and pooling: no panic for any weights, biases, inputs,
+/// zero points and requantizers, with windows reaching into padding on every
+/// side; the pooling divide rounds half away from zero.
+mod conv {
+    use crate::int8::pool::rounded_divide;
+    use crate::int8::{
+        QAvgPool2D, QConv2D, QConv2DPerChannel, QDepthwiseConv2D, QGlobalAvgPool2D, QMaxPool2D,
+        QPointwiseConv2D, QPointwiseConv2DPerChannel, Requantizer,
+    };
+
+    fn any_requantizer() -> Requantizer {
+        Requantizer {
+            multiplier: kani::any(),
+            shift: kani::any(),
+            zero_point: kani::any(),
+            qmin: kani::any(),
+            qmax: kani::any(),
+        }
+    }
+
+    /// A 2x2 kernel over a 2x2 input, stride 2 down with one row of padding
+    /// on top, stride 1 across with one column on the right: two outputs,
+    /// each with taps in the padding.
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn conv_never_panics() {
+        let weights: [[[[i8; 1]; 2]; 2]; 1] = kani::any();
+        let biases: [i32; 1] = kani::any();
+        let layer: QConv2D<'_, 1, 2, 2, 1, 2, 1, 1, 0, 0, 1> = QConv2D {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizer: any_requantizer(),
+        };
+        let input: [[[i8; 1]; 2]; 2] = kani::any();
+        let mut output = [[[0i8; 1]; 2]; 1];
+        layer.forward(&input, &mut output);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn conv_per_channel_never_panics() {
+        let weights: [[[[i8; 1]; 2]; 2]; 2] = kani::any();
+        let biases: [i32; 2] = kani::any();
+        let requantizers = [any_requantizer(), any_requantizer()];
+        let layer: QConv2DPerChannel<'_, 1, 2, 2, 2, 1, 1, 0, 1, 1, 0> = QConv2DPerChannel {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
+        };
+        let input: [[[i8; 1]; 1]; 1] = kani::any();
+        let mut output = [[[0i8; 2]; 1]; 1];
+        layer.forward(&input, &mut output);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn depthwise_never_panics() {
+        let weights: [[[i8; 2]; 2]; 2] = kani::any();
+        let biases: [i32; 2] = kani::any();
+        let requantizers = [any_requantizer(), any_requantizer()];
+        let layer: QDepthwiseConv2D<'_, 2, 2, 2, 1, 1, 1, 0, 0, 1> = QDepthwiseConv2D {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
+        };
+        let input: [[[i8; 2]; 1]; 1] = kani::any();
+        let mut output = [[[0i8; 2]; 1]; 1];
+        layer.forward(&input, &mut output);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn pointwise_never_panics() {
+        let weights: [[i8; 2]; 2] = kani::any();
+        let biases: [i32; 2] = kani::any();
+        let input: [[[i8; 2]; 1]; 1] = kani::any();
+        let mut output = [[[0i8; 2]; 1]; 1];
+        let layer = QPointwiseConv2D {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizer: any_requantizer(),
+        };
+        layer.forward(&input, &mut output);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn pointwise_per_channel_never_panics() {
+        let weights: [[i8; 2]; 2] = kani::any();
+        let biases: [i32; 2] = kani::any();
+        let input: [[[i8; 2]; 1]; 1] = kani::any();
+        let mut output = [[[0i8; 2]; 1]; 1];
+        let requantizers = [any_requantizer(), any_requantizer()];
+        let layer = QPointwiseConv2DPerChannel {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
+        };
+        layer.forward(&input, &mut output);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn pools_never_panic() {
+        let input: [[[i8; 1]; 3]; 2] = kani::any();
+        let mut output = [[[0i8; 1]; 2]; 1];
+        QMaxPool2D::<2, 2, 1, 1>.forward(&input, &mut output);
+        let avg = QAvgPool2D::<2, 2, 1, 1> {
+            qmin: kani::any(),
+            qmax: kani::any(),
+        };
+        avg.forward(&input, &mut output);
+        let global = QGlobalAvgPool2D {
+            qmin: kani::any(),
+            qmax: kani::any(),
+        };
+        let _ = global.forward(&input);
+    }
+
+    /// Total for every numerator and denominator.
+    #[kani::proof]
+    fn rounded_divide_never_panics() {
+        let _ = rounded_divide(kani::any(), kani::any());
+    }
+
+    /// For a positive denominator and a numerator the bias cannot push past
+    /// the `i32` rails, the result is the nearest integer to `n / d`, ties
+    /// away from zero.
+    #[kani::proof]
+    fn rounded_divide_rounds_half_away() {
+        let (n, d): (i32, i32) = (kani::any(), kani::any());
+        kani::assume(d > 0 && i64::from(n).abs() <= i64::from(i32::MAX - d / 2));
+        let r = i64::from(rounded_divide(n, d));
+        let (n, d) = (i64::from(n), i64::from(d));
+        let error = r * d - n;
+        assert!(2 * error.abs() <= d);
+        if 2 * error.abs() == d {
+            assert!((r * d).abs() > n.abs());
+        }
+    }
+}

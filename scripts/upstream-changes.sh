@@ -41,6 +41,9 @@ PORTED=(
   cpp/qaffine.hpp
   cpp/qdense.hpp
   cpp/qpointwiseconv2d.hpp
+  cpp/qconv2d.hpp
+  cpp/qdepthwiseconv2d.hpp
+  cpp/qpool2d.hpp
   benchmarks/framework_comparison_f411/gen/out/mlp_tinymind.hpp
   cpp/qactivations.hpp
   cpp/qsoftmax_fixedpoint.hpp

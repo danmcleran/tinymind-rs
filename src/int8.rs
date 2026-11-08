@@ -1,6 +1,7 @@
 //! Int8 affine-quantized inference, ported from tinymind (C++) `cpp/qaffine.hpp`,
-//! `cpp/qdense.hpp`, `cpp/qpointwiseconv2d.hpp` (per-channel dense),
-//! `cpp/qactivations.hpp` and `cpp/qsoftmax_fixedpoint.hpp`.
+//! `cpp/qdense.hpp`, `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`,
+//! `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp`, `cpp/qactivations.hpp` and
+//! `cpp/qsoftmax_fixedpoint.hpp`.
 //!
 //! This is the TFLite / CMSIS-NN quantization model, separate from the Q-format
 //! [`QValue`](crate::QValue) pipeline: a real value is `scale * (q - zero_point)`,
@@ -13,6 +14,53 @@
 //! in `i32`, then a [`Requantizer`] rescales `acc` to the output tensor's int8 grid
 //! with a fixed-point multiplier, adds the output zero point and saturates.
 //!
+//! # Convolution and pooling
+//!
+//! [`QConv2D`] (and [`QConv2DPerChannel`]), [`QDepthwiseConv2D`],
+//! [`QPointwiseConv2D`] (and [`QPointwiseConv2DPerChannel`]), [`QMaxPool2D`],
+//! [`QAvgPool2D`] and [`QGlobalAvgPool2D`] work on NHWC tensors without the batch
+//! axis, as nested arrays: an input is `[[[i8; C]; W]; H]`, indexed
+//! `[row][column][channel]`. Kernel, strides and padding are const parameters of
+//! the layer; the input and output sizes come from the arrays passed to
+//! `forward`, which writes into a caller-owned output so tensors can share
+//! buffers. The output must have the size the layer produces, `(H + PT + PB -
+//! KH) / SH + 1` rows and likewise columns, or the call does not compile; an
+//! invalid layer (a zero stride, a kernel larger than the padded input) does not
+//! compile either. Padding holds the input zero point, as TFLite pads, so a
+//! padded tap contributes nothing. Pooling keeps the input's scale and zero
+//! point: no requantizer.
+//!
+//! ```
+//! use tinymind::int8::{QConv2D, QMaxPool2D, Requantizer};
+//!
+//! // Eight 3x3 filters over a 20x20 single-channel input, then 2x2 max pooling.
+//! static WEIGHTS: [[[[i8; 1]; 3]; 3]; 8] = [[[[1]; 3]; 3]; 8];
+//! const RQ: Requantizer = Requantizer { multiplier: 1 << 30, shift: 3, zero_point: 0, qmin: -128, qmax: 127 };
+//! let conv: QConv2D<'_, 1, 3, 3, 8> =
+//!     QConv2D { weights: &WEIGHTS, biases: None, input_zero_point: 0, requantizer: RQ };
+//!
+//! let input = [[[2i8; 1]; 20]; 20];
+//! let mut features = [[[0i8; 8]; 18]; 18]; // 3x3, stride 1, no padding: 18 x 18
+//! conv.forward(&input, &mut features);
+//! let mut pooled = [[[0i8; 8]; 9]; 9]; // 2x2 windows: 9 x 9
+//! QMaxPool2D::<2, 2>.forward(&features, &mut pooled);
+//! // Each window sums nine 2s; the requantizer scales by 1/16: 18/16 rounds to 1.
+//! assert_eq!(pooled[0][0], [1; 8]);
+//! ```
+//!
+//! An output of the wrong size does not compile:
+//!
+//! ```compile_fail
+//! # use tinymind::int8::{QConv2D, Requantizer};
+//! # static WEIGHTS: [[[[i8; 1]; 3]; 3]; 8] = [[[[1]; 3]; 3]; 8];
+//! # const RQ: Requantizer = Requantizer { multiplier: 1 << 30, shift: 3, zero_point: 0, qmin: -128, qmax: 127 };
+//! # let conv: QConv2D<'_, 1, 3, 3, 8> =
+//! #     QConv2D { weights: &WEIGHTS, biases: None, input_zero_point: 0, requantizer: RQ };
+//! let input = [[[2i8; 1]; 20]; 20];
+//! let mut features = [[[0i8; 8]; 17]; 18]; // 17 columns: the layer makes 18
+//! conv.forward(&input, &mut features);
+//! ```
+//!
 //! Results match tinymind (C++), and therefore TFLite's reference kernels, which
 //! it matches, bit for bit. Where the C++ would hit undefined behaviour
 //! (an `i32` accumulator overflow, a shift out of its documented range), this
@@ -20,6 +68,13 @@
 
 #[cfg(feature = "std")]
 pub mod calibration;
+pub(crate) mod conv;
+pub(crate) mod pool;
+
+pub use conv::{
+    QConv2D, QConv2DPerChannel, QDepthwiseConv2D, QPointwiseConv2D, QPointwiseConv2DPerChannel,
+};
+pub use pool::{QAvgPool2D, QGlobalAvgPool2D, QMaxPool2D};
 
 /// Saturating rounding doubling high multiply: `(a * b + 2^30) >> 31`, the
 /// Q0.31 multiply of gemmlowp and TFLite, with `i32::MIN * i32::MIN` saturated
