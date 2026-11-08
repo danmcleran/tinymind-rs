@@ -45,8 +45,8 @@ pub const FEATURE_SCALE: [f32; NUM_FEATURES] = [
 ];
 /// Each feature's zero point.
 pub const FEATURE_ZERO_POINT: [i32; NUM_FEATURES] = [
-    -32768, -32768, -32768, -32768, -32768, -32768, -32768, -32768, -32768, -32768, -32768, -32768,
-    -32768,
+    -251410, -42352, -105585, -72935, -89403, -54914, -37469, -49807, -41478, -42895, -66233,
+    -63255, -45763,
 ];
 
 /// Quantize one float sample onto the feature grids (`quantizeFeatures` in
@@ -94,152 +94,176 @@ fn argmax(v: &[i32; NUM_OUTPUTS]) -> usize {
     best.0
 }
 
-static TREE_0: [QTreeNode<InputType>; 17] = [
-    split(9, -10506, 1, 6),
-    split(0, 32766, 2, 3),
+static TREE_0: [QTreeNode<InputType>; 19] = [
+    split(9, -20633, 1, 6),
+    split(0, -1918, 2, 3),
     leaf(1),
-    split(9, -12514, 4, 5),
+    split(9, -22641, 4, 5),
     leaf(1),
     leaf(0),
-    split(8, 621, 7, 12),
-    split(11, 26405, 8, 9),
+    split(8, -8089, 7, 12),
+    split(11, -4082, 8, 9),
     leaf(2),
-    split(2, 32766, 10, 11),
+    split(2, -7711, 10, 11),
     leaf(1),
     leaf(0),
-    split(11, 25685, 13, 16),
-    split(8, 16798, 14, 15),
+    split(11, -4802, 13, 16),
+    split(8, 8088, 14, 15),
     leaf(1),
     leaf(2),
+    split(3, 14268, 17, 18),
     leaf(0),
+    leaf(1),
 ];
 const _: () =
-    assert!(QDecisionTree::<'static, InputType, 17, NUM_FEATURES>::new(&TREE_0).is_valid());
+    assert!(QDecisionTree::<'static, InputType, 19, NUM_FEATURES>::new(&TREE_0).is_valid());
 
-static TREE_1: [QTreeNode<InputType>; 9] = [
-    split(6, -16523, 1, 2),
+static TREE_1: [QTreeNode<InputType>; 15] = [
+    split(6, -21224, 1, 2),
     leaf(2),
-    split(10, 21612, 3, 6),
-    split(0, 32766, 4, 5),
+    split(0, 286, 3, 10),
+    split(10, -11853, 4, 7),
+    split(0, -6517, 5, 6),
     leaf(1),
     leaf(2),
-    split(12, 16079, 7, 8),
+    split(12, 3084, 8, 9),
+    leaf(1),
+    leaf(0),
+    split(12, -15146, 11, 12),
+    leaf(1),
+    split(9, -22612, 13, 14),
     leaf(1),
     leaf(0),
 ];
 const _: () =
-    assert!(QDecisionTree::<'static, InputType, 9, NUM_FEATURES>::new(&TREE_1).is_valid());
+    assert!(QDecisionTree::<'static, InputType, 15, NUM_FEATURES>::new(&TREE_1).is_valid());
 
-static TREE_2: [QTreeNode<InputType>; 9] = [
-    split(6, -20118, 1, 2),
+static TREE_2: [QTreeNode<InputType>; 11] = [
+    split(6, -24819, 1, 2),
     leaf(2),
-    split(12, 2991, 3, 6),
-    split(11, 3960, 4, 5),
+    split(12, -10004, 3, 8),
+    split(11, -26527, 4, 5),
     leaf(2),
+    split(0, 478, 6, 7),
     leaf(1),
-    split(7, -13108, 7, 8),
+    leaf(0),
+    split(7, -30147, 9, 10),
     leaf(1),
     leaf(0),
 ];
 const _: () =
-    assert!(QDecisionTree::<'static, InputType, 9, NUM_FEATURES>::new(&TREE_2).is_valid());
+    assert!(QDecisionTree::<'static, InputType, 11, NUM_FEATURES>::new(&TREE_2).is_valid());
 
-static TREE_3: [QTreeNode<InputType>; 13] = [
-    split(6, -13273, 1, 4),
-    split(10, 32766, 2, 3),
+static TREE_3: [QTreeNode<InputType>; 17] = [
+    split(6, -17974, 1, 6),
+    split(2, 11350, 2, 5),
+    split(10, 2787, 3, 4),
     leaf(2),
     leaf(1),
-    split(9, -9924, 5, 10),
-    split(0, 32766, 6, 7),
     leaf(1),
-    split(4, 32766, 8, 9),
+    split(9, -20051, 7, 12),
+    split(0, -1918, 8, 9),
     leaf(1),
-    leaf(0),
-    split(1, -15349, 11, 12),
+    split(4, -13350, 10, 11),
     leaf(1),
     leaf(0),
+    split(1, -24933, 13, 14),
+    leaf(1),
+    split(7, 22936, 15, 16),
+    leaf(0),
+    leaf(1),
 ];
 const _: () =
-    assert!(QDecisionTree::<'static, InputType, 13, NUM_FEATURES>::new(&TREE_3).is_valid());
+    assert!(QDecisionTree::<'static, InputType, 17, NUM_FEATURES>::new(&TREE_3).is_valid());
 
-static TREE_4: [QTreeNode<InputType>; 11] = [
-    split(6, -13620, 1, 6),
-    split(11, 18003, 2, 5),
-    split(8, -21363, 3, 4),
+static TREE_4: [QTreeNode<InputType>; 15] = [
+    split(6, -18321, 1, 8),
+    split(11, -12484, 2, 5),
+    split(8, -30073, 3, 4),
     leaf(1),
     leaf(2),
+    split(3, 8103, 6, 7),
     leaf(1),
-    split(12, 1097, 7, 8),
+    leaf(2),
+    split(12, -11898, 9, 10),
     leaf(1),
-    split(9, -13009, 9, 10),
+    split(4, 19013, 11, 14),
+    split(9, -23136, 12, 13),
     leaf(1),
     leaf(0),
+    leaf(1),
 ];
 const _: () =
-    assert!(QDecisionTree::<'static, InputType, 11, NUM_FEATURES>::new(&TREE_4).is_valid());
+    assert!(QDecisionTree::<'static, InputType, 15, NUM_FEATURES>::new(&TREE_4).is_valid());
 
 static TREE_5: [QTreeNode<InputType>; 9] = [
-    split(9, -11234, 1, 2),
+    split(9, -21361, 1, 2),
     leaf(1),
-    split(5, 20564, 3, 6),
-    split(6, -15486, 4, 5),
+    split(5, -1582, 3, 6),
+    split(6, -20187, 4, 5),
     leaf(2),
     leaf(1),
-    split(12, -2384, 7, 8),
+    split(12, -15379, 7, 8),
     leaf(2),
     leaf(0),
 ];
 const _: () =
     assert!(QDecisionTree::<'static, InputType, 9, NUM_FEATURES>::new(&TREE_5).is_valid());
 
-static TREE_6: [QTreeNode<InputType>; 15] = [
-    split(1, -1102, 1, 8),
-    split(6, 7811, 2, 7),
-    split(6, -16523, 3, 4),
+static TREE_6: [QTreeNode<InputType>; 17] = [
+    split(1, -10686, 1, 10),
+    split(6, 3110, 2, 7),
+    split(6, -21224, 3, 4),
     leaf(2),
-    split(4, 32766, 5, 6),
+    split(4, -10923, 5, 6),
     leaf(1),
     leaf(1),
+    split(0, 286, 8, 9),
     leaf(1),
-    split(6, -12168, 9, 10),
-    leaf(2),
-    split(3, 32766, 11, 12),
     leaf(0),
-    split(8, 6324, 13, 14),
+    split(6, -16869, 11, 12),
+    leaf(2),
+    split(3, -5463, 13, 14),
+    leaf(0),
+    split(8, -2386, 15, 16),
     leaf(1),
     leaf(1),
 ];
 const _: () =
-    assert!(QDecisionTree::<'static, InputType, 15, NUM_FEATURES>::new(&TREE_6).is_valid());
+    assert!(QDecisionTree::<'static, InputType, 17, NUM_FEATURES>::new(&TREE_6).is_valid());
 
-static TREE_7: [QTreeNode<InputType>; 9] = [
-    split(12, 3341, 1, 8),
-    split(1, -972, 2, 5),
-    split(10, 15337, 3, 4),
+static TREE_7: [QTreeNode<InputType>; 13] = [
+    split(12, -9654, 1, 10),
+    split(1, -10556, 2, 5),
+    split(10, -18128, 3, 4),
     leaf(2),
     leaf(1),
-    split(6, -17491, 6, 7),
+    split(6, -22192, 6, 7),
     leaf(2),
+    split(4, -405, 8, 9),
     leaf(1),
+    leaf(2),
+    split(10, 23006, 11, 12),
     leaf(0),
+    leaf(1),
 ];
 const _: () =
-    assert!(QDecisionTree::<'static, InputType, 9, NUM_FEATURES>::new(&TREE_7).is_valid());
+    assert!(QDecisionTree::<'static, InputType, 13, NUM_FEATURES>::new(&TREE_7).is_valid());
 
 static TREE_8: [QTreeNode<InputType>; 15] = [
-    split(5, 14123, 1, 8),
-    split(12, -10518, 2, 5),
-    split(11, 2280, 3, 4),
+    split(5, -8023, 1, 8),
+    split(12, -23513, 2, 5),
+    split(11, -28207, 3, 4),
     leaf(2),
     leaf(1),
-    split(6, -12444, 6, 7),
+    split(6, -17145, 6, 7),
     leaf(2),
     leaf(1),
-    split(1, -14442, 9, 10),
+    split(1, -24026, 9, 10),
     leaf(1),
-    split(0, 32766, 11, 12),
+    split(0, -4696, 11, 12),
     leaf(1),
-    split(9, -12514, 13, 14),
+    split(9, -22641, 13, 14),
     leaf(1),
     leaf(0),
 ];
@@ -247,59 +271,61 @@ const _: () =
     assert!(QDecisionTree::<'static, InputType, 15, NUM_FEATURES>::new(&TREE_8).is_valid());
 
 static TREE_9: [QTreeNode<InputType>; 17] = [
-    split(12, 3341, 1, 12),
-    split(8, -6119, 2, 7),
-    split(2, 32766, 3, 4),
+    split(12, -9654, 1, 12),
+    split(8, -14829, 2, 7),
+    split(2, -16278, 3, 4),
     leaf(1),
-    split(7, 7208, 5, 6),
+    split(7, -9831, 5, 6),
     leaf(2),
     leaf(2),
-    split(9, 5936, 8, 11),
-    split(3, 29772, 9, 10),
+    split(9, -4191, 8, 11),
+    split(3, -10395, 9, 10),
     leaf(0),
     leaf(1),
     leaf(2),
-    split(9, -11961, 13, 14),
+    split(9, -22088, 13, 14),
     leaf(1),
-    split(5, 12541, 15, 16),
+    split(5, -9605, 15, 16),
     leaf(2),
     leaf(0),
 ];
 const _: () =
     assert!(QDecisionTree::<'static, InputType, 17, NUM_FEATURES>::new(&TREE_9).is_valid());
 
-static TREE_10: [QTreeNode<InputType>; 13] = [
-    split(11, 19083, 1, 8),
-    split(10, 32766, 2, 7),
-    split(10, 25098, 3, 4),
+static TREE_10: [QTreeNode<InputType>; 15] = [
+    split(11, -11404, 1, 8),
+    split(10, -350, 2, 7),
+    split(10, -8367, 3, 4),
     leaf(2),
-    split(2, 32766, 5, 6),
+    split(2, -5570, 5, 6),
     leaf(1),
     leaf(2),
     leaf(1),
-    split(0, 32766, 9, 10),
+    split(0, -1918, 9, 10),
     leaf(1),
-    split(9, -10535, 11, 12),
+    split(9, -20662, 11, 14),
+    split(0, 10922, 12, 13),
     leaf(1),
+    leaf(0),
     leaf(0),
 ];
 const _: () =
-    assert!(QDecisionTree::<'static, InputType, 13, NUM_FEATURES>::new(&TREE_10).is_valid());
+    assert!(QDecisionTree::<'static, InputType, 15, NUM_FEATURES>::new(&TREE_10).is_valid());
 
 static TREE_11: [QTreeNode<InputType>; 15] = [
-    split(4, 32766, 1, 4),
-    split(9, -4541, 2, 3),
+    split(4, -17800, 1, 4),
+    split(9, -14668, 2, 3),
     leaf(1),
     leaf(2),
-    split(10, 31373, 5, 10),
-    split(9, -11670, 6, 7),
+    split(10, -2092, 5, 10),
+    split(9, -21797, 6, 7),
     leaf(1),
-    split(9, -7276, 8, 9),
+    split(9, -17403, 8, 9),
     leaf(2),
     leaf(2),
-    split(0, 32766, 11, 12),
+    split(0, -1918, 11, 12),
     leaf(1),
-    split(9, -13125, 13, 14),
+    split(9, -23252, 13, 14),
     leaf(1),
     leaf(0),
 ];
@@ -307,17 +333,17 @@ const _: () =
     assert!(QDecisionTree::<'static, InputType, 15, NUM_FEATURES>::new(&TREE_11).is_valid());
 
 static TREE_12: [QTreeNode<InputType>; 13] = [
-    split(9, -10506, 1, 6),
-    split(0, 32766, 2, 3),
+    split(9, -20633, 1, 6),
+    split(0, -1918, 2, 3),
     leaf(1),
-    split(7, 17693, 4, 5),
+    split(7, 654, 4, 5),
     leaf(1),
     leaf(0),
-    split(11, 22685, 7, 10),
-    split(6, -13620, 8, 9),
+    split(11, -7802, 7, 10),
+    split(6, -18321, 8, 9),
     leaf(2),
     leaf(1),
-    split(5, 15931, 11, 12),
+    split(5, -6215, 11, 12),
     leaf(1),
     leaf(0),
 ];
@@ -325,15 +351,15 @@ const _: () =
     assert!(QDecisionTree::<'static, InputType, 13, NUM_FEATURES>::new(&TREE_12).is_valid());
 
 static TREE_13: [QTreeNode<InputType>; 11] = [
-    split(9, -12456, 1, 2),
+    split(9, -22583, 1, 2),
     leaf(1),
-    split(6, -13412, 3, 6),
-    split(11, 24845, 4, 5),
+    split(6, -18113, 3, 6),
+    split(11, -5642, 4, 5),
     leaf(2),
     leaf(1),
-    split(1, -14377, 7, 8),
+    split(1, -23961, 7, 8),
     leaf(1),
-    split(6, 28204, 9, 10),
+    split(6, 23503, 9, 10),
     leaf(0),
     leaf(1),
 ];
@@ -341,17 +367,17 @@ const _: () =
     assert!(QDecisionTree::<'static, InputType, 11, NUM_FEATURES>::new(&TREE_13).is_valid());
 
 static TREE_14: [QTreeNode<InputType>; 13] = [
-    split(9, -12456, 1, 2),
+    split(9, -22583, 1, 2),
     leaf(1),
-    split(11, 31566, 3, 10),
-    split(4, 32766, 4, 7),
-    split(8, -9334, 5, 6),
+    split(11, 1079, 3, 10),
+    split(4, -19014, 4, 7),
+    split(8, -18044, 5, 6),
     leaf(2),
     leaf(1),
-    split(6, -12306, 8, 9),
+    split(6, -17007, 8, 9),
     leaf(2),
     leaf(1),
-    split(0, 32766, 11, 12),
+    split(0, -4505, 11, 12),
     leaf(1),
     leaf(0),
 ];
@@ -369,23 +395,23 @@ pub fn forward(x: &[InputType; NUM_FEATURES]) -> [i32; NUM_OUTPUTS] {
     let mut votes = [0; NUM_OUTPUTS];
     vote(
         &mut votes,
-        QDecisionTree::<'_, InputType, 17, NUM_FEATURES>::new(&TREE_0).predict(x),
+        QDecisionTree::<'_, InputType, 19, NUM_FEATURES>::new(&TREE_0).predict(x),
     );
     vote(
         &mut votes,
-        QDecisionTree::<'_, InputType, 9, NUM_FEATURES>::new(&TREE_1).predict(x),
+        QDecisionTree::<'_, InputType, 15, NUM_FEATURES>::new(&TREE_1).predict(x),
     );
     vote(
         &mut votes,
-        QDecisionTree::<'_, InputType, 9, NUM_FEATURES>::new(&TREE_2).predict(x),
+        QDecisionTree::<'_, InputType, 11, NUM_FEATURES>::new(&TREE_2).predict(x),
     );
     vote(
         &mut votes,
-        QDecisionTree::<'_, InputType, 13, NUM_FEATURES>::new(&TREE_3).predict(x),
+        QDecisionTree::<'_, InputType, 17, NUM_FEATURES>::new(&TREE_3).predict(x),
     );
     vote(
         &mut votes,
-        QDecisionTree::<'_, InputType, 11, NUM_FEATURES>::new(&TREE_4).predict(x),
+        QDecisionTree::<'_, InputType, 15, NUM_FEATURES>::new(&TREE_4).predict(x),
     );
     vote(
         &mut votes,
@@ -393,11 +419,11 @@ pub fn forward(x: &[InputType; NUM_FEATURES]) -> [i32; NUM_OUTPUTS] {
     );
     vote(
         &mut votes,
-        QDecisionTree::<'_, InputType, 15, NUM_FEATURES>::new(&TREE_6).predict(x),
+        QDecisionTree::<'_, InputType, 17, NUM_FEATURES>::new(&TREE_6).predict(x),
     );
     vote(
         &mut votes,
-        QDecisionTree::<'_, InputType, 9, NUM_FEATURES>::new(&TREE_7).predict(x),
+        QDecisionTree::<'_, InputType, 13, NUM_FEATURES>::new(&TREE_7).predict(x),
     );
     vote(
         &mut votes,
@@ -409,7 +435,7 @@ pub fn forward(x: &[InputType; NUM_FEATURES]) -> [i32; NUM_OUTPUTS] {
     );
     vote(
         &mut votes,
-        QDecisionTree::<'_, InputType, 13, NUM_FEATURES>::new(&TREE_10).predict(x),
+        QDecisionTree::<'_, InputType, 15, NUM_FEATURES>::new(&TREE_10).predict(x),
     );
     vote(
         &mut votes,
@@ -453,77 +479,77 @@ pub fn forward_inline(x: &[InputType; NUM_FEATURES]) -> [i32; NUM_OUTPUTS] {
 
 #[rustfmt::skip]
 fn tree_0(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[9] <= -10506 { if x[0] <= 32766 { 1 } else { if x[9] <= -12514 { 1 } else { 0 } } } else { if x[8] <= 621 { if x[11] <= 26405 { 2 } else { if x[2] <= 32766 { 1 } else { 0 } } } else { if x[11] <= 25685 { if x[8] <= 16798 { 1 } else { 2 } } else { 0 } } }
+    if x[9] <= -20633 { if x[0] <= -1918 { 1 } else { if x[9] <= -22641 { 1 } else { 0 } } } else { if x[8] <= -8089 { if x[11] <= -4082 { 2 } else { if x[2] <= -7711 { 1 } else { 0 } } } else { if x[11] <= -4802 { if x[8] <= 8088 { 1 } else { 2 } } else { if x[3] <= 14268 { 0 } else { 1 } } } }
 }
 
 #[rustfmt::skip]
 fn tree_1(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[6] <= -16523 { 2 } else { if x[10] <= 21612 { if x[0] <= 32766 { 1 } else { 2 } } else { if x[12] <= 16079 { 1 } else { 0 } } }
+    if x[6] <= -21224 { 2 } else { if x[0] <= 286 { if x[10] <= -11853 { if x[0] <= -6517 { 1 } else { 2 } } else { if x[12] <= 3084 { 1 } else { 0 } } } else { if x[12] <= -15146 { 1 } else { if x[9] <= -22612 { 1 } else { 0 } } } }
 }
 
 #[rustfmt::skip]
 fn tree_2(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[6] <= -20118 { 2 } else { if x[12] <= 2991 { if x[11] <= 3960 { 2 } else { 1 } } else { if x[7] <= -13108 { 1 } else { 0 } } }
+    if x[6] <= -24819 { 2 } else { if x[12] <= -10004 { if x[11] <= -26527 { 2 } else { if x[0] <= 478 { 1 } else { 0 } } } else { if x[7] <= -30147 { 1 } else { 0 } } }
 }
 
 #[rustfmt::skip]
 fn tree_3(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[6] <= -13273 { if x[10] <= 32766 { 2 } else { 1 } } else { if x[9] <= -9924 { if x[0] <= 32766 { 1 } else { if x[4] <= 32766 { 1 } else { 0 } } } else { if x[1] <= -15349 { 1 } else { 0 } } }
+    if x[6] <= -17974 { if x[2] <= 11350 { if x[10] <= 2787 { 2 } else { 1 } } else { 1 } } else { if x[9] <= -20051 { if x[0] <= -1918 { 1 } else { if x[4] <= -13350 { 1 } else { 0 } } } else { if x[1] <= -24933 { 1 } else { if x[7] <= 22936 { 0 } else { 1 } } } }
 }
 
 #[rustfmt::skip]
 fn tree_4(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[6] <= -13620 { if x[11] <= 18003 { if x[8] <= -21363 { 1 } else { 2 } } else { 1 } } else { if x[12] <= 1097 { 1 } else { if x[9] <= -13009 { 1 } else { 0 } } }
+    if x[6] <= -18321 { if x[11] <= -12484 { if x[8] <= -30073 { 1 } else { 2 } } else { if x[3] <= 8103 { 1 } else { 2 } } } else { if x[12] <= -11898 { 1 } else { if x[4] <= 19013 { if x[9] <= -23136 { 1 } else { 0 } } else { 1 } } }
 }
 
 #[rustfmt::skip]
 fn tree_5(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[9] <= -11234 { 1 } else { if x[5] <= 20564 { if x[6] <= -15486 { 2 } else { 1 } } else { if x[12] <= -2384 { 2 } else { 0 } } }
+    if x[9] <= -21361 { 1 } else { if x[5] <= -1582 { if x[6] <= -20187 { 2 } else { 1 } } else { if x[12] <= -15379 { 2 } else { 0 } } }
 }
 
 #[rustfmt::skip]
 fn tree_6(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[1] <= -1102 { if x[6] <= 7811 { if x[6] <= -16523 { 2 } else { if x[4] <= 32766 { 1 } else { 1 } } } else { 1 } } else { if x[6] <= -12168 { 2 } else { if x[3] <= 32766 { 0 } else { if x[8] <= 6324 { 1 } else { 1 } } } }
+    if x[1] <= -10686 { if x[6] <= 3110 { if x[6] <= -21224 { 2 } else { if x[4] <= -10923 { 1 } else { 1 } } } else { if x[0] <= 286 { 1 } else { 0 } } } else { if x[6] <= -16869 { 2 } else { if x[3] <= -5463 { 0 } else { if x[8] <= -2386 { 1 } else { 1 } } } }
 }
 
 #[rustfmt::skip]
 fn tree_7(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[12] <= 3341 { if x[1] <= -972 { if x[10] <= 15337 { 2 } else { 1 } } else { if x[6] <= -17491 { 2 } else { 1 } } } else { 0 }
+    if x[12] <= -9654 { if x[1] <= -10556 { if x[10] <= -18128 { 2 } else { 1 } } else { if x[6] <= -22192 { 2 } else { if x[4] <= -405 { 1 } else { 2 } } } } else { if x[10] <= 23006 { 0 } else { 1 } }
 }
 
 #[rustfmt::skip]
 fn tree_8(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[5] <= 14123 { if x[12] <= -10518 { if x[11] <= 2280 { 2 } else { 1 } } else { if x[6] <= -12444 { 2 } else { 1 } } } else { if x[1] <= -14442 { 1 } else { if x[0] <= 32766 { 1 } else { if x[9] <= -12514 { 1 } else { 0 } } } }
+    if x[5] <= -8023 { if x[12] <= -23513 { if x[11] <= -28207 { 2 } else { 1 } } else { if x[6] <= -17145 { 2 } else { 1 } } } else { if x[1] <= -24026 { 1 } else { if x[0] <= -4696 { 1 } else { if x[9] <= -22641 { 1 } else { 0 } } } }
 }
 
 #[rustfmt::skip]
 fn tree_9(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[12] <= 3341 { if x[8] <= -6119 { if x[2] <= 32766 { 1 } else { if x[7] <= 7208 { 2 } else { 2 } } } else { if x[9] <= 5936 { if x[3] <= 29772 { 0 } else { 1 } } else { 2 } } } else { if x[9] <= -11961 { 1 } else { if x[5] <= 12541 { 2 } else { 0 } } }
+    if x[12] <= -9654 { if x[8] <= -14829 { if x[2] <= -16278 { 1 } else { if x[7] <= -9831 { 2 } else { 2 } } } else { if x[9] <= -4191 { if x[3] <= -10395 { 0 } else { 1 } } else { 2 } } } else { if x[9] <= -22088 { 1 } else { if x[5] <= -9605 { 2 } else { 0 } } }
 }
 
 #[rustfmt::skip]
 fn tree_10(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[11] <= 19083 { if x[10] <= 32766 { if x[10] <= 25098 { 2 } else { if x[2] <= 32766 { 1 } else { 2 } } } else { 1 } } else { if x[0] <= 32766 { 1 } else { if x[9] <= -10535 { 1 } else { 0 } } }
+    if x[11] <= -11404 { if x[10] <= -350 { if x[10] <= -8367 { 2 } else { if x[2] <= -5570 { 1 } else { 2 } } } else { 1 } } else { if x[0] <= -1918 { 1 } else { if x[9] <= -20662 { if x[0] <= 10922 { 1 } else { 0 } } else { 0 } } }
 }
 
 #[rustfmt::skip]
 fn tree_11(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[4] <= 32766 { if x[9] <= -4541 { 1 } else { 2 } } else { if x[10] <= 31373 { if x[9] <= -11670 { 1 } else { if x[9] <= -7276 { 2 } else { 2 } } } else { if x[0] <= 32766 { 1 } else { if x[9] <= -13125 { 1 } else { 0 } } } }
+    if x[4] <= -17800 { if x[9] <= -14668 { 1 } else { 2 } } else { if x[10] <= -2092 { if x[9] <= -21797 { 1 } else { if x[9] <= -17403 { 2 } else { 2 } } } else { if x[0] <= -1918 { 1 } else { if x[9] <= -23252 { 1 } else { 0 } } } }
 }
 
 #[rustfmt::skip]
 fn tree_12(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[9] <= -10506 { if x[0] <= 32766 { 1 } else { if x[7] <= 17693 { 1 } else { 0 } } } else { if x[11] <= 22685 { if x[6] <= -13620 { 2 } else { 1 } } else { if x[5] <= 15931 { 1 } else { 0 } } }
+    if x[9] <= -20633 { if x[0] <= -1918 { 1 } else { if x[7] <= 654 { 1 } else { 0 } } } else { if x[11] <= -7802 { if x[6] <= -18321 { 2 } else { 1 } } else { if x[5] <= -6215 { 1 } else { 0 } } }
 }
 
 #[rustfmt::skip]
 fn tree_13(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[9] <= -12456 { 1 } else { if x[6] <= -13412 { if x[11] <= 24845 { 2 } else { 1 } } else { if x[1] <= -14377 { 1 } else { if x[6] <= 28204 { 0 } else { 1 } } } }
+    if x[9] <= -22583 { 1 } else { if x[6] <= -18113 { if x[11] <= -5642 { 2 } else { 1 } } else { if x[1] <= -23961 { 1 } else { if x[6] <= 23503 { 0 } else { 1 } } } }
 }
 
 #[rustfmt::skip]
 fn tree_14(x: &[InputType; NUM_FEATURES]) -> i32 {
-    if x[9] <= -12456 { 1 } else { if x[11] <= 31566 { if x[4] <= 32766 { if x[8] <= -9334 { 2 } else { 1 } } else { if x[6] <= -12306 { 2 } else { 1 } } } else { if x[0] <= 32766 { 1 } else { 0 } } }
+    if x[9] <= -22583 { 1 } else { if x[11] <= 1079 { if x[4] <= -19014 { if x[8] <= -18044 { 2 } else { 1 } } else { if x[6] <= -17007 { 2 } else { 1 } } } else { if x[0] <= -4505 { 1 } else { 0 } } }
 }
 
 /// Predicted class index: most votes, ties to the lowest class.

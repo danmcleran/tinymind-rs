@@ -53,7 +53,8 @@ const fn l(leaf: i32) -> FNode {
 }
 
 /// Five trees over two features: vertical bands by f0 (class 0 left, class 1
-/// middle, class 2 right), nudged by f1.
+/// middle, class 2 right). The two f1 trees add to the class 0 and class 2
+/// scores but never outweigh the f0 margin, so the bands stay vertical.
 ///   t0 (class 0): f0 <= -0.15 ? +12 : -4
 ///   t1 (class 1): f0 <= -0.15 ? -8 : (f0 <= 0.25 ? +12 : -8)
 ///   t2 (class 2): f0 <=  0.25 ? -4 : +12
