@@ -258,8 +258,12 @@ echo "== kws_int8"
 # scripts/cpp/kws_int8_dump.cpp, which prints every tensor (its own stdout
 # carries host timings). tests/kws_int8_golden.rs checks the Rust port against
 # the committed golden, so the golden must still be what the C++ prints.
+# -ffp-contract=off: the example draws its float weights as u * (b - a) + a,
+# and a compiler that targets FMA by default (g++ 15 on Ubuntu 26.04) fuses
+# that into one rounding, which moves a per-channel scale by an ulp. Rust,
+# like ISO C++, rounds each operation; so does g++ without FMA.
 mkdir -p "$TMP/kws_int8"
-g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/kws_int8/kws_int8_dump" "$ROOT/scripts/cpp/kws_int8_dump.cpp" \
+g++ -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/kws_int8/kws_int8_dump" "$ROOT/scripts/cpp/kws_int8_dump.cpp" \
   -I"$TINYMIND_DIR/examples/kws_cortex_m_int8" \
   -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
   -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_QUANTIZATION=1
