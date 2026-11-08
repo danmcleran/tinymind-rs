@@ -61,7 +61,7 @@ pub mod rand;
 #[cfg(kani)]
 mod kani_proofs;
 
-pub use activation::{Activation, Relu, Sigmoid, Tanh};
+pub use activation::{Activation, Linear, Relu, Sigmoid, Tanh};
 pub use network::{Dense, Layers, NeuralNetwork};
 pub use neuralnet::{InferencePerceptron, MultilayerPerceptron};
 pub use qformat::{Fixed, Q8_8, Q16_16, QValue};

@@ -33,6 +33,7 @@ PORTED=(
   cpp/include/nnproperties.hpp
   examples/xor
   examples/iris
+  examples/energy_efficiency
   examples/pytorch_quant/xor
   apps/import_pytorch
   cpp/qaffine.hpp

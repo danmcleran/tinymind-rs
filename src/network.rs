@@ -183,16 +183,16 @@ impl<V: Fixed, A: Activation<V>, const IN: usize, const OUT: usize> Dense<V, A, 
     }
 
     /// One SGD-with-momentum step on every connection. Each update reads only
-    /// its own connection, so the order does not matter.
-    fn update(&mut self, rates: (V, V, V)) {
-        for row in self
-            .weights
-            .iter_mut()
-            .chain(core::iter::once(&mut self.bias))
-        {
+    /// its own connection, so the order does not matter. `clip` applies to the
+    /// weights only; the bias weights use the raw gradient, as in the C++.
+    fn update(&mut self, rates: (V, V, V), clip: Option<(V, V)>) {
+        for row in self.weights.iter_mut() {
             for c in row.iter_mut() {
-                update_connection(c, rates);
+                update_connection(c, rates, clip);
             }
+        }
+        for c in self.bias.iter_mut() {
+            update_connection(c, rates, None);
         }
     }
 }
@@ -217,6 +217,7 @@ mod sealed {
             inputs: &Self::Inputs,
             targets: &Self::Outputs,
             rates: (Self::Value, Self::Value, Self::Value),
+            clip: Option<(Self::Value, Self::Value)>,
         );
         /// Number of output neurons: each owns one unused C++ connection whose
         /// initialisation consumes a random draw.
@@ -285,7 +286,13 @@ macro_rules! impl_layers {
                 mean_squared_error(&self.$last.outputs, targets)
             }
 
-            fn train(&mut self, inputs: &[V; $d0], targets: &[V; $dn], rates: (V, V, V)) {
+            fn train(
+                &mut self,
+                inputs: &[V; $d0],
+                targets: &[V; $dn],
+                rates: (V, V, V),
+                clip: Option<(V, V)>,
+            ) {
                 // Deltas from the output back (C++ ChainNetworkDeltasCalculator),
                 // all computed before any weight changes.
                 self.$last.output_deltas(targets);
@@ -296,7 +303,7 @@ macro_rules! impl_layers {
                 // Gradients (ChainNetworkGradientsCalculator), then updates.
                 self.$first.gradients(inputs);
                 $(self.$next.gradients(&self.$prev.outputs);)*
-                $(self.$idx.update(rates);)+
+                $(self.$idx.update(rates, clip);)+
             }
         }
     };
@@ -338,6 +345,7 @@ pub struct NeuralNetwork<L: Layers> {
     learning_rate: L::Value,
     momentum_rate: L::Value,
     acceleration_rate: L::Value,
+    gradient_clip: Option<(L::Value, L::Value)>,
 }
 
 impl<V: Fixed, L: Layers<Value = V> + Default> NeuralNetwork<L> {
@@ -358,6 +366,7 @@ impl<V: Fixed, L: Layers<Value = V> + Default> NeuralNetwork<L> {
             learning_rate: V::pow2_neg(2),
             momentum_rate: V::pow2_neg(1),
             acceleration_rate: V::pow2_neg(4),
+            gradient_clip: None,
         }
     }
 }
@@ -371,6 +380,21 @@ impl<V: Fixed, L: Layers<Value = V>> NeuralNetwork<L> {
     /// Replace the momentum rate (default `2^-1`).
     pub fn set_momentum_rate(&mut self, rate: V) {
         self.momentum_rate = rate;
+    }
+
+    /// Replace the acceleration rate, the weight on the delta weight from two
+    /// steps back (default `2^-4`).
+    pub fn set_acceleration_rate(&mut self, rate: V) {
+        self.acceleration_rate = rate;
+    }
+
+    /// Clip each weight's gradient to `[min, max]` before the update, or
+    /// `None` (the default). C++ `GradientClipByValue<ValueType, I, F>` is
+    /// `Some((QValue(-I, F), QValue(I, F)))`; the default
+    /// `GradientClipByValue<ValueType>` is `Some((-1.0, 1.0))`. Bias weights are
+    /// never clipped, as in the C++.
+    pub fn set_gradient_clip(&mut self, range: Option<(V, V)>) {
+        self.gradient_clip = range;
     }
 
     /// Run one forward pass. Read the result with
@@ -399,7 +423,8 @@ impl<V: Fixed, L: Layers<Value = V>> NeuralNetwork<L> {
             self.momentum_rate,
             self.acceleration_rate,
         );
-        self.layers.train(&self.inputs, targets, rates);
+        self.layers
+            .train(&self.inputs, targets, rates, self.gradient_clip);
     }
 
     /// The layers, to read their weights (`nn.layers().0.weights()`).
@@ -416,7 +441,7 @@ impl<V: Fixed, L: Layers<Value = V>> NeuralNetwork<L> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::activation::{Relu, Sigmoid, Tanh};
+    use crate::activation::{Linear, Relu, Sigmoid, Tanh};
     use crate::rand::GlibcRand;
     use crate::{MultilayerPerceptron, Q8_8, Q16_16};
 
@@ -470,6 +495,67 @@ mod tests {
         same_as_perceptron::<Q16_16, Relu, Sigmoid, 4, 8, 3>(q16, 2);
         same_as_perceptron::<Q8_8, Tanh, Sigmoid, 2, 4, 1>(q8, 3);
         same_as_perceptron::<Q8_8, Relu, Sigmoid, 4, 8, 3>(q8, 4);
+    }
+
+    /// The same with a linear output, gradient clipping and every rate set:
+    /// the settings tinymind's energy_efficiency example uses, on random data
+    /// large enough that the clip and the unclipped biases both matter.
+    #[test]
+    fn two_layers_match_perceptron_with_clipping() {
+        let mut a = GlibcRand::new(11);
+        let mut b = GlibcRand::new(11);
+        let w = |r: i32| Q16_16::from_raw(unit(r, 1 << 15));
+        let mut mlp =
+            MultilayerPerceptron::<Q16_16, Relu, Linear, 3, 5, 2>::new(|| w(a.next_i32()));
+        let mut net =
+            NeuralNetwork::<(Dense<Q16_16, Relu, 3, 5>, Dense<Q16_16, Linear, 5, 2>)>::new(|| {
+                w(b.next_i32())
+            });
+        let range = (Q16_16::from_raw(-(1 << 15)), Q16_16::ONE);
+        let lr = Q16_16::from_raw(1 << 10);
+        mlp.set_learning_rate(lr);
+        net.set_learning_rate(lr);
+        mlp.set_acceleration_rate(Q16_16::from_raw(1 << 12));
+        net.set_acceleration_rate(Q16_16::from_raw(1 << 12));
+        mlp.set_gradient_clip(Some(range));
+        net.set_gradient_clip(Some(range));
+        let mut data = GlibcRand::new(12);
+        for step in 0..1000 {
+            let input: [Q16_16; 3] =
+                core::array::from_fn(|_| Q16_16::from_raw(unit(data.next_i32(), 1 << 16)));
+            let target: [Q16_16; 2] =
+                core::array::from_fn(|_| Q16_16::from_raw(unit(data.next_i32(), 8 << 16)));
+            mlp.feed_forward(&input);
+            net.feed_forward(&input);
+            assert_eq!(net.learned_values(), mlp.learned_values(), "step {step}");
+            mlp.train(&target);
+            net.train(&target);
+            assert_eq!(net.layers().0.weights(), mlp.input_weights(), "step {step}");
+            assert_eq!(
+                net.layers().1.bias_weights(),
+                mlp.hidden_bias_weights(),
+                "step {step}"
+            );
+        }
+    }
+
+    #[test]
+    fn linear_and_clip() {
+        use crate::activation::Linear;
+        let x = Q8_8::from_raw(-300);
+        assert_eq!(<Linear as Activation<Q8_8>>::activate(x), x);
+        assert_eq!(<Linear as Activation<Q8_8>>::derivative(x), Q8_8::ONE);
+        let range = (Q16_16::from_int(-1), Q16_16::ONE);
+        let clip = |g: i32| crate::neuralnet::clip_gradient(Q16_16::from_int(g), range);
+        assert_eq!(clip(5), Q16_16::ONE);
+        assert_eq!(clip(-5), Q16_16::from_int(-1));
+        assert_eq!(clip(0), Q16_16::ZERO);
+        // An inverted range does not panic: max wins above it, min below.
+        let inverted = (Q16_16::ONE, Q16_16::ZERO);
+        assert_eq!(
+            crate::neuralnet::clip_gradient(Q16_16::from_int(3), inverted),
+            Q16_16::ZERO
+        );
     }
 
     /// Setters and getters round-trip; the training state is untouched.

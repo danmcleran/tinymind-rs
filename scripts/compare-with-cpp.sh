@@ -84,6 +84,33 @@ for f in stdout.txt iris_loss.csv iris_scatter.csv iris_confusion.csv; do
   fi
 done
 
+echo "== energy_efficiency"
+# The data file must be tinymind's, byte for byte (CRLF in both working trees).
+if cmp -s "$ROOT/data/ENB2012_data.csv" "$TINYMIND_DIR/examples/energy_efficiency/ENB2012_data.csv"; then
+  echo "IDENTICAL  energy data/ENB2012_data.csv vs tinymind examples/energy_efficiency/ENB2012_data.csv"
+else
+  echo "DIFFERENT  energy data/ENB2012_data.csv vs tinymind examples/energy_efficiency/ENB2012_data.csv"
+  status=1
+fi
+mkdir -p "$TMP/energy/cpp" "$TMP/energy/rust"
+# Flags from examples/energy_efficiency/Makefile's release target.
+g++ -g -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/energy/energy_efficiency" \
+  "$TINYMIND_DIR/examples/energy_efficiency/energy_efficiency.cpp" "$TINYMIND_DIR/cpp/lookupTables.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include/" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 -DTINYMIND_USE_SIGMOID_16_16=1
+cp "$TINYMIND_DIR/examples/energy_efficiency/ENB2012_data.csv" "$TMP/energy/cpp/"
+(cd "$TMP/energy/cpp" && ../energy_efficiency > stdout.txt)
+rm "$TMP/energy/cpp/ENB2012_data.csv"
+"$ROOT/target/release/examples/energy_efficiency" "$TMP/energy/rust" "$ROOT/data/ENB2012_data.csv" > "$TMP/energy/rust/stdout.txt"
+for f in stdout.txt energy_loss.csv energy_pred.csv; do
+  if cmp -s "$TMP/energy/cpp/$f" "$TMP/energy/rust/$f"; then
+    echo "IDENTICAL  energy $f"
+  else
+    echo "DIFFERENT  energy $f"
+    status=1
+  fi
+done
+
 echo "== int8_xor"
 mkdir -p "$TMP/int8_xor/cpp" "$TMP/int8_xor/rust"
 # Flags from examples/pytorch_quant/xor/Makefile's release target.
@@ -212,6 +239,7 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   done
   cp -r "$TMP/iris/cpp" "$KEEP_CPP_OUTPUT/iris"
   cp -r "$TMP/int8_xor/cpp" "$KEEP_CPP_OUTPUT/int8_xor"
+  cp -r "$TMP/energy/cpp" "$KEEP_CPP_OUTPUT/energy"
   mkdir -p "$KEEP_CPP_OUTPUT/deep_mlp"
   cp "$TMP/deep_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/deep_mlp/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/inference_mlp"

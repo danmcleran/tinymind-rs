@@ -1,5 +1,6 @@
 // NeuralNetwork with two and three hidden layers against tinymind's
-// NeuralNetwork<..., HiddenLayers<...>, ...>. tests/golden/deep_mlp/stdout.txt is
+// NeuralNetwork<..., HiddenLayers<...>, ...>, and two regressions with a linear
+// output and gradient clipping. tests/golden/deep_mlp/stdout.txt is
 // the output of scripts/cpp/deep_mlp.cpp: the same initial weights (glibc
 // rand(), as tinymind's examples draw them), the same samples, and an FNV-1a
 // hash of every weight after every training step. scripts/compare-with-cpp.sh
@@ -8,7 +9,7 @@
 use std::fmt::Write;
 
 use tinymind::rand::GlibcRand;
-use tinymind::{Dense, Fixed, Layers, NeuralNetwork, Q8_8, Q16_16, Relu, Sigmoid, Tanh};
+use tinymind::{Dense, Fixed, Layers, Linear, NeuralNetwork, Q8_8, Q16_16, Relu, Sigmoid, Tanh};
 
 struct Lcg(u32);
 
@@ -127,6 +128,38 @@ macro_rules! run {
     }};
 }
 
+/// The C++ regression: 3 inputs in [-1, 1), two targets up to about 9, a linear
+/// output and clipped gradients (bias gradients are not clipped).
+macro_rules! run_regression {
+    ($out:expr, $name:expr, $layers:ty, [$($idx:tt),+], $clip:expr, $seed:expr, $steps:expr) => {{
+        let one = Q16_16::ONE_RAW;
+        let half = one / 2;
+        let mut rng = GlibcRand::new($seed);
+        let mut nn = NeuralNetwork::<$layers>::new(|| {
+            Q16_16::from_raw_i32(rng.next_i32() % (2 * half + 1) - half)
+        });
+        nn.set_learning_rate(Q16_16::from_raw(one / 64));
+        nn.set_gradient_clip(Some($clip));
+        let mut lcg = Lcg($seed);
+        let mut hash: u32 = 0x811C_9DC5;
+        for step in 1..=$steps {
+            let v: [i32; 3] = core::array::from_fn(|_| ((lcg.next() >> 8) % (2 * one) as u32) as i32 - one);
+            let x = v.map(Q16_16::from_raw);
+            let t = [
+                Q16_16::from_raw(3 * v[0] - 2 * v[1] + 4 * v[2]),
+                Q16_16::from_raw(-2 * v[0] + 3 * v[2] + 2 * one),
+            ];
+            nn.feed_forward(&x);
+            let error = nn.calculate_error(&t);
+            nn.train(&t);
+            absorb_layers!(&mut hash, nn, $($idx),+);
+            if step % 500 == 0 {
+                writeln!($out, "{} step={step} error={} hash=0x{hash:08X}", $name, error.raw()).unwrap();
+            }
+        }
+    }};
+}
+
 fn assert_layers<L: Layers>() {}
 
 #[test]
@@ -179,6 +212,39 @@ fn deep_mlp_matches_cpp() {
         3000
     );
     run!(out, "q8.8 4-8-6-3", Q8_8, 4, 3, Deep8, [0, 1, 2], 4, 3000);
+
+    type Reg2 = (
+        Dense<Q16_16, Relu, 3, 6>,
+        Dense<Q16_16, Relu, 6, 4>,
+        Dense<Q16_16, Linear, 4, 2>,
+    );
+    type Reg1 = (Dense<Q16_16, Relu, 3, 6>, Dense<Q16_16, Linear, 6, 2>);
+    // C++ GradientClipByValue<Q16>: QValue(-1, 0)..QValue(1, 0).
+    let unit = (Q16_16::from_int(-1), Q16_16::ONE);
+    run_regression!(
+        out,
+        "q16.16 3-6-4-2 linear clip[-1,1]",
+        Reg2,
+        [0, 1, 2],
+        unit,
+        5,
+        2000
+    );
+    // GradientClipByValue<Q16, 2, 0x8000>: QValue(-2, 0x8000) is -2 + 0.5 = -1.5
+    // (the fraction is joined to the fixed part's bits), QValue(2, 0x8000) is 2.5.
+    let asymmetric = (
+        Q16_16::from_raw((-2 << 16) | 0x8000),
+        Q16_16::from_raw((2 << 16) | 0x8000),
+    );
+    run_regression!(
+        out,
+        "q16.16 3-6-2 linear clip[-1.5,2.5]",
+        Reg1,
+        [0, 1],
+        asymmetric,
+        6,
+        2000
+    );
 
     let golden = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),

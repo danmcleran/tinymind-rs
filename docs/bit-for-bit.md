@@ -101,7 +101,7 @@ fn main() {
 }
 ```
 
-It is checked against tinymind's untrainable network loaded with the same weights. A Q16.16 2-4-1 network is 68 bytes, against 372 for the trainable one (and 156 for tinymind's untrainable network, which also keeps per-neuron state).
+It is checked against tinymind's untrainable network loaded with the same weights. A Q16.16 2-4-1 network is 68 bytes, against 384 for the trainable one (and 156 for tinymind's untrainable network, which also keeps per-neuron state).
 
 ## From PyTorch
 

@@ -42,3 +42,11 @@ q8.8 4-8-6-3 final0 255 255 0
 q8.8 4-8-6-3 final1 255 0 0
 q8.8 4-8-6-3 final2 0 0 255
 q8.8 4-8-6-3 final3 255 0 255
+q16.16 3-6-4-2 linear clip[-1,1] step=500 error=996 hash=0x67DF04AC
+q16.16 3-6-4-2 linear clip[-1,1] step=1000 error=143 hash=0x4CF5E8A7
+q16.16 3-6-4-2 linear clip[-1,1] step=1500 error=13 hash=0x0370E654
+q16.16 3-6-4-2 linear clip[-1,1] step=2000 error=755 hash=0x7019B7E4
+q16.16 3-6-2 linear clip[-1.5,2.5] step=500 error=49 hash=0x9F984A08
+q16.16 3-6-2 linear clip[-1.5,2.5] step=1000 error=21 hash=0xEE25AAA3
+q16.16 3-6-2 linear clip[-1.5,2.5] step=1500 error=25 hash=0x84B6C7A1
+q16.16 3-6-2 linear clip[-1.5,2.5] step=2000 error=24 hash=0xCE685832

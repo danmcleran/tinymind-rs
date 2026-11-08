@@ -1,0 +1,25 @@
+Loaded 768 rows from ENB2012_data.csv.
+Train: 614  Test: 154
+iter   2000   avg|err| = 0.0106
+iter   4000   avg|err| = 0.0044
+iter   6000   avg|err| = 0.0038
+iter   8000   avg|err| = 0.0036
+iter  10000   avg|err| = 0.0036
+iter  12000   avg|err| = 0.0036
+iter  14000   avg|err| = 0.0036
+iter  16000   avg|err| = 0.0035
+iter  18000   avg|err| = 0.0036
+iter  20000   avg|err| = 0.0036
+iter  22000   avg|err| = 0.0037
+iter  24000   avg|err| = 0.0036
+iter  26000   avg|err| = 0.0034
+iter  28000   avg|err| = 0.0035
+iter  30000   avg|err| = 0.0034
+iter  32000   avg|err| = 0.0034
+iter  34000   avg|err| = 0.0033
+iter  36000   avg|err| = 0.0034
+iter  38000   avg|err| = 0.0033
+iter  40000   avg|err| = 0.0032
+
+Heating load (Y1):  MAE=2.7977  R2=0.9034
+Cooling load (Y2):  MAE=2.7696  R2=0.8826
