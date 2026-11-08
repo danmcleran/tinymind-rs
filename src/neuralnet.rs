@@ -1,5 +1,5 @@
 //! A multilayer perceptron with one hidden layer, ported from the
-//! `NeuralNetwork` / `MultilayerPerceptron` path of tinymind `cpp/neuralnet.hpp`,
+//! `NeuralNetwork` / `MultilayerPerceptron` path of tinymind (C++) `cpp/neuralnet.hpp`,
 //! in two forms: [`MultilayerPerceptron`] trains on the device, and
 //! [`InferencePerceptron`] only runs a trained network (C++ `IsTrainable = false`).
 //!
@@ -162,7 +162,7 @@ where
         nn
     }
 
-    /// Replace the learning rate (default `2^-2`, tinymind's
+    /// Replace the learning rate (default `2^-2`, tinymind (C++)'s
     /// `DefaultNetworkInitializer`).
     pub fn set_learning_rate(&mut self, rate: V) {
         self.learning_rate = rate;
@@ -313,7 +313,7 @@ where
 
 /// Weight getters. These need no activation bounds, so they live in their own
 /// `impl` block. Each returns a whole matrix rather than taking an index, so
-/// none of them can panic; the layout matches the order tinymind's
+/// none of them can panic; the layout matches the order tinymind (C++)'s
 /// `NetworkPropertiesFileManager` writes the weights in.
 impl<V: Copy, H, O, const IN: usize, const HID: usize, const OUT: usize, Opt>
     MultilayerPerceptron<V, H, O, IN, HID, OUT, Opt>

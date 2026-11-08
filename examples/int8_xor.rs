@@ -1,4 +1,4 @@
-//! Port of tinymind `examples/pytorch_quant/xor`: a 2-4-1 network trained in
+//! Port of tinymind (C++) `examples/pytorch_quant/xor`: a 2-4-1 network trained in
 //! PyTorch and quantized to int8 runs through two [`QDense`] layers, a quantized
 //! ReLU and a sigmoid lookup table. Its output is byte-identical to the C++
 //! example's:

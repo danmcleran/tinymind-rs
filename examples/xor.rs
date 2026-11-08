@@ -1,4 +1,4 @@
-//! Port of tinymind `examples/xor/xor.cpp`: train a 2-4-1 perceptron (tanh
+//! Port of tinymind (C++) `examples/xor/xor.cpp`: train a 2-4-1 perceptron (tanh
 //! hidden, sigmoid output) on XOR and write the same files the C++ example
 //! writes, byte for byte:
 //!

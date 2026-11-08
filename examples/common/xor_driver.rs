@@ -1,6 +1,6 @@
 //! The xor example's program, shared by `examples/xor.rs` (which parses the
 //! command line) and `tests/xor_golden.rs` (which runs it in-process against the
-//! C++ goldens). Port of tinymind `examples/xor/xor.cpp`; see `examples/xor.rs`.
+//! C++ goldens). Port of tinymind (C++) `examples/xor/xor.cpp`; see `examples/xor.rs`.
 
 use std::fmt::Display;
 use std::fs::File;

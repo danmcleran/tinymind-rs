@@ -1,4 +1,4 @@
-//! Port of tinymind `examples/gbdt_tabular_int8`: a five-tree gradient-boosted
+//! Port of tinymind (C++) `examples/gbdt_tabular_int8`: a five-tree gradient-boosted
 //! ensemble (two features, three classes) quantized to int8 and run through
 //! [`QGbdt`]. Its output is byte-identical to the C++ example's:
 //!

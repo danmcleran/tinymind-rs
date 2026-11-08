@@ -6,7 +6,7 @@ nav_order: 8
 
 # Q-format in Rust
 
-A Q-format value is an integer read as a fixed-point number: Q16.16 stores 16 integer bits (including the sign) and 16 fractional bits in an `i32`, so the raw value 65536 means 1.0. For the background and the full C++ feature set, see tinymind's [Q-Format page](https://danmcleran.github.io/tinymind/q-format.html). This page covers what the Rust port implements and where it differs.
+A Q-format value is an integer read as a fixed-point number: Q16.16 stores 16 integer bits (including the sign) and 16 fractional bits in an `i32`, so the raw value 65536 means 1.0. For the background and the full C++ feature set, see tinymind (C++)'s [Q-Format page](https://danmcleran.github.io/tinymind/q-format.html). This page covers what the Rust port implements and where it differs.
 
 ## The type
 
@@ -26,11 +26,11 @@ pub type Q8_8 = QValue<i16, 8>;
 
 The C++ `QValue<FixedBits, FractionalBits>` chooses its storage type from the bit counts at compile time. Stable Rust cannot compute a type from const-generic arithmetic, so in Rust the storage type is an explicit parameter. A macro generates the methods and operators for each storage type, the same way the Rust standard library implements its integer methods.
 
-Any `FRAC` from 1 to one less than the storage width compiles (an invalid one is a compile-time error), but tanh and sigmoid exist only for the formats tinymind has lookup tables for in this port: `Q16_16` and `Q8_8`. Using them on another format is a compile error, as it is in C++ when the matching table is not compiled in.
+Any `FRAC` from 1 to one less than the storage width compiles (an invalid one is a compile-time error), but tanh and sigmoid exist only for the formats tinymind (C++) has lookup tables for in this port: `Q16_16` and `Q8_8`. Using them on another format is a compile error, as it is in C++ when the matching table is not compiled in.
 
 ## Arithmetic
 
-The port implements tinymind's default policies, `TruncatePolicy` and `WrapPolicy`, with exactly the C++ results:
+The port implements tinymind (C++)'s default policies, `TruncatePolicy` and `WrapPolicy`, with exactly the C++ results:
 
 | Operation | Behaviour |
 |---|---|
@@ -47,6 +47,6 @@ The port implements tinymind's default policies, `TruncatePolicy` and `WrapPolic
 
 ## Activation lookup tables
 
-Tanh and sigmoid read 96-entry tables covering [-6, 6] in steps of 1/8, with linear interpolation between entries and clamping outside the range. The tables are generated from tinymind's `cpp/lookupTables.cpp` by `scripts/extract-luts.py`, never typed by hand, and CI checks that they still match tinymind. For how the tables are built, see tinymind's [Activation LUTs page](https://danmcleran.github.io/tinymind/activation-luts.html).
+Tanh and sigmoid read 96-entry tables covering [-6, 6] in steps of 1/8, with linear interpolation between entries and clamping outside the range. The tables are generated from tinymind (C++)'s `cpp/lookupTables.cpp` by `scripts/extract-luts.py`, never typed by hand, and CI checks that they still match tinymind (C++). For how the tables are built, see tinymind (C++)'s [Activation LUTs page](https://danmcleran.github.io/tinymind/activation-luts.html).
 
 The [API reference]({{ site.baseurl }}/api/tinymind/qformat/) documents every method.

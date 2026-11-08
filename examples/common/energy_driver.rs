@@ -1,7 +1,7 @@
 //! The energy_efficiency example's program, shared by
 //! `examples/energy_efficiency.rs` (which parses the command line) and
 //! `tests/energy_golden.rs` (which runs it in-process against the C++ goldens).
-//! Port of tinymind `examples/energy_efficiency/energy_efficiency.cpp`; see
+//! Port of tinymind (C++) `examples/energy_efficiency/energy_efficiency.cpp`; see
 //! `examples/energy_efficiency.rs`.
 
 use std::fs::{self, File};

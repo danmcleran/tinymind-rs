@@ -106,6 +106,12 @@ for f in $(grep -rlE 'TinyMind|Tinymind' README.md CHANGELOG.md docs src tools e
   fail "camel-case project name in $f"
 done
 
+# 11. The C++ library is "tinymind (C++)" in user-facing prose, never a bare
+#     "tinymind", which readers confuse with this crate (see scripts/cpp-name.py).
+python3 -I scripts/cpp-name.py --check README.md CHANGELOG.md docs/*.md tools/*/README.md \
+  bench/README.md src/*.rs src/*/*.rs examples/*.rs examples/common/*.rs >&2 \
+  || fail "bare 'tinymind' in prose: run python3 -I scripts/cpp-name.py --fix on those files"
+
 # Release mode: the release PR must leave nothing pointing at the old version.
 if [ -n "$release" ]; then
   [ "$version" = "$release" ] || fail "Cargo.toml version is $version, not $release"

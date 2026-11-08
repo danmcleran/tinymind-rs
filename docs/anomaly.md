@@ -8,7 +8,7 @@ nav_order: 5
 
 A microcontroller watching a machine usually runs a model someone trained elsewhere. This example trains it on the microcontroller itself: an autoencoder learns what *normal* vibration looks like from the sensor stream, then flags anything it cannot reconstruct. No labelled faults are needed, and the model adapts to the machine it is attached to. It runs unchanged on a Cortex-M4F and on a Cortex-M0+ with 32 KB of flash and no FPU.
 
-tinymind has no example like this one; it is built from parts of the port that are each checked bit for bit against tinymind (multi-layer training, the linear output, gradient clipping).
+tinymind (C++) has no example like this one; it is built from parts of the port that are each checked bit for bit against tinymind (C++) (multi-layer training, the linear output, gradient clipping).
 
 ## How it works
 

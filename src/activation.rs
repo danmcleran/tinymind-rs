@@ -1,4 +1,4 @@
-//! Activation policies, ported from tinymind `cpp/activationFunctions.hpp`,
+//! Activation policies, ported from tinymind (C++) `cpp/activationFunctions.hpp`,
 //! `cpp/lookupTable.hpp` and `cpp/interpolate.hpp`.
 //!
 //! C++ policy classes with static member functions become zero-sized Rust types
@@ -19,7 +19,7 @@ pub trait Activation<V> {
     /// The activation of the weighted input sum `x`.
     fn activate(x: V) -> V;
     /// Derivative expressed in terms of the activation's *output* `y`, the way
-    /// tinymind computes it during back-propagation.
+    /// tinymind (C++) computes it during back-propagation.
     fn derivative(y: V) -> V;
 }
 

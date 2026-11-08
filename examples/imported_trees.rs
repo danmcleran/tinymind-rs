@@ -1,8 +1,8 @@
 //! Two scikit-learn tree models for the UCI Wine data, imported with
 //! `tools/import_trees` and run with `tinymind::tree`: a gradient-boosted
 //! classifier on int8 inputs and a voting random forest on int16 inputs. The
-//! output is byte-identical to tinymind's C++ runtime running the same models
-//! imported with tinymind's importer (`scripts/compare-with-cpp.sh`).
+//! output is byte-identical to the tinymind (C++) runtime running the same models
+//! imported with tinymind (C++)'s importer (`scripts/compare-with-cpp.sh`).
 //!
 //! Run: `cargo run --release --example imported_trees`
 

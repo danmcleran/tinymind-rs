@@ -112,7 +112,7 @@ impl Signal {
     }
 }
 
-/// The reconstruction error of one window: tinymind's mean squared error of
+/// The reconstruction error of one window: tinymind (C++)'s mean squared error of
 /// the output against the input.
 #[inline(never)]
 pub fn score(nn: &mut Autoencoder, w: &[Q16_16; WINDOW]) -> Q16_16 {
@@ -120,7 +120,7 @@ pub fn score(nn: &mut Autoencoder, w: &[Q16_16; WINDOW]) -> Q16_16 {
     nn.calculate_error(w)
 }
 
-/// Initial weights in [-0.5, 0.5], as tinymind's examples draw them.
+/// Initial weights in [-0.5, 0.5], as tinymind (C++)'s examples draw them.
 pub fn new_autoencoder(seed: u32) -> Autoencoder {
     let mut rng = GlibcRand::new(seed);
     let half = Q16_16::ONE.raw() / 2;

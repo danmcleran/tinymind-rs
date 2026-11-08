@@ -39,8 +39,9 @@ stays stale on crates.io until the next release.
 6. **The release notes end with the Pages line, then the changelog link.**
    Checked in Step 7.
 7. **Public prose in full sentences** (release notes, tag annotation, LinkedIn
-   post), even when a compressed chat style is active. Project names lowercase:
-   `tinymind`, `tinymind-rs`. No invented numbers: every figure comes from the
+   post), even when a compressed chat style is active. Project names lowercase;
+   the C++ library is "tinymind (C++)", this project "tinymind-rs", the crate
+   `tinymind` in backticks (`scripts/cpp-name.py --check` on the notes file). No invented numbers: every figure comes from the
    tree, a run, or the goldens.
 8. **PR flow** for every change: branch, PR, CI green, squash-merge, delete the
    branch. Never push to `master`.

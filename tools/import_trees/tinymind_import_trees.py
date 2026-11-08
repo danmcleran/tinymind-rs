@@ -752,8 +752,8 @@ def _render(m: ExportedModel, model_name: str, classes) -> str:
     w("pub const FEATURE_SCALE: [f32; NUM_FEATURES] = [%s];\n" % ", ".join(_f32_literal(s) for s in q.scale))
     w("/// Each feature's zero point.\npub const FEATURE_ZERO_POINT: [i32; NUM_FEATURES] = %s;\n\n"
       % _rust_array(q.zero_point))
-    w("""/// Quantize one float sample onto the feature grids (tinymind's
-/// `quantizeFeatures`), bit for bit as the importer's reference does.
+    w("""/// Quantize one float sample onto the feature grids (`quantizeFeatures` in
+/// tinymind (C++)), bit for bit as the importer's reference does.
 pub fn quantize_features(x: &[f32; NUM_FEATURES]) -> [InputType; NUM_FEATURES] {
     let mut q = [0; NUM_FEATURES];
     let grid = FEATURE_SCALE.iter().zip(&FEATURE_ZERO_POINT);
