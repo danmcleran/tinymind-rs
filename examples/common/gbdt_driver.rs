@@ -1,6 +1,6 @@
 //! The int8 GBDT example's program, shared by `examples/gbdt_tabular_int8.rs`
 //! and `tests/gbdt_golden.rs` (which runs it in-process against the C++
-//! goldens). Port of tinymind `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp`.
+//! goldens). Port of tinymind (C++) `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp`.
 //!
 //! A five-tree gradient-boosted ensemble over two features and three classes,
 //! written with float thresholds as a trainer would export it, is quantized onto

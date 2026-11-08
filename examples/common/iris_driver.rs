@@ -1,6 +1,6 @@
 //! The iris example's program, shared by `examples/iris.rs` (which parses the
 //! command line) and `tests/iris_golden.rs` (which runs it in-process against the
-//! C++ goldens). Port of tinymind `examples/iris/iris.cpp`; see `examples/iris.rs`.
+//! C++ goldens). Port of tinymind (C++) `examples/iris/iris.cpp`; see `examples/iris.rs`.
 
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};

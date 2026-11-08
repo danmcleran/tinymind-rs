@@ -1,4 +1,4 @@
-//! Port of tinymind `examples/energy_efficiency/energy_efficiency.cpp`: an
+//! Port of tinymind (C++) `examples/energy_efficiency/energy_efficiency.cpp`: an
 //! 8-16-2 Q16.16 regression (ReLU hidden, linear output, gradients clipped to
 //! [-1, 1]) predicts a building's heating and cooling load from eight design
 //! features, and writes the same files the C++ example writes, byte for byte:
@@ -9,7 +9,7 @@
 //!
 //! Run: `cargo run --release --example energy_efficiency -- [output_dir]
 //! [ENB2012_data.csv]`. The default output dir is `output`; the default data
-//! file is this repository's `data/ENB2012_data.csv`, the UCI file tinymind
+//! file is this repository's `data/ENB2012_data.csv`, the UCI file tinymind (C++)
 //! ships with the example.
 
 use std::fs;

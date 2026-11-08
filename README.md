@@ -4,9 +4,9 @@
 [![docs.rs](https://docs.rs/tinymind/badge.svg)](https://docs.rs/tinymind)
 [![CI](https://github.com/danmcleran/tinymind-rs/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/danmcleran/tinymind-rs/actions/workflows/ci.yml)
 
-tinymind-rs (crate `tinymind`) brings [tinymind](https://github.com/danmcleran/tinymind),
+tinymind-rs (crate `tinymind`) brings [tinymind (C++)](https://github.com/danmcleran/tinymind),
 a header-only C++ library for neural networks on embedded systems, to Rust. Like
-tinymind, it is free, open source software under the MIT license. The library is
+tinymind (C++), it is free, open source software under the MIT license. The library is
 `no_std` and allocation-free, and every ported path is verified bit-for-bit
 against the C++ build: the XOR example's weights, training log and decision
 surface are byte-identical to the C++ output.
@@ -31,7 +31,7 @@ The minimum supported Rust version is 1.85. CI builds the library for Cortex-M4F
 (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`).
 
 It has also run on two boards, an STM32F411 (Cortex-M4F, 100 MHz) and an
-STM32L031 (Cortex-M0+, 32 MHz, 32 KB flash, 8 KB RAM). On both, tinymind's int8
+STM32L031 (Cortex-M0+, 32 MHz, 32 KB flash, 8 KB RAM). On both, tinymind (C++)'s int8
 digits classifier gives the same output hash as the C++ (214 µs per inference on
 the M4F, 1.33 ms on the M0+), XOR trained on the board reproduces the desktop
 weight trajectory bit for bit, and the anomaly example trains on the chip in
@@ -88,12 +88,12 @@ there. The `int8_xor` example (feature
 `xor_decision_surface.csv`. The `gbdt_tabular_int8` example (feature `std`)
 quantizes a five-tree ensemble onto an int8 feature grid, compares it with the
 float trees over a 48x48 grid and writes `gbdt_tabular_int8.csv` (the predicted
-class at each point); `--golden` before the directory prints tinymind's compact
+class at each point); `--golden` before the directory prints tinymind (C++)'s compact
 golden report instead. The `imported_trees` example runs two scikit-learn
 classifiers for the UCI Wine data (CC BY 4.0), written by the tree importer, on
 the held-out samples and on random inputs.
 
-`scripts/compare-with-cpp.sh` needs a tinymind checkout, `g++`, and a Python with
+`scripts/compare-with-cpp.sh` needs a tinymind (C++) checkout, `g++`, and a Python with
 numpy and scikit-learn for the importer checks (plus XGBoost and LightGBM for
 all of the tree importer's) (set `PYTHON`, for example to a virtual
 environment's interpreter). It looks in `../tinymind` unless `TINYMIND_DIR` is
@@ -101,7 +101,7 @@ set.
 
 ## What is ported
 
-| Rust | C++ (tinymind) |
+| Rust | tinymind (C++) |
 | --- | --- |
 | `src/qformat.rs` | `cpp/qformat.hpp`: `QValue`, Truncate and Wrap policies, `i32` and `i16` storage (`Q16_16`, `Q8_8`); `Sqrt` (`SquareRootApproximation` from `cpp/adam.hpp`) |
 | `src/activation.rs` | `cpp/activationFunctions.hpp`, `cpp/lookupTable.hpp`, `cpp/interpolate.hpp`: ReLU, linear, tanh, sigmoid |
@@ -121,10 +121,10 @@ set.
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
 | `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer, emitting Rust |
-| `examples/imported_trees.rs` | two models written by that importer, checked against tinymind's importer + C++ runtime |
-| `examples/imported_mlp.rs` | two models written by that importer, checked against tinymind's importer + C++ runtime |
+| `examples/imported_trees.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
+| `examples/imported_mlp.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
 
-Everything else in tinymind (floating-point networks, other Q formats, unsigned
+Everything else in tinymind (C++) (floating-point networks, other Q formats, unsigned
 and 8/64-bit storage, the other activations, recurrent layers, the int8 quantization tiers, SIMD
 backends, and so on) is not ported.
 
@@ -140,37 +140,37 @@ backends, and so on) is not ported.
   for energy_efficiency against `tests/golden/energy/`, and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`,
   and `tests/imported_mlp_golden.rs` for the importer's models. `TINYMIND_REF`
-  records the tinymind commit they were last verified against. The int8 and
+  records the tinymind (C++) commit they were last verified against. The int8 and
   importer tests need the `std` feature: run `cargo test --all-features`.
 - `tests/deep_mlp.rs` checks networks with one, two and three hidden layers
-  against tinymind's `NeuralNetwork` (every weight after every training step,
+  against tinymind (C++)'s `NeuralNetwork` (every weight after every training step,
   both formats), trained with SGD, Adam and RMSprop, with and without gradient
   clipping.
 - `tests/anomaly_golden.rs` pins the anomaly example's output and hash. The
-  demo has no tinymind counterpart, so this golden is the crate's own output, a
-  regression check; its parts are each checked against tinymind above.
+  demo has no tinymind (C++) counterpart, so this golden is the crate's own output, a
+  regression check; its parts are each checked against tinymind (C++) above.
 - `tests/inference_mlp.rs` checks the inference-only perceptron against
-  tinymind's untrainable network (`IsTrainable = false`) with the same weights,
+  tinymind (C++)'s untrainable network (`IsTrainable = false`) with the same weights,
   in both formats and two shapes.
 - `tests/softmax_tflite.rs` checks the int8 softmax against the TFLite Micro
-  reference kernel's outputs (tinymind's unit-test goldens and sweep hashes), and
-  `tests/softmax_sweep.rs` against tinymind's C++ softmax and its calibration
+  reference kernel's outputs (tinymind (C++)'s unit-test goldens and sweep hashes), and
+  `tests/softmax_sweep.rs` against the tinymind (C++) softmax and its calibration
   over 504 calibrations and row lengths 1 to 511.
 - `tests/gbdt_golden.rs` checks the GBDT example's three outputs against
   `tests/golden/gbdt/`, and `tests/tree_sweep.rs` checks the trees against
-  tinymind's `QDecisionTree` and `QGBDT` over 72 random ensembles (int8, uint8
+  tinymind (C++)'s `QDecisionTree` and `QGBDT` over 72 random ensembles (int8, uint8
   and int16 thresholds, ties, inputs on the thresholds).
   `tests/imported_trees_golden.rs` checks the imported-trees example against
-  tinymind's C++ runtime running the same models imported by tinymind.
-- `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind checkout
+  the tinymind (C++) runtime running the same models imported by tinymind (C++).
+- `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
   example does, runs both sides, and compares every output file (40 checks today, including
-  that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind's files). It exits nonzero if anything differs.
+  that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
-  examples draw their weights and samples from it, as tinymind's do.
-- `tests/qformat_oracle.rs`, ported from tinymind's qformat oracle, checks every
+  examples draw their weights and samples from it, as tinymind (C++)'s do.
+- `tests/qformat_oracle.rs`, ported from tinymind (C++)'s qformat oracle, checks every
   `QValue` operation against an exact reference: edge values and a fixed-seed
   sample for nine formats, and every operand pair for Q8.8 (about 26 billion
   checks, run in CI with overflow checks on). A nightly job reruns the sample with
@@ -184,10 +184,10 @@ backends, and so on) is not ported.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
   and whose panic handler is an undefined symbol, so CI fails to link it if any
   panic path survives optimisation (M0+ and M4F, three optimisation levels).
-- `scripts/extract-luts.py` generates `src/lut.rs` from tinymind's
+- `scripts/extract-luts.py` generates `src/lut.rs` from tinymind (C++)'s
   `cpp/lookupTables.cpp`; CI regenerates it and fails if the tables differ.
 - CI runs all of these on every pull request (the `cpp-equivalence` job checks out
-  tinymind at `TINYMIND_REF` for the compare script and the table check), and
+  tinymind (C++) at `TINYMIND_REF` for the compare script and the table check), and
   branch protection blocks merging unless they pass.
 
 ## License

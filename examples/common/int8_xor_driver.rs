@@ -1,6 +1,6 @@
 //! The int8 XOR example's program, shared by `examples/int8_xor.rs` and
 //! `tests/int8_xor_golden.rs` (which runs it in-process against the C++
-//! goldens). Port of tinymind `examples/pytorch_quant/xor/xor_quant.cpp`.
+//! goldens). Port of tinymind (C++) `examples/pytorch_quant/xor/xor_quant.cpp`.
 
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
@@ -13,7 +13,7 @@ use tinymind::int8::{LUT_SIZE, QDense, apply_lut, qrelu};
 mod cppfmt;
 use cppfmt::{fmt_fixed, fmt_g};
 
-/// The trained model: tinymind `examples/pytorch_quant/xor/weights.hpp`, emitted
+/// The trained model: tinymind (C++) `examples/pytorch_quant/xor/weights.hpp`, emitted
 /// by its `xor_quant.py` from a PyTorch model. Copied by hand; any difference
 /// fails the golden test and `scripts/compare-with-cpp.sh`.
 // The float literals keep the C++ digits so the files compare by eye; they

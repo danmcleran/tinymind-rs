@@ -179,7 +179,7 @@ mod int8 {
         rounding_divide_by_pot, rounding_high_mul_divide_by_pot,
     };
 
-    /// gemmlowp's two roundings, written as tinymind's unit test writes them:
+    /// gemmlowp's two roundings, written as tinymind (C++)'s unit test writes them:
     /// the high multiply with a sign-dependent nudge and a division that
     /// truncates towards zero, then the remainder/threshold divide.
     fn two_step(x: i32, m: i32, e: i32) -> i32 {

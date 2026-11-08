@@ -1,4 +1,4 @@
-//! Port of tinymind `examples/iris/iris.cpp`: a 4-8-3 Q16.16 perceptron (ReLU
+//! Port of tinymind (C++) `examples/iris/iris.cpp`: a 4-8-3 Q16.16 perceptron (ReLU
 //! hidden, sigmoid output) classifies iris species, and writes the same files the
 //! C++ example writes, byte for byte:
 //!
@@ -10,7 +10,7 @@
 //!
 //! Run: `cargo run --release --example iris -- [output_dir] [iris.data]`. The
 //! default output dir is `output`; the default data file is this repository's
-//! `data/iris.data`, the UCI file tinymind ships with the example.
+//! `data/iris.data`, the UCI file tinymind (C++) ships with the example.
 
 use std::fs;
 use std::io::{self, BufWriter};

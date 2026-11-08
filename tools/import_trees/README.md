@@ -5,11 +5,11 @@ for the `tinymind` crate: integer feature grids, integer split thresholds and
 leaves, and `forward` / `predict` functions over `tinymind::tree`. The
 generated module is integer-only and `no_std`.
 
-It is a port of tinymind's [`apps/import_trees`](https://github.com/danmcleran/tinymind/tree/master/apps/import_trees).
+It is a port of tinymind (C++)'s [`apps/import_trees`](https://github.com/danmcleran/tinymind/tree/master/apps/import_trees).
 Reading the model, quantizing the features and thresholds, scaling the leaves
-and measuring the base score are tinymind's code, unchanged, so a model
+and measuring the base score are tinymind (C++)'s code, unchanged, so a model
 imported here has the same integer trees as the same model imported with
-tinymind; only the output is Rust instead of a C++ header.
+tinymind (C++); only the output is Rust instead of a C++ header.
 
 ## Supported models
 
@@ -54,7 +54,7 @@ Every module has two forms of the same trees, with the same results:
 | Form | What it is | Trade-off |
 |---|---|---|
 | `forward`, `predict` | The node pool walked by `tinymind::tree` (`QGbdt`, or one `QDecisionTree` per voting tree) | Smaller: 12 bytes per node and one shared loop |
-| `forward_inline`, `predict_inline` | Every tree compiled to nested `if`s (tinymind's `QTreeInlineEval`) | Faster: compares against constants; code grows with the node count |
+| `forward_inline`, `predict_inline` | Every tree compiled to nested `if`s (tinymind (C++)'s `QTreeInlineEval`) | Faster: compares against constants; code grows with the node count |
 
 What `forward` returns depends on the model:
 
@@ -69,7 +69,7 @@ labels are integers.
 
 ## How the integer model is built
 
-These are tinymind's rules (see its README for the details):
+These are tinymind (C++)'s rules (see its README for the details):
 
 - **Features** go onto a per-feature integer grid, `q = round(x / scale) + zero_point`
   (ties away from zero, clamped), in `int8`, `uint8` or `int16`.
@@ -108,13 +108,13 @@ cargo run --release --example imported_trees
 - `test_parity.py`: 16 models (every supported family; int8, uint8, int16 and
   integer grids) exported by both importers. Every integer must be identical:
   nodes, thresholds, leaves, tree classes, base scores, output scale, grids.
-  Then tinymind's header is compiled with g++ and run under its three
+  Then tinymind (C++)'s header is compiled with g++ and run under its three
   evaluation policies, and the Rust module is built with cargo and run in both
   forms; each must equal the shared integer reference on every sample,
   including `quantize_features`. Planted defects in the Rust generator (`<` for
   `<=`, swapped children, a rounding change) each fail it.
 - `scripts/compare-with-cpp.sh` imports the example's two models with both
-  importers, runs tinymind's header on its C++ runtime and the Rust module on
+  importers, runs tinymind (C++)'s header on its C++ runtime and the Rust module on
   this crate, and byte-compares the outputs; it also regenerates the committed
   modules and checks they are current. CI runs it with the library versions
   pinned.

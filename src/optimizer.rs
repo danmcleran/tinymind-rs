@@ -1,4 +1,4 @@
-//! Weight-update rules for the trainable networks, ported from tinymind
+//! Weight-update rules for the trainable networks, ported from tinymind (C++)
 //! `cpp/adam.hpp` and `cpp/rmsprop.hpp` (C++ `TransferFunctionOptimizerPolicy`).
 //!
 //! A network's optimizer is a type parameter, as in C++: [`Sgd`] (the default,
@@ -7,15 +7,15 @@
 //! `with_optimizer` on [`NeuralNetwork`](crate::NeuralNetwork) or
 //! [`MultilayerPerceptron`](crate::MultilayerPerceptron).
 //!
-//! Faithful to tinymind, including two details that differ from textbook Adam:
+//! Faithful to tinymind (C++), including two details that differ from textbook Adam:
 //!
 //! - The step count `t` used for bias correction advances once per *layer* update,
 //!   starting from the output layer, not once per training step.
 //! - The adaptive optimizers update the weights only. The bias weights keep their
-//!   initial values (tinymind's adaptive update path has no bias branch).
+//!   initial values (tinymind (C++)'s adaptive update path has no bias branch).
 //!
 //! The first and second moments live in the connection's delta-weight slots, as
-//! in tinymind, so an adaptive optimizer needs no extra memory per weight.
+//! in tinymind (C++), so an adaptive optimizer needs no extra memory per weight.
 
 // The sealed trait's methods take the crate-private `Connection`. The trait
 // cannot be named outside the crate (it lives in a private module), so nothing
@@ -166,7 +166,7 @@ impl<V: Fixed + Sqrt> sealed::OptimizerImpl<V> for Adam<V> {
         c.weight += update;
     }
 
-    /// tinymind's adaptive path does not update bias weights.
+    /// tinymind (C++)'s adaptive path does not update bias weights.
     fn update_bias(&self, _c: &mut Connection<V>, _rates: (V, V, V)) {}
 }
 
@@ -184,6 +184,6 @@ impl<V: Fixed + Sqrt> sealed::OptimizerImpl<V> for RmsProp<V> {
         c.weight += update;
     }
 
-    /// tinymind's adaptive path does not update bias weights.
+    /// tinymind (C++)'s adaptive path does not update bias weights.
     fn update_bias(&self, _c: &mut Connection<V>, _rates: (V, V, V)) {}
 }

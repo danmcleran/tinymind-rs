@@ -1,5 +1,5 @@
-//! Rust port of the tinymind neural network library. So far only fixed-point
-//! value types are ported; tinymind also runs its networks with `float` and `double`.
+//! Rust port of the tinymind (C++) neural network library. So far only fixed-point
+//! value types are ported; tinymind (C++) also runs its networks with `float` and `double`.
 //!
 //! Scope: Q16.16 and Q8.8 arithmetic and a fixed-point square root ([`Sqrt`]); ReLU, [`Linear`] and the tanh and sigmoid
 //! lookup-table activations; trainable networks with any number of hidden layers
@@ -7,18 +7,18 @@
 //! [`Adam`] or [`RmsProp`], with optional gradient clipping); a one-hidden-layer
 //! perceptron that
 //! trains on the device ([`MultilayerPerceptron`]) or only runs trained weights
-//! ([`InferencePerceptron`], tinymind's `IsTrainable = false`), and int8
+//! ([`InferencePerceptron`], tinymind (C++)'s `IsTrainable = false`), and int8
 //! affine-quantized inference ([`int8`]: dense layers, quantized activations and a
 //! TFLite-exact softmax), and quantized decision trees and gradient-boosted
 //! ensembles ([`tree`]). Every part produces the same bits as
-//! tinymind's C++. [`rand`] re-implements glibc's `rand()`, which tinymind's
+//! tinymind (C++). [`rand`] re-implements glibc's `rand()`, which tinymind (C++)'s
 //! examples use for weight initialisation and sampling, so they can be
-//! reproduced bit for bit. The library is `no_std` and allocation-free, like tinymind's
+//! reproduced bit for bit. The library is `no_std` and allocation-free, like tinymind (C++)'s
 //! freestanding build.
 //!
 //! # Example
 //!
-//! Train a 2-4-1 network on XOR in Q16.16, as tinymind's `examples/xor` does
+//! Train a 2-4-1 network on XOR in Q16.16, as tinymind (C++)'s `examples/xor` does
 //! (the `xor` example in this repository is the full port, bit-exact with the C++):
 //!
 //! ```

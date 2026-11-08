@@ -48,8 +48,8 @@ pub const FEATURE_ZERO_POINT: [i32; NUM_FEATURES] = [
     -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
 ];
 
-/// Quantize one float sample onto the feature grids (tinymind's
-/// `quantizeFeatures`), bit for bit as the importer's reference does.
+/// Quantize one float sample onto the feature grids (`quantizeFeatures` in
+/// tinymind (C++)), bit for bit as the importer's reference does.
 pub fn quantize_features(x: &[f32; NUM_FEATURES]) -> [InputType; NUM_FEATURES] {
     let mut q = [0; NUM_FEATURES];
     let grid = FEATURE_SCALE.iter().zip(&FEATURE_ZERO_POINT);

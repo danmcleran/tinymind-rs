@@ -1,4 +1,4 @@
-//! Signed fixed-point Q-format arithmetic, ported from tinymind `cpp/qformat.hpp`.
+//! Signed fixed-point Q-format arithmetic, ported from tinymind (C++) `cpp/qformat.hpp`.
 //!
 //! The C++ `QValue<FixedBits, FractionalBits, IsSigned, RoundingPolicy, SaturatePolicy>`
 //! picks its storage type from `FixedBits + FractionalBits` at compile time
@@ -9,7 +9,7 @@
 //! supported storage type by a macro, each with the wider type C++ uses for
 //! products and quotients (`i64` for `i32`, `i32` for `i16`).
 //!
-//! Only tinymind's default policies are ported: `TruncatePolicy` (multiplication
+//! Only tinymind (C++)'s default policies are ported: `TruncatePolicy` (multiplication
 //! drops the low bits) and `WrapPolicy` (addition and subtraction wrap modulo the
 //! storage width).
 
@@ -121,7 +121,7 @@ macro_rules! impl_qvalue {
                 Self(((n as u32) << FRAC) as $s)
             }
 
-            /// `2^-n`, used for tinymind's default learning/momentum/acceleration rates.
+            /// `2^-n`, used for tinymind (C++)'s default learning/momentum/acceleration rates.
             ///
             /// For `n > FRAC`, `2^-n` is below the format's resolution and the result
             /// is [`ZERO`](Self::ZERO): the value truncated to the format, as

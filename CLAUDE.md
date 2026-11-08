@@ -409,6 +409,14 @@ release. That is why the audit gates the release, not just each PR.
   of the port.
 - Project names are lowercase in prose: "tinymind" (the C++ library), "tinymind-rs"
   (this port). The crate is `tinymind`; write it in backticks when you mean the crate.
+- **In user-facing text the C++ library is "tinymind (C++)"**, never a bare
+  "tinymind" (Dan's call, 2026-11-08: readers could not tell the C++ library from
+  this crate, which is also named `tinymind`). The project is "tinymind-rs", the
+  crate `tinymind` in backticks. Covers README.md, CHANGELOG.md, docs/, the tool
+  and bench READMEs, doc comments in src/ and examples/, and what the importers
+  generate. `scripts/cpp-name.py` checks it in CI (`check-docs.sh`) and `--fix`
+  rewrites bare mentions. CLAUDE.md, code comments, commit messages and PRs are
+  internal and may say "tinymind".
 - Copyright: `Copyright (c) 2026 Dan McLeran` (LICENSE). Code translated from tinymind
   also carries tinymind's MIT notice (Intel 2020 + Dan McLeran 2023) via `NOTICE`.
   Do not add Intel copyright lines to new files.

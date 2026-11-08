@@ -4,7 +4,7 @@
 //! `tools/import_trees` (`imported_trees_gbdt_model.rs`,
 //! `imported_trees_forest_model.rs`), run on the held-out samples and on random
 //! inputs. `scripts/cpp/imported_trees.cpp` runs the same models, imported by
-//! tinymind's own importer, on tinymind's C++ runtime and prints the same.
+//! tinymind (C++)'s own importer, on the tinymind (C++) runtime and prints the same.
 
 use std::io::{self, Write};
 

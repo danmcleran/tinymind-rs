@@ -1,5 +1,5 @@
 //! A trainable feed-forward network with any number of hidden layers, ported
-//! from tinymind's `NeuralNetwork<ValueType, Inputs, HiddenLayers<...>,
+//! from tinymind (C++)'s `NeuralNetwork<ValueType, Inputs, HiddenLayers<...>,
 //! Outputs, ...>` (`cpp/neuralnet.hpp`, the chain-based path).
 //!
 //! The C++ network takes its hidden-layer sizes as a variadic template
@@ -34,7 +34,7 @@
 //! ```
 //!
 //! Adjacent layers must agree (`Dense<_, _, 4, 8>` then `Dense<_, _, 8, _>`),
-//! which the compiler checks. Each layer has its own activation; tinymind's
+//! which the compiler checks. Each layer has its own activation; tinymind (C++)'s
 //! network uses one activation for every hidden layer, which is the special
 //! case where they are all the same. Tuples of 1 to 8 layers are supported.
 //!
@@ -537,7 +537,7 @@ mod tests {
     }
 
     /// The same with a linear output, gradient clipping and every rate set:
-    /// the settings tinymind's energy_efficiency example uses, on random data
+    /// the settings tinymind (C++)'s energy_efficiency example uses, on random data
     /// large enough that the clip and the unclipped biases both matter.
     #[test]
     fn two_layers_match_perceptron_with_clipping() {

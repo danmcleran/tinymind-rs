@@ -10,7 +10,7 @@ Alongside the Q-format networks, the crate runs **int8 affine-quantized** models
 
 ## The pieces
 
-| Rust (`tinymind::int8`) | What it does | C++ (tinymind) |
+| Rust (`tinymind::int8`) | What it does | tinymind (C++) |
 |---|---|---|
 | `Requantizer` | Rescales an int32 accumulator to the output tensor's int8 grid with a Q0.31 multiplier and a shift, adds the zero point and saturates | `Requantizer` (`cpp/qaffine.hpp`) |
 | `QDense<'a, IN, OUT>` | Fully connected layer: `acc[o] = bias[o] + sum_i w[o][i] * (x[i] - zp)`, then requantize | `QDense` (`cpp/qdense.hpp`) |
@@ -24,7 +24,7 @@ A layer borrows its weights (`&[[i8; IN]; OUT]`, row-major as PyTorch and TFLite
 
 ## Example: a PyTorch-trained XOR network
 
-The `int8_xor` example is a port of tinymind's [PyTorch int8 XOR example](https://danmcleran.github.io/tinymind/examples/pytorch_quant_xor.html). A 2-4-1 network trained in PyTorch and quantized to int8 runs as dense layer, quantized ReLU, dense layer and sigmoid table:
+The `int8_xor` example is a port of tinymind (C++)'s [PyTorch int8 XOR example](https://danmcleran.github.io/tinymind/examples/pytorch_quant_xor.html). A 2-4-1 network trained in PyTorch and quantized to int8 runs as dense layer, quantized ReLU, dense layer and sigmoid table:
 
 ```bash
 cargo run --release --features std --example int8_xor -- output
@@ -56,20 +56,20 @@ mod my_model;
 let y = my_model::forward(&input);
 ```
 
-It is a port of tinymind's PyTorch importer with a Rust back end: calibration (min/max, percentile or KL-divergence ranges per layer) and quantization are tinymind's code, so the int8 numbers are the same. The `imported_mlp` example runs two models written by the importer (a sigmoid MLP and a softmax classifier); CI imports the same two models with tinymind's importer, runs them on tinymind's C++ runtime, and checks the outputs are byte-identical. See the importer's [README](https://github.com/danmcleran/tinymind-rs/tree/master/tools/import_pytorch).
+It is a port of tinymind (C++)'s PyTorch importer with a Rust back end: calibration (min/max, percentile or KL-divergence ranges per layer) and quantization are tinymind (C++)'s code, so the int8 numbers are the same. The `imported_mlp` example runs two models written by the importer (a sigmoid MLP and a softmax classifier); CI imports the same two models with tinymind (C++)'s importer, runs them on the tinymind (C++) runtime, and checks the outputs are byte-identical. See the importer's [README](https://github.com/danmcleran/tinymind-rs/tree/master/tools/import_pytorch).
 
 ## How it is checked
 
 - **Golden output** from the C++ example, and the live comparison in `scripts/compare-with-cpp.sh`, as for the other examples.
-- **tinymind's own known answers** for the requantizer and dense layer, including its check of the requantizer's saturating path against an exact 64-bit computation over more than ten thousand cases.
+- **tinymind (C++)'s own known answers** for the requantizer and dense layer, including its check of the requantizer's saturating path against an exact 64-bit computation over more than ten thousand cases.
 - **Kani proofs** for every input: the requantizer's fast single-rounding path equals the standard two-step rounding (gemmlowp's, which TFLite uses) wherever it is used, and the requantizer, the dense layer, the table lookup and the softmax never panic, whatever their parameters.
-- **Softmax against TFLite**: the golden rows and sweep hashes that tinymind's unit test takes from the TFLite Micro reference kernel, and a sweep against tinymind's C++ softmax and its calibration over 504 input scales and betas and row lengths 1 to 511.
+- **Softmax against TFLite**: the golden rows and sweep hashes that tinymind (C++)'s unit test takes from the TFLite Micro reference kernel, and a sweep against the tinymind (C++) softmax and its calibration over 504 input scales and betas and row lengths 1 to 511.
 - **No reachable panics**: the int8 path is part of the Cortex-M firmware image that CI links with an undefined panic handler.
 
 Where the C++ would hit undefined behaviour (an int32 accumulator overflowing, a shift outside its documented range), the Rust port wraps or clamps instead, so every function returns a value; inside the documented ranges the results are identical.
 
 ## Not yet
 
-Convolution, depthwise convolution, pooling and the rest of tinymind's int8 family (recurrent cells, attention) are not ported yet, so the importer accepts dense layers with ReLU, sigmoid, tanh or softmax only. tinymind's ONNX importer is not ported. Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
+Convolution, depthwise convolution, pooling and the rest of tinymind (C++)'s int8 family (recurrent cells, attention) are not ported yet, so the importer accepts dense layers with ReLU, sigmoid, tanh or softmax only. tinymind (C++)'s ONNX importer is not ported. Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
 
 The [API reference]({{ site.baseurl }}/api/tinymind/int8/) documents every function.

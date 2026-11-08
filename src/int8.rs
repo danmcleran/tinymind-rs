@@ -1,4 +1,4 @@
-//! Int8 affine-quantized inference, ported from tinymind `cpp/qaffine.hpp`,
+//! Int8 affine-quantized inference, ported from tinymind (C++) `cpp/qaffine.hpp`,
 //! `cpp/qdense.hpp`, `cpp/qpointwiseconv2d.hpp` (per-channel dense),
 //! `cpp/qactivations.hpp` and `cpp/qsoftmax_fixedpoint.hpp`.
 //!
@@ -13,8 +13,8 @@
 //! in `i32`, then a [`Requantizer`] rescales `acc` to the output tensor's int8 grid
 //! with a fixed-point multiplier, adds the output zero point and saturates.
 //!
-//! Results match tinymind's C++ (and therefore TFLite's reference kernels, which
-//! tinymind matches) bit for bit. Where the C++ would hit undefined behaviour
+//! Results match tinymind (C++) (and therefore TFLite's reference kernels, which
+//! tinymind (C++) matches) bit for bit. Where the C++ would hit undefined behaviour
 //! (an `i32` accumulator overflow, a shift out of its documented range), this
 //! port wraps or clamps instead, so every function is total and none panics.
 
@@ -115,7 +115,7 @@ pub fn multiply_by_quantized_multiplier(x: i32, multiplier: i32, shift: i32) -> 
 pub struct Requantizer {
     /// Q0.31 fixed-point multiplier, normally in `[2^30, 2^31)`.
     pub multiplier: i32,
-    /// Power-of-two exponent: positive divides, negative multiplies. tinymind's
+    /// Power-of-two exponent: positive divides, negative multiplies. tinymind (C++)'s
     /// contract is `-31..=31` (what `calibration::quantize_multiplier` returns);
     /// outside it the result is still defined (see the module docs).
     pub shift: i32,
@@ -503,7 +503,7 @@ mod tests {
         );
     }
 
-    /// tinymind's `requantizer_saturating_path_at_int32_rails`, int8 part: the
+    /// tinymind (C++)'s `requantizer_saturating_path_at_int32_rails`, int8 part: the
     /// saturating path's +-2^30 clamp gives the exact result, the rescaled value
     /// plus the zero point clamped in i64.
     #[test]
