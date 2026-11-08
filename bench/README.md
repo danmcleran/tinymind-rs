@@ -25,6 +25,12 @@ samples, so the numbers sit next to tinymind's C++ ones.
   steps in Q16.16 and in Q8.8. The device hashes the exact bytes of the
   `nn_fixed_xor.txt` the example writes (every weight after every step) and
   compares with the golden hash in `tests/xor_golden.rs`.
+- **`anomaly`**: the anomaly-detection demo (`examples/common/anomaly_demo.rs`,
+  shared with `examples/anomaly.rs`): an 8-4-8 Q16.16 autoencoder trains on 3,000
+  synthetic normal windows on the device, sets its threshold and screens 512 test
+  windows. The report must equal the host's, and its hash (every trained weight
+  and every score) must equal `EXPECT_HASH` in `src/anomaly.rs`, which the host
+  run and `tests/anomaly_golden.rs` pin. No C++ counterpart.
 - **baseline** (no workload feature): the MLP harness with a do-nothing network,
   for size and stack deltas. **`profile`**: the MLP with per-layer timing.
 
@@ -40,6 +46,7 @@ own (`docs/benchmarks.md`, gcc 13.2.1 `-O3`), measured on these same boards.
 | int8 MLP output hash = tinymind's (`0x85BDD037` / `0x06CE0530`) | match | match |
 | xor Q16.16 training trajectory (20,000 steps) = golden | match | match |
 | xor Q8.8 training trajectory (20,000 steps) = golden | match | match |
+| anomaly demo: report and hash = host run (`0x427BACE2`) | match | match |
 | MLP accuracy | 346/360 (96.11%) | 31/32 (96.88%) |
 
 ### int8 MLP, NUCLEO-F411RE
@@ -79,6 +86,21 @@ image): fc0 28,747, fc1 7,727, fc2 3,508.
 
 Code + weights = image - baseline image - test-set bytes; RAM = (.data + .bss)
 plus peak stack, each minus the baseline's, as tinymind counts them.
+
+### Anomaly detection, trained on the device
+
+| | F411 | L031 |
+|---|---:|---:|
+| Training, 3,000 steps, signal generation included | 14,476,019 cycles (0.14 s) | 133,294,247 cycles (4.2 s) |
+| One training step (median) | 4,249 | 35,336 |
+| One detection: forward pass + error (median) | 1,332 | 8,104 |
+| Stack (peak) / over baseline | 3,712 B / +3,200 B | 4,240 B / +3,636 B |
+| Flash (text) / over baseline | 30,712 B / +18,696 B | 32,560 B / +20,512 B |
+
+The flash delta includes the demo's signal generator and its formatted report.
+The L031 image is within about 200 bytes of the part's 32 KB; the training step
+and the scorer are `#[inline(never)]` so the training and timing loops share
+one copy (inlined twice at `opt-level = 3` it did not fit).
 
 ### Reading these
 

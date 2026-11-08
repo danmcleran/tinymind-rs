@@ -1,7 +1,7 @@
 ---
 title: Equivalence with tinymind
 layout: default
-nav_order: 8
+nav_order: 9
 ---
 
 # Equivalence with tinymind

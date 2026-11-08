@@ -2,6 +2,7 @@
 # Build, flash and run the on-board checks, and print each board's report.
 #
 #   bench/run.sh [board ...]       boards: f411 l031 (default: both)
+#   WORKLOADS="anomaly" bench/run.sh f411    only some workloads
 #
 # Needs: the thumbv7em-none-eabihf and thumbv6m-none-eabi Rust targets, openocd,
 # arm-none-eabi-size, a tinymind checkout (TINYMIND_DIR, default ../tinymind; the
@@ -53,7 +54,7 @@ for board in "${@:-f411 l031}"; do
   for b in $board; do
     read -r target cfg serial n <<< "$(board_info "$b")"
     python3 -I "$HERE/gen.py" "$n" >/dev/null
-    for wl in baseline mlp profile xor-q16 xor-q8; do
+    for wl in ${WORKLOADS:-baseline mlp profile xor-q16 xor-q8 anomaly}; do
       features="$b"; [ "$wl" = baseline ] || features="$b,$wl"
       echo "### $b $wl"
       run_image "$b" "$target" "$cfg" "$serial" "$features" "$wl"

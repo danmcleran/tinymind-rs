@@ -175,7 +175,7 @@ jobs:
           rustup target add thumbv7em-none-eabihf thumbv6m-none-eabi
           python3 -I gen.py 32
           for spec in f411:thumbv7em-none-eabihf l031:thumbv6m-none-eabi; do
-            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8"; do
+            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly"; do
               echo "== ${spec%%:*}$wl"
               # Not RUSTFLAGS="-D warnings": it would replace bench/.cargo's -Tlink.x.
               cargo build --release --target "${spec##*:}" --features "${spec%%:*}$wl" 2>&1 | tee build.log

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Render the example plots for the docs site: xor in both formats, iris and
-energy efficiency.
+"""Render the example plots for the docs site: xor in both formats, iris,
+energy efficiency and anomaly detection.
 
-Runs the Rust `xor`, `iris` and `energy_efficiency` examples (which write byte-identical output to
+Runs the Rust `xor`, `iris`, `energy_efficiency` and `anomaly` examples (which write byte-identical output to
 the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
 from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
@@ -30,6 +30,7 @@ import tinymind_plot as tp  # noqa: E402
 XOR = os.path.join(ROOT, "target", "release", "examples", "xor")
 IRIS = os.path.join(ROOT, "target", "release", "examples", "iris")
 ENERGY = os.path.join(ROOT, "target", "release", "examples", "energy_efficiency")
+ANOMALY = os.path.join(ROOT, "target", "release", "examples", "anomaly")
 IRIS_NAMES = ["setosa", "versicolor", "virginica"]
 OUT = os.path.join(ROOT, "docs", "assets", "plots")
 FORMATS = [("q16.16", "Q16.16", "q16_16"), ("q8.8", "Q8.8", "q8_8")]
@@ -166,8 +167,43 @@ def energy(out_dir, png):
     tp.plt.close(fig)
 
 
+def anomaly(out_dir, png):
+    """Reconstruction error of every test window by kind, with the threshold."""
+    rows = list(csv.DictReader(open(os.path.join(out_dir, "anomaly_scores.csv"), newline="")))
+    threshold = int(rows[0]["threshold"]) / 65536.0
+    kinds = []
+    for r in rows:
+        if r["kind"] not in kinds:
+            kinds.append(r["kind"])
+
+    tp.apply_style()
+    fig, ax = tp.plt.subplots(figsize=(10, 4.6))
+    fig.suptitle("tinymind-rs: anomaly detection, autoencoder trained on the device (Q16.16 8-4-8)",
+                 fontsize=13, fontweight="bold")
+    for i, kind in enumerate(kinds):
+        errs = [max(int(r["error"]), 1) / 65536.0 for r in rows if r["kind"] == kind]
+        flagged = sum(1 for e in errs if e > threshold)
+        # A deterministic spread within each column, so the points do not overlap.
+        xs = [i + 0.3 * ((j * 0.618034) % 1.0 - 0.5) for j in range(len(errs))]
+        color = tp.PALETTE[0] if kind == "normal" else tp.PALETTE[3]
+        ax.scatter(xs, errs, s=16, color=color, edgecolor="white", linewidth=0.4)
+        ax.text(i, 1.3, "%d/%d flagged" % (flagged, len(errs)), ha="center",
+                fontsize=9, color=tp.MUTED)
+    ax.axhline(threshold, color="#C44E52", linestyle="--", linewidth=1.4,
+               label="threshold (2 x the largest normal error)")
+    ax.set_yscale("log")
+    ax.set_ylim(top=2.5)
+    ax.set_xticks(range(len(kinds)))
+    ax.set_xticklabels(kinds)
+    ax.set_ylabel("reconstruction error (mean squared)")
+    ax.legend(loc="lower right")
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    fig.savefig(png)
+    tp.plt.close(fig)
+
+
 def main():
-    if not (os.path.exists(XOR) and os.path.exists(IRIS) and os.path.exists(ENERGY)):
+    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY)):
         sys.exit("build first: cargo build --release --examples")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
@@ -191,6 +227,11 @@ def main():
                        check=True, stdout=subprocess.DEVNULL)
         png = os.path.join(OUT, "energy_regression.png")
         energy(tmp, png)
+        print("wrote", os.path.relpath(png, ROOT))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([ANOMALY, tmp], check=True, stdout=subprocess.DEVNULL)
+        png = os.path.join(OUT, "anomaly_scores.png")
+        anomaly(tmp, png)
         print("wrote", os.path.relpath(png, ROOT))
 
 

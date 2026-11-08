@@ -52,6 +52,7 @@ cargo run --release --example xor -- output                  # Q16.16, output fi
 cargo run --release --example xor -- --format q8.8 output    # the same network in Q8.8
 cargo run --release --example iris -- output                 # iris species classifier (ReLU hidden layer)
 cargo run --release --example energy_efficiency -- output    # energy-load regression (linear output, clipped gradients)
+cargo run --release --example anomaly -- output              # anomaly detection: an autoencoder trained on the device
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo run --release --features std --example imported_mlp    # two models written by the PyTorch importer
 cargo test --all-features                                # unit, doc and golden tests against the C++ output
@@ -66,7 +67,10 @@ takes an optional output directory and data file (default `data/iris.data`, the
 UCI Iris dataset under CC BY 4.0; see `NOTICE`) and writes `iris_loss.csv`,
 `iris_scatter.csv` and `iris_confusion.csv`. The `energy_efficiency` example
 reads `data/ENB2012_data.csv` (the UCI Energy Efficiency dataset, CC BY 4.0) the
-same way and writes `energy_loss.csv` and `energy_pred.csv`. The `int8_xor` example (feature
+same way and writes `energy_loss.csv` and `energy_pred.csv`. The `anomaly`
+example trains an 8-4-8 autoencoder on synthetic normal vibration windows and
+flags faults by reconstruction error; the same code runs on the boards in
+`bench/`. The `int8_xor` example (feature
 `std`) runs a PyTorch-trained, int8-quantized 2-4-1 network and writes
 `xor_decision_surface.csv`.
 
@@ -89,6 +93,7 @@ set.
 | `examples/xor.rs` | `examples/xor/xor.cpp` |
 | `examples/iris.rs` | `examples/iris/iris.cpp` |
 | `examples/energy_efficiency.rs` | `examples/energy_efficiency/energy_efficiency.cpp` |
+| `examples/anomaly.rs` | no counterpart: an on-device anomaly-detection demo built from the ported parts |
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qactivations.hpp`, `cpp/qsoftmax_fixedpoint.hpp`: requantizer, int8 dense layer (per-tensor and per-channel), quantized ReLU, activation tables, softmax |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
