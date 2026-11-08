@@ -1,7 +1,7 @@
 ---
 title: Bit for bit
 layout: default
-nav_order: 11
+nav_order: 12
 ---
 
 # Porting a C++ neural-network library to embedded Rust, bit for bit

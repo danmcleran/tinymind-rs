@@ -9,7 +9,8 @@
 //! trains on the device ([`MultilayerPerceptron`]) or only runs trained weights
 //! ([`InferencePerceptron`], tinymind's `IsTrainable = false`), and int8
 //! affine-quantized inference ([`int8`]: dense layers, quantized activations and a
-//! TFLite-exact softmax). Every part produces the same bits as
+//! TFLite-exact softmax), and quantized decision trees and gradient-boosted
+//! ensembles ([`tree`]). Every part produces the same bits as
 //! tinymind's C++. The library is `no_std` and allocation-free, like tinymind's
 //! freestanding build.
 //!
@@ -61,6 +62,7 @@ pub mod neuralnet;
 pub mod optimizer;
 pub mod qformat;
 pub mod rand;
+pub mod tree;
 
 #[cfg(kani)]
 mod kani_proofs;

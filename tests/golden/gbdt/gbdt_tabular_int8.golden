@@ -1,0 +1,3 @@
+# gbdt_tabular_int8 golden output
+# trees=5 classes=3 grid=48 agree=2256/2304
+probes: 0 0 1 1 2 2 0 2

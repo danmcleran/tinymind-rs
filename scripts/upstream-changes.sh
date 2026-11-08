@@ -43,6 +43,8 @@ PORTED=(
   benchmarks/framework_comparison_f411/gen/out/mlp_tinymind.hpp
   cpp/qactivations.hpp
   cpp/qsoftmax_fixedpoint.hpp
+  cpp/qtree.hpp
+  examples/gbdt_tabular_int8
   cpp/include/qcalibration.hpp
   cpp/include/simd/simd_dispatch.hpp
   unit_test/qformat_oracle

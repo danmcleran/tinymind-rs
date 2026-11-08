@@ -1,0 +1,6 @@
+Int8 GBDT ensemble (tabular, 5 trees, 3 classes)
+  feature grid: scale=0.00784 zp=-1   pool=17 nodes
+  int8 vs float GBDT agreement over 48x48 grid: 2256 / 2304 (97.92%)
+  predicted-class histogram: c0=1008 c1=432 c2=864
+  probe predictions: (-0.8,-0.8)->0 (-0.8,+0.8)->0 (+0.0,-0.8)->1 (+0.0,+0.8)->1 (+0.8,-0.8)->2 (+0.8,+0.8)->2 (-0.3,+0.0)->0 (+0.5,+0.0)->2
+PASS (int8 reproduces the float GBDT's regions; flips only at boundary cells)

@@ -16,6 +16,7 @@ nav_order: 1
 [Iris example]({{ site.baseurl }}/iris){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Energy example]({{ site.baseurl }}/energy){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Anomaly detection]({{ site.baseurl }}/anomaly){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Decision trees]({{ site.baseurl }}/trees){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Int8 inference]({{ site.baseurl }}/int8){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [API reference]({{ site.baseurl }}/api/tinymind/){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View on GitHub](https://github.com/danmcleran/tinymind-rs){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -34,12 +35,12 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-Early. The port covers what four of tinymind's examples use (XOR, iris, energy efficiency and an int8 XOR), plus networks with several hidden layers, the Adam and RMSprop optimizers and the int8 softmax:
+Early. The port covers what four of tinymind's examples use (XOR, iris, energy efficiency, an int8 XOR and int8 gradient-boosted trees), plus networks with several hidden layers, the Adam and RMSprop optimizers and the int8 softmax:
 
 | Ported | Not yet ported |
 |---|---|
 | Q16.16 (`i32`) and Q8.8 (`i16`) arithmetic, Truncate and Wrap policies | Other Q formats, saturating and rounding policies |
-| ReLU, linear, and tanh and sigmoid via lookup tables; int8 dense inference (requantizer, quantized ReLU, int8 activation tables, softmax bit-exact with TFLite's) | The other activations (capped and leaky ReLU, ...) |
+| ReLU, linear, and tanh and sigmoid via lookup tables; int8 dense inference (requantizer, quantized ReLU, int8 activation tables, softmax bit-exact with TFLite's); quantized decision trees and gradient-boosted ensembles | The other activations (capped and leaky ReLU, ...) |
 | Trainable networks with any number of hidden layers (SGD with momentum, Adam or RMSprop; optional gradient clipping); one-hidden-layer networks also inference-only (weights only, can live in flash) | Weight decay and learning-rate schedules, recurrent layers, int8 convolution and the rest of the int8 family, SIMD |
 | | Floating-point (`float`, `double`) networks |
 
@@ -57,6 +58,7 @@ cargo run --release --example energy_efficiency -- output    # building energy-l
 cargo run --release --example anomaly -- output              # autoencoder trained on the device flags faults
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo run --release --features std --example imported_mlp    # models written by the PyTorch importer
+cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo test --all-features                                # unit, doc and golden tests
 ```
 

@@ -1,0 +1,72 @@
+i8 model  0: nodes= 80 base=0 hash=0xB9186FFB
+i8 model  1: nodes=134 base=0 hash=0x5B44C45D
+i8 model  2: nodes= 54 base=1 hash=0xAB77B6CA
+i8 model  3: nodes=102 base=0 hash=0x1F72530C
+i8 model  4: nodes=104 base=0 hash=0x2D8C6F2B
+i8 model  5: nodes=170 base=1 hash=0x38A32276
+i8 model  6: nodes=166 base=0 hash=0x7F535649
+i8 model  7: nodes=140 base=1 hash=0x11AB63EC
+i8 model  8: nodes= 84 base=0 hash=0x3E9F133E
+i8 model  9: nodes=104 base=1 hash=0x226DB81C
+i8 model 10: nodes= 86 base=0 hash=0x7B193625
+i8 model 11: nodes=192 base=0 hash=0x7726D4CA
+i8 model 12: nodes= 76 base=1 hash=0xCFECF534
+i8 model 13: nodes= 98 base=0 hash=0xD8938F2E
+i8 model 14: nodes=118 base=1 hash=0xF35C7DE5
+i8 model 15: nodes=146 base=1 hash=0xF42E534F
+i8 model 16: nodes=118 base=1 hash=0xC6DEE1F5
+i8 model 17: nodes=128 base=1 hash=0x32328214
+i8 model 18: nodes=108 base=0 hash=0xEA5613AD
+i8 model 19: nodes= 90 base=1 hash=0xB9171D8D
+i8 model 20: nodes=104 base=0 hash=0xDB8B7825
+i8 model 21: nodes=128 base=0 hash=0x3BF94152
+i8 model 22: nodes= 40 base=1 hash=0xFD89D85C
+i8 model 23: nodes=156 base=0 hash=0x9CDD82F1
+u8 model  0: nodes=132 base=0 hash=0xD7FDB49F
+u8 model  1: nodes= 68 base=1 hash=0xE4FEFEFD
+u8 model  2: nodes=134 base=1 hash=0x76A04F2D
+u8 model  3: nodes= 96 base=0 hash=0x57E87572
+u8 model  4: nodes=138 base=1 hash=0xFABB9129
+u8 model  5: nodes=158 base=1 hash=0xBB853B5A
+u8 model  6: nodes= 96 base=0 hash=0xDE25EB5B
+u8 model  7: nodes= 90 base=0 hash=0xE99242BE
+u8 model  8: nodes=112 base=0 hash=0xD6D42A39
+u8 model  9: nodes=182 base=0 hash=0xF1E8D5BB
+u8 model 10: nodes= 74 base=1 hash=0x08021082
+u8 model 11: nodes= 76 base=0 hash=0x295C8710
+u8 model 12: nodes= 78 base=0 hash=0xC105F5F5
+u8 model 13: nodes= 84 base=0 hash=0xDFA4E483
+u8 model 14: nodes= 78 base=0 hash=0x35A86D96
+u8 model 15: nodes= 72 base=0 hash=0xCC3D0383
+u8 model 16: nodes= 76 base=1 hash=0x0FDF7B47
+u8 model 17: nodes=146 base=1 hash=0x5786285E
+u8 model 18: nodes= 72 base=0 hash=0xDC01AE7B
+u8 model 19: nodes= 76 base=1 hash=0x2857C63D
+u8 model 20: nodes= 98 base=0 hash=0xA525D56B
+u8 model 21: nodes=108 base=1 hash=0x065D6ADD
+u8 model 22: nodes= 70 base=1 hash=0xF64879DC
+u8 model 23: nodes=136 base=0 hash=0x38FD46F9
+i16 model  0: nodes=120 base=0 hash=0xC0837B4D
+i16 model  1: nodes= 56 base=1 hash=0x61E8C948
+i16 model  2: nodes=116 base=1 hash=0x3D535230
+i16 model  3: nodes=146 base=0 hash=0x5AB361C3
+i16 model  4: nodes=122 base=0 hash=0x29666068
+i16 model  5: nodes= 64 base=0 hash=0x6F53B555
+i16 model  6: nodes=176 base=0 hash=0x218156BA
+i16 model  7: nodes= 96 base=0 hash=0x86D3D978
+i16 model  8: nodes= 96 base=1 hash=0x29A98AE6
+i16 model  9: nodes=162 base=0 hash=0xDC994C42
+i16 model 10: nodes= 94 base=0 hash=0xBEF88E49
+i16 model 11: nodes=134 base=1 hash=0xB0B90D59
+i16 model 12: nodes=154 base=1 hash=0x10BAD241
+i16 model 13: nodes= 42 base=1 hash=0x81DCBD9E
+i16 model 14: nodes=120 base=1 hash=0x51159537
+i16 model 15: nodes=116 base=1 hash=0x4E7BDEE9
+i16 model 16: nodes= 84 base=0 hash=0x905BE9C2
+i16 model 17: nodes=108 base=1 hash=0x62CFB721
+i16 model 18: nodes=122 base=0 hash=0x43721BCD
+i16 model 19: nodes= 80 base=1 hash=0xC8C316C5
+i16 model 20: nodes=108 base=1 hash=0x018F3BEC
+i16 model 21: nodes= 68 base=0 hash=0x7E6B785E
+i16 model 22: nodes=102 base=1 hash=0xDA3172B7
+i16 model 23: nodes= 66 base=0 hash=0x951E81A0

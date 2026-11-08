@@ -150,6 +150,8 @@ code follows rustfmt; do not fight the formatter.
 | `examples/imported_mlp.rs`, `examples/common/imported_{mlp,classifier}_model.rs`, `examples/common/imported_mlp_driver.rs`, `scripts/cpp/imported_mlp.cpp` | (tinymind importer + C++ runtime) | The importer's two example models (sigmoid MLP, softmax classifier); the C++ program runs tinymind's headers for the same models, with `QSoftmaxFixedPoint1D`. The `*_model.rs` files are generated: regenerate with `example_mlp.py [--model classifier] --rust`, never edit |
 | `examples/energy_efficiency.rs`, `examples/common/energy_driver.rs`, `data/ENB2012_data.csv` | `examples/energy_efficiency/energy_efficiency.cpp`, `ENB2012_data.csv` | 8-16-2 regression: ReLU hidden, `Linear` output, `set_gradient_clip((-1, 1))`, lr 0.02, momentum and acceleration 0. Data is CRLF in tinymind's working tree (`eol=crlf`), so `.gitattributes` here pins the same; CC BY 4.0 (`NOTICE`). Gradient clipping (`cpp/gradientClipping.hpp`) applies to weights only: tinymind's `BiasNeuronConnectionWeightUpdater` uses the raw gradient (and no weight decay). This example never pushes a bias gradient past 1, so `scripts/cpp/deep_mlp.cpp` adds two clipped regressions that do (a planted bias clip fails them) |
 | `examples/anomaly.rs`, `examples/common/anomaly_demo.rs`, `bench/src/anomaly.rs` | (none) | On-device anomaly detection: 8-4-8 tanh/linear Q16.16 autoencoder, SGD + clip, trained on synthetic normal windows (integer sine table + glibc rand), threshold = 2x max normal error. `no_std`, shared by host and board; hash pinned by `tests/anomaly_golden.rs` (Rust golden, documented exception). Results on `docs/anomaly.md` and `bench/README.md` |
+| `src/tree.rs` | `cpp/qtree.hpp` (`QTreeNode`, `walkQTree`, `QDecisionTree`, `QGBDT`) | Runtime trees over a borrowed pool (`&[QTreeNode<T>; N]`), generic over threshold and input types (`Copy + Into<i32>`, compared in `i32` as the C++ casts). `QGBDT` -> `QGbdt` (Rust acronym style). Out-of-contract indices (child/root/feature/class), UB in the C++, are total here: the walk stops with 0, a bad class is skipped; `is_valid` is the `const fn` form of `qtreePoolIsValid` plus root/class checks. Sums wrap. `predict` carries the running best by value (indexing `scores[best]` kept a bounds check at opt s/z, found by the panic gate). Not ported: `QStatic*` and the Inline/Compact/Walk policies (C++ template expansion; Rust equivalent is importer codegen). Checked by `tests/tree_sweep.rs` (golden from `scripts/cpp/tree_sweep.cpp`: 72 random ensembles, i8/u8/i16, base scores, ties, inputs at thresholds); planted defects (`<` for `<=`, ties to the highest class, base score 1) each fail it |
+| `examples/gbdt_tabular_int8.rs`, `examples/common/gbdt_driver.rs` | `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp` | Feature `std` (`affine_params_asymmetric`, `quantize`). stdout, CSV and `--golden` report byte-identical. The C++ README says feature 1 "nudges the boundaries"; it never changes the winner (bands are pure vertical; 48 cells flip at f0 = -0.149) |
 | `examples/iris.rs`, `examples/common/iris_driver.rs`, `data/iris.data` | `examples/iris/iris.cpp`, `iris.data` | 4-8-3 MLP, ReLU hidden + sigmoid output, 3 outputs (exercises the MSE `/ OUT` path). Data is the UCI file, CC BY 4.0 (attribution in `NOTICE`), checked against tinymind's copy |
 | `examples/common/cppfmt.rs` | (C++ iostreams) | `fmt_g` (`ostream << double`) and `fmt_fixed` (`std::fixed`), `#[path]`-included by each driver |
 | `tests/qformat_oracle.rs` | `unit_test/qformat_oracle/qformat_oracle_unit_test.cpp` | Differential oracle: every `QValue` op vs an exact i64 reference; C++ edge values, splitmix64 sample, chains; ported formats only (signed, full width, Truncate + Wrap). Plus an exhaustive Q8.8 sweep (`#[ignore]`, CI runs it) |
@@ -271,7 +273,7 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
   sanitizer for that code.
 - **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, about
-  three minutes): 54 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
+  three minutes): 56 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
   and Q1.31: add/sub wrap, multiply floors then wraps, division never panics,
   `from_int`, `pow2_neg`, zero tolerance and comparisons match their definitions.
   Tanh and sigmoid (both formats) stay within their tables' range and never index
@@ -279,7 +281,9 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   gemmlowp's two-step rounding (written as tinymind's unit test writes it) for
   every input in its domain; the requantizer, the dense layer, the LUT and the
   softmax (its exp and reciprocal on every `i32`, and the layer for any
-  parameters and logits, about 90 s) never panic for any field values. Specs
+  parameters and logits, about 90 s) never panic for any field values. Trees:
+  the walk, the ensemble and `is_valid` never panic for any 3-4 node pool
+  (indices in or out of range, cycles), root, class, base score and input. Specs
   avoid the operations they check
   (congruences, remainder inequalities, i128 where the spec could overflow).
   Planted defects (rounding multiply, `pow2_neg` off by one, no table-index
@@ -318,8 +322,9 @@ piece. Done: int8 dense + softmax, the PyTorch importer, multiple hidden layers
 (2A), linear output + gradient clipping (2B, `examples/energy_efficiency`),
 Adam/RMSprop (2C), the on-device anomaly-detection demo on both boards (2D).
 Priority 2 is complete; head-only fine-tuning (train only the last layer) is the
-one idea from the report not done. Next by the report: trees/GBDT (cheap, with
-an sklearn/XGBoost importer), then int8 conv (output shapes need const
+one idea from the report not done. Trees: the runtime (`src/tree.rs`, 3A) is
+done; next is 3B, the importer (`apps/import_trees` -> Rust: sklearn, XGBoost,
+LightGBM; emit nested `if`s for the inline policy and a pool for the walk), then int8 conv (output shapes need const
 arithmetic; importer-generated code can spell them out). An inference-only
 version of the multi-layer `NeuralNetwork` is not done yet (`InferencePerceptron`
 covers one hidden layer).
@@ -339,7 +344,7 @@ site, published at <https://danmcleran.github.io/tinymind-rs/> by
 `master`) and adds the crate's rustdoc under `/api/`. Its `build site` job is not a
 required check.
 
-- Pages: Home, XOR example, Iris example, Energy example, Int8 inference, Q-format in Rust, On-board
+- Pages: Home, XOR example, Iris example, Energy example, Anomaly detection, Decision trees, Int8 inference, Q-format in Rust, On-board
   results, Equivalence with tinymind, API reference, and "Bit for bit" (the launch write-up:
   how the port is checked and what Rust bought; its numbers must be kept current or the
   page dated). Keep them about what is ported; link to tinymind's site for concepts
