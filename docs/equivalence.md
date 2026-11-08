@@ -19,7 +19,7 @@ Four of tinymind's examples are ported, and every file they write must be byte-i
 
 Parts that no tinymind example exercises are compared through small C++ programs built on tinymind's library (in `scripts/cpp/`), whose output must match the Rust port's in the same way:
 
-- **Networks with several hidden layers**: tinymind's `NeuralNetwork` with two and three hidden layers, in both formats, trained for thousands of steps, with a hash of every weight after every step; and two regressions with a linear output and gradient clipping, sized so that the clipping and tinymind's unclipped bias weights both change the result.
+- **Networks with several hidden layers**: tinymind's `NeuralNetwork` with two and three hidden layers, in both formats, trained for thousands of steps, with a hash of every weight after every step; two regressions with a linear output and gradient clipping, sized so that the clipping and tinymind's unclipped bias weights both change the result; and runs with tinymind's Adam and RMSprop optimizers on one, two and three hidden layers, in both formats.
 - **Inference-only networks**: tinymind's network built with `IsTrainable = false`, loaded with the same weights as the Rust `InferencePerceptron`.
 - **Int8 softmax**: tinymind's TFLite-exact softmax and its calibration over 504 calibrations and row lengths from 1 to 511, plus the golden rows tinymind's tests take from the TensorFlow Lite Micro reference kernel.
 - **PyTorch importer**: the same models imported with tinymind's importer and with this repository's, run on both runtimes.

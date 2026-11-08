@@ -12,8 +12,8 @@ use tinymind::int8::{self, QDense, QDensePerChannel, QSoftmax, Requantizer};
 use tinymind::rand::GlibcRand;
 
 use tinymind::{
-    Activation, Dense, Fixed, InferencePerceptron, Linear, MultilayerPerceptron, NeuralNetwork,
-    Q8_8, Q16_16, Relu, Sigmoid, Tanh,
+    Activation, Adam, Dense, Fixed, InferencePerceptron, Linear, MultilayerPerceptron,
+    NeuralNetwork, Q8_8, Q16_16, Relu, RmsProp, Sigmoid, Sqrt, Tanh,
 };
 
 /// Every `QValue` operation on run-time operands.
@@ -141,6 +141,44 @@ fn deep_network<V: Fixed, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V)
     black_box(layers.1.weights());
 }
 
+/// Adam and RMSprop on both network types, in both formats, with clipping on.
+fn adaptive<V: Fixed + Sqrt>(raw: fn(i32) -> V)
+where
+    Sigmoid: Activation<V>,
+{
+    let adam = Adam::new(raw(black_box(230)), raw(black_box(255)), raw(black_box(1)));
+    let rmsprop = RmsProp::new(raw(black_box(230)), raw(black_box(1)));
+    let mut rng = GlibcRand::new(black_box(1));
+    let mut mlp = MultilayerPerceptron::<V, Relu, Linear, 4, 8, 3, _>::with_optimizer(
+        || raw(rng.next_i32()),
+        adam,
+    );
+    let mut deep = NeuralNetwork::<
+        (
+            Dense<V, Relu, 4, 8>,
+            Dense<V, Relu, 8, 6>,
+            Dense<V, Sigmoid, 6, 3>,
+        ),
+        _,
+    >::with_optimizer(|| raw(rng.next_i32()), rmsprop);
+    mlp.set_gradient_clip(black_box(Some((raw(-4096), raw(4096)))));
+    deep.set_gradient_clip(black_box(Some((raw(-4096), raw(4096)))));
+    for _ in 0..black_box(10) {
+        let x = black_box([raw(1); 4]);
+        let t = black_box([raw(2); 3]);
+        mlp.feed_forward(&x);
+        mlp.train(&t);
+        deep.feed_forward(&x);
+        deep.train(&t);
+    }
+    black_box((
+        mlp.learned_values(),
+        deep.learned_values(),
+        mlp.optimizer().timestep(),
+    ));
+    black_box(raw(black_box(5)).sqrt());
+}
+
 // An inference network holds one value per connection and nothing else, on the
 // target as on the host (the sizes in docs/xor.md).
 const _: () = assert!(size_of::<InferencePerceptron<Q16_16, Tanh, Sigmoid, 2, 4, 1>>() == 68);
@@ -212,6 +250,9 @@ pub extern "C" fn _start() -> ! {
     // A regression head (linear output), as in the energy_efficiency example.
     network::<Q16_16, Relu, Linear, 8, 16, 2>(Q16_16::from_raw);
     deep_network::<Q16_16, Relu, Linear>(Q16_16::from_raw);
+    // The adaptive optimizers.
+    adaptive::<Q16_16>(Q16_16::from_raw);
+    adaptive::<Q8_8>(|r| Q8_8::from_raw(r as i16));
     deep_network::<Q8_8, Tanh, Sigmoid>(|r| Q8_8::from_raw(r as i16));
     #[allow(clippy::empty_loop)]
     loop {}

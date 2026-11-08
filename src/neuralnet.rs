@@ -18,6 +18,7 @@
 use core::marker::PhantomData;
 
 use crate::activation::Activation;
+use crate::optimizer::{Optimizer, Sgd};
 use crate::qformat::Fixed;
 
 /// One weighted edge to a neuron in the next layer (C++ `TrainableConnection`).
@@ -71,7 +72,18 @@ impl<V: Fixed, const N: usize> Neuron<V, N> {
 /// `IN` inputs -> `HID` hidden neurons (activation `H`) -> `OUT` outputs (activation `O`).
 ///
 /// C++: `MultilayerPerceptron<ValueType, IN, 1, HID, OUT, TransferFunctions>`.
-pub struct MultilayerPerceptron<V, H, O, const IN: usize, const HID: usize, const OUT: usize> {
+///
+/// `Opt` is the optimizer: [`Sgd`] (the default) or an adaptive one from
+/// [`optimizer`](crate::optimizer), passed to [`with_optimizer`](Self::with_optimizer).
+pub struct MultilayerPerceptron<
+    V,
+    H,
+    O,
+    const IN: usize,
+    const HID: usize,
+    const OUT: usize,
+    Opt = Sgd,
+> {
     input: [Neuron<V, HID>; IN],
     input_bias: Neuron<V, HID>,
     hidden: [Neuron<V, OUT>; HID],
@@ -84,25 +96,41 @@ pub struct MultilayerPerceptron<V, H, O, const IN: usize, const HID: usize, cons
     momentum_rate: V,
     acceleration_rate: V,
     gradient_clip: Option<(V, V)>,
+    optimizer: Opt,
     /// `H` and `O` are only used in static calls; `PhantomData` records that the
     /// type "uses" them. `fn() -> _` keeps the struct `Send`/`Sync` regardless.
     activations: PhantomData<fn() -> (H, O)>,
 }
 
 impl<V, H, O, const IN: usize, const HID: usize, const OUT: usize>
-    MultilayerPerceptron<V, H, O, IN, HID, OUT>
+    MultilayerPerceptron<V, H, O, IN, HID, OUT, Sgd>
 where
     V: Fixed,
     H: Activation<V>,
     O: Activation<V>,
 {
-    /// Build the network and initialise its weights from `random_weight`, in the
-    /// same order as the C++ constructor: input neurons, input bias, hidden
-    /// neurons, hidden bias, output neurons.
+    /// Build the network, trained with [`Sgd`], and initialise its weights from
+    /// `random_weight`, in the same order as the C++ constructor: input neurons,
+    /// input bias, hidden neurons, hidden bias, output neurons.
     ///
     /// The C++ code reaches a static `generateRandomWeight()` policy that reads
     /// global `rand()` state; passing a closure makes that dependency explicit.
-    pub fn new(mut random_weight: impl FnMut() -> V) -> Self {
+    pub fn new(random_weight: impl FnMut() -> V) -> Self {
+        Self::with_optimizer(random_weight, Sgd)
+    }
+}
+
+impl<V, H, O, const IN: usize, const HID: usize, const OUT: usize, Opt>
+    MultilayerPerceptron<V, H, O, IN, HID, OUT, Opt>
+where
+    V: Fixed,
+    H: Activation<V>,
+    O: Activation<V>,
+    Opt: Optimizer<V>,
+{
+    /// As [`new`](MultilayerPerceptron::new), trained with `optimizer`, for
+    /// example [`Adam`](crate::Adam).
+    pub fn with_optimizer(mut random_weight: impl FnMut() -> V, optimizer: Opt) -> Self {
         let mut nn = Self {
             input: [Neuron::default(); IN],
             input_bias: Neuron::default(),
@@ -114,6 +142,7 @@ where
             momentum_rate: V::pow2_neg(1),
             acceleration_rate: V::pow2_neg(4),
             gradient_clip: None,
+            optimizer,
             activations: PhantomData,
         };
         nn.input_bias.output = V::ONE;
@@ -257,18 +286,26 @@ where
         let clip = self.gradient_clip;
 
         // Output layer first, then the hidden layer, each neuron's incoming
-        // connections followed by its bias connection (never clipped).
+        // connections followed by its bias connection (never clipped). The
+        // optimizer's step count advances at the start of each layer, as the C++
+        // calls `step()` there.
+        self.optimizer.begin_layer();
         for o in 0..OUT {
             for h in 0..HID {
-                update_connection(&mut self.hidden[h].connections[o], rates, clip);
+                self.optimizer
+                    .update_weight(&mut self.hidden[h].connections[o], rates, clip);
             }
-            update_connection(&mut self.hidden_bias.connections[o], rates, None);
+            self.optimizer
+                .update_bias(&mut self.hidden_bias.connections[o], rates);
         }
+        self.optimizer.begin_layer();
         for h in 0..HID {
             for i in 0..IN {
-                update_connection(&mut self.input[i].connections[h], rates, clip);
+                self.optimizer
+                    .update_weight(&mut self.input[i].connections[h], rates, clip);
             }
-            update_connection(&mut self.input_bias.connections[h], rates, None);
+            self.optimizer
+                .update_bias(&mut self.input_bias.connections[h], rates);
         }
     }
 }
@@ -277,9 +314,14 @@ where
 /// `impl` block. Each returns a whole matrix rather than taking an index, so
 /// none of them can panic; the layout matches the order tinymind's
 /// `NetworkPropertiesFileManager` writes the weights in.
-impl<V: Copy, H, O, const IN: usize, const HID: usize, const OUT: usize>
-    MultilayerPerceptron<V, H, O, IN, HID, OUT>
+impl<V: Copy, H, O, const IN: usize, const HID: usize, const OUT: usize, Opt>
+    MultilayerPerceptron<V, H, O, IN, HID, OUT, Opt>
 {
+    /// The optimizer, for example to read [`Adam::timestep`](crate::Adam::timestep).
+    pub fn optimizer(&self) -> &Opt {
+        &self.optimizer
+    }
+
     /// Input-to-hidden weights: `input_weights()[input][hidden]`.
     pub fn input_weights(&self) -> [[V; HID]; IN] {
         self.input.map(|n| n.connections.map(|c| c.weight))
@@ -516,10 +558,15 @@ fn weighted_sum<V: Fixed, const N: usize, const C: usize>(
     layer: &[Neuron<V, C>; N],
     target: usize,
 ) -> V {
-    let mut sum = bias.output * bias.connections[target].weight;
+    // Callers pass target < C. The lookup is total anyway (an out-of-range
+    // target would read 0), because when this function is not inlined, as at
+    // opt-level s and z, the compiler cannot see the callers' bound and would
+    // keep a bounds-check panic.
+    let weight = |n: &Neuron<V, C>| n.connections.get(target).map_or(V::ZERO, |c| c.weight);
+    let mut sum = bias.output * weight(bias);
     let mut layer_sum = V::ZERO;
     for neuron in layer {
-        layer_sum += neuron.output * neuron.connections[target].weight;
+        layer_sum += neuron.output * weight(neuron);
     }
     sum += layer_sum;
     sum

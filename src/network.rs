@@ -46,7 +46,8 @@
 use core::marker::PhantomData;
 
 use crate::activation::Activation;
-use crate::neuralnet::{Connection, update_connection};
+use crate::neuralnet::Connection;
+use crate::optimizer::{Optimizer, Sgd};
 use crate::qformat::Fixed;
 
 /// A fully connected layer: `IN` inputs (plus a bias) to `OUT` neurons with
@@ -183,17 +184,25 @@ impl<V: Fixed, A: Activation<V>, const IN: usize, const OUT: usize> Dense<V, A, 
         }
     }
 
-    /// One SGD-with-momentum step on every connection. Each update reads only
-    /// its own connection, so the order does not matter. `clip` applies to the
-    /// weights only; the bias weights use the raw gradient, as in the C++.
-    fn update(&mut self, rates: (V, V, V), clip: Option<(V, V)>) {
+    /// One optimizer step on every connection (C++ `updateConnectionWeights`
+    /// for this layer): the optimizer's step count advances first, then each
+    /// connection is updated. Each update reads only its own connection, so the
+    /// order within the layer does not matter. `clip` applies to the weights
+    /// only; the bias weights use the raw gradient, as in the C++.
+    fn update<Opt: Optimizer<V>>(
+        &mut self,
+        rates: (V, V, V),
+        clip: Option<(V, V)>,
+        optimizer: &mut Opt,
+    ) {
+        optimizer.begin_layer();
         for row in self.weights.iter_mut() {
             for c in row.iter_mut() {
-                update_connection(c, rates, clip);
+                optimizer.update_weight(c, rates, clip);
             }
         }
         for c in self.bias.iter_mut() {
-            update_connection(c, rates, None);
+            optimizer.update_bias(c, rates);
         }
     }
 }
@@ -213,12 +222,13 @@ mod sealed {
         fn feed_forward(&mut self, inputs: &Self::Inputs);
         fn outputs(&self) -> Self::Outputs;
         fn calculate_error(&self, targets: &Self::Outputs) -> Self::Value;
-        fn train(
+        fn train<Opt: crate::optimizer::Optimizer<Self::Value>>(
             &mut self,
             inputs: &Self::Inputs,
             targets: &Self::Outputs,
             rates: (Self::Value, Self::Value, Self::Value),
             clip: Option<(Self::Value, Self::Value)>,
+            optimizer: &mut Opt,
         );
         /// Number of output neurons: each owns one unused C++ connection whose
         /// initialisation consumes a random draw.
@@ -287,12 +297,13 @@ macro_rules! impl_layers {
                 mean_squared_error(&self.$last.outputs, targets)
             }
 
-            fn train(
+            fn train<Opt: Optimizer<V>>(
                 &mut self,
                 inputs: &[V; $d0],
                 targets: &[V; $dn],
                 rates: (V, V, V),
                 clip: Option<(V, V)>,
+                optimizer: &mut Opt,
             ) {
                 // Deltas from the output back (C++ ChainNetworkDeltasCalculator),
                 // all computed before any weight changes.
@@ -301,10 +312,13 @@ macro_rules! impl_layers {
                     let signal = self.$hi.back_signal();
                     self.$lo.hidden_deltas(&signal);
                 )*
-                // Gradients (ChainNetworkGradientsCalculator), then updates.
+                // Gradients (ChainNetworkGradientsCalculator), then updates from
+                // the output layer back (ChainBackPropConnectionWeightUpdater):
+                // the order sets each layer's step count for Adam.
                 self.$first.gradients(inputs);
                 $(self.$next.gradients(&self.$prev.outputs);)*
-                $(self.$idx.update(rates, clip);)+
+                self.$last.update(rates, clip, optimizer);
+                $(self.$lo.update(rates, clip, optimizer);)*
             }
         }
     };
@@ -340,21 +354,33 @@ impl_layers!([0: A0, D0, D1; 1: A1, D1, D2; 2: A2, D2, D3; 3: A3, D3, D4; 4: A4,
 /// A trainable feed-forward network over a tuple of [`Dense`] layers (C++
 /// `NeuralNetwork<..., HiddenLayers<...>, ...>`). See the [module
 /// documentation](self) for an example.
-pub struct NeuralNetwork<L: Layers> {
+///
+/// `Opt` is the optimizer: [`Sgd`] (the default) or an adaptive one from
+/// [`optimizer`](crate::optimizer), passed to [`with_optimizer`](Self::with_optimizer).
+pub struct NeuralNetwork<L: Layers, Opt = Sgd> {
     layers: L,
     inputs: L::Inputs,
     learning_rate: L::Value,
     momentum_rate: L::Value,
     acceleration_rate: L::Value,
     gradient_clip: Option<(L::Value, L::Value)>,
+    optimizer: Opt,
 }
 
-impl<V: Fixed, L: Layers<Value = V> + Default> NeuralNetwork<L> {
-    /// Build the network and initialise its weights from `random_weight`, in
-    /// the C++ order: each layer's inputs and then its bias, from the input
-    /// side, then one draw per output neuron (the C++ output neurons own an
-    /// unused connection whose initialisation consumes a draw).
-    pub fn new(mut random_weight: impl FnMut() -> V) -> Self {
+impl<V: Fixed, L: Layers<Value = V> + Default> NeuralNetwork<L, Sgd> {
+    /// Build the network, trained with [`Sgd`], and initialise its weights from
+    /// `random_weight`, in the C++ order: each layer's inputs and then its bias,
+    /// from the input side, then one draw per output neuron (the C++ output
+    /// neurons own an unused connection whose initialisation consumes a draw).
+    pub fn new(random_weight: impl FnMut() -> V) -> Self {
+        Self::with_optimizer(random_weight, Sgd)
+    }
+}
+
+impl<V: Fixed, L: Layers<Value = V> + Default, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
+    /// As [`new`](NeuralNetwork::new), trained with `optimizer`, for example
+    /// [`Adam`](crate::Adam).
+    pub fn with_optimizer(mut random_weight: impl FnMut() -> V, optimizer: Opt) -> Self {
         let mut layers = L::default();
         layers.initialize(&mut random_weight);
         for _ in 0..L::OUTPUTS {
@@ -368,11 +394,17 @@ impl<V: Fixed, L: Layers<Value = V> + Default> NeuralNetwork<L> {
             momentum_rate: V::pow2_neg(1),
             acceleration_rate: V::pow2_neg(4),
             gradient_clip: None,
+            optimizer,
         }
     }
 }
 
-impl<V: Fixed, L: Layers<Value = V>> NeuralNetwork<L> {
+impl<V: Fixed, L: Layers<Value = V>, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
+    /// The optimizer, for example to read [`Adam::timestep`](crate::Adam::timestep).
+    pub fn optimizer(&self) -> &Opt {
+        &self.optimizer
+    }
+
     /// Replace the learning rate (default `2^-2`).
     pub fn set_learning_rate(&mut self, rate: V) {
         self.learning_rate = rate;
@@ -424,8 +456,13 @@ impl<V: Fixed, L: Layers<Value = V>> NeuralNetwork<L> {
             self.momentum_rate,
             self.acceleration_rate,
         );
-        self.layers
-            .train(&self.inputs, targets, rates, self.gradient_clip);
+        self.layers.train(
+            &self.inputs,
+            targets,
+            rates,
+            self.gradient_clip,
+            &mut self.optimizer,
+        );
     }
 
     /// The layers, to read their weights (`nn.layers().0.weights()`).

@@ -50,3 +50,27 @@ q16.16 3-6-2 linear clip[-1.5,2.5] step=500 error=49 hash=0x9F984A08
 q16.16 3-6-2 linear clip[-1.5,2.5] step=1000 error=21 hash=0xEE25AAA3
 q16.16 3-6-2 linear clip[-1.5,2.5] step=1500 error=25 hash=0x84B6C7A1
 q16.16 3-6-2 linear clip[-1.5,2.5] step=2000 error=24 hash=0xCE685832
+q8.8 2-4-4-1 adam step=500 error=0 hash=0x6D4317B8
+q8.8 2-4-4-1 adam step=1000 error=254 hash=0x843D34F0
+q8.8 2-4-4-1 adam step=1500 error=0 hash=0x1B2F56C5
+q8.8 2-4-4-1 adam step=2000 error=0 hash=0x49DFD6E0
+q16.16 4-8-6-5-3 adam step=500 error=22388 hash=0x65D0582C
+q16.16 4-8-6-5-3 adam step=1000 error=15706 hash=0xE4ED6593
+q16.16 4-8-6-5-3 adam step=1500 error=15706 hash=0x65B23BC5
+q16.16 4-8-6-5-3 adam step=2000 error=15380 hash=0x9CF71B1D
+q16.16 2-4-1 adam step=500 error=0 hash=0xCBE0F789
+q16.16 2-4-1 adam step=1000 error=0 hash=0xB493EC22
+q16.16 2-4-1 adam step=1500 error=0 hash=0x69E24AFE
+q16.16 2-4-1 adam step=2000 error=0 hash=0x9B8DADBA
+q16.16 2-4-4-1 rmsprop step=500 error=0 hash=0x26CD79B4
+q16.16 2-4-4-1 rmsprop step=1000 error=0 hash=0x24F6B2E2
+q16.16 2-4-4-1 rmsprop step=1500 error=0 hash=0xBD9A176C
+q16.16 2-4-4-1 rmsprop step=2000 error=0 hash=0x51E9CE51
+q8.8 4-8-6-3 rmsprop step=500 error=101 hash=0x26B896C8
+q8.8 4-8-6-3 rmsprop step=1000 error=89 hash=0xCDD180DC
+q8.8 4-8-6-3 rmsprop step=1500 error=89 hash=0x60A16760
+q8.8 4-8-6-3 rmsprop step=2000 error=56 hash=0xCF387DF3
+q16.16 3-6-4-2 linear clip[-1,1] adam step=500 error=36893 hash=0x815E5175
+q16.16 3-6-4-2 linear clip[-1,1] adam step=1000 error=1390861 hash=0x7B0316AD
+q16.16 3-6-4-2 linear clip[-1,1] adam step=1500 error=131089 hash=0x1479C1A7
+q16.16 3-6-4-2 linear clip[-1,1] adam step=2000 error=344671 hash=0x5E03C5D3
