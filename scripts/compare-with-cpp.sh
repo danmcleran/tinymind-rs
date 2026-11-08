@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris, energy_efficiency, the int8 pytorch_quant xor), plus the C++ programs in
-# scripts/cpp/ (deep networks, inference-only networks, the int8 softmax sweep,
-# the PyTorch importer's models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# iris, energy_efficiency, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
+# the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
+# int8 softmax sweep, the tree sweep, the PyTorch importer's models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -171,6 +171,44 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --test inference_mlp >/dev/null
   && echo "IDENTICAL  inference_mlp Rust vs tests/golden/inference_mlp" \
   || { echo "DIFFERENT  inference_mlp Rust vs tests/golden/inference_mlp"; status=1; }
 
+echo "== gbdt"
+mkdir -p "$TMP/gbdt/cpp" "$TMP/gbdt/rust"
+# Flags from examples/gbdt_tabular_int8/Makefile's release target. The C++
+# writes its CSV to the working directory in both modes.
+g++ -g -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/gbdt/gbdt_tabular_int8" \
+  "$TINYMIND_DIR/examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_QUANTIZATION=1
+(cd "$TMP/gbdt/cpp" && ../gbdt_tabular_int8 > stdout.txt && ../gbdt_tabular_int8 --golden > gbdt_tabular_int8.golden)
+"$ROOT/target/release/examples/gbdt_tabular_int8" "$TMP/gbdt/rust" > "$TMP/gbdt/rust/stdout.txt"
+"$ROOT/target/release/examples/gbdt_tabular_int8" --golden "$TMP/gbdt/rust" > "$TMP/gbdt/rust/gbdt_tabular_int8.golden"
+for f in stdout.txt gbdt_tabular_int8.csv gbdt_tabular_int8.golden; do
+  if cmp -s "$TMP/gbdt/cpp/$f" "$TMP/gbdt/rust/$f"; then
+    echo "IDENTICAL  gbdt $f"
+  else
+    echo "DIFFERENT  gbdt $f"
+    status=1
+  fi
+done
+
+echo "== tree"
+# tinymind's QDecisionTree and QGBDT over random ensembles; tests/tree_sweep.rs
+# checks the Rust trees against the committed golden, so the golden must still
+# be what the C++ prints.
+mkdir -p "$TMP/tree"
+g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/tree/tree_sweep" "$ROOT/scripts/cpp/tree_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include"
+"$TMP/tree/tree_sweep" > "$TMP/tree/stdout.txt"
+if cmp -s "$TMP/tree/stdout.txt" "$ROOT/tests/golden/tree/stdout.txt"; then
+  echo "IDENTICAL  tree stdout.txt (C++ vs tests/golden/tree)"
+else
+  echo "DIFFERENT  tree stdout.txt (C++ vs tests/golden/tree)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --test tree_sweep >/dev/null 2>&1 \
+  && echo "IDENTICAL  tree Rust vs tests/golden/tree" \
+  || { echo "DIFFERENT  tree Rust vs tests/golden/tree"; status=1; }
+
 echo "== softmax"
 # tinymind's QSoftmaxFixedPoint1D over a sweep of calibrations; tests/softmax_sweep.rs
 # checks the Rust kernel against the committed golden, so the golden must still be
@@ -250,6 +288,9 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/softmax/stdout.txt" "$KEEP_CPP_OUTPUT/softmax/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/imported_mlp"
   cp "$TMP/imported/cpp.txt" "$KEEP_CPP_OUTPUT/imported_mlp/stdout.txt"
+  cp -r "$TMP/gbdt/cpp" "$KEEP_CPP_OUTPUT/gbdt"
+  mkdir -p "$KEEP_CPP_OUTPUT/tree"
+  cp "$TMP/tree/stdout.txt" "$KEEP_CPP_OUTPUT/tree/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"
 fi
 exit $status

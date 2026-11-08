@@ -7,6 +7,19 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- Decision trees (`tinymind::tree`, tinymind's `cpp/qtree.hpp`): `QTreeNode`,
+  `walk_tree`, a single tree `QDecisionTree` and the gradient-boosted ensemble
+  `QGbdt` (tinymind's `QGBDT`), over a borrowed node pool that can live in
+  flash, with `i8`, `u8` or `i16` thresholds and inputs. Bit-identical to
+  tinymind for well-formed models; a malformed one (an index outside the model)
+  gives a defined result instead of an out-of-bounds read, and `is_valid` is a
+  `const fn` for checking a model at compile time.
+- Example `gbdt_tabular_int8` (feature `std`), byte-identical to tinymind's.
+- `int8::calibration::affine_params_asymmetric` (tinymind's
+  `computeAffineParamsAsymmetric`).
+
 ## [0.1.4] - 2026-11-07
 
 ### Added

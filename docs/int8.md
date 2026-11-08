@@ -1,7 +1,7 @@
 ---
 title: Int8 inference
 layout: default
-nav_order: 6
+nav_order: 7
 ---
 
 # Int8 inference

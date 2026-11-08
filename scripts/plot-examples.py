@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Render the example plots for the docs site: xor in both formats, iris,
-energy efficiency and anomaly detection.
+energy efficiency, anomaly detection and the int8 GBDT.
 
-Runs the Rust `xor`, `iris`, `energy_efficiency` and `anomaly` examples (which write byte-identical output to
-the C++ examples), then draws the learning curve and decision surface with tinymind's
+Runs the Rust `xor`, `iris`, `energy_efficiency`, `anomaly` and `gbdt_tabular_int8`
+examples (which, except anomaly, write byte-identical output to the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
 from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
 
 Needs matplotlib. Use a virtual environment, for example:
 
     python3 -m venv /tmp/venv && /tmp/venv/bin/pip install matplotlib
-    cargo build --release --examples
+    cargo build --release --examples --features std
     /tmp/venv/bin/python -I -B scripts/plot-examples.py
 
 -B keeps Python from writing __pycache__ into the tinymind checkout.
@@ -31,6 +31,7 @@ XOR = os.path.join(ROOT, "target", "release", "examples", "xor")
 IRIS = os.path.join(ROOT, "target", "release", "examples", "iris")
 ENERGY = os.path.join(ROOT, "target", "release", "examples", "energy_efficiency")
 ANOMALY = os.path.join(ROOT, "target", "release", "examples", "anomaly")
+GBDT = os.path.join(ROOT, "target", "release", "examples", "gbdt_tabular_int8")
 IRIS_NAMES = ["setosa", "versicolor", "virginica"]
 OUT = os.path.join(ROOT, "docs", "assets", "plots")
 FORMATS = [("q16.16", "Q16.16", "q16_16"), ("q8.8", "Q8.8", "q8_8")]
@@ -202,9 +203,40 @@ def anomaly(out_dir, png):
     tp.plt.close(fig)
 
 
+def gbdt(out_dir, png):
+    """The int8 ensemble's class over the feature grid, with the split thresholds."""
+    rows = list(csv.DictReader(open(os.path.join(out_dir, "gbdt_tabular_int8.csv"), newline="")))
+    g = int(round(len(rows) ** 0.5))
+    # The CSV runs f1 (rows) outer and f0 (columns) inner.
+    grid = [[int(rows[iy * g + ix]["class"]) for ix in range(g)] for iy in range(g)]
+
+    from matplotlib.colors import ListedColormap
+    tp.apply_style()
+    fig, ax = tp.plt.subplots(figsize=(7.2, 6.4))
+    fig.suptitle("tinymind-rs: int8 gradient-boosted trees (5 trees, 3 classes)",
+                 fontsize=13, fontweight="bold")
+    cmap = ListedColormap([tp.PALETTE[0], tp.PALETTE[1], tp.PALETTE[3]])
+    im = ax.imshow(grid, origin="lower", extent=(-1, 1, -1, 1), cmap=cmap, vmin=0, vmax=2,
+                   interpolation="nearest", aspect="auto")
+    ax.grid(False)
+    for x in (-0.15, 0.25):
+        ax.axvline(x, color="white", linestyle="--", linewidth=1.0)
+    for y in (-0.10, 0.10):
+        ax.axhline(y, color="white", linestyle=":", linewidth=1.0)
+    ax.set_xlabel("feature 0")
+    ax.set_ylabel("feature 1")
+    ax.set_title("predicted class over a 48 x 48 grid; dashed and dotted lines: split thresholds",
+                 fontsize=9, color=tp.MUTED)
+    cbar = fig.colorbar(im, ax=ax, ticks=[0, 1, 2])
+    cbar.ax.set_yticklabels(["class 0", "class 1", "class 2"])
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.savefig(png)
+    tp.plt.close(fig)
+
+
 def main():
-    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY)):
-        sys.exit("build first: cargo build --release --examples")
+    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY, GBDT)):
+        sys.exit("build first: cargo build --release --examples --features std")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
         with tempfile.TemporaryDirectory() as tmp:
@@ -232,6 +264,11 @@ def main():
         subprocess.run([ANOMALY, tmp], check=True, stdout=subprocess.DEVNULL)
         png = os.path.join(OUT, "anomaly_scores.png")
         anomaly(tmp, png)
+        print("wrote", os.path.relpath(png, ROOT))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([GBDT, tmp], check=True, stdout=subprocess.DEVNULL)
+        png = os.path.join(OUT, "gbdt_regions.png")
+        gbdt(tmp, png)
         print("wrote", os.path.relpath(png, ROOT))
 
 

@@ -21,7 +21,7 @@ hidden layers (SGD with momentum, Adam or RMSprop, optional gradient clipping), 
 one-hidden-layer network that is just its weights, and int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 quantized ReLU, activation tables, and a softmax that is bit-exact with
-TFLite's). The API is not stable yet: before 1.0, a minor version may break it.
+TFLite's), and quantized decision trees and gradient-boosted ensembles. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -64,6 +64,7 @@ cargo run --release --example energy_efficiency -- output    # energy-load regre
 cargo run --release --example anomaly -- output              # anomaly detection: an autoencoder trained on the device
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo run --release --features std --example imported_mlp    # two models written by the PyTorch importer
+cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo test --all-features                                # unit, doc and golden tests against the C++ output
 PYTHON=<python with numpy> scripts/compare-with-cpp.sh   # rebuild the C++ side and diff everything
 ```
@@ -82,7 +83,11 @@ flags faults by reconstruction error; the same code runs on the boards in
 `bench/`. It takes an optional output directory and writes `anomaly_scores.csv`
 there. The `int8_xor` example (feature
 `std`) runs a PyTorch-trained, int8-quantized 2-4-1 network and writes
-`xor_decision_surface.csv`.
+`xor_decision_surface.csv`. The `gbdt_tabular_int8` example (feature `std`)
+quantizes a five-tree ensemble onto an int8 feature grid, compares it with the
+float trees over a 48x48 grid and writes `gbdt_tabular_int8.csv` (the predicted
+class at each point); `--golden` before the directory prints tinymind's compact
+golden report instead.
 
 `scripts/compare-with-cpp.sh` needs a tinymind checkout, `g++`, and a Python with
 numpy for the PyTorch importer checks (set `PYTHON`, for example to a virtual
@@ -106,6 +111,8 @@ set.
 | `examples/anomaly.rs` | no counterpart: an on-device anomaly-detection demo built from the ported parts |
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qactivations.hpp`, `cpp/qsoftmax_fixedpoint.hpp`: requantizer, int8 dense layer (per-tensor and per-channel), quantized ReLU, activation tables, softmax |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
+| `src/tree.rs` | `cpp/qtree.hpp`: quantized decision tree (`QDecisionTree`) and gradient-boosted ensemble (`QGbdt`) over a shared node pool; not the compile-time `QStatic*` forms |
+| `examples/gbdt_tabular_int8.rs` | `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp` |
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
 | `examples/imported_mlp.rs` | two models written by that importer, checked against tinymind's importer + C++ runtime |
@@ -142,10 +149,14 @@ backends, and so on) is not ported.
   reference kernel's outputs (tinymind's unit-test goldens and sweep hashes), and
   `tests/softmax_sweep.rs` against tinymind's C++ softmax and its calibration
   over 504 calibrations and row lengths 1 to 511.
+- `tests/gbdt_golden.rs` checks the GBDT example's three outputs against
+  `tests/golden/gbdt/`, and `tests/tree_sweep.rs` checks the trees against
+  tinymind's `QDecisionTree` and `QGBDT` over 72 random ensembles (int8, uint8
+  and int16 thresholds, ties, inputs on the thresholds).
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind checkout
-  (xor in both formats, iris, energy efficiency, int8 xor) with the flags their
+  (xor in both formats, iris, energy efficiency, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (29 checks today, including
+  example does, runs both sides, and compares every output file (34 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind's files). It exits nonzero if anything differs.
 - `tests/qformat_oracle.rs`, ported from tinymind's qformat oracle, checks every
   `QValue` operation against an exact reference: edge values and a fixed-seed
@@ -156,7 +167,8 @@ backends, and so on) is not ported.
   `QValue` operations match their definitions (division: that it never panics),
   that tanh and sigmoid stay within their tables' range, that the int8
   requantizer's fast path equals gemmlowp's two-step rounding, and that the
-  requantizer, the int8 dense layers, the tables and the softmax never panic.
+  requantizer, the int8 dense layers, the tables, the softmax and the trees never
+  panic.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
   and whose panic handler is an undefined symbol, so CI fails to link it if any
   panic path survives optimisation (M0+ and M4F, three optimisation levels).

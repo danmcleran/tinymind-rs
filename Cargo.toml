@@ -41,6 +41,14 @@ required-features = ["std"]
 name = "imported_mlp"
 required-features = ["std"]
 
+[[example]]
+name = "gbdt_tabular_int8"
+required-features = ["std"]
+
+[[test]]
+name = "gbdt_golden"
+required-features = ["std"]
+
 [[test]]
 name = "imported_mlp_golden"
 required-features = ["std"]

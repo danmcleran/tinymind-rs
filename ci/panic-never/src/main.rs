@@ -10,6 +10,7 @@ use core::hint::black_box;
 use core::mem::size_of;
 use tinymind::int8::{self, QDense, QDensePerChannel, QSoftmax, Requantizer};
 use tinymind::rand::GlibcRand;
+use tinymind::tree::{self, QDecisionTree, QGbdt, QTreeNode};
 
 use tinymind::{
     Activation, Adam, Dense, Fixed, InferencePerceptron, Linear, MultilayerPerceptron,
@@ -235,11 +236,41 @@ fn int8_inference() {
     black_box(softmax.forward(&black_box([0i8; 10])));
 }
 
+/// Trees and ensembles with every field opaque, so any index may be out of
+/// range: the walk, the ensemble and the validity checks must stay total.
+fn trees<T: Copy + Into<i32>>(threshold: T, input: T) {
+    let node = QTreeNode {
+        feature: black_box(0),
+        threshold: black_box(threshold),
+        left: black_box(1),
+        right: black_box(2),
+        leaf_value: black_box(3),
+    };
+    let nodes: [QTreeNode<T>; 5] = black_box([node; 5]);
+    let x: [T; 3] = black_box([input; 3]);
+    black_box(tree::walk_tree(&nodes, black_box(0), &x, black_box(5)));
+    let t = QDecisionTree::<'_, T, 5, 3>::new(&nodes);
+    black_box((t.predict(&x), t.is_valid()));
+    let roots: [i16; 4] = black_box([0; 4]);
+    let classes: [i16; 4] = black_box([1; 4]);
+    let base: [i32; 2] = black_box([0; 2]);
+    let g = QGbdt::<'_, T, 4, 2, 5, 3> {
+        nodes: &nodes,
+        tree_root: &roots,
+        tree_class: &classes,
+        base_score: if black_box(true) { Some(&base) } else { None },
+    };
+    black_box((g.forward(&x), g.predict(&x), g.is_valid()));
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
     arithmetic();
     activations();
     int8_inference();
+    trees::<i8>(black_box(1), black_box(2));
+    trees::<u8>(black_box(1), black_box(2));
+    trees::<i16>(black_box(1), black_box(2));
     black_box(imported::forward(&black_box([0i8; imported::NUM_INPUTS])));
     // The examples' configurations: xor 2-4-1 (both formats) and iris 4-8-3.
     network::<Q16_16, Tanh, Sigmoid, 2, 4, 1>(Q16_16::from_raw);

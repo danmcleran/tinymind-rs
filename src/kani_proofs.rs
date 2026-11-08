@@ -305,3 +305,48 @@ mod int8 {
         let _ = apply_lut(kani::any(), &lut);
     }
 }
+
+/// Trees: the walk, the ensemble and the validity checks never panic, for any
+/// pool (indices in or out of range, cycles), root, class, base score and input.
+mod tree {
+    use crate::tree::{QDecisionTree, QGbdt, QTreeNode, walk_tree};
+
+    fn any_node() -> QTreeNode<i8> {
+        QTreeNode {
+            feature: kani::any(),
+            threshold: kani::any(),
+            left: kani::any(),
+            right: kani::any(),
+            leaf_value: kani::any(),
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(7)]
+    fn walk_never_panics() {
+        let nodes = [any_node(), any_node(), any_node(), any_node()];
+        let x: [i8; 2] = kani::any();
+        let max_nodes: usize = kani::any();
+        kani::assume(max_nodes <= 6);
+        let _ = walk_tree(&nodes, kani::any(), &x, max_nodes);
+        let tree = QDecisionTree::<'_, i8, 4, 2>::new(&nodes);
+        let _ = (tree.predict(&x), tree.is_valid());
+    }
+
+    #[kani::proof]
+    #[kani::unwind(5)]
+    fn ensemble_never_panics() {
+        let nodes = [any_node(), any_node(), any_node()];
+        let roots: [i16; 2] = kani::any();
+        let classes: [i16; 2] = kani::any();
+        let base: [i32; 2] = kani::any();
+        let gbdt = QGbdt::<'_, i8, 2, 2, 3, 2> {
+            nodes: &nodes,
+            tree_root: &roots,
+            tree_class: &classes,
+            base_score: if kani::any() { Some(&base) } else { None },
+        };
+        let x: [i8; 2] = kani::any();
+        let _ = (gbdt.forward(&x), gbdt.predict(&x), gbdt.is_valid());
+    }
+}

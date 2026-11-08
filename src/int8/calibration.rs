@@ -79,6 +79,29 @@ pub fn build_requantizer(
     }
 }
 
+/// Asymmetric per-tensor affine parameters `(scale, zero_point)` that map the
+/// real range `[fmin, fmax]`, widened to include 0, onto `[qmin, qmax]` (C++
+/// `computeAffineParamsAsymmetric`). An empty range gives `(1.0, qmin)`.
+pub fn affine_params_asymmetric(fmin: f32, fmax: f32, qmin: i32, qmax: i32) -> (f32, i32) {
+    // `if`s rather than min/max, which treat NaN differently from the C++.
+    let fmin = if fmin > 0.0 { 0.0 } else { fmin };
+    let fmax = if fmax < 0.0 { 0.0 } else { fmax };
+    let qrange = qmax.wrapping_sub(qmin) as f32;
+    if fmax == fmin || qrange == 0.0 {
+        return (1.0, qmin);
+    }
+    let scale = (fmax - fmin) / qrange;
+    // C++ lround: half away from zero, as f64::round.
+    let mut zp = (f64::from(qmin) - f64::from(fmin) / f64::from(scale)).round() as i64;
+    if zp < i64::from(qmin) {
+        zp = i64::from(qmin);
+    }
+    if zp > i64::from(qmax) {
+        zp = i64::from(qmax);
+    }
+    (scale, zp as i32)
+}
+
 /// Quantize a real value to int8: `round(x / scale) + zero_point`, ties away
 /// from zero (as TFLite), saturated to `[qmin, qmax]` (C++ `quantize<int8_t>`).
 pub fn quantize(x: f32, scale: f32, zero_point: i32, qmin: i32, qmax: i32) -> i8 {
