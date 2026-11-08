@@ -43,9 +43,9 @@ weight trajectory bit for bit, and the anomaly example trains on the chip in
 
 ```toml
 [dependencies]
-tinymind = "0.1"
+tinymind = "0.1.5"
 # For host-side int8 calibration (float scales to requantizers and tables):
-# tinymind = { version = "0.1", features = ["std"] }
+# tinymind = { version = "0.1.5", features = ["std"] }
 ```
 
 The API reference is on [docs.rs](https://docs.rs/tinymind).

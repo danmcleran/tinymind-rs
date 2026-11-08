@@ -67,9 +67,9 @@ To use the library from another project:
 
 ```toml
 [dependencies]
-tinymind = "0.1"
+tinymind = "0.1.5"
 # Host-side int8 calibration (float scales to requantizers and tables):
-# tinymind = { version = "0.1", features = ["std"] }
+# tinymind = { version = "0.1.5", features = ["std"] }
 ```
 
 The [API reference]({{ site.baseurl }}/api/tinymind/) starts with a complete example that trains XOR; it runs as a test on every build.
