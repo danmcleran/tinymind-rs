@@ -7,7 +7,7 @@
 //! [`Adam`] or [`RmsProp`], with optional gradient clipping); a one-hidden-layer
 //! perceptron that
 //! trains on the device ([`MultilayerPerceptron`]) or only runs trained weights
-//! ([`InferencePerceptron`], tinymind (C++)'s `IsTrainable = false`), and int8
+//! ([`InferencePerceptron`], tinymind (C++)'s `IsTrainable = false`), int8
 //! affine-quantized inference ([`int8`]: dense layers, quantized activations and a
 //! TFLite-exact softmax), and quantized decision trees and gradient-boosted
 //! ensembles ([`tree`]). Every part produces the same bits as

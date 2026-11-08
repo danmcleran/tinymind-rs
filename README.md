@@ -18,7 +18,7 @@ Documentation, including the API reference: <https://danmcleran.github.io/tinymi
 Early. So far the port covers Q16.16 and Q8.8 arithmetic, ReLU, linear and
 lookup-table tanh and sigmoid activations, trainable networks with any number of
 hidden layers (SGD with momentum, Adam or RMSprop, optional gradient clipping), an inference-only
-one-hidden-layer network that is just its weights, and int8
+one-hidden-layer network that is just its weights, int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 quantized ReLU, activation tables, and a softmax that is bit-exact with
 TFLite's), and quantized decision trees and gradient-boosted ensembles. The API is not stable yet: before 1.0, a minor version may break it.
@@ -68,7 +68,7 @@ cargo run --release --features std --example imported_mlp    # two models writte
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo run --release --example imported_trees                 # scikit-learn tree models via the tree importer
 cargo test --all-features                                # unit, doc and golden tests against the C++ output
-PYTHON=<python with numpy> scripts/compare-with-cpp.sh   # rebuild the C++ side and diff everything
+PYTHON=<python with numpy and scikit-learn> scripts/compare-with-cpp.sh   # rebuild the C++ side and diff everything
 ```
 
 The `xor` example takes an optional `--format q16.16|q8.8` (default Q16.16), an
@@ -122,11 +122,11 @@ set.
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
 | `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer, emitting Rust |
 | `examples/imported_trees.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
-| `examples/imported_mlp.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
+| `examples/imported_mlp.rs` | two models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 
-Everything else in tinymind (C++) (floating-point networks, other Q formats, unsigned
-and 8/64-bit storage, the other activations, recurrent layers, the int8 quantization tiers, SIMD
-backends, and so on) is not ported.
+Everything else in tinymind (C++) is not ported: floating-point networks, other Q
+formats, unsigned and 8/64-bit storage, the other activations, recurrent layers,
+the int8 quantization tiers, SIMD backends, and so on.
 
 ## How equivalence is proven
 
@@ -139,9 +139,9 @@ backends, and so on) is not ported.
   does the same for iris against `tests/golden/iris/`, `tests/energy_golden.rs`
   for energy_efficiency against `tests/golden/energy/`, and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`,
-  and `tests/imported_mlp_golden.rs` for the importer's models. `TINYMIND_REF`
-  records the tinymind (C++) commit they were last verified against. The int8 and
-  importer tests need the `std` feature: run `cargo test --all-features`.
+  and `tests/imported_mlp_golden.rs` for the PyTorch importer's models. `TINYMIND_REF`
+  records the tinymind (C++) commit they were last verified against. The int8, GBDT and
+  PyTorch-importer tests need the `std` feature: run `cargo test --all-features`.
 - `tests/deep_mlp.rs` checks networks with one, two and three hidden layers
   against tinymind (C++)'s `NeuralNetwork` (every weight after every training step,
   both formats), trained with SGD, Adam and RMSprop, with and without gradient
@@ -161,7 +161,8 @@ backends, and so on) is not ported.
   tinymind (C++)'s `QDecisionTree` and `QGBDT` over 72 random ensembles (int8, uint8
   and int16 thresholds, ties, inputs on the thresholds).
   `tests/imported_trees_golden.rs` checks the imported-trees example against
-  the tinymind (C++) runtime running the same models imported by tinymind (C++).
+  the tinymind (C++) runtime running the same models, imported with the
+  tinymind (C++) importer.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no

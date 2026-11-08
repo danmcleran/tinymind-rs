@@ -18,7 +18,7 @@ Alongside the Q-format networks, the crate runs **int8 affine-quantized** models
 | `qrelu`, `qrelu6` | ReLU and ReLU6 in the quantized grid | `cpp/qactivations.hpp` |
 | `apply_lut` | Any activation through a 256-entry int8 table, such as sigmoid or tanh | `qApplyLUT` |
 | `QSoftmax` | Softmax over a row of int8 logits onto the 1/256 probability grid, bit-exact with TFLite's int8 softmax (and so with CMSIS-NN's `arm_softmax_s8`) | `QSoftmaxFixedPoint1D` (`cpp/qsoftmax_fixedpoint.hpp`) |
-| `calibration` (feature `std`) | Host side: build requantizers, sigmoid/tanh tables and softmax parameters from float scales; quantize and dequantize | `cpp/include/qcalibration.hpp` |
+| `calibration` (feature `std`) | Host side: build requantizers, sigmoid/tanh tables and softmax parameters from float scales; affine parameters from a float range; quantize and dequantize | `cpp/include/qcalibration.hpp` |
 
 A layer borrows its weights (`&[[i8; IN]; OUT]`, row-major as PyTorch and TFLite store them) and biases, so they can live in flash as `static` data. On a device, run the calibration on the host and embed the resulting integers; the five fields of a `Requantizer` are plain constants.
 

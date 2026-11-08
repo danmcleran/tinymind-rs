@@ -26,7 +26,7 @@ nav_order: 1
 ## What it is
 
 - **`no_std` and allocation-free.** The library links only `core`. Networks are plain fixed-size arrays sized by const generics: no heap, no `alloc`, no global state.
-- **Fixed-point so far.** The ported value types are Q-format integers (Q16.16 and Q8.8) and int8 in the TFLite/CMSIS-NN affine model, so training and inference need no FPU, and activations come from lookup tables. tinymind (C++)'s networks are generic over the value type and are also tested with `float` and `double`; floating-point networks are not ported yet.
+- **Fixed-point so far.** The ported value types are Q-format integers (Q16.16 and Q8.8), int8 in the TFLite/CMSIS-NN affine model, and the int8, uint8 or int16 feature grids of the decision trees, so training and inference need no FPU, and activations come from lookup tables. tinymind (C++)'s networks are generic over the value type and are also tested with `float` and `double`; floating-point networks are not ported yet.
 - **No `unsafe`, no reachable panics.** The library is `#![forbid(unsafe_code)]`, and CI links a Cortex-M firmware image that calls every public function and whose panic handler does not exist: any panic path left after optimisation would fail the build.
 - **Bit-exact with C++.** The port is checked byte for byte against tinymind (C++)'s own C++ build on every pull request. See [Equivalence with tinymind (C++)]({{ site.baseurl }}/equivalence).
 - **Built for microcontrollers, checked on them.** CI builds the library for Cortex-M4F (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`), and it has been run on an STM32F411 and an STM32L031: int8 inference and on-device training match the C++ bit for bit there, at about tinymind (C++)'s code size. See [On-board results]({{ site.baseurl }}/benchmarks). Minimum Rust version: 1.85.
@@ -35,7 +35,7 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-Early. The port covers what four of tinymind (C++)'s examples use (XOR, iris, energy efficiency, an int8 XOR and int8 gradient-boosted trees), plus networks with several hidden layers, the Adam and RMSprop optimizers and the int8 softmax:
+Early. The port covers what five of tinymind (C++)'s examples use (XOR, iris, energy efficiency, an int8 XOR and int8 gradient-boosted trees), plus networks with several hidden layers, the Adam and RMSprop optimizers and the int8 softmax:
 
 | Ported | Not yet ported |
 |---|---|
