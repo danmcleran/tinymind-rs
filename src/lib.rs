@@ -11,7 +11,9 @@
 //! affine-quantized inference ([`int8`]: dense layers, quantized activations and a
 //! TFLite-exact softmax), and quantized decision trees and gradient-boosted
 //! ensembles ([`tree`]). Every part produces the same bits as
-//! tinymind's C++. The library is `no_std` and allocation-free, like tinymind's
+//! tinymind's C++. [`rand`] re-implements glibc's `rand()`, which tinymind's
+//! examples use for weight initialisation and sampling, so they can be
+//! reproduced bit for bit. The library is `no_std` and allocation-free, like tinymind's
 //! freestanding build.
 //!
 //! # Example

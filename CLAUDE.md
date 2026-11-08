@@ -31,22 +31,20 @@ whole release in a session, including `cargo publish` (Dan's preference,
 2026-11-07), but only after Dan's explicit go-ahead for that release: a version
 cannot be deleted, only yanked. Semver applies: before 1.0 a minor bump may break
 the API, a patch bump may not (additions only is a patch). CI's `cargo package`
-step checks what would be published. To release a new version:
-1. A release PR: bump `version` in `Cargo.toml`, move the `CHANGELOG.md`
-   `[Unreleased]` entries under the new version with its date, update the
-   comparison links at the bottom, and refresh the `tinymind` entry in all three
-   lockfiles (`cargo update -p tinymind` in `.`, `ci/panic-never` and `bench`).
-2. Dan's crates.io token (scoped to `tinymind`) must be in
-   `~/.cargo/credentials.toml`; he runs `cargo login` himself in a separate terminal,
-   so the token never passes through an agent. Never read or print that file;
-   checking that it exists is fine. If `cargo publish` fails on authentication,
-   stop and ask Dan to log in again.
-3. After the PR merges and CI is green on `master`: from a clean `master`,
-   `cargo publish --dry-run`, `cargo publish`, check crates.io and docs.rs (Python
-   `urllib` with a generic User-Agent; no curl here), then tag `vX.Y.Z` (annotated)
-   and create the GitHub release with the CHANGELOG entry as notes. Crates.io
-   trusted publishing from CI (publish on a pushed tag, no token on disk) is the
-   alternative if Dan wants one.
+step checks what would be published. **To release a new version, follow the
+project skill `.claude/skills/crate-release/SKILL.md`** (Dan asked for a
+repeatable process, 2026-11-08; it is the single source for the steps): docs
+audit as a hard gate (`scripts/check-docs.sh`, a judgment checklist and a
+fresh-eyes subagent), the release PR (`scripts/check-docs.sh --release X.Y.Z`
+must pass), `cargo publish`, an annotated tag (`--cleanup=verbatim`), the GitHub
+release ending with the Pages link, verification on crates.io, docs.rs and
+Pages, and the LinkedIn post. Standing rules it repeats: Dan's crates.io token
+(scoped to `tinymind`) is in `~/.cargo/credentials.toml`; he runs `cargo login`
+himself in a separate terminal, so the token never passes through an agent.
+Never read or print that file (checking it exists is fine); if `cargo publish`
+fails on authentication, stop and ask Dan to log in again. Crates.io trusted
+publishing from CI (publish on a pushed tag, no token on disk) is the
+alternative if Dan wants one.
 
 Code comments should serve future users and maintainers.
 
@@ -121,7 +119,8 @@ scripts/upstream-changes.sh         # tinymind commits since TINYMIND_REF touchi
 PATH. A shell older than that install lacks it; use `~/.cargo/bin/cargo` then rather
 than `source ~/.cargo/env && ...` (compound commands trip permission checks).
 
-Gate before committing: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
+Gate before committing: `cargo fmt --check` (also in `ci/panic-never`, a separate crate
+the root `cargo fmt` does not reach), `cargo clippy --all-targets --all-features -- -D warnings`,
 `cargo test --all-features`, and `PYTHON=<python with numpy> scripts/compare-with-cpp.sh`
 (needs `g++`, `../tinymind`, and numpy plus scikit-learn, XGBoost and LightGBM).
 CI runs the same gates; run them locally first anyway.
@@ -385,12 +384,23 @@ public API, an example or a check updates, in the same PR:
   API, and `docs/bit-for-bit.md` when its "As of" version or its counts change.
 - `CHANGELOG.md` `[Unreleased]`.
 
-`scripts/check-docs.sh` (CI, `rust` job) catches the mechanical part: examples
-missing from either quick start, broken site links, duplicate `nav_order`, no
-CHANGELOG entry for the version, unattributed data files. For the prose, a
-fresh-eyes audit (a subagent given the current facts, read-only) found four real
-errors and a dozen omissions on 2026-11-07 after three quick releases; repeat it
-before each release.
+`scripts/check-docs.sh` (CI, `rust` job) catches the mechanical part: every
+example in both quick starts, the README table and on a site page; every public
+module in the README table and the crate docs; every test suite and tool named
+in the README; site links; distinct `nav_order`; a CHANGELOG entry for the
+version and for every top-level public item added since the last tag; data
+attribution; lowercase project names. `--release X.Y.Z` adds the release PR's
+checks (version, CHANGELOG heading and links, lockfiles, `As of`, tag free).
+The counts the docs quote are checked where they are computed:
+`scripts/check-counts.sh`, called by `compare-with-cpp.sh` ("N checks today")
+and by the `kani` CI job ("N harnesses"). Each check was shown to fail on a
+planted gap. Prose cannot be checked mechanically: the release skill's judgment
+checklist and fresh-eyes subagent audit cover it (that audit found four real
+errors and a dozen omissions on 2026-11-07, six and twelve before 0.1.4).
+
+crates.io and docs.rs show the README and crate docs as published, frozen with
+the version: a gap at `cargo publish` stays on crates.io until the next
+release. That is why the audit gates the release, not just each PR.
 
 ## Conventions
 

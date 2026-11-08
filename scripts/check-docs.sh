@@ -1,19 +1,37 @@
 #!/usr/bin/env bash
-# Mechanical checks that the hand-written docs keep up with the code. Prose
-# cannot be checked this way; see "Keeping the docs current" in CLAUDE.md for
-# the rest. Run from anywhere; CI runs it in the `rust` job.
+# Mechanical checks that the hand-written docs keep up with the code: README.md
+# (what crates.io shows), the crate docs in src/lib.rs (the docs.rs front
+# page), the GitHub Pages site in docs/ and CHANGELOG.md. Prose cannot be
+# checked this way; see "Keeping the docs current" in CLAUDE.md and the
+# release skill (.claude/skills/crate-release) for the rest.
+#
+#   scripts/check-docs.sh                   every PR (CI runs it in the rust job)
+#   scripts/check-docs.sh --release X.Y.Z   also the release PR's version checks;
+#                                           must pass before vX.Y.Z is tagged
+#
+# The counts the docs quote are checked where they are computed: the
+# comparison count by scripts/compare-with-cpp.sh, the Kani harness count by
+# the kani CI job (scripts/check-counts.sh).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+release=""
+if [ "${1:-}" = "--release" ]; then
+  release="${2:?usage: check-docs.sh --release X.Y.Z}"
+fi
 status=0
 fail() { echo "check-docs: $*" >&2; status=1; }
+pages() { ls docs/*.md | grep -v '^docs/index.md$'; }
 
-# 1. Every example is in the README's and the site's quick start.
+# 1. Every example is in the README's and the site's quick start, has a row in
+#    the README's "What is ported" table, and is explained on a site page.
 for f in examples/*.rs; do
   name="$(basename "$f" .rs)"
   for doc in README.md docs/index.md; do
     grep -q -- "--example $name\b" "$doc" || fail "$doc has no 'cargo run ... --example $name' line"
   done
+  grep -q "examples/$name.rs" README.md || fail "README.md 'What is ported' has no row for examples/$name.rs"
+  grep -qw "$name" $(pages) || fail "no site page (docs/*.md other than index.md) mentions the $name example"
 done
 
 # 2. Every site link resolves: {{ site.baseurl }}/x must be docs/x.md, a
@@ -46,5 +64,69 @@ for f in data/*; do
   grep -q "$base" data/README.md || fail "data/README.md does not mention $base"
 done
 
-[ "$status" -eq 0 ] && echo "check-docs: ok"
+# 6. Every public module is in the README's "What is ported" table and linked
+#    from the crate docs (docs.rs's front page).
+for m in $(sed -n 's/^pub mod \([a-z0-9_]*\);/\1/p' src/lib.rs); do
+  grep -q "src/$m.rs" README.md || fail "README.md 'What is ported' has no row for src/$m.rs"
+  # The module itself, or one of the items it defines, re-exported at the root.
+  names="$m $(sed -nE 's/^pub (struct|enum|trait|type) ([A-Za-z0-9_]+).*/\2/p' "src/$m.rs" | tr '\n' ' ')"
+  found=""
+  for x in $names; do
+    grep -qE "^//!.*(\[\`$x\`\]|\`$x::|\[$x\])" src/lib.rs && found=1 && break
+  done
+  [ -n "$found" ] || fail "the crate docs (src/lib.rs) mention neither the $m module nor any item it defines"
+done
+
+# 7. Every test suite is named in README.md ("How equivalence is proven").
+for f in tests/*.rs; do
+  grep -q "tests/$(basename "$f")" README.md || fail "README.md does not mention tests/$(basename "$f")"
+done
+
+# 8. Every tool has a README and is named in README.md.
+for d in tools/*/; do
+  d="${d%/}"
+  [ -f "$d/README.md" ] || fail "$d has no README.md"
+  grep -q "$d" README.md || fail "README.md does not mention $d"
+done
+
+# 9. Every top-level public item added since the last release tag is named in
+#    the CHANGELOG (methods are covered by their type's entry). Needs the tags
+#    (CI checks out with fetch-depth 0).
+last_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+if [ -z "$last_tag" ]; then
+  fail "no release tag found (shallow clone?): cannot check new public items against CHANGELOG.md"
+else
+  for item in $(git diff "$last_tag"..HEAD -- src | sed -nE 's/^\+pub (const )?(fn|struct|enum|trait|type|const|static|mod) ([A-Za-z0-9_]+).*/\3/p' | sort -u); do
+    grep -qw "$item" CHANGELOG.md || fail "public item $item (new since $last_tag) is not named in CHANGELOG.md"
+  done
+fi
+
+# 10. Project names are lowercase in prose ("tinymind", "tinymind-rs").
+for f in $(grep -rlE 'TinyMind|Tinymind' README.md CHANGELOG.md docs src tools examples --include=*.md --include=*.rs --include=*.py || true); do
+  fail "camel-case project name in $f"
+done
+
+# Release mode: the release PR must leave nothing pointing at the old version.
+if [ -n "$release" ]; then
+  [ "$version" = "$release" ] || fail "Cargo.toml version is $version, not $release"
+  grep -qE "^## \[$release\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md \
+    || fail "CHANGELOG.md has no '## [$release] - YYYY-MM-DD' heading"
+  unreleased="$(awk '/^## \[Unreleased\]/{f=1;next} /^## \[/{f=0} f' CHANGELOG.md | grep -v '^[[:space:]]*$' || true)"
+  [ -z "$unreleased" ] || fail "CHANGELOG.md [Unreleased] still has entries: move them under $release"
+  grep -q "^\[Unreleased\]: .*/compare/v$release\.\.\.HEAD$" CHANGELOG.md \
+    || fail "CHANGELOG.md [Unreleased] link does not compare from v$release"
+  grep -q "^\[$release\]: .*/compare/v.*\.\.\.v$release$" CHANGELOG.md \
+    || fail "CHANGELOG.md has no [$release] comparison link"
+  for lock in Cargo.lock ci/panic-never/Cargo.lock bench/Cargo.lock; do
+    grep -A1 '^name = "tinymind"$' "$lock" | grep -q "^version = \"$release\"$" \
+      || fail "$lock does not pin tinymind $release (cargo update -p tinymind there)"
+  done
+  grep -q "^As of $release:" docs/bit-for-bit.md || fail "docs/bit-for-bit.md is not 'As of $release:'"
+  grep -q "$release" CLAUDE.md || fail "CLAUDE.md's release list does not mention $release"
+  if git rev-parse -q --verify "refs/tags/v$release" >/dev/null; then
+    fail "tag v$release already exists"
+  fi
+fi
+
+[ "$status" -eq 0 ] && echo "check-docs: ok${release:+ (release $release)}"
 exit "$status"
