@@ -50,7 +50,7 @@ cargo run --release --example imported_trees
 | Gradient boosting, 30 rounds of depth-2 trees | int8 | 90 (one per class per round) | 53 (scikit-learn: 53) |
 | Random forest, 15 voting trees of depth 4 | int16 | 15 | 53 (scikit-learn: 53) |
 
-On the two boards ([On-board results]({{ site.baseurl }}/benchmarks)), the gradient-boosted model predicts in 18 µs on the F411 and 82 µs on the L031 in its nested-`if` form (91 and 556 µs walking the pool), and both models give the same answers as on the host. The model stays in flash: it is read from there, not copied to SRAM.
+On the two boards ([On-board results]({{ site.baseurl }}/benchmarks)), the gradient-boosted model predicts in 18 µs on the F411 and 82 µs on the L031 in its nested-`if` form (93 and 556 µs walking the pool), and both models give the same answers as on the host. The model stays in flash: it is read from there, not copied to SRAM.
 
 The same two models imported with tinymind (C++)'s importer and run on the tinymind (C++) runtime print byte-identical output, and so do 18 more models across every supported family when checked against the importers' shared integer reference.
 

@@ -46,10 +46,10 @@ The boards run the same program and print the same report. Its hash covers every
 | | NUCLEO-F411RE (Cortex-M4F, 100 MHz) | NUCLEO-L031K6 (Cortex-M0+, 32 MHz) |
 |---|---:|---:|
 | Training, 3,000 steps (signal generation included) | 0.14 s | 4.2 s |
-| One training step | 4,249 cycles (42 µs) | 35,336 cycles (1.1 ms) |
-| One detection (forward pass and error) | 1,332 cycles (13 µs) | 8,104 cycles (253 µs) |
+| One training step | 4,250 cycles (42 µs) | 35,336 cycles (1.1 ms) |
+| One detection (forward pass and error) | 1,333 cycles (13 µs) | 8,104 cycles (253 µs) |
 | Stack, over the empty harness | 3.2 KB | 3.6 KB |
-| Flash, over the empty harness | 18.7 KB | 20.5 KB |
+| Flash, over the empty harness | 18.9 KB | 20.5 KB |
 
 The flash figures include the demo's signal generator and its text report, not only the network. The L031 image fills its 32 KB of flash to within about 200 bytes.
 
