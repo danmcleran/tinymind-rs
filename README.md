@@ -15,7 +15,7 @@ Documentation, including the API reference: <https://danmcleran.github.io/tinymi
 
 ## Status
 
-Early. So far the port covers Q16.16 and Q8.8 arithmetic, ReLU, linear and
+The port covers Q16.16 and Q8.8 arithmetic, ReLU, linear and
 lookup-table tanh and sigmoid activations, floating-point (`f32`, `f64`) networks
 trained with SGD or tinymind (C++)'s floating-point Adam and RMSprop (tanh,
 sigmoid, `pow` and `sqrt` from the math library: feature `std`, or `libm`
@@ -25,7 +25,7 @@ networks of the same depths that are just their weights, int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
 (for residual connections) and multiplication, padding, concatenation, quantized
-ReLU, activation tables, and a softmax that is bit-exact with TFLite's), and quantized decision trees and gradient-boosted ensembles. The API is not stable yet: before 1.0, a minor version may break it.
+ReLU, activation tables, and a softmax that is bit-exact with TFLite's), and quantized decision trees and gradient-boosted ensembles. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters

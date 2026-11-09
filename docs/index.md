@@ -35,7 +35,7 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-Early. The port covers what six of tinymind (C++)'s examples use (XOR, iris, energy efficiency, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, and a TFLite translator:
+The port covers what six of tinymind (C++)'s examples use (XOR, iris, energy efficiency, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
 
 | Ported | Not yet ported |
 |---|---|
