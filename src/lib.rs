@@ -16,8 +16,8 @@
 //! affine-quantized inference ([`int8`]: dense layers, 2D convolutions (standard,
 //! depthwise and pointwise), pooling, elementwise addition and multiplication,
 //! padding, concatenation, quantized activations
-//! and a TFLite-exact softmax), and quantized decision trees and gradient-boosted
-//! ensembles ([`tree`]). Every part produces the same bits as
+//! and a TFLite-exact softmax), quantized decision trees and gradient-boosted
+//! ensembles ([`tree`]), and tabular Q-learning ([`qlearn`]). Every part produces the same bits as
 //! tinymind (C++) (floating point: with `std` on a glibc host). [`rand`] re-implements glibc's `rand()`, which tinymind (C++)'s
 //! examples use for weight initialisation and sampling, so they can be
 //! reproduced bit for bit. The library is `no_std` and allocation-free, like tinymind (C++)'s
@@ -79,6 +79,7 @@ pub mod network;
 pub mod neuralnet;
 pub mod optimizer;
 pub mod qformat;
+pub mod qlearn;
 pub mod rand;
 pub mod tree;
 

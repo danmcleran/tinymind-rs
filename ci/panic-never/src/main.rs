@@ -13,6 +13,7 @@ use tinymind::int8::{
     QDepthwiseConv2D, QGlobalAvgPool2D, QMaxPool2D, QMul, QPad2D, QPointwiseConv2D,
     QPointwiseConv2DPerChannel, QSoftmax, Requantizer,
 };
+use tinymind::qlearn;
 use tinymind::rand::GlibcRand;
 use tinymind::tree::{self, QDecisionTree, QGbdt, QTreeNode};
 
@@ -481,6 +482,47 @@ fn trees<T: Copy + Into<i32>>(threshold: T, input: T) {
     black_box((g.forward(&x), g.predict(&x), g.is_valid()));
 }
 
+/// An environment whose answers the optimiser cannot see: any number of valid
+/// actions (more than `ACTIONS` included) and any random integer.
+struct OpaqueEnvironment;
+
+impl qlearn::Environment<4> for OpaqueEnvironment {
+    fn valid_actions(&self, _state: usize, actions: &mut [usize; 4]) -> usize {
+        *actions = black_box([0; 4]);
+        black_box(4)
+    }
+
+    fn random_int(&mut self, min: usize, _max: usize) -> usize {
+        black_box(min)
+    }
+}
+
+fn q_learning<V: Scalar>(raw: fn(i32) -> V) {
+    let mut q = qlearn::QLearner::<V, _, 6, 4>::new(
+        OpaqueEnvironment,
+        raw(black_box(13_107)),
+        raw(black_box(52_428)),
+        black_box(50),
+    );
+    q.start_new_episode();
+    let action = q.take_action(black_box(0)).unwrap_or(black_box(9));
+    q.update_from_experience(&qlearn::Experience {
+        action,
+        reward: raw(black_box(65_536)),
+        new_state: black_box(3),
+    });
+    q.set_q_value(black_box(7), black_box(1), raw(black_box(1)));
+    q.set_learning_rate(raw(black_box(1)));
+    q.set_discount_factor(raw(black_box(1)));
+    q.set_random_action_decision_point(black_box(101));
+    q.set_state(black_box(8));
+    black_box((
+        q.q_value(black_box(2), black_box(5)),
+        q.state(),
+        q.q_values(),
+    ));
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
     arithmetic();
@@ -525,6 +567,10 @@ pub extern "C" fn _start() -> ! {
     deep_network::<f64, Relu, Sigmoid>(|r| f64::from(r) / 65536.0);
     deep_network::<f32, Tanh, Sigmoid>(|r| r as f32 / 65536.0);
     adaptive_float();
+    // Q-learning, both formats and floating point.
+    q_learning::<Q16_16>(Q16_16::from_raw);
+    q_learning::<Q8_8>(|r| Q8_8::from_raw(r as i16));
+    q_learning::<f32>(|r| r as f32 / 65536.0);
     #[allow(clippy::empty_loop)]
     loop {}
 }

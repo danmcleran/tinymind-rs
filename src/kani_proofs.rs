@@ -431,6 +431,57 @@ mod tree {
     }
 }
 
+/// Q-learning: no panic for any Q values, rates, exploration percentage,
+/// states, actions and rewards, whatever the environment returns (more valid
+/// actions than `ACTIONS`, random integers out of range).
+mod qlearn {
+    use crate::qformat::Q8_8;
+    use crate::qlearn::{Environment, Experience, QLearner, QTable};
+
+    struct AnyEnvironment;
+
+    impl Environment<3> for AnyEnvironment {
+        fn valid_actions(&self, _state: usize, actions: &mut [usize; 3]) -> usize {
+            *actions = kani::any();
+            kani::any()
+        }
+
+        fn random_int(&mut self, _min: usize, _max: usize) -> usize {
+            kani::any()
+        }
+    }
+
+    fn any_q8_8() -> Q8_8 {
+        Q8_8::from_raw(kani::any())
+    }
+
+    #[kani::proof]
+    #[kani::unwind(5)]
+    fn qlearner_never_panics() {
+        let table = QTable::<Q8_8, 2, 3>::from_values([
+            [any_q8_8(), any_q8_8(), any_q8_8()],
+            [any_q8_8(), any_q8_8(), any_q8_8()],
+        ]);
+        let mut q = QLearner::<Q8_8, AnyEnvironment, 2, 3, _>::with_q_values(
+            AnyEnvironment,
+            table,
+            any_q8_8(),
+            any_q8_8(),
+            kani::any(),
+        );
+        if kani::any() {
+            q.start_new_episode();
+        }
+        let _ = q.take_action(kani::any());
+        q.update_from_experience(&Experience {
+            action: kani::any(),
+            reward: any_q8_8(),
+            new_state: kani::any(),
+        });
+        let _ = q.take_action(kani::any());
+    }
+}
+
 /// Int8 convolutions and pooling: no panic for any weights, biases, inputs,
 /// zero points and requantizers, with windows reaching into padding on every
 /// side; the pooling divide rounds half away from zero.

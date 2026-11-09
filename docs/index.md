@@ -35,7 +35,7 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-The port covers what six of tinymind (C++)'s examples use (XOR, iris, energy efficiency, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
+The port covers what seven of tinymind (C++)'s examples use (XOR, iris, energy efficiency, the Q-learning maze, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
 
 | Ported | Not yet ported |
 |---|---|
@@ -43,6 +43,7 @@ The port covers what six of tinymind (C++)'s examples use (XOR, iris, energy eff
 | ReLU, linear, and tanh and sigmoid via lookup tables; int8 inference (requantizer, dense layers, 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition and multiplication, padding, concatenation, quantized ReLU, int8 activation tables, softmax bit-exact with TFLite's); quantized decision trees and gradient-boosted ensembles, with an importer for scikit-learn, XGBoost and LightGBM models | The other activations (capped and leaky ReLU, ...) |
 | Trainable networks with up to seven hidden layers (SGD with momentum, Adam or RMSprop; optional gradient clipping); inference-only networks of the same depths (weights only, can live in flash) | Weight decay and learning-rate schedules, recurrent layers, the rest of the int8 family (recurrent cells, attention), SIMD |
 | Floating-point (`f32`, `f64`) networks, trained with SGD or tinymind (C++)'s floating-point Adam and RMSprop | |
+| Tabular Q-learning (`QLearner` over a `QTable`), with tinymind (C++)'s maze example | The deep Q-network (`QValueNeuralNetworkPolicy`) |
 
 The crate is on [crates.io](https://crates.io/crates/tinymind); the API is not stable yet (before 1.0, a minor version may break it). tinymind (C++) itself is the full library; this port grows by porting slices of it.
 
@@ -62,6 +63,7 @@ cargo run --release --features std --example imported_cnn    # convolutional mod
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN
 cargo run --release --example imported_trees                 # scikit-learn trees via the tree importer
+cargo run --release --example maze -- output                 # Q-learning: find the way out of a six-room maze
 cargo test --all-features                                # unit, doc and golden tests
 ```
 

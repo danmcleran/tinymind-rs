@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Render the example plots for the docs site: xor in both formats, iris,
-energy efficiency, anomaly detection and the int8 GBDT.
+energy efficiency, anomaly detection, the int8 GBDT and the Q-learning maze.
 
-Runs the Rust `xor`, `iris`, `energy_efficiency`, `anomaly` and `gbdt_tabular_int8`
+Runs the Rust `xor`, `iris`, `energy_efficiency`, `anomaly`, `gbdt_tabular_int8` and `maze`
 examples (which, except anomaly, write byte-identical output to the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
 from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
@@ -32,6 +32,7 @@ IRIS = os.path.join(ROOT, "target", "release", "examples", "iris")
 ENERGY = os.path.join(ROOT, "target", "release", "examples", "energy_efficiency")
 ANOMALY = os.path.join(ROOT, "target", "release", "examples", "anomaly")
 GBDT = os.path.join(ROOT, "target", "release", "examples", "gbdt_tabular_int8")
+MAZE = os.path.join(ROOT, "target", "release", "examples", "maze")
 IRIS_NAMES = ["setosa", "versicolor", "virginica"]
 OUT = os.path.join(ROOT, "docs", "assets", "plots")
 FORMATS = [("q16.16", "Q16.16", "q16_16"), ("q8.8", "Q8.8", "q8_8")]
@@ -234,8 +235,54 @@ def gbdt(out_dir, png):
     tp.plt.close(fig)
 
 
+# Fewest moves from each room to the goal (room 5 must step out through its own door).
+MAZE_SHORTEST = {0: 2, 1: 1, 2: 3, 3: 2, 4: 1, 5: 1}
+
+
+def maze(out_dir, png):
+    """Moves per training episode, and each test episode against the shortest path."""
+    def load(name):
+        with open(os.path.join(out_dir, name)) as f:
+            return [[int(x) for x in line.strip().rstrip(",").split(",")] for line in f if line.strip()]
+    train, test = load("maze_training.csv"), load("maze_test.csv")
+
+    tp.apply_style()
+    fig, (ax1, ax2) = tp.plt.subplots(1, 2, figsize=(12, 4.6), gridspec_kw={"width_ratios": [2, 1]})
+    fig.suptitle("tinymind-rs: Q-learning, the way out of a six-room maze (Q16.16)",
+                 fontsize=13, fontweight="bold")
+    moves = [len(e) - 1 for e in train]
+    ax1.scatter(range(len(moves)), moves, s=9, color=tp.PALETTE[0], alpha=0.6, label="moves")
+    shortest = [MAZE_SHORTEST[e[0]] for e in train]
+    ax1.scatter(range(len(shortest)), shortest, s=4, color=tp.PALETTE[3], alpha=0.5,
+                label="shortest from the start room")
+    ax1.axvline(400, color=tp.MUTED, linestyle="--", linewidth=1.0)
+    ax1.text(405, max(moves) * 0.6, "exploration falls\n1 point per episode", fontsize=9, color=tp.MUTED)
+    ax1.set_yscale("log")
+    ax1.set_xlabel("training episode")
+    ax1.set_ylabel("moves to the goal")
+    ax1.set_title("400 episodes of pure exploration, then 100 of decaying exploration",
+                  fontsize=9, color=tp.MUTED)
+    ax1.legend(loc="upper left")
+
+    rooms = sorted(MAZE_SHORTEST)
+    taken = [sum(len(e) - 1 for e in test if e[0] == r) / max(1, sum(1 for e in test if e[0] == r))
+             for r in rooms]
+    xs = range(len(rooms))
+    ax2.bar([x - 0.2 for x in xs], [MAZE_SHORTEST[r] for r in rooms], width=0.4,
+            color=tp.PALETTE[3], label="shortest")
+    ax2.bar([x + 0.2 for x in xs], taken, width=0.4, color=tp.PALETTE[0], label="learned (mean)")
+    ax2.set_xticks(list(xs))
+    ax2.set_xticklabels(["room %d" % r for r in rooms], fontsize=9)
+    ax2.set_ylabel("moves to the goal")
+    ax2.set_title("100 test episodes, no exploration", fontsize=9, color=tp.MUTED)
+    ax2.legend(loc="upper right")
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    fig.savefig(png)
+    tp.plt.close(fig)
+
+
 def main():
-    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY, GBDT)):
+    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY, GBDT, MAZE)):
         sys.exit("build first: cargo build --release --examples --features std")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
@@ -269,6 +316,11 @@ def main():
         subprocess.run([GBDT, tmp], check=True, stdout=subprocess.DEVNULL)
         png = os.path.join(OUT, "gbdt_regions.png")
         gbdt(tmp, png)
+        print("wrote", os.path.relpath(png, ROOT))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([MAZE, tmp], check=True, stdout=subprocess.DEVNULL)
+        png = os.path.join(OUT, "maze_paths.png")
+        maze(tmp, png)
         print("wrote", os.path.relpath(png, ROOT))
 
 

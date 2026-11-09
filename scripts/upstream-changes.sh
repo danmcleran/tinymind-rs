@@ -31,10 +31,12 @@ PORTED=(
   cpp/weightDecay.hpp
   cpp/adam.hpp
   cpp/rmsprop.hpp
+  cpp/qlearn.hpp
   cpp/include/nnproperties.hpp
   examples/xor
   examples/iris
   examples/energy_efficiency
+  examples/maze
   examples/pytorch_quant/xor
   apps/import_pytorch
   apps/import_trees
