@@ -11,7 +11,8 @@
 //! trains on the device ([`MultilayerPerceptron`]) or only runs trained weights
 //! ([`InferencePerceptron`], tinymind (C++)'s `IsTrainable = false`), int8
 //! affine-quantized inference ([`int8`]: dense layers, 2D convolutions (standard,
-//! depthwise and pointwise), pooling, elementwise addition, quantized activations
+//! depthwise and pointwise), pooling, elementwise addition and multiplication,
+//! padding, concatenation, quantized activations
 //! and a TFLite-exact softmax), and quantized decision trees and gradient-boosted
 //! ensembles ([`tree`]). Every part produces the same bits as
 //! tinymind (C++). [`rand`] re-implements glibc's `rand()`, which tinymind (C++)'s

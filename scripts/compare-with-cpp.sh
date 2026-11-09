@@ -291,6 +291,24 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test add_sweep
   && same "add Rust vs tests/golden/add" \
   || { echo "DIFFERENT  add Rust vs tests/golden/add"; status=1; }
 
+echo "== compose"
+# tinymind's int8 QMul, QConcat2_2D and QPad2D with their calibration;
+# tests/compose_sweep.rs checks the Rust layers against the committed golden.
+mkdir -p "$TMP/compose"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/compose/compose_sweep" "$ROOT/scripts/cpp/compose_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+"$TMP/compose/compose_sweep" > "$TMP/compose/stdout.txt"
+if cmp -s "$TMP/compose/stdout.txt" "$ROOT/tests/golden/compose/stdout.txt"; then
+  same "compose stdout.txt (C++ vs tests/golden/compose)"
+else
+  echo "DIFFERENT  compose stdout.txt (C++ vs tests/golden/compose)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test compose_sweep >/dev/null 2>&1 \
+  && same "compose Rust vs tests/golden/compose" \
+  || { echo "DIFFERENT  compose Rust vs tests/golden/compose"; status=1; }
+
 echo "== kws_int8"
 # tinymind's examples/kws_cortex_m_int8, compiled unchanged inside
 # scripts/cpp/kws_int8_dump.cpp, which prints every tensor (its own stdout
@@ -495,6 +513,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/cnn/cpp.txt" "$KEEP_CPP_OUTPUT/imported_cnn/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/conv"
   cp "$TMP/conv/stdout.txt" "$KEEP_CPP_OUTPUT/conv/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/compose"
+  cp "$TMP/compose/stdout.txt" "$KEEP_CPP_OUTPUT/compose/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/add"
   cp "$TMP/add/stdout.txt" "$KEEP_CPP_OUTPUT/add/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"

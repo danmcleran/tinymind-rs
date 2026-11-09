@@ -21,7 +21,8 @@ hidden layers (SGD with momentum, Adam or RMSprop, optional gradient clipping) a
 inference-only networks of any depth that are just their weights, int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
-(for residual connections), quantized ReLU, activation tables, and a softmax that is bit-exact with TFLite's), and quantized decision trees and gradient-boosted ensembles. The API is not stable yet: before 1.0, a minor version may break it.
+(for residual connections) and multiplication, padding, concatenation, quantized
+ReLU, activation tables, and a softmax that is bit-exact with TFLite's), and quantized decision trees and gradient-boosted ensembles. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -131,6 +132,7 @@ set.
 | `src/int8/conv.rs` | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`: int8 2D convolution (per-tensor and per-channel), depthwise and pointwise convolution, with zero-point padding |
 | `src/int8/pool.rs` | `cpp/qpool2d.hpp`: int8 max, average and global average pooling |
 | `src/int8/add.rs` | `cpp/qadd.hpp`: int8 elementwise addition (TFLite ADD), for residual connections |
+| `src/int8/compose.rs` | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`: int8 elementwise multiplication (TFLite MUL), explicit padding (PAD) and channel concatenation (CONCATENATION) |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
 | `src/tree.rs` | `cpp/qtree.hpp`: quantized decision tree (`QDecisionTree`) and gradient-boosted ensemble (`QGbdt`) over a shared node pool; not the compile-time `QStatic*` forms |
 | `examples/gbdt_tabular_int8.rs` | `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp` |
@@ -192,7 +194,10 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `tests/add_sweep.rs` checks the int8 elementwise addition and its
   calibration (`calibration::build_add`) against tinymind (C++)'s `QAdd` and
   `buildQAddParams`: 48 calibrated layers on all 65,536 input pairs, and 80
-  layers with random integer parameters, some saturating.
+  layers with random integer parameters, some saturating. `tests/compose_sweep.rs`
+  checks multiplication, concatenation and padding (`QMul`, `QConcat`, `QPad2D`)
+  and their calibration against tinymind (C++)'s `QMul`, `QConcat2_2D`,
+  `QPad2D`, `buildQMulRequantizer` and `buildRescaler`.
 - `tests/gbdt_golden.rs` checks the GBDT example's three outputs against
   `tests/golden/gbdt/`, and `tests/tree_sweep.rs` checks the trees against
   tinymind (C++)'s `QDecisionTree` and `QGBDT` over 72 random ensembles (int8, uint8
@@ -203,7 +208,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (54 checks today, including
+  example does, runs both sides, and compares every output file (56 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
@@ -217,7 +222,8 @@ the int8 quantization tiers, SIMD backends, and so on.
   `QValue` operations match their definitions (division: that it never panics),
   that tanh and sigmoid stay within their tables' range, that the int8
   requantizer's fast path equals gemmlowp's two-step rounding, and that the
-  requantizer, the int8 dense layers, convolutions, pooling and addition, the
+  requantizer, the int8 dense layers, convolutions, pooling, addition,
+  multiplication, padding and concatenation, the
   tables, the softmax and the trees never panic, and that pooling's divide rounds half away
   from zero.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
