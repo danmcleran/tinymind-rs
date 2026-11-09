@@ -12,6 +12,10 @@
 //! Only tinymind (C++)'s default policies are ported: `TruncatePolicy` (multiplication
 //! drops the low bits) and `WrapPolicy` (addition and subtraction wrap modulo the
 //! storage width).
+//!
+//! The module also defines [`Scalar`], the value-type trait every network is
+//! generic over, implemented for these formats and for `f32` and `f64` (and the
+//! deprecated [`Fixed`], its name up to 0.1.5).
 
 use core::fmt;
 use core::ops::{Add, AddAssign, Div, Mul, Sub};
@@ -78,6 +82,8 @@ pub trait Scalar:
 
 /// The name of [`Scalar`] up to 0.1.5, kept so that bounds written `V: Fixed`
 /// still compile. Every [`Scalar`] is a `Fixed`; implement [`Scalar`] instead.
+/// `Fixed` has no items of its own, so paths that name them through it
+/// (`<V as Fixed>::ONE`, `Fixed::div_int(..)`) must name [`Scalar`].
 ///
 /// ```
 /// # #![allow(deprecated)]

@@ -158,7 +158,7 @@ mod sealed {
     pub trait Sealed {}
 }
 
-/// An int8 tensor of any shape for elementwise layers ([`QAdd`]): `[i8; N]`,
+/// An int8 tensor for the elementwise layers ([`QAdd`], [`QMul`](super::QMul)): `[i8; N]`,
 /// `[[i8; C]; W]` or `[[[i8; C]; W]; H]`, read as its elements in memory
 /// order. Sealed: the crate implements it.
 pub trait Tensor: sealed::Sealed {

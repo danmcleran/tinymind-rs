@@ -1,7 +1,9 @@
 //! Host-side calibration: turning float scales into the integer parameters the
 //! int8 layers use (C++ `quantizeMultiplier`, `buildRequantizer`, `quantize`,
 //! `dequantize`, `buildQSigmoidLUT`, `buildQTanhLUT`,
-//! `buildQSoftmaxFixedPointParams`, `computeAffineParamsAsymmetric`, `buildQAddParams`, `buildRescaler`,
+//! `buildQSoftmaxFixedPointParams`, `computeAffineParamsAsymmetric`,
+//! `computeAffineParamsSymmetric`, `computePerChannelSymmetricScales`, the
+//! `RangeObserver`, `buildQAddParams`, `buildRescaler`,
 //! `buildQMulRequantizer`).
 //!
 //! Needs the `std` feature, for `f32::exp` and `f32::tanh`; tinymind (C++) gates the

@@ -4,8 +4,8 @@
 //! Scope: Q16.16 and Q8.8 arithmetic and a fixed-point square root ([`Sqrt`]); ReLU, [`Linear`] and the tanh and sigmoid
 //! lookup-table activations; `f32` and `f64` as network value types (their
 //! [`Tanh`] and [`Sigmoid`] need the `std` or `libm` feature, as do the
-//! floating-point `AdamFloat` and `RmsPropFloat`); trainable networks with any
-//! number of hidden layers
+//! floating-point `AdamFloat` and `RmsPropFloat`); trainable networks with up
+//! to seven hidden layers
 //! ([`NeuralNetwork`] over [`Dense`] layers, trained with SGD and momentum,
 //! [`Adam`] or [`RmsProp`], with optional gradient clipping) and their
 //! inference-only form ([`InferenceNetwork`] over [`InferenceDense`] layers:
@@ -18,10 +18,19 @@
 //! padding, concatenation, quantized activations
 //! and a TFLite-exact softmax), and quantized decision trees and gradient-boosted
 //! ensembles ([`tree`]). Every part produces the same bits as
-//! tinymind (C++). [`rand`] re-implements glibc's `rand()`, which tinymind (C++)'s
+//! tinymind (C++) (floating point: with `std` on a glibc host). [`rand`] re-implements glibc's `rand()`, which tinymind (C++)'s
 //! examples use for weight initialisation and sampling, so they can be
 //! reproduced bit for bit. The library is `no_std` and allocation-free, like tinymind (C++)'s
 //! freestanding build.
+//!
+//! # Features
+//!
+//! - `std`: host-side int8 calibration (`int8::calibration`), and the math
+//!   (`tanh`, `exp`, `pow`, `sqrt`) of the `f32`/`f64` [`Tanh`], [`Sigmoid`],
+//!   `AdamFloat` and `RmsPropFloat`, from the platform (bit-identical to
+//!   tinymind (C++) on a glibc host).
+//! - `libm`: the same float math without `std`, from the `libm` crate (for a
+//!   Cortex-M4F, say); within a few ulps of glibc, not bit-identical.
 //!
 //! # Example
 //!

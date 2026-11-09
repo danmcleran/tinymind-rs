@@ -6,7 +6,7 @@ nav_order: 12
 
 # Porting a C++ neural-network library to embedded Rust, bit for bit
 
-[tinymind (C++)](https://danmcleran.github.io/tinymind/) is my C++ template library for neural networks on microcontrollers: fixed-point and int8 arithmetic, no heap, small enough that a trainable XOR network fits in a few kilobytes. [tinymind-rs](https://github.com/danmcleran/tinymind-rs) is its Rust port, published on crates.io as [`tinymind`](https://crates.io/crates/tinymind).
+[tinymind (C++)](https://danmcleran.github.io/tinymind/) is my C++ template library for neural networks on microcontrollers: fixed-point, int8 and floating-point arithmetic, no heap, small enough that a trainable XOR network fits in a few kilobytes. [tinymind-rs](https://github.com/danmcleran/tinymind-rs) is its Rust port, published on crates.io as [`tinymind`](https://crates.io/crates/tinymind).
 
 The port has one rule that shapes everything else: **every ported path produces the same bits as the C++.** Not "close", not "within a tolerance": the same bytes in every output file. This post is about what that rule demands, how it is checked, and what Rust's guarantees did and did not buy along the way.
 
@@ -14,13 +14,13 @@ The port has one rule that shapes everything else: **every ported path produces 
 
 As of 0.1.5:
 
-- Q16.16 and Q8.8 fixed-point arithmetic (`QValue<i32, 16>`, `QValue<i16, 8>`), with ReLU, linear, and lookup-table tanh and sigmoid activations.
-- Networks that train on the device with SGD and momentum, Adam or RMSprop (optionally with gradient clipping): any number of hidden layers (`NeuralNetwork` over `Dense` layers), and a one-hidden-layer perceptron (`MultilayerPerceptron`), each with an inference-only version that holds nothing but its weights (`InferenceNetwork`, `InferencePerceptron`).
-- int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), quantized ReLU, activation tables, and a softmax that is bit-exact with TFLite's.
+- Q16.16 and Q8.8 fixed-point arithmetic (`QValue<i32, 16>`, `QValue<i16, 8>`), with ReLU, linear, and lookup-table tanh and sigmoid activations; the same networks also run on `f32` and `f64`.
+- Networks that train on the device with SGD and momentum, Adam or RMSprop (optionally with gradient clipping; for `f32`/`f64` also tinymind (C++)'s floating-point Adam and RMSprop, `AdamFloat` and `RmsPropFloat`): up to seven hidden layers (`NeuralNetwork` over `Dense` layers), and a one-hidden-layer perceptron (`MultilayerPerceptron`), each with an inference-only version that holds nothing but its weights (`InferenceNetwork`, `InferencePerceptron`).
+- int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), 2D convolutions (standard, depthwise and pointwise), pooling, residual addition, multiplication, padding, concatenation, quantized ReLU, activation tables, and a softmax that is bit-exact with TFLite's.
 - Quantized decision trees and gradient-boosted ensembles (`QDecisionTree`, `QGbdt`) over a node pool that can live in flash, with int8, uint8 or int16 thresholds.
-- Two importers (in the repository, not the crate) that write `no_std` Rust modules: one for a trained PyTorch `nn.Sequential`, one for scikit-learn, XGBoost and LightGBM tree models.
+- Three tools (in the repository, not the crate) that write `no_std` Rust modules: an importer for a trained PyTorch `nn.Sequential` (dense and convolutional), one for scikit-learn, XGBoost and LightGBM tree models, and a translator for int8 TensorFlow Lite models.
 
-The library is `no_std`, allocation-free, has no dependencies, and is `#![forbid(unsafe_code)]`.
+The library is `no_std`, allocation-free, has no required dependencies (`libm` is optional), and is `#![forbid(unsafe_code)]`.
 
 ## Why bit-exact
 
@@ -76,7 +76,7 @@ int8 MLP, one inference:
 | STM32F411 | 21,502 cycles | 20,486 cycles | 5,548 B |
 | STM32L031 | 42,514 cycles | 35,963 cycles | 5,412 B |
 
-TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,204 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction; Arm DSP intrinsics are not available in stable Rust, so the port stays on the scalar path for now.
+TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,204 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction. Arm DSP intrinsics are not available in stable Rust, so the port has no SMLAD path of its own; only its multi-channel convolutions reach SMLAD, through LLVM, when built with an opt-in LLVM option. Convolutional networks are faster than the C++'s portable build even without it: the KWS-shaped CNN by 13-27%, the MLPerf Tiny DS-CNN by 16% and ResNet-8 by 25% (full tables on [On-board results]({{ site.baseurl }}/benchmarks)).
 
 ## Shipping a trained network
 
@@ -112,7 +112,7 @@ For int8 models, the importer runs tinymind (C++)'s own calibration and quantiza
 ```python
 import tinymind_import as ti
 
-layers = ti.from_torch(net)   # nn.Sequential of Linear / ReLU / Sigmoid / Tanh / Softmax
+layers = ti.from_torch(net, input_shape=(1, 12, 12))   # Linear, Conv2d, BatchNorm2d, pools, ReLU, ... (input_shape for conv nets)
 ti.import_pytorch_model(layers, "input", ti.MinMaxObserver(), calibration_inputs,
                         "my_model.rs", "my_model")
 ```
