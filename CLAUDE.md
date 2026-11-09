@@ -252,7 +252,15 @@ four spill on the M4; on the M0+ pointwise is 1% slower). DS-CNN 16.15M ->
 (82 cycles/output: LLVM unrolls the 25x5 pixel loop and keeps the 9 weights on
 the stack; a range-based edge path was slower, 0.70M). Tried and dropped: band
 path for C=1 (KWS 286K), word loads + sign-extended lanes (LLVM narrows back to
-ldrsb). Typed tensors cannot
+ldrsb). Also measured worse (2026-11-09), so not adopted: depthwise two
+adjacent pixels per pass (DS-CNN 13.23M -> 13.94M; KWS dw 22,807 -> 23,009);
+depthwise pixel-outer with every channel's window gathered once (14.68M: the
+channel-outer loop with weights and a prepared requantizer per channel wins
+despite its per-tap edge checks); dense with the input widened to i16 once and
+outputs in pairs (F411 MLP 21,517 vs 21,502, fc1/fc2 slower; L031 43,650 vs
+42,514; +244 B stack); 16-bit blocked pointwise (only pays with the opt-in
+parallel-DSP flag; by estimate 5-10% slower by default from re-widening the
+weights per pixel block). Typed tensors cannot
 share a ping-pong buffer, so `infer` scopes them (LLVM overlaps the slots); the
 profile runs in its own `#[inline(never)]` frame, or the L031 overflows 8 KB.
 The `mlperf-kws` and `mlperf-ic` workloads (F411 only) run the MLPerf DS-CNN
