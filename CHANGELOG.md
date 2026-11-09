@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-09
+
 ### Added
 
 - Floating-point networks: `Scalar` is implemented for `f32` and `f64`, so
@@ -229,7 +231,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.2...v0.1.3
