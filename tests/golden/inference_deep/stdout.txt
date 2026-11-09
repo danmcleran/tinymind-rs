@@ -1,0 +1,5 @@
+q16.16 2-4-4-1 tanh/sigmoid hash=0x984BE860 trainable_agrees=1
+q8.8 2-4-4-1 tanh/sigmoid hash=0x88B8DF00 trainable_agrees=1
+q16.16 4-8-6-5-3 relu/sigmoid hash=0xC8A22F1E trainable_agrees=1
+q8.8 4-8-6-3 relu/sigmoid hash=0x5976B31F trainable_agrees=1
+q16.16 3-6-2 relu/linear hash=0x2986967D trainable_agrees=1
