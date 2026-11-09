@@ -86,13 +86,13 @@ The MLPerf Tiny keyword-spotting reference model (49x10 MFCC input, a 10x4 convo
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **16,197,424** | **162.0 ms** | **46,384 B** | **16,336 B** |
+| **tinymind-rs** | **16,148,194** | **161.5 ms** | **46,368 B** | **16,336 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,432 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,828 B |
 
-The Rust model is within 2.9% of tinymind (C++)'s portable build in less flash and RAM; tinymind (C++)'s SMLAD build and TFLM with CMSIS-NN are faster, as neither SIMD path is open to the Rust port.
+The Rust model is within 2.6% of tinymind (C++)'s portable build in less flash and RAM; tinymind (C++)'s SMLAD build and TFLM with CMSIS-NN are faster, as neither SIMD path is open to the Rust port.
 
 ## MLPerf Tiny image classification (ResNet-8)
 
@@ -100,13 +100,16 @@ The MLPerf Tiny image-classification reference model (32x32x3 CIFAR-10 input, a 
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **91,085,417** | **910.9 ms** | **101,076 B** | **86,520 B** |
+| **tinymind-rs** | **64,407,536** | **644.1 ms** | **130,184 B** | **57,692 B** |
+| tinymind-rs, `-C llvm-args=-arm-parallel-dsp-load-limit=512` | 41,401,469 | 414.0 ms | 125,384 B | 57,700 B |
 | tinymind (C++), scalar | 85,467,754 | 854.7 ms | 120,836 B | 54,380 B |
 | tinymind (C++), +SMLAD | 26,753,191 | 267.5 ms | 108,324 B | 54,424 B |
 | TFLM int8 (CMSIS-NN) | 37,372,049 | 373.7 ms | 191,212 B | 56,608 B |
 | TFLM int8 (reference kernels) | 191,555,451 | 1,915.6 ms | 155,412 B | 55,396 B |
 
-The Rust model takes 6.6% more cycles than tinymind (C++)'s portable build, in 16% less flash but 59% more RAM: tinymind (C++) plans one byte arena for every tensor, while the Rust module keeps typed buffers per shape (three of each of the three shapes), which cannot share storage without `unsafe`. Its 3x3 convolutions over 16 to 64 channels have not been tuned on the board yet, as the KWS-shaped network's were.
+The Rust model takes 25% fewer cycles than tinymind (C++)'s portable build, in 8% more flash and 6% more RAM. Its convolutions over several input channels widen the input rows and each filter's weights to 16 bits and add products in pairs, and its residual additions look each input's rescaling up in a 256-entry table. The translator plans one byte arena for the feature maps, as tinymind (C++) does (49,152 B), and views it as typed tensors without `unsafe`.
+
+On cores with the DSP extension (Cortex-M4, M7, M33), LLVM can turn those pairs of 16-bit products into `SMLAD`, the instruction behind tinymind (C++)'s +SMLAD build, from plain Rust: no intrinsics, no nightly, no `unsafe`. By default it gives up on long unrolled sums; building with `-C llvm-args=-arm-parallel-dsp-load-limit=512` (in `.cargo/config.toml`) lets it pair them, and the model then takes 41.4M cycles, 52% fewer than the portable C++ but still 1.5 times tinymind (C++)'s +SMLAD build, which also reads four int8 values per load. That option is an LLVM internal setting, not a stable Rust one, and only this model's convolutions use it so far.
 
 
 ## On-device training

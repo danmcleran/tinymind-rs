@@ -105,6 +105,188 @@ fn conv2d<
     }
 }
 
+/// Input channels from which [`QConv2D`] and [`QConv2DPerChannel`] take
+/// [`conv2d_band`]. With fewer (a stem over one or a few channels) the window
+/// is too short to pair, and reading each window once for all filters wins.
+const BAND_MIN_CHANNELS: usize = 2;
+
+/// `acc + sum x[i] * w[i]` over the shorter of the two rows, wrapping. Written
+/// as pairs of products added to one accumulator: on Cortex-M cores with the
+/// DSP extension (M4, M7, M33), LLVM's Arm parallel-DSP pass turns each pair
+/// of adjacent `i16` products into one `SMLAD`, whose sum wraps like
+/// `wrapping_add`.
+#[inline(always)]
+fn dot16(mut acc: i32, x: &[i16], w: &[i16]) -> i32 {
+    let n = x.len().min(w.len());
+    let mut i = 0;
+    while i + 1 < n && i + 1 < x.len() && i + 1 < w.len() {
+        let p0 = i32::from(x[i]) * i32::from(w[i]);
+        let p1 = i32::from(x[i + 1]) * i32::from(w[i + 1]);
+        acc = acc.wrapping_add(p0).wrapping_add(p1);
+        i += 2;
+    }
+    if let (Some(&x), Some(&w)) = (x.get(i), w.get(i)) {
+        if i < n {
+            acc = acc.wrapping_add(i32::from(x) * i32::from(w));
+        }
+    }
+    acc
+}
+
+/// [`conv2d`] for layers with several input channels, in 16 bits: per output
+/// row, the `KH` input rows it reads are widened once into `band` as `x -
+/// zero_point` (`i16`), and per filter its weights into `wide`; each window
+/// inside the input is then `KH` dot products over contiguous `KW * C`
+/// elements ([`dot16`]). Windows reaching into the padding add tap by tap.
+/// Widening costs one pass over the rows and over the weights per output row,
+/// small against the `OW * KH * KW * C` products per filter; the scratch is
+/// `2 * KH * (W + KW) * C` bytes of stack. Same products, same `i32` sums
+/// modulo 2^32, as [`conv2d`].
+#[allow(clippy::too_many_arguments)]
+fn conv2d_band<
+    'r,
+    const H: usize,
+    const W: usize,
+    const C: usize,
+    const KH: usize,
+    const KW: usize,
+    const F: usize,
+    const OH: usize,
+    const OW: usize,
+>(
+    input: &[[[i8; C]; W]; H],
+    output: &mut [[[i8; F]; OW]; OH],
+    weights: &[[[[i8; C]; KW]; KH]; F],
+    biases: Option<&[i32; F]>,
+    zero_point: i8,
+    rqs: impl Iterator<Item = &'r Requantizer> + Clone,
+    window: Window,
+) {
+    let mut band = [[[0i16; C]; W]; KH];
+    let mut valid = [false; KH];
+    let mut wide = [[[0i16; C]; KW]; KH];
+    let zp = i16::from(zero_point);
+    for (oh, out_row) in output.iter_mut().enumerate() {
+        let top = oh * window.stride_h;
+        for (kh, (band_row, ok)) in band.iter_mut().zip(valid.iter_mut()).enumerate() {
+            let row = (top + kh)
+                .checked_sub(window.pad_top)
+                .and_then(|r| input.get(r));
+            *ok = row.is_some();
+            if let Some(row) = row {
+                for (b, &x) in band_row
+                    .as_flattened_mut()
+                    .iter_mut()
+                    .zip(row.as_flattened())
+                {
+                    *b = i16::from(x) - zp;
+                }
+            }
+        }
+        for (f, (filter, rq)) in weights.iter().zip(rqs.clone()).enumerate() {
+            for (wide_row, filter_row) in wide.iter_mut().zip(filter) {
+                for (w16, &w) in wide_row
+                    .as_flattened_mut()
+                    .iter_mut()
+                    .zip(filter_row.as_flattened())
+                {
+                    *w16 = i16::from(w);
+                }
+            }
+            let rows = BandRows {
+                band: &band,
+                valid: &valid,
+                wide: &wide,
+                bias: bias_of(biases, f),
+                window,
+            };
+            match FastRequantizer::new(rq) {
+                Some(fast) => rows.run(out_row, f, |acc| fast.apply(acc)),
+                None => rows.run_general(out_row, f, rq),
+            }
+        }
+    }
+}
+
+/// One output row of one filter in [`conv2d_band`].
+struct BandRows<'t, const W: usize, const C: usize, const KH: usize, const KW: usize> {
+    band: &'t [[[i16; C]; W]; KH],
+    valid: &'t [bool; KH],
+    wide: &'t [[[i16; C]; KW]; KH],
+    bias: i32,
+    window: Window,
+}
+
+impl<const W: usize, const C: usize, const KH: usize, const KW: usize> BandRows<'_, W, C, KH, KW> {
+    /// The row for a requantizer without a prepared form, out of line and
+    /// tap by tap (the same sums as `run`, in less code): rare, so small.
+    #[cold]
+    #[inline(never)]
+    fn run_general<const F: usize, const OW: usize>(
+        &self,
+        out_row: &mut [[i8; F]; OW],
+        f: usize,
+        rq: &Requantizer,
+    ) {
+        for (ow, pixel) in out_row.iter_mut().enumerate() {
+            let acc = self.edge(ow * self.window.stride_w);
+            if let Some(out) = pixel.get_mut(f) {
+                *out = rq.apply(acc);
+            }
+        }
+    }
+
+    /// `bias + sum over the window` at padded column `left`, tap by tap: for
+    /// windows reaching into the padding.
+    #[inline(always)]
+    fn edge(&self, left: usize) -> i32 {
+        let mut acc = self.bias;
+        for ((band_row, &ok), wide_row) in self.band.iter().zip(self.valid).zip(self.wide) {
+            if !ok {
+                continue;
+            }
+            for (kw, taps) in wide_row.iter().enumerate() {
+                let x = (left + kw)
+                    .checked_sub(self.window.pad_left)
+                    .and_then(|c| band_row.get(c));
+                if let Some(x) = x {
+                    acc = dot16(acc, x, taps);
+                }
+            }
+        }
+        acc
+    }
+
+    #[inline(always)]
+    fn run<const F: usize, const OW: usize>(
+        &self,
+        out_row: &mut [[i8; F]; OW],
+        f: usize,
+        requantize: impl Fn(i32) -> i8,
+    ) {
+        let pad_left = self.window.pad_left;
+        for (ow, pixel) in out_row.iter_mut().enumerate() {
+            let left = ow * self.window.stride_w;
+            let mut acc = self.bias;
+            let interior = left
+                .checked_sub(pad_left)
+                .and_then(|c| self.band[0].get(c..c + KW).map(|_| c));
+            if let Some(c0) = interior {
+                for ((band_row, &ok), wide_row) in self.band.iter().zip(self.valid).zip(self.wide) {
+                    if let (true, Some(xs)) = (ok, band_row.get(c0..c0 + KW)) {
+                        acc = dot16(acc, xs.as_flattened(), wide_row.as_flattened());
+                    }
+                }
+            } else {
+                acc = self.edge(left);
+            }
+            if let Some(out) = pixel.get_mut(f) {
+                *out = requantize(acc);
+            }
+        }
+    }
+}
+
 /// A quantized 2D convolution with one requantizer for the whole output (C++
 /// `QConv2D<int8_t, int8_t, int32_t, int8_t, H, W, C, KH, KW, SH, SW, F, PT,
 /// PB, PL, PR>`).
@@ -194,15 +376,27 @@ impl<
             padded: PT + PB + PL + PR != 0,
         };
         let rqs = core::iter::repeat(&self.requantizer);
-        conv2d(
-            input,
-            output,
-            self.weights,
-            self.biases,
-            self.input_zero_point,
-            rqs,
-            window,
-        );
+        if C >= BAND_MIN_CHANNELS {
+            conv2d_band(
+                input,
+                output,
+                self.weights,
+                self.biases,
+                self.input_zero_point,
+                rqs,
+                window,
+            );
+        } else {
+            conv2d(
+                input,
+                output,
+                self.weights,
+                self.biases,
+                self.input_zero_point,
+                rqs,
+                window,
+            );
+        }
     }
 }
 
@@ -268,15 +462,27 @@ impl<
             padded: PT + PB + PL + PR != 0,
         };
         let rqs = self.requantizers.iter();
-        conv2d(
-            input,
-            output,
-            self.weights,
-            self.biases,
-            self.input_zero_point,
-            rqs,
-            window,
-        );
+        if C >= BAND_MIN_CHANNELS {
+            conv2d_band(
+                input,
+                output,
+                self.weights,
+                self.biases,
+                self.input_zero_point,
+                rqs,
+                window,
+            );
+        } else {
+            conv2d(
+                input,
+                output,
+                self.weights,
+                self.biases,
+                self.input_zero_point,
+                rqs,
+                window,
+            );
+        }
     }
 }
 

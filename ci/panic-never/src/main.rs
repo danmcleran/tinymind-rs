@@ -363,6 +363,11 @@ fn int8_conv() {
     let mut flat = [0i8; 2];
     add.forward(&input[0][0], &black_box(input[1][1]), &mut flat);
     black_box(&flat);
+    // 256 elements or more: the tabulated path.
+    let big: [[[i8; 8]; 8]; 8] = black_box([[[3; 8]; 8]; 8]);
+    let mut big_sum = [[[0i8; 8]; 8]; 8];
+    add.forward(&big, &black_box(big), &mut big_sum);
+    black_box(&big_sum);
 }
 
 /// Trees and ensembles with every field opaque, so any index may be out of

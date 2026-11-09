@@ -428,6 +428,26 @@ mod conv {
         layer.forward(&input, &mut output);
     }
 
+    /// Two input channels, so the layer takes its 16-bit band path: a 2x2
+    /// kernel over a 2x2 input padded on the bottom and the left, so one
+    /// window lies inside the input and the others reach into the padding.
+    #[kani::proof]
+    #[kani::unwind(6)]
+    fn conv_band_never_panics() {
+        let weights: [[[[i8; 2]; 2]; 2]; 1] = kani::any();
+        let biases: [i32; 1] = kani::any();
+        let requantizers = [any_requantizer()];
+        let layer: QConv2DPerChannel<'_, 2, 2, 2, 1, 1, 1, 0, 1, 1, 0> = QConv2DPerChannel {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
+        };
+        let input: [[[i8; 2]; 2]; 2] = kani::any();
+        let mut output = [[[0i8; 1]; 2]; 2];
+        layer.forward(&input, &mut output);
+    }
+
     #[kani::proof]
     #[kani::unwind(4)]
     fn conv_per_channel_never_panics() {

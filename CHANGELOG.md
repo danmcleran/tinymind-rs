@@ -17,7 +17,10 @@ break the API).
   and zero-point padding (SAME or any asymmetric amount) are const parameters,
   and an output size that does not match the input, kernel, strides and padding
   is a compile error. Bit-identical to tinymind (C++), checked over 57 random
-  layer configurations.
+  layer configurations. Convolutions over two or more input channels add
+  16-bit products in pairs; on Cortex-M4, M7 and M33, building with `-C
+  llvm-args=-arm-parallel-dsp-load-limit=512` lets LLVM turn them into `SMLAD`
+  instructions (see the int8 page).
 - Int8 elementwise addition, `int8::QAdd` (tinymind (C++)'s `cpp/qadd.hpp`,
   TFLite ADD), for residual connections, with `int8::calibration::build_add`
   (`buildQAddParams`). It takes any int8 tensor shape through the sealed
@@ -43,7 +46,8 @@ break the API).
   additions become a `no_std` Rust module. The MLPerf Tiny keyword-spotting
   (DS-CNN) and image-classification (ResNet-8) models translate to the same
   output hashes as tinymind (C++) and TFLite's reference kernels, on the host
-  and on an STM32F411.
+  and on an STM32F411. Feature maps share one planned byte arena, as in
+  tinymind (C++); the generated module needs Rust 1.88 or later.
 - Example `kws_cortex_m_int8` (feature `std`), a keyword-spotting shaped int8
   network calibrated from a float reference pass: every tensor and its logits
   report byte-identical to tinymind (C++)'s example.

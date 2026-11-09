@@ -33,6 +33,15 @@
 //! [`QAdd`] adds two tensors of the same shape with their own scales and zero
 //! points (TFLite ADD), for residual connections.
 //!
+//! A convolution over two or more input channels widens its input rows and
+//! each filter's weights to 16 bits and adds the products in pairs. On cores
+//! with the DSP extension (Cortex-M4, M7, M33), LLVM can turn each pair into
+//! one `SMLAD` instruction, from this plain Rust, but by default it gives up
+//! on long unrolled sums. Building with `-C
+//! llvm-args=-arm-parallel-dsp-load-limit=512` (in the target's `rustflags`)
+//! lets it pair them: on an STM32F411 the MLPerf Tiny ResNet-8 then takes 36%
+//! fewer cycles. It is an LLVM internal option, not a stable Rust one.
+//!
 //! ```
 //! use tinymind::int8::{QConv2D, QMaxPool2D, Requantizer};
 //!
