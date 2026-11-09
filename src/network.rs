@@ -1,4 +1,4 @@
-//! A trainable feed-forward network with any number of hidden layers, ported
+//! A trainable feed-forward network with up to seven hidden layers, ported
 //! from tinymind (C++)'s `NeuralNetwork<ValueType, Inputs, HiddenLayers<...>,
 //! Outputs, ...>` (`cpp/neuralnet.hpp`, the chain-based path).
 //!
@@ -43,6 +43,33 @@
 //! ([`NeuralNetwork::set_gradient_clip`]), and every result is bit-identical to the C++
 //! network with the same layer sizes, activations and initial weights (and to
 //! [`MultilayerPerceptron`](crate::MultilayerPerceptron) for one hidden layer).
+//!
+//! A trained network becomes an [`InferenceNetwork`] of [`InferenceDense`]
+//! layers, its weights only, with [`NeuralNetwork::to_inference`] (and back with
+//! [`NeuralNetwork::set_weights`]); that form can be a `static` in flash.
+//!
+//! The value type is any [`Scalar`]: a Q format, `f32` or `f64`.
+//! ReLU and linear layers need nothing more; [`Tanh`](crate::Tanh) and
+//! [`Sigmoid`](crate::Sigmoid) on floats need the `std` or `libm` feature.
+//!
+//! ```
+//! use tinymind::{Dense, Linear, NeuralNetwork, Relu};
+//!
+//! // A floating-point regression: 2 inputs -> 8 ReLU -> 1 linear output, y = a - b.
+//! let mut seed = 7u32;
+//! let mut nn = NeuralNetwork::<(Dense<f64, Relu, 2, 8>, Dense<f64, Linear, 8, 1>)>::new(|| {
+//!     seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+//!     f64::from(seed >> 16) / 65_536.0 - 0.5
+//! });
+//! nn.set_learning_rate(0.05);
+//! for step in 0..4000 {
+//!     let (a, b) = (f64::from(step % 7) / 7.0, f64::from(step % 5) / 5.0);
+//!     nn.feed_forward(&[a, b]);
+//!     nn.train(&[a - b]);
+//! }
+//! nn.feed_forward(&[0.8, 0.2]);
+//! assert!((nn.learned_values()[0] - 0.6).abs() < 0.1);
+//! ```
 
 use core::marker::PhantomData;
 

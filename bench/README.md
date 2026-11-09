@@ -62,7 +62,8 @@ samples, so the numbers sit next to the tinymind (C++) ones.
 
 ## Results
 
-F411 2026-11-09, L031 2026-11-07. Rust 1.99.1, `opt-level = 3`, LTO, one
+F411 2026-11-09, L031 2026-11-07 (MLP, xor, anomaly) and 2026-11-08 (KWS,
+trees). Rust 1.99.1, `opt-level = 3`, LTO, one
 codegen unit. C++ figures are tinymind (C++)'s own (`docs/benchmarks.md`, gcc
 13.2.1 `-O3`), measured on these same boards.
 

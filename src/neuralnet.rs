@@ -6,7 +6,8 @@
 //! The C++ network is assembled from layer, neuron, connection, gradient-manager
 //! and training-policy templates, stored in placement-new byte buffers. This port
 //! keeps only what the default MLP configuration actually executes
-//! (`FixedPointTransferFunctions` with default policies, plus optional
+//! (`FixedPointTransferFunctions` with default policies, or tinymind (C++)'s
+//! floating-point bundle for `f32`/`f64`, plus optional
 //! `GradientClipByValue` and an optional Adam or RMSprop optimizer; batch size 1, no recurrence, one hidden layer; for more
 //! hidden layers see [`NeuralNetwork`](crate::NeuralNetwork)) and stores everything
 //! in plain fixed-size arrays:

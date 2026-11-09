@@ -14,8 +14,9 @@ break the API).
   in floating point, as tinymind (C++)'s do with `float` and `double`. `Tanh`
   and `Sigmoid` for them need the `std` feature (the platform's math library)
   or the new optional `libm` feature (`no_std`, from the `libm` crate). With
-  `std` on a glibc host, SGD training is bit-identical to tinymind (C++)'s
-  floating-point networks, checked over every step in nine configurations.
+  `std` on a glibc host, training is bit-identical to tinymind (C++)'s
+  floating-point networks, checked over every step in nine configurations
+  (five with SGD, four with the floating-point Adam and RMSprop below).
 - `AdamFloat` and `RmsPropFloat`: tinymind (C++)'s floating-point Adam and
   RMSprop (`AdamOptimizerFloat`, `RmsPropOptimizerFloat`) for `f32` and `f64`
   networks, with its `f64` hyperparameters (0.9, 0.999, 1e-8; 0.9, 1e-8) as
@@ -50,8 +51,8 @@ break the API).
   instructions (see the int8 page).
 - Int8 elementwise addition, `int8::QAdd` (tinymind (C++)'s `cpp/qadd.hpp`,
   TFLite ADD), for residual connections, with `int8::calibration::build_add`
-  (`buildQAddParams`). It takes any int8 tensor shape through the sealed
-  `int8::Tensor` trait; both inputs and the output must have the same shape, or
+  (`buildQAddParams`). It takes 1-, 2- and 3-dimensional int8 arrays through
+  the sealed `int8::Tensor` trait; both inputs and the output must have the same shape, or
   the call does not compile. Bit-identical to tinymind (C++), checked on every
   input pair for 48 calibrated layers.
 - `int8::calibration::per_channel_symmetric_scales` (tinymind (C++)'s
@@ -86,7 +87,9 @@ break the API).
   `f32` and `f64` as well as the Q formats. `Fixed` remains as a deprecated
   subtrait implemented for every `Scalar`, so bounds such as `V: Fixed` still
   compile, with a deprecation warning. Code that implemented `Fixed` for its
-  own type must implement `Scalar` instead, which makes this release 0.2.0.
+  own type must implement `Scalar` instead, and paths that name items through
+  `Fixed` (`<V as Fixed>::ONE`, `Fixed::div_int(x, 2)`) must name `Scalar`,
+  since `Fixed` is now an empty subtrait: this makes the release 0.2.0.
 
 
 ## [0.1.5] - 2026-11-08

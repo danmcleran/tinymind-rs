@@ -8,6 +8,8 @@ nav_order: 8
 
 A Q-format value is an integer read as a fixed-point number: Q16.16 stores 16 integer bits (including the sign) and 16 fractional bits in an `i32`, so the raw value 65536 means 1.0. For the background and the full C++ feature set, see tinymind (C++)'s [Q-Format page](https://danmcleran.github.io/tinymind/q-format.html). This page covers what the Rust port implements and where it differs.
 
+The networks are generic over a value-type trait, `Scalar` (called `Fixed` up to 0.1.5, which remains as a deprecated alias), implemented for these Q formats and for `f32` and `f64`.
+
 ## The type
 
 ```rust
