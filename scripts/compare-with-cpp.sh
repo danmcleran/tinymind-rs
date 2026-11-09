@@ -350,6 +350,24 @@ for model in cnn cnn_flat; do
   fi
 done
 
+echo "== import_tflite (TFLite translator)"
+# Needs tflite and flatbuffers in PYTHON. The MLPerf Tiny keyword-spotting model
+# is downloaded at tinymind's pinned commit (cached in target/tflite-models).
+if "$PYTHON" -I -B "$ROOT/tools/import_tflite/test_translator.py" > "$TMP/tflite_unit.txt"; then
+  same "TFLite translator softmax params and activation ranges"
+else
+  cat "$TMP/tflite_unit.txt"
+  echo "DIFFERENT  TFLite translator softmax params and activation ranges"
+  status=1
+fi
+if "$PYTHON" -I -B "$ROOT/tools/import_tflite/mlperf.py" kws --target-dir "$TMP/tflite_target" > "$TMP/tflite_kws.txt"; then
+  same "MLPerf Tiny keyword spotting (DS-CNN): output hash = tinymind's"
+else
+  cat "$TMP/tflite_kws.txt"
+  echo "DIFFERENT  MLPerf Tiny keyword spotting (DS-CNN)"
+  status=1
+fi
+
 echo "== imported_trees (tree importer)"
 # Needs scikit-learn in PYTHON; XGBoost and LightGBM for all of test_parity.py.
 mkdir -p "$TMP/trees"

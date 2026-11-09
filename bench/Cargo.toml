@@ -30,6 +30,9 @@ profile = ["mlp"]
 # tinymind's KWS-shaped int8 CNN, and its per-layer cycles (a separate image).
 kws = []
 kws-profile = ["kws"]
+# The MLPerf Tiny keyword-spotting model, translated by tools/import_tflite (F411 only;
+# generate bench/src/gen/mlperf_kws*.rs with tools/import_tflite/mlperf.py first).
+mlperf-kws = []
 
 [profile.release]
 opt-level = 3

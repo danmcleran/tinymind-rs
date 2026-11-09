@@ -23,6 +23,7 @@ The crate has been run on two microcontroller boards, with the same boards, cloc
 | anomaly detection: training and every decision equal the host run | match | match |
 | imported decision trees: every score and class on the 54 Wine samples equals the host run | match | match |
 | int8 KWS-shaped CNN (convolutions): output hash equals tinymind (C++)'s | match | match |
+| MLPerf Tiny keyword spotting (DS-CNN), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 
 The int8 MLP is tinymind (C++)'s 64-32-16-10 digits classifier with per-channel requantizers (`QDensePerChannel`). tinymind (C++) and TensorFlow Lite for Microcontrollers produce the same output hash on these boards, so the Rust port matches both. For training, the board hashes the exact bytes of the weight trajectory the xor example writes, every weight after every step.
 
@@ -77,6 +78,20 @@ Per layer (cycles, each layer timed separately; C++ scalar `-O3` in brackets):
 | dense 16 -> 10 | 1,609 (1,281) | 3,347 (2,830) |
 
 The Rust port takes 26% fewer cycles than tinymind (C++)'s portable build on the M4F and 13% fewer on the M0+, and is within 4% of its SMLAD build on the M4F without SIMD. It uses less RAM but more flash than the C++ at `-O3` (27% and 9% more), because LLVM unrolls the layers' loops; at `opt-level = "s"` the network fits in 3.7 KB but runs 1.9-3.5x slower. The stem convolution reads each window once for all filters; depthwise and pointwise run filter by filter with each filter's weights, folded bias and prepared requantizer held across the pixels, as the C++ does.
+
+## MLPerf Tiny keyword spotting (DS-CNN)
+
+The MLPerf Tiny keyword-spotting reference model (49x10 MFCC input, a 10x4 convolution, four depthwise-separable blocks, global average pooling, a 12-way softmax), translated from its int8 `.tflite` by `tools/import_tflite`. The output hash over 8 seeded random inputs equals tinymind (C++)'s, which TFLite's reference kernels also produce. C++ and TFLM figures are tinymind (C++)'s, measured on the same board. These are not MLPerf results: there is no accuracy run or energy measurement, and MLCommons has not verified them.
+
+| F411, 100 MHz | Cycles | Time | Code + weights | RAM |
+|---|---:|---:|---:|---:|
+| **tinymind-rs** | **16,125,065** | **161.3 ms** | **45,776 B** | **16,336 B** |
+| tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
+| tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
+| TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,432 B |
+| TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,828 B |
+
+The Rust model is within 2.5% of tinymind (C++)'s portable build in less flash and RAM; tinymind (C++)'s SMLAD build and TFLM with CMSIS-NN are faster, as neither SIMD path is open to the Rust port.
 
 ## On-device training
 

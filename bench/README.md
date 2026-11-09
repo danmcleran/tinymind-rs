@@ -44,6 +44,14 @@ samples, so the numbers sit next to the tinymind (C++) ones.
   benchmark headers. The output hash over its 8 test inputs must equal
   tinymind (C++)'s, which TFLM also produces. **`kws-profile`**: the same with
   per-layer timing.
+- **`mlperf-kws`** (F411 only): the MLPerf Tiny keyword-spotting reference model
+  (DS-CNN, 49x10 MFCC input, 12 classes), translated from its `.tflite` by
+  `tools/import_tflite`. Generate it first with `python3 -I
+  tools/import_tflite/mlperf.py kws --out bench/src/gen/mlperf_kws.rs --data
+  bench/src/gen/mlperf_kws_data.rs` (a Python with `tflite`; the model is
+  downloaded, Apache-2.0, not committed), then `WORKLOADS="mlperf-kws"
+  bench/run.sh f411`. Its output hash over 8 seeded random inputs must equal
+  tinymind (C++)'s, which TFLite's reference kernels also produce.
 - **baseline** (no workload feature): the MLP harness with a do-nothing network,
   for size and stack deltas. **`profile`**: the MLP with per-layer timing.
 
@@ -61,6 +69,7 @@ own (`docs/benchmarks.md`, gcc 13.2.1 `-O3`), measured on these same boards.
 | xor Q8.8 training trajectory (20,000 steps) = golden | match | match |
 | anomaly demo: report and hash = host run (`0x427BACE2`) | match | match |
 | KWS CNN output hash = tinymind (C++)'s (`0x6B1854D3`) | match | match |
+| MLPerf Tiny DS-CNN (translated from TFLite) output hash = tinymind (C++)'s (`0xF623A166`) | match | - |
 | MLP accuracy | 346/360 (96.11%) | 31/32 (96.88%) |
 
 ### int8 MLP, NUCLEO-F411RE
@@ -170,6 +179,31 @@ Per layer (cycles, each layer timed separately; C++ scalar `-O3` in brackets):
   the peak is still the stem's output plus the pooled tensor. The profile image
   keeps its layers in a separate frame; with them in the caller's frame the
   L031 ran out of its 8 KB of RAM.
+
+### MLPerf Tiny keyword spotting (DS-CNN), translated from TFLite
+
+C++ and TFLM figures are tinymind (C++)'s (`results/REPORT_mlperf.md`, `-O3`).
+These are not MLPerf results: no accuracy run, no energy measurement, not
+verified by MLCommons. Code + weights = image - baseline image - test inputs
+(3,920 B); RAM = static data plus peak stack above the baseline's (TFLM's
+includes its tensor arena).
+
+| F411, 100 MHz | Cycles | Time | Code + weights | RAM |
+|---|---:|---:|---:|---:|
+| **tinymind-rs** | **16,125,065** | **161.3 ms** | **45,776 B** | **16,336 B** |
+| tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
+| tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
+| TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,432 B |
+| TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,828 B |
+
+- The Rust model takes 2.5% more cycles than tinymind (C++)'s portable build, in
+  13% less flash and 5% less RAM; tinymind (C++)'s SMLAD build and TFLM with
+  CMSIS-NN are faster, as neither SIMD path is available to the Rust port.
+- RAM: the translator gives each feature-map shape as many buffers as are live
+  at once, so the eight 25x5x64 layers ping-pong between two (16,000 B), as
+  tinymind (C++)'s planned arena does. A first version nested each layer in its
+  own block instead and peaked at three tensors (24,512 B): the value each block
+  returned took a slot of its own.
 
 ### Decision trees, imported from scikit-learn
 

@@ -10,12 +10,15 @@ mod anomaly;
 mod board;
 #[cfg(feature = "kws")]
 mod kws;
+#[cfg(feature = "mlperf-kws")]
+mod mlperf;
 #[cfg(not(any(
     feature = "xor-q16",
     feature = "xor-q8",
     feature = "anomaly",
     feature = "trees",
-    feature = "kws"
+    feature = "kws",
+    feature = "mlperf-kws"
 )))]
 mod mlp;
 #[cfg(feature = "trees")]
@@ -50,11 +53,14 @@ fn main() -> ! {
         feature = "xor-q8",
         feature = "anomaly",
         feature = "trees",
-        feature = "kws"
+        feature = "kws",
+        feature = "mlperf-kws"
     )))]
     mlp::run(&mut out);
     #[cfg(feature = "kws")]
     kws::run(&mut out);
+    #[cfg(feature = "mlperf-kws")]
+    mlperf::run(&mut out);
     #[cfg(feature = "trees")]
     trees::run(&mut out);
     #[cfg(feature = "anomaly")]
