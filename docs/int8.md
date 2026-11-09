@@ -21,9 +21,10 @@ Alongside the Q-format networks, the crate runs **int8 affine-quantized** models
 | `QDepthwiseConv2D<'a, C, KH, KW, SH, SW, PT, PB, PL, PR>` | One `KH` x `KW` filter per channel, channels not mixed; one requantizer per channel | `QDepthwiseConv2D` (`cpp/qdepthwiseconv2d.hpp`) |
 | `QPointwiseConv2D<'a, C, F>`, `QPointwiseConv2DPerChannel<'a, C, F>` | 1x1 convolution: the same `C`-to-`F` dense layer at every pixel | `QPointwiseConv2D`, `QPointwiseConv2DPerChannel` (`cpp/qpointwiseconv2d.hpp`) |
 | `QMaxPool2D<PH, PW, SH, SW>`, `QAvgPool2D<...>`, `QGlobalAvgPool2D` | Max, average (rounded half away from zero) and global average pooling, in the input's scale | `cpp/qpool2d.hpp` |
+| `QAdd` | Elementwise addition of two tensors with their own scales and zero points (TFLite ADD), for residual connections; any tensor shape, the same for all three | `QAdd` (`cpp/qadd.hpp`) |
 | `apply_lut` | Any activation through a 256-entry int8 table, such as sigmoid or tanh | `qApplyLUT` |
 | `QSoftmax` | Softmax over a row of int8 logits onto the 1/256 probability grid, bit-exact with TFLite's int8 softmax (and so with CMSIS-NN's `arm_softmax_s8`) | `QSoftmaxFixedPoint1D` (`cpp/qsoftmax_fixedpoint.hpp`) |
-| `calibration` (feature `std`) | Host side: build requantizers, sigmoid/tanh tables and softmax parameters from float scales; affine parameters from a float range; quantize and dequantize | `cpp/include/qcalibration.hpp` |
+| `calibration` (feature `std`) | Host side: build requantizers, additions, sigmoid/tanh tables and softmax parameters from float scales; affine parameters from a float range; quantize and dequantize | `cpp/include/qcalibration.hpp` |
 
 A layer borrows its weights (`&[[i8; IN]; OUT]`, row-major as PyTorch and TFLite store them) and biases, so they can live in flash as `static` data. On a device, run the calibration on the host and embed the resulting integers; the five fields of a `Requantizer` are plain constants.
 

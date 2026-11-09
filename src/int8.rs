@@ -1,7 +1,7 @@
 //! Int8 affine-quantized inference, ported from tinymind (C++) `cpp/qaffine.hpp`,
 //! `cpp/qdense.hpp`, `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`,
-//! `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp`, `cpp/qactivations.hpp` and
-//! `cpp/qsoftmax_fixedpoint.hpp`.
+//! `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp`, `cpp/qadd.hpp`,
+//! `cpp/qactivations.hpp` and `cpp/qsoftmax_fixedpoint.hpp`.
 //!
 //! This is the TFLite / CMSIS-NN quantization model, separate from the Q-format
 //! [`QValue`](crate::QValue) pipeline: a real value is `scale * (q - zero_point)`,
@@ -29,6 +29,9 @@
 //! compile either. Padding holds the input zero point, as TFLite pads, so a
 //! padded tap contributes nothing. Pooling keeps the input's scale and zero
 //! point: no requantizer.
+//!
+//! [`QAdd`] adds two tensors of the same shape with their own scales and zero
+//! points (TFLite ADD), for residual connections.
 //!
 //! ```
 //! use tinymind::int8::{QConv2D, QMaxPool2D, Requantizer};
@@ -66,11 +69,13 @@
 //! (an `i32` accumulator overflow, a shift out of its documented range), this
 //! port wraps or clamps instead, so every function is total and none panics.
 
+pub(crate) mod add;
 #[cfg(feature = "std")]
 pub mod calibration;
 pub(crate) mod conv;
 pub(crate) mod pool;
 
+pub use add::{QAdd, Tensor};
 pub use conv::{
     QConv2D, QConv2DPerChannel, QDepthwiseConv2D, QPointwiseConv2D, QPointwiseConv2DPerChannel,
 };
@@ -125,8 +130,15 @@ pub(crate) fn rounding_high_mul_divide_by_pot(x: i32, multiplier: i32, exponent:
 pub fn multiply_by_quantized_multiplier(x: i32, multiplier: i32, shift: i32) -> i32 {
     let left_shift = if shift < 0 { shift.unsigned_abs() } else { 0 };
     let right_shift = shift.max(0);
+    rounding_divide_by_pot(
+        saturating_rounding_doubling_high_mul(saturating_shl(x, left_shift), multiplier),
+        right_shift,
+    )
+}
 
-    let shifted = if left_shift > 30 {
+/// `x * 2^n`, saturated to the `i32` range.
+pub(crate) fn saturating_shl(x: i32, n: u32) -> i32 {
+    if n > 30 {
         // Any non-zero x saturates; 2^31 itself is not representable.
         if x > 0 {
             i32::MAX
@@ -135,25 +147,19 @@ pub fn multiply_by_quantized_multiplier(x: i32, multiplier: i32, shift: i32) -> 
         } else {
             0
         }
-    } else if left_shift > 0 {
-        // x * 2^left_shift fits i32 exactly when x lies in
-        // [-2^(31 - left_shift), 2^(31 - left_shift) - 1].
-        let limit = i32::MAX >> left_shift;
+    } else if n > 0 {
+        // x * 2^n fits i32 exactly when x lies in [-2^(31 - n), 2^(31 - n) - 1].
+        let limit = i32::MAX >> n;
         if x > limit {
             i32::MAX
         } else if x < -limit - 1 {
             i32::MIN
         } else {
-            x * (1 << left_shift)
+            x * (1 << n)
         }
     } else {
         x
-    };
-
-    rounding_divide_by_pot(
-        saturating_rounding_doubling_high_mul(shifted, multiplier),
-        right_shift,
-    )
+    }
 }
 
 /// Rescales an `i32` accumulator to int8 storage (C++ `Requantizer<int32_t,

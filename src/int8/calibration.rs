@@ -1,7 +1,7 @@
 //! Host-side calibration: turning float scales into the integer parameters the
 //! int8 layers use (C++ `quantizeMultiplier`, `buildRequantizer`, `quantize`,
 //! `dequantize`, `buildQSigmoidLUT`, `buildQTanhLUT`,
-//! `buildQSoftmaxFixedPointParams`, `computeAffineParamsAsymmetric`).
+//! `buildQSoftmaxFixedPointParams`, `computeAffineParamsAsymmetric`, `buildQAddParams`).
 //!
 //! Needs the `std` feature, for `f32::exp` and `f32::tanh`; tinymind (C++) gates the
 //! same functions on `TINYMIND_ENABLE_FLOAT && TINYMIND_ENABLE_STD`. On a device,
@@ -10,7 +10,7 @@
 //! the C++ ones on the same platform: `exp` and `tanh` come from the system math
 //! library in both.
 
-use super::{LUT_SIZE, QSoftmax, Requantizer};
+use super::{LUT_SIZE, QAdd, QSoftmax, Requantizer};
 
 /// C `frexp`: `x = mantissa * 2^exponent` with `|mantissa|` in `[0.5, 1)`.
 /// Zero, infinities and NaN come back unchanged with exponent 0.
@@ -76,6 +76,48 @@ pub fn build_requantizer(
         zero_point: output_zero_point as i8,
         qmin: qmin as i8,
         qmax: qmax as i8,
+    }
+}
+
+/// Build a [`QAdd`] for inputs `(scale, zero point)` `input_a` and `input_b`
+/// and output `output` (C++ `buildQAddParams` with its default left shift of 20,
+/// TFLite's). Both inputs are rescaled to twice the larger input scale; ratios
+/// are formed in `f64` from the `f32` scales, as the C++ does. Zero points and
+/// bounds are narrowed to `i8`; raise `qmin` to the output zero point to fuse a
+/// ReLU.
+pub fn build_add(
+    input_a: (f32, i32),
+    input_b: (f32, i32),
+    output: (f32, i32),
+    qmin: i32,
+    qmax: i32,
+) -> QAdd {
+    const LEFT_SHIFT: i32 = 20;
+    let (a_scale, b_scale) = (input_a.0, input_b.0);
+    // The C++ comparison, so equal or NaN scales take the same branch.
+    let max_in = if a_scale > b_scale { a_scale } else { b_scale };
+    let twice_max = 2.0 * f64::from(max_in);
+    let real_a = f64::from(a_scale) / twice_max;
+    let real_b = f64::from(b_scale) / twice_max;
+    let real_out = twice_max / ((1i64 << LEFT_SHIFT) as f64 * f64::from(output.0));
+    let (input_a_multiplier, input_a_shift) = quantize_multiplier(real_a);
+    let (input_b_multiplier, input_b_shift) = quantize_multiplier(real_b);
+    let (multiplier, shift) = quantize_multiplier(real_out);
+    QAdd {
+        input_a_zero_point: input_a.1 as i8,
+        input_b_zero_point: input_b.1 as i8,
+        left_shift: LEFT_SHIFT,
+        input_a_multiplier,
+        input_a_shift,
+        input_b_multiplier,
+        input_b_shift,
+        output_requantizer: Requantizer {
+            multiplier,
+            shift,
+            zero_point: output.1 as i8,
+            qmin: qmin as i8,
+            qmax: qmax as i8,
+        },
     }
 }
 

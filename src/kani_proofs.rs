@@ -176,7 +176,7 @@ mod int8 {
     use crate::int8::{
         LUT_SIZE, QDense, QDensePerChannel, QSoftmax, Requantizer, apply_lut,
         exp_on_negative_values, multiply_by_quantized_multiplier, one_over_one_plus_x,
-        rounding_divide_by_pot, rounding_high_mul_divide_by_pot,
+        rounding_divide_by_pot, rounding_high_mul_divide_by_pot, saturating_shl,
     };
 
     /// gemmlowp's two roundings, written as tinymind (C++)'s unit test writes them:
@@ -223,6 +223,44 @@ mod int8 {
         if rq.qmin <= rq.qmax {
             assert!(rq.qmin <= y && y <= rq.qmax);
         }
+    }
+
+    /// The left shift in `multiply_by_quantized_multiplier` and `QAdd`:
+    /// `x * 2^n` saturated to the `i32` range, for every `x` and every `n` up
+    /// to 40 (each `n` above 31 takes the same branch as 31). The spec is in
+    /// i128, where the product cannot overflow.
+    #[kani::proof]
+    fn saturating_shl_saturates() {
+        let (x, n): (i32, u32) = (kani::any(), kani::any());
+        kani::assume(n <= 40);
+        let exact = i128::from(x) << n;
+        let want = exact.clamp(i128::from(i32::MIN), i128::from(i32::MAX)) as i32;
+        assert!(saturating_shl(x, n) == want);
+    }
+
+    /// The elementwise addition never panics, for any parameters and inputs,
+    /// shifts far outside the documented range included.
+    #[kani::proof]
+    fn add_never_panics() {
+        let add = crate::int8::QAdd {
+            input_a_zero_point: kani::any(),
+            input_b_zero_point: kani::any(),
+            left_shift: kani::any(),
+            input_a_multiplier: kani::any(),
+            input_a_shift: kani::any(),
+            input_b_multiplier: kani::any(),
+            input_b_shift: kani::any(),
+            output_requantizer: Requantizer {
+                multiplier: kani::any(),
+                shift: kani::any(),
+                zero_point: kani::any(),
+                qmin: kani::any(),
+                qmax: kani::any(),
+            },
+        };
+        let (a, b): ([i8; 1], [i8; 1]) = (kani::any(), kani::any());
+        let mut y = [0i8; 1];
+        add.forward(&a, &b, &mut y);
     }
 
     /// A dense layer never panics, for any weights, biases, inputs and
