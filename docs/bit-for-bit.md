@@ -127,7 +127,7 @@ CI imports the same example models with both importers, runs them on the C++ and
 
 ## What it is not
 
-It is a port of slices of tinymind (C++), not all of it. Not yet ported: the floating-point Adam and RMSprop, recurrent networks, the rest of the int8 layers (recurrent cells, attention), and the SIMD backends. A full port in stable Rust is harder than it looks: tinymind (C++) picks storage types and layer shapes with compile-time arithmetic on template parameters, which stable Rust's const generics cannot express yet (`generic_const_exprs`).
+It is a port of slices of tinymind (C++), not all of it. Not yet ported: recurrent networks, the rest of the int8 layers (recurrent cells, attention), and the SIMD backends. A full port in stable Rust is harder than it looks: tinymind (C++) picks storage types and layer shapes with compile-time arithmetic on template parameters, which stable Rust's const generics cannot express yet (`generic_const_exprs`).
 
 The C++ library remains the full product. The Rust port grows one checked slice at a time, and I would like to hear which slice would make it useful to you.
 

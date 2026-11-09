@@ -1,5 +1,6 @@
 // tinymind's NeuralNetwork in floating point (double and float), trained with
-// SGD and momentum, every weight hashed after every step.
+// SGD and momentum or its floating-point Adam and RMSprop, every weight hashed
+// after every step.
 //
 // tinymind ships only FixedPointTransferFunctions; its floating-point path is
 // the network templates instantiated with float or double and the activation
@@ -9,9 +10,11 @@
 // tanh(x), 1 / (1 + exp(-x)), derivatives from the output, learning rate
 // 0.15, momentum 0.5, acceleration 0.1.
 //
-// Five configurations: XOR 2-4-1 tanh/sigmoid in double and 2-4-4-1 in float,
-// 4-8-6-3 ReLU/sigmoid in double, 4-8-3 tanh/sigmoid in float, and a 3-6-2
-// ReLU/linear regression in double. Weights start from
+// Five configurations with SGD: XOR 2-4-1 tanh/sigmoid in double and 2-4-4-1
+// in float, 4-8-6-3 ReLU/sigmoid in double, 4-8-3 tanh/sigmoid in float, and a
+// 3-6-2 ReLU/linear regression in double; then four with tinymind's
+// AdamOptimizerFloat and RmsPropOptimizerFloat, attached as nn_unit_test.cpp
+// attaches them (the bundle with an OptimizerPolicyType typedef). Weights start from
 // rand() / RAND_MAX - 0.5 (glibc rand, seeded per configuration). Built with
 // -ffp-contract=off: a compiler that fuses multiply-adds would change the
 // sums. tests/float_mlp.rs repeats every step with tinymind::NeuralNetwork over
@@ -29,6 +32,8 @@
 #include "neuralnet.hpp"
 #include "activationFunctions.hpp"
 #include "fixedPointTransferFunctions.hpp"
+#include "adam.hpp"
+#include "rmsprop.hpp"
 
 namespace tinymind {
     template<>
@@ -298,13 +303,35 @@ static void printBits(const float v)
     std::printf(" %08X", bits);
 }
 
+// The bundle with an optimizer attached, as nn_unit_test.cpp attaches
+// tinymind's floating-point Adam and RMSprop, and a learning rate of 0.01
+// (0.15 saturates these networks' outputs within a few hundred steps).
+template<typename Base, typename Optimizer>
+struct WithOptimizer : public Base
+{
+    typedef Optimizer OptimizerPolicyType;
+    typedef typename Base::TransferFunctionsValueType VT;
+    static VT initialLearningRate() { return VT(0.01); }
+};
+
+template<typename ValueType>
+struct NoOptimizer
+{
+};
+
+template<typename Base, typename ValueType>
+struct WithOptimizer<Base, NoOptimizer<ValueType> > : public Base
+{
+};
+
 template<typename ValueType, template<typename> class Hidden, template<typename> class Output,
-         size_t IN, typename HL, size_t L, size_t OUT>
+         size_t IN, typename HL, size_t L, size_t OUT, template<typename> class Opt = NoOptimizer>
 static void run(const char* name, const size_t (&sizes)[L], const unsigned seed, const int steps)
 {
     typedef FloatingPointTransferFunctions<ValueType, FloatRandomGen, Hidden, Output,
                                            tinymind::NullActivationPolicy, tinymind::ZeroToleranceCalculator,
-                                           OUT> TF;
+                                           OUT> Bundle;
+    typedef WithOptimizer<Bundle, Opt<ValueType> > TF;
     typedef tinymind::NeuralNetwork<ValueType, IN, HL, OUT, TF> NN;
 
     srand(seed);
@@ -357,5 +384,14 @@ int main()
         tinymind::HiddenLayers<8>, 1, 3>("f32 4-8-3 tanh/sigmoid", eight, 4, 2000);
     run<double, tinymind::ReluActivationPolicy, tinymind::LinearActivationPolicy, 3,
         tinymind::HiddenLayers<6>, 1, 2>("f64 3-6-2 relu/linear", six, 5, 2000);
+    // tinymind's floating-point Adam and RMSprop.
+    run<double, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 2,
+        tinymind::HiddenLayers<4>, 1, 1, tinymind::AdamOptimizerFloat>("f64 2-4-1 tanh/sigmoid adam", four, 6, 2000);
+    run<float, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 4,
+        tinymind::HiddenLayers<8, 6>, 2, 3, tinymind::AdamOptimizerFloat>("f32 4-8-6-3 tanh/sigmoid adam", eightSix, 7, 2000);
+    run<double, tinymind::ReluActivationPolicy, tinymind::LinearActivationPolicy, 3,
+        tinymind::HiddenLayers<6>, 1, 2, tinymind::RmsPropOptimizerFloat>("f64 3-6-2 relu/linear rmsprop", six, 8, 2000);
+    run<float, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 2,
+        tinymind::HiddenLayers<4, 4>, 2, 1, tinymind::RmsPropOptimizerFloat>("f32 2-4-4-1 tanh/sigmoid rmsprop", fourFour, 9, 2000);
     return 0;
 }

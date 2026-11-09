@@ -164,7 +164,7 @@ echo "== float_mlp"
 mkdir -p "$TMP/float_mlp"
 g++ -O2 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/float_mlp/float_mlp" "$ROOT/scripts/cpp/float_mlp.cpp" \
   -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
-  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_RAND=1
+  -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_RAND=1
 "$TMP/float_mlp/float_mlp" > "$TMP/float_mlp/stdout.txt"
 # The golden holds the double runs only: the float ones depend on the C
 # library's tanhf/expf (correctly rounded since glibc 2.41), so they are

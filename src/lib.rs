@@ -3,8 +3,9 @@
 //!
 //! Scope: Q16.16 and Q8.8 arithmetic and a fixed-point square root ([`Sqrt`]); ReLU, [`Linear`] and the tanh and sigmoid
 //! lookup-table activations; `f32` and `f64` as network value types (their
-//! [`Tanh`] and [`Sigmoid`] need the `std` or `libm` feature, and only SGD trains
-//! them so far); trainable networks with any number of hidden layers
+//! [`Tanh`] and [`Sigmoid`] need the `std` or `libm` feature, as do the
+//! floating-point `AdamFloat` and `RmsPropFloat`); trainable networks with any
+//! number of hidden layers
 //! ([`NeuralNetwork`] over [`Dense`] layers, trained with SGD and momentum,
 //! [`Adam`] or [`RmsProp`], with optional gradient clipping) and their
 //! inference-only form ([`InferenceNetwork`] over [`InferenceDense`] layers:
@@ -81,6 +82,8 @@ pub use network::{
 };
 pub use neuralnet::{InferencePerceptron, MultilayerPerceptron};
 pub use optimizer::{Adam, Optimizer, RmsProp, Sgd};
+#[cfg(any(feature = "std", feature = "libm"))]
+pub use optimizer::{AdamFloat, RmsPropFloat};
 #[allow(deprecated)]
 pub use qformat::Fixed;
 pub use qformat::{Q8_8, Q16_16, QValue, Scalar, Sqrt};
