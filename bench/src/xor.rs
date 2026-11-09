@@ -8,7 +8,7 @@ use core::fmt::{self, Display, Write};
 use core::hint::black_box;
 
 use tinymind::rand::GlibcRand;
-use tinymind::{Activation, Fixed, MultilayerPerceptron, Q8_8, Q16_16, Sigmoid, Tanh};
+use tinymind::{Activation, Scalar, MultilayerPerceptron, Q8_8, Q16_16, Sigmoid, Tanh};
 
 use crate::board::{self, Uart};
 use crate::{REPS, median};
@@ -36,7 +36,7 @@ pub const Q8_EXPECT: Expect = Expect {
 };
 
 /// What the example needs from a format (examples/common/xor_driver.rs).
-pub trait Format: Fixed + Display {
+pub trait Format: Scalar + Display {
     fn from_int(n: i32) -> Self;
     fn within_zero_tolerance(self) -> bool;
     fn random_weight(rand: i32) -> Self;

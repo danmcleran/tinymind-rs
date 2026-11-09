@@ -12,7 +12,7 @@ use tinymind::rand::GlibcRand;
 #[path = "cppfmt.rs"]
 mod cppfmt;
 use cppfmt::fmt_g;
-use tinymind::{Activation, Fixed, MultilayerPerceptron, Q8_8, Q16_16, Sigmoid, Tanh};
+use tinymind::{Activation, MultilayerPerceptron, Q8_8, Q16_16, Scalar, Sigmoid, Tanh};
 
 const TRAINING_ITERATIONS: u32 = 20_000;
 const NUM_SAMPLES_AVG_ERROR: u32 = 100;
@@ -35,9 +35,9 @@ type NeuralNetwork<V> = MultilayerPerceptron<
 
 const XOR_CASES: [[i32; 3]; 4] = [[0, 0, 0], [0, 1, 1], [1, 0, 1], [1, 1, 0]];
 
-/// What the driver needs from a value type beyond [`Fixed`]. Both formats have
+/// What the driver needs from a value type beyond [`Scalar`]. Both formats have
 /// these as inherent methods; the trait lets [`run`] be generic over them.
-trait Format: Fixed + Display {
+trait Format: Scalar + Display {
     fn from_int(n: i32) -> Self;
     fn from_f64_trunc(x: f64) -> Self;
     fn to_f64(self) -> f64;

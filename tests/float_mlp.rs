@@ -13,10 +13,10 @@
 use std::fmt::Write;
 
 use tinymind::rand::GlibcRand;
-use tinymind::{Dense, Fixed, Linear, NeuralNetwork, Relu, Sigmoid, Tanh};
+use tinymind::{Dense, Linear, NeuralNetwork, Relu, Scalar, Sigmoid, Tanh};
 
-/// What the test needs from f32 and f64 beyond `Fixed`.
-trait Float: Fixed + core::fmt::Debug {
+/// What the test needs from f32 and f64 beyond `Scalar`.
+trait Float: Scalar + core::fmt::Debug {
     fn from_f64(x: f64) -> Self;
     fn from_i32(x: i32) -> Self;
     fn absorb(self, hash: &mut u32);

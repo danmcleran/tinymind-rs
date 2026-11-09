@@ -17,8 +17,8 @@ use tinymind::rand::GlibcRand;
 use tinymind::tree::{self, QDecisionTree, QGbdt, QTreeNode};
 
 use tinymind::{
-    Activation, Adam, Dense, Fixed, InferenceDense, InferenceNetwork, InferencePerceptron, Linear,
-    MultilayerPerceptron, NeuralNetwork, Q8_8, Q16_16, Relu, RmsProp, Sigmoid, Sqrt, Tanh,
+    Activation, Adam, Dense, InferenceDense, InferenceNetwork, InferencePerceptron, Linear,
+    MultilayerPerceptron, NeuralNetwork, Q8_8, Q16_16, Relu, RmsProp, Scalar, Sigmoid, Sqrt, Tanh,
 };
 
 /// Every `QValue` operation on run-time operands.
@@ -43,8 +43,8 @@ fn arithmetic() {
     c += b;
     black_box((
         c,
-        <Q16_16 as Fixed>::pow2_neg(black_box(2)),
-        Fixed::div_int(a, n),
+        <Q16_16 as Scalar>::pow2_neg(black_box(2)),
+        Scalar::div_int(a, n),
     ));
 
     let (a, b) = (Q8_8::from_raw(black_box(1)), Q8_8::from_raw(black_box(2)));
@@ -80,7 +80,7 @@ fn activations() {
 /// Build, train and read a network, the way the examples do.
 fn network<V, H, O, const IN: usize, const HID: usize, const OUT: usize>(raw: fn(i32) -> V)
 where
-    V: Fixed,
+    V: Scalar,
     H: Activation<V>,
     O: Activation<V>,
 {
@@ -115,7 +115,7 @@ where
 }
 
 /// A network with three hidden layers, trained and read the same way.
-fn deep_network<V: Fixed, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V) {
+fn deep_network<V: Scalar, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V) {
     let mut rng = GlibcRand::new(black_box(1));
     let mut nn = NeuralNetwork::<(
         Dense<V, H, 4, 8>,
@@ -156,7 +156,7 @@ fn deep_network<V: Fixed, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V)
 }
 
 /// Adam and RMSprop on both network types, in both formats, with clipping on.
-fn adaptive<V: Fixed + Sqrt>(raw: fn(i32) -> V)
+fn adaptive<V: Scalar + Sqrt>(raw: fn(i32) -> V)
 where
     Sigmoid: Activation<V>,
 {

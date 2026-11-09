@@ -9,7 +9,7 @@ break the API).
 
 ### Added
 
-- Floating-point networks: `Fixed` is implemented for `f32` and `f64`, so
+- Floating-point networks: `Scalar` is implemented for `f32` and `f64`, so
   `NeuralNetwork`, `MultilayerPerceptron` and the inference-only networks run
   in floating point, as tinymind (C++)'s do with `float` and `double`. `Tanh`
   and `Sigmoid` for them need the `std` feature (the platform's math library)
@@ -75,6 +75,15 @@ break the API).
 - Example `kws_cortex_m_int8` (feature `std`), a keyword-spotting shaped int8
   network calibrated from a float reference pass: every tensor and its logits
   report byte-identical to tinymind (C++)'s example.
+
+### Changed
+
+- The network value-type trait `Fixed` is renamed `Scalar`: it now covers
+  `f32` and `f64` as well as the Q formats. `Fixed` remains as a deprecated
+  subtrait implemented for every `Scalar`, so bounds such as `V: Fixed` still
+  compile, with a deprecation warning. Code that implemented `Fixed` for its
+  own type must implement `Scalar` instead, which makes this release 0.2.0.
+
 
 ## [0.1.5] - 2026-11-08
 
