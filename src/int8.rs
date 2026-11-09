@@ -130,13 +130,39 @@ pub(crate) fn rounding_high_mul_divide_by_pot(x: i32, multiplier: i32, exponent:
 pub fn multiply_by_quantized_multiplier(x: i32, multiplier: i32, shift: i32) -> i32 {
     let left_shift = if shift < 0 { shift.unsigned_abs() } else { 0 };
     let right_shift = shift.max(0);
+
+    let shifted = if left_shift > 30 {
+        // Any non-zero x saturates; 2^31 itself is not representable.
+        if x > 0 {
+            i32::MAX
+        } else if x < 0 {
+            i32::MIN
+        } else {
+            0
+        }
+    } else if left_shift > 0 {
+        // x * 2^left_shift fits i32 exactly when x lies in
+        // [-2^(31 - left_shift), 2^(31 - left_shift) - 1].
+        let limit = i32::MAX >> left_shift;
+        if x > limit {
+            i32::MAX
+        } else if x < -limit - 1 {
+            i32::MIN
+        } else {
+            x * (1 << left_shift)
+        }
+    } else {
+        x
+    };
+
     rounding_divide_by_pot(
-        saturating_rounding_doubling_high_mul(saturating_shl(x, left_shift), multiplier),
+        saturating_rounding_doubling_high_mul(shifted, multiplier),
         right_shift,
     )
 }
 
-/// `x * 2^n`, saturated to the `i32` range.
+/// `x * 2^n`, saturated to the `i32` range, for [`QAdd`]: the left shift in
+/// [`multiply_by_quantized_multiplier`].
 pub(crate) fn saturating_shl(x: i32, n: u32) -> i32 {
     if n > 30 {
         // Any non-zero x saturates; 2^31 itself is not representable.
