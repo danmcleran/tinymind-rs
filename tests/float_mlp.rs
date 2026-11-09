@@ -1,9 +1,11 @@
 // NeuralNetwork over f32 and f64 against tinymind (C++)'s NeuralNetwork
 // instantiated with float and double. tests/golden/float_mlp/stdout.txt is the
 // output of scripts/cpp/float_mlp.cpp (built with -ffp-contract=off), which
-// trains five networks with tinymind (C++)'s floating-point activations and
+// trains nine networks with tinymind (C++)'s floating-point activations and
 // transfer-function bundle (learning rate 0.15, momentum 0.5, acceleration
-// 0.1) and hashes every weight after every step; scripts/compare-with-cpp.sh
+// 0.1), five with SGD and four with its AdamOptimizerFloat and
+// RmsPropOptimizerFloat (learning rate 0.01), and hashes every weight after
+// every step; scripts/compare-with-cpp.sh
 // rebuilds it and checks the golden is current. tanh and exp come from the
 // platform's math library on both sides (feature `std`), so on a glibc host
 // every step is bit-identical. The committed golden holds the f64 lines only;
@@ -13,7 +15,10 @@
 use std::fmt::Write;
 
 use tinymind::rand::GlibcRand;
-use tinymind::{Dense, Linear, NeuralNetwork, Relu, Scalar, Sigmoid, Tanh};
+use tinymind::{
+    AdamFloat, Dense, Linear, NeuralNetwork, Optimizer, Relu, RmsPropFloat, Scalar, Sgd, Sigmoid,
+    Tanh,
+};
 
 /// What the test needs from f32 and f64 beyond `Scalar`.
 trait Float: Scalar + core::fmt::Debug {
@@ -147,12 +152,32 @@ fn run<V, L, const IN: usize, const OUT: usize>(name: &str, seed: u32, steps: u3
 where
     V: Float,
     L: tinymind::Layers<Value = V, Inputs = [V; IN], Outputs = [V; OUT]> + Default + AllWeights<V>,
+    Sgd: Optimizer<V>,
+{
+    run_with::<V, L, Sgd, IN, OUT>(name, seed, steps, Sgd, 0.15, out);
+}
+
+/// One configuration with optimizer `opt` and learning rate `lr` (the C++
+/// program gives the adaptive runs 0.01).
+fn run_with<V, L, O, const IN: usize, const OUT: usize>(
+    name: &str,
+    seed: u32,
+    steps: u32,
+    opt: O,
+    lr: f64,
+    out: &mut String,
+) where
+    V: Float,
+    L: tinymind::Layers<Value = V, Inputs = [V; IN], Outputs = [V; OUT]> + Default + AllWeights<V>,
+    O: Optimizer<V>,
 {
     let mut rand = GlibcRand::new(seed);
-    let mut nn: NeuralNetwork<L> =
-        NeuralNetwork::new(|| V::from_f64(f64::from(rand.next_i32()) / f64::from(i32::MAX) - 0.5));
+    let mut nn: NeuralNetwork<L, O> = NeuralNetwork::with_optimizer(
+        || V::from_f64(f64::from(rand.next_i32()) / f64::from(i32::MAX) - 0.5),
+        opt,
+    );
     // tinymind (C++)'s floating-point transfer-function bundle.
-    nn.set_learning_rate(V::from_f64(0.15));
+    nn.set_learning_rate(V::from_f64(lr));
     nn.set_momentum_rate(V::from_f64(0.5));
     nn.set_acceleration_rate(V::from_f64(0.1));
     let mut g = Lcg(seed);
@@ -224,6 +249,59 @@ fn float_networks_match_cpp() {
         "f64 3-6-2 relu/linear",
         5,
         2000,
+        &mut out,
+    );
+    // tinymind (C++)'s floating-point Adam and RMSprop.
+    run_with::<f64, (Dense<f64, Tanh, 2, 4>, Dense<f64, Sigmoid, 4, 1>), _, 2, 1>(
+        "f64 2-4-1 tanh/sigmoid adam",
+        6,
+        2000,
+        AdamFloat::default(),
+        0.01,
+        &mut out,
+    );
+    run_with::<
+        f32,
+        (
+            Dense<f32, Tanh, 4, 8>,
+            Dense<f32, Tanh, 8, 6>,
+            Dense<f32, Sigmoid, 6, 3>,
+        ),
+        _,
+        4,
+        3,
+    >(
+        "f32 4-8-6-3 tanh/sigmoid adam",
+        7,
+        2000,
+        AdamFloat::default(),
+        0.01,
+        &mut out,
+    );
+    run_with::<f64, (Dense<f64, Relu, 3, 6>, Dense<f64, Linear, 6, 2>), _, 3, 2>(
+        "f64 3-6-2 relu/linear rmsprop",
+        8,
+        2000,
+        RmsPropFloat::default(),
+        0.01,
+        &mut out,
+    );
+    run_with::<
+        f32,
+        (
+            Dense<f32, Tanh, 2, 4>,
+            Dense<f32, Tanh, 4, 4>,
+            Dense<f32, Sigmoid, 4, 1>,
+        ),
+        _,
+        2,
+        1,
+    >(
+        "f32 2-4-4-1 tanh/sigmoid rmsprop",
+        9,
+        2000,
+        RmsPropFloat::default(),
+        0.01,
         &mut out,
     );
     // With TINYMIND_FLOAT_MLP_CPP set (scripts/compare-with-cpp.sh sets it),

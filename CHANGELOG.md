@@ -15,8 +15,12 @@ break the API).
   and `Sigmoid` for them need the `std` feature (the platform's math library)
   or the new optional `libm` feature (`no_std`, from the `libm` crate). With
   `std` on a glibc host, SGD training is bit-identical to tinymind (C++)'s
-  floating-point networks, checked over every step in five configurations.
-  The floating-point Adam and RMSprop are not ported yet.
+  floating-point networks, checked over every step in nine configurations.
+- `AdamFloat` and `RmsPropFloat`: tinymind (C++)'s floating-point Adam and
+  RMSprop (`AdamOptimizerFloat`, `RmsPropOptimizerFloat`) for `f32` and `f64`
+  networks, with its `f64` hyperparameters (0.9, 0.999, 1e-8; 0.9, 1e-8) as
+  defaults and its bias correction (`pow` in `f64` on every step). Feature
+  `std` or `libm`. Bit-identical to tinymind (C++) with `std` on a glibc host.
 - Int8 `QMul` (elementwise multiplication, TFLite MUL), `QPad2D` (explicit
   padding, PAD) and `QConcat` (channel concatenation, CONCATENATION), from
   tinymind (C++)'s `cpp/qmul.hpp`, `cpp/qpad.hpp` and `cpp/qconcat.hpp`, with

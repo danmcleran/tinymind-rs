@@ -17,8 +17,9 @@ use tinymind::rand::GlibcRand;
 use tinymind::tree::{self, QDecisionTree, QGbdt, QTreeNode};
 
 use tinymind::{
-    Activation, Adam, Dense, InferenceDense, InferenceNetwork, InferencePerceptron, Linear,
-    MultilayerPerceptron, NeuralNetwork, Q8_8, Q16_16, Relu, RmsProp, Scalar, Sigmoid, Sqrt, Tanh,
+    Activation, Adam, AdamFloat, Dense, InferenceDense, InferenceNetwork, InferencePerceptron,
+    Linear, MultilayerPerceptron, NeuralNetwork, Q8_8, Q16_16, Relu, RmsProp, RmsPropFloat, Scalar,
+    Sigmoid, Sqrt, Tanh,
 };
 
 /// Every `QValue` operation on run-time operands.
@@ -153,6 +154,34 @@ fn deep_network<V: Scalar, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V
         black_box([raw(-5); 3]),
     ),));
     black_box(single.feed_forward(&black_box([raw(7); 2])));
+}
+
+/// tinymind (C++)'s floating-point Adam and RMSprop on f32 and f64 networks
+/// (libm's pow and sqrt).
+fn adaptive_float() {
+    let mut rng = GlibcRand::new(black_box(3));
+    let mut adam =
+        NeuralNetwork::<(Dense<f32, Tanh, 2, 4>, Dense<f32, Sigmoid, 4, 1>), _>::with_optimizer(
+            || rng.next_i32() as f32 / 2.0e9,
+            black_box(AdamFloat::default()),
+        );
+    let mut rms =
+        NeuralNetwork::<(Dense<f64, Relu, 3, 5>, Dense<f64, Linear, 5, 2>), _>::with_optimizer(
+            || f64::from(rng.next_i32()) / 2.0e9,
+            black_box(RmsPropFloat::default()),
+        );
+    adam.set_gradient_clip(black_box(Some((-1.0, 1.0))));
+    for _ in 0..black_box(10) {
+        adam.feed_forward(&black_box([1.0, 0.0]));
+        adam.train(&black_box([1.0]));
+        rms.feed_forward(&black_box([0.5, -0.5, 0.25]));
+        rms.train(&black_box([0.1, -0.2]));
+    }
+    black_box((
+        adam.learned_values(),
+        adam.optimizer().timestep(),
+        rms.learned_values(),
+    ));
 }
 
 /// Adam and RMSprop on both network types, in both formats, with clipping on.
@@ -495,6 +524,7 @@ pub extern "C" fn _start() -> ! {
     network::<f64, Relu, Linear, 8, 16, 2>(|r| f64::from(r) / 65536.0);
     deep_network::<f64, Relu, Sigmoid>(|r| f64::from(r) / 65536.0);
     deep_network::<f32, Tanh, Sigmoid>(|r| r as f32 / 65536.0);
+    adaptive_float();
     #[allow(clippy::empty_loop)]
     loop {}
 }
