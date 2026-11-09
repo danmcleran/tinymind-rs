@@ -47,6 +47,12 @@ def bias(n: int, layer: int) -> np.ndarray:
     return np.array([((o * 3 + layer) % 5 - 2) / 8.0 for o in range(n)], dtype=np.float32)
 
 
+def dense(x: np.ndarray, w: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """The importer's deterministic dense reference (float64 without BLAS, so
+    the calibrated ranges do not depend on the CPU)."""
+    return load(os.path.join(HERE, "tinymind_import.py"), "tinymind_import_rs").dense_ref(x, w, b)
+
+
 def calibration_set(shape: tuple) -> list:
     """32 NHWC inputs in [-1, 1]."""
     h, w, c = shape
@@ -73,7 +79,7 @@ def cnn(mod, tinymind_cpp: bool) -> list:
     f1 = lambda x: conv(x, w1, b1, (1, 1), (1, 1, 1, 1), False)  # noqa: E731
     f2 = lambda x: conv(x, w2, b2, (1, 1), (1, 1, 1, 1), True)  # noqa: E731
     f3 = lambda x: conv(x, w3, b3, (1, 1), (0, 0, 0, 0), False)  # noqa: E731
-    f4 = lambda x: x @ w4.T + b4  # noqa: E731
+    f4 = lambda x: dense(x, w4, b4)  # noqa: E731
     obs = mod.MinMaxObserver
     if tinymind_cpp:
         # No pooling layers: the max pool runs inside conv2's float forward,
@@ -113,8 +119,8 @@ def cnn_flat(mod, tinymind_cpp: bool) -> list:
     w2, b2 = formula((6, 50), 6, 0.25), bias(6, 6)
     w3, b3 = formula((2, 6), 7), bias(2, 7)
     f1 = lambda x: conv(x, w1, b1, (2, 1), (0, 0, 0, 0), False)  # noqa: E731
-    f2 = lambda x: x @ w2.T + b2  # noqa: E731
-    f3 = lambda x: x @ w3.T + b3  # noqa: E731
+    f2 = lambda x: dense(x, w2, b2)  # noqa: E731
+    f3 = lambda x: dense(x, w3, b3)  # noqa: E731
     obs = mod.MinMaxObserver
     if tinymind_cpp:
         flat = lambda x: pool(x, (2, 2), (2, 2), np.mean).reshape(-1)  # noqa: E731
@@ -153,7 +159,7 @@ def mod_ops(_mod):
             name="p", kernel=kernel, stride=stride)
         return rs.pool2d_nhwc(x, layer)
 
-    return rs.conv2d_nhwc, pool, (lambda x: x.mean(axis=(0, 1)).astype(np.float32))
+    return rs.conv2d_nhwc, pool, (lambda x: x.astype(np.float64).mean(axis=(0, 1)).astype(np.float32))
 
 
 # name -> (layer builder, input shape (h, w, c), outputs)

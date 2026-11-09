@@ -358,23 +358,39 @@ def _windows(x: np.ndarray, kernel: tuple, stride: tuple) -> np.ndarray:
     h, w, _ = x.shape
     oh, ow = (h - kh) // sh + 1, (w - kw) // sw + 1
     rows = [[x[i * sh:i * sh + kh, j * sw:j * sw + kw, :] for j in range(ow)] for i in range(oh)]
-    return np.array(rows, dtype=np.float32)
+    return np.array(rows, dtype=x.dtype)
 
 
 def conv2d_nhwc(x: np.ndarray, weight: np.ndarray, bias: Optional[np.ndarray],
                 stride: tuple = (1, 1), padding: tuple = (0, 0, 0, 0),
                 depthwise: bool = False) -> np.ndarray:
-    """Float reference of the Conv2D descriptor on an `[h][w][c]` map."""
+    """Float reference of the Conv2D descriptor on an `[h][w][c]` map.
+
+    Accumulates in float64 without BLAS (`optimize=False`), then rounds to
+    float32: a float32 BLAS kernel's summation order depends on the CPU, and a
+    last-bit difference in an observed range changes a scale, so the generated
+    module would differ between machines. A float32 product is exact in
+    float64."""
     pt, pb, pl, pr = padding
-    xp = np.pad(x.astype(np.float32), ((pt, pb), (pl, pr), (0, 0)))
+    xp = np.pad(x.astype(np.float64), ((pt, pb), (pl, pr), (0, 0)))
     _, kh, kw, _ = weight.shape
     win = _windows(xp, (kh, kw), stride)
+    w64 = weight.astype(np.float64)
     if depthwise:
-        y = np.einsum("ijklc,ckl->ijc", win, weight[:, :, :, 0])
+        y = np.einsum("ijklc,ckl->ijc", win, w64[:, :, :, 0], optimize=False)
     else:
-        y = np.einsum("ijklc,fklc->ijf", win, weight)
+        y = np.einsum("ijklc,fklc->ijf", win, w64, optimize=False)
     if bias is not None:
-        y = y + bias
+        y = y + bias.astype(np.float64)
+    return y.astype(np.float32)
+
+
+def dense_ref(x: np.ndarray, weight: np.ndarray, bias: Optional[np.ndarray]) -> np.ndarray:
+    """Float reference of a Dense layer, `x @ weight.T + bias`, accumulated in
+    float64 without BLAS and rounded to float32 (see conv2d_nhwc)."""
+    y = np.einsum("i,oi->o", x.astype(np.float64), weight.astype(np.float64), optimize=False)
+    if bias is not None:
+        y = y + bias.astype(np.float64)
     return y.astype(np.float32)
 
 
@@ -384,7 +400,8 @@ def pool2d_nhwc(x: np.ndarray, layer) -> np.ndarray:
     win = _windows(x, layer.kernel, stride)
     if isinstance(layer, MaxPool2D):
         return win.max(axis=(2, 3))
-    return win.mean(axis=(2, 3)).astype(np.float32)
+    # In float64, as conv2d_nhwc, so the result does not depend on the CPU.
+    return win.astype(np.float64).mean(axis=(2, 3)).astype(np.float32)
 
 
 # ----------------------------------------------------------------------------
@@ -399,7 +416,7 @@ def _float_step(layer: Layer, parent: np.ndarray) -> np.ndarray:
     if isinstance(layer, (MaxPool2D, AvgPool2D)):
         return pool2d_nhwc(parent, layer)
     if isinstance(layer, GlobalAvgPool2D):
-        return parent.mean(axis=(0, 1)).astype(np.float32)
+        return parent.astype(np.float64).mean(axis=(0, 1)).astype(np.float32)
     if isinstance(layer, Flatten):
         return parent.reshape(-1)
     if isinstance(layer, ReLU):
@@ -1035,7 +1052,7 @@ def from_torch(model, input_name: str = "input", observers: Optional[dict] = Non
                 column_order = None
             name = name_for("fc")
             layers.append(Dense(name=name, weight=w, bias=b, input_name=current,
-                                forward=(lambda x, w=w, b=b: x @ w.T + (b if b is not None else 0.0)),
+                                forward=(lambda x, w=w, b=b: dense_ref(x, w, b)),
                                 observer=observer(name)))
             shape = ("vec", w.shape[0])
         elif isinstance(module, torch.nn.Conv2d):

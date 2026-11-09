@@ -23,23 +23,23 @@ pub const INPUT_SCALE: f32 = 0.007843138;
 /// Zero point of the `input` tensor.
 pub const INPUT_ZERO_POINT: i8 = -1;
 /// Scale of the `relu1` tensor.
-pub const RELU1_SCALE: f32 = 0.007389706;
+pub const RELU1_SCALE: f32 = 0.0073897056;
 /// Zero point of the `relu1` tensor.
 pub const RELU1_ZERO_POINT: i8 = -128;
 /// Scale of the `pool1` tensor.
-pub const POOL1_SCALE: f32 = 0.007389706;
+pub const POOL1_SCALE: f32 = 0.0073897056;
 /// Zero point of the `pool1` tensor.
 pub const POOL1_ZERO_POINT: i8 = -128;
 /// Scale of the `relu2` tensor.
-pub const RELU2_SCALE: f32 = 0.0058578434;
+pub const RELU2_SCALE: f32 = 0.005857843;
 /// Zero point of the `relu2` tensor.
 pub const RELU2_ZERO_POINT: i8 = -128;
 /// Scale of the `relu3` tensor.
-pub const RELU3_SCALE: f32 = 0.0049995;
+pub const RELU3_SCALE: f32 = 0.0049994993;
 /// Zero point of the `relu3` tensor.
 pub const RELU3_ZERO_POINT: i8 = -1;
 /// Scale of the `gap` tensor.
-pub const GAP_SCALE: f32 = 0.0049995;
+pub const GAP_SCALE: f32 = 0.0049994993;
 /// Zero point of the `gap` tensor.
 pub const GAP_ZERO_POINT: i8 = -1;
 /// Scale of the `fc1` tensor.
@@ -86,7 +86,7 @@ pub static CONV1: QConv2D<'static, 1, 3, 3, 4, 1, 1, 1, 1, 1, 1> = QConv2D {
     biases: Some(&CONV1_BIASES),
     input_zero_point: -1,
     requantizer: Requantizer {
-        multiplier: 1148599947,
+        multiplier: 1148600020,
         shift: 7,
         zero_point: -128,
         qmin: -128,
@@ -108,7 +108,7 @@ pub static CONV2_WEIGHTS: [[[i8; 3]; 3]; 4] = [
 pub static CONV2_BIASES: [i32; 4] = [0, -8593, 4297, -4297];
 /// `conv2` requantizers, one per channel (the weights share one scale).
 pub static CONV2_REQUANTIZERS: [Requantizer; 4] = [Requantizer {
-    multiplier: 1365197620,
+    multiplier: 1365197643,
     shift: 7,
     zero_point: -128,
     qmin: -128,
@@ -141,7 +141,7 @@ pub static CONV3: QPointwiseConv2D<'static, 4, 8> = QPointwiseConv2D {
     biases: Some(&CONV3_BIASES),
     input_zero_point: -128,
     requantizer: Requantizer {
-        multiplier: 1267994369,
+        multiplier: 1267994386,
         shift: 7,
         zero_point: -1,
         qmin: -1,
@@ -169,7 +169,7 @@ pub static FC1: QDense<'static, 8, 3> = QDense {
     biases: Some(&FC1_BIASES),
     input_zero_point: -1,
     requantizer: Requantizer {
-        multiplier: 2110628314,
+        multiplier: 2110628117,
         shift: 6,
         zero_point: 127,
         qmin: -128,
