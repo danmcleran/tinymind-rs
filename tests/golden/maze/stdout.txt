@@ -1,0 +1,3523 @@
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 4 ***
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 3
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 0
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 3
+take action 2
+take action 3
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 3 ***
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 3 ***
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 3
+take action 2
+take action 3
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 1 ***
+take action 3
+take action 2
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 0
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 1 ***
+take action 5
+*** starting in state 2 ***
+take action 3
+take action 1
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 5 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 3 ***
+take action 1
+take action 5
+*** starting in state 4 ***
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 0 ***
+take action 4
+take action 5
+*** starting in state 4 ***
+take action 5
+Reached the goal state!

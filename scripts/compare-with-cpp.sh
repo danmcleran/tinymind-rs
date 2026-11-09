@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris, energy_efficiency, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
+# iris, energy_efficiency, maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
-# int8 softmax sweep, the tree sweep, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# int8 softmax sweep, the Q-learning and tree sweeps, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -239,6 +239,41 @@ for f in stdout.txt gbdt_tabular_int8.csv gbdt_tabular_int8.golden; do
     status=1
   fi
 done
+
+echo "== maze"
+mkdir -p "$TMP/maze/cpp" "$TMP/maze/rust"
+# Flags from examples/maze/Makefile's release target.
+g++ -g -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/maze/maze" \
+  "$TINYMIND_DIR/examples/maze/maze.cpp" "$TINYMIND_DIR/examples/maze/mazelearner.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include"
+(cd "$TMP/maze/cpp" && ../maze > stdout.txt)
+"$ROOT/target/release/examples/maze" "$TMP/maze/rust" > "$TMP/maze/rust/stdout.txt"
+for f in stdout.txt maze_training.csv maze_test.csv; do
+  if cmp -s "$TMP/maze/cpp/$f" "$TMP/maze/rust/$f"; then
+    same "maze $f"
+  else
+    echo "DIFFERENT  maze $f"
+    status=1
+  fi
+done
+
+echo "== qlearn"
+# tinymind's QLearner on the maze and random environments, Q table hashed after
+# every update; tests/qlearn_sweep.rs checks the Rust learner against the
+# committed golden, so the golden must still be what the C++ prints.
+mkdir -p "$TMP/qlearn"
+g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/qlearn/qlearn_sweep" "$ROOT/scripts/cpp/qlearn_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include"
+"$TMP/qlearn/qlearn_sweep" > "$TMP/qlearn/stdout.txt"
+if cmp -s "$TMP/qlearn/stdout.txt" "$ROOT/tests/golden/qlearn/stdout.txt"; then
+  same "qlearn stdout.txt (C++ vs tests/golden/qlearn)"
+else
+  echo "DIFFERENT  qlearn stdout.txt (C++ vs tests/golden/qlearn)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --test qlearn_sweep >/dev/null 2>&1 \
+  && same "qlearn Rust vs tests/golden/qlearn" \
+  || { echo "DIFFERENT  qlearn Rust vs tests/golden/qlearn"; status=1; }
 
 echo "== tree"
 # tinymind's QDecisionTree and QGBDT over random ensembles; tests/tree_sweep.rs
@@ -540,6 +575,9 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp -r "$TMP/gbdt/cpp" "$KEEP_CPP_OUTPUT/gbdt"
   mkdir -p "$KEEP_CPP_OUTPUT/imported_trees"
   cp "$TMP/trees/cpp.txt" "$KEEP_CPP_OUTPUT/imported_trees/stdout.txt"
+  cp -r "$TMP/maze/cpp" "$KEEP_CPP_OUTPUT/maze"
+  mkdir -p "$KEEP_CPP_OUTPUT/qlearn"
+  cp "$TMP/qlearn/stdout.txt" "$KEEP_CPP_OUTPUT/qlearn/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/tree"
   cp "$TMP/tree/stdout.txt" "$KEEP_CPP_OUTPUT/tree/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/kws_int8"
