@@ -348,10 +348,12 @@ one idea from the report not done. Trees: the runtime (`src/tree.rs`, 3A) and
 the importer (`tools/import_trees`, 3B) are done; tinymind's packed
 `QTreeCompactEval` form is not. Int8 conv (priority 4): the layers are done
 (4A, 2026-11-08: output sizes spelled out by the caller and checked at compile
-time). 4B, `examples/kws_cortex_m_int8`, is done (every tensor). Next: 4C MLPerf Tiny
-DS-CNN on the F411 hash-matching tinymind (`benchmarks/framework_comparison_f411`,
-about 53 KB, too big for the L031; the Rust layers are plain loops, so time them
-against the C++ first); 4D Conv2D (+ folded BatchNorm) in the PyTorch importer. An inference-only
+time). 4B, `examples/kws_cortex_m_int8`, is done (every tensor); tinymind #255
+(per-layer activation calibration in that example) is not ported yet. 4C, the
+framework-comparison KWS CNN on both boards, is done and tuned (13-26% fewer
+cycles than the C++ scalar build). Next: 4D Conv2D (+ folded BatchNorm) in the
+PyTorch importer. The MLPerf DS-CNN (and ResNet-8, which also needs `QAdd` and
+`QPad2D`) needs a TFLite-to-Rust translator first (see "On-board checks"). An inference-only
 version of the multi-layer `NeuralNetwork` is not done yet (`InferencePerceptron`
 covers one hidden layer).
 
