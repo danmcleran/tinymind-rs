@@ -9,6 +9,13 @@ break the API).
 
 ### Added
 
+- `InferenceNetwork` over `InferenceDense` layers: the inference-only form of
+  `NeuralNetwork` for any number of hidden layers (tinymind (C++)'s
+  `NeuralNetwork` with `IsTrainable = false`), the weights only, with `const fn`
+  constructors so trained weights can be a `static`. `NeuralNetwork::to_inference`
+  and `NeuralNetwork::set_weights` convert both ways (`Dense::to_inference` and
+  `Dense::set_from` per layer); the stack is a tuple of 1 to 8 layers
+  (`InferenceLayers`). Bit-identical to tinymind (C++) in five configurations.
 - Int8 convolution and pooling (tinymind (C++)'s `cpp/qconv2d.hpp`,
   `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp` and `cpp/qpool2d.hpp`),
   in `tinymind::int8`: `QConv2D` and `QConv2DPerChannel`, `QDepthwiseConv2D`,

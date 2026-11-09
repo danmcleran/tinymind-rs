@@ -41,7 +41,7 @@ Early. The port covers what six of tinymind (C++)'s examples use (XOR, iris, ene
 |---|---|
 | Q16.16 (`i32`) and Q8.8 (`i16`) arithmetic, Truncate and Wrap policies | Other Q formats, saturating and rounding policies |
 | ReLU, linear, and tanh and sigmoid via lookup tables; int8 inference (requantizer, dense layers, 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition, quantized ReLU, int8 activation tables, softmax bit-exact with TFLite's); quantized decision trees and gradient-boosted ensembles, with an importer for scikit-learn, XGBoost and LightGBM models | The other activations (capped and leaky ReLU, ...) |
-| Trainable networks with any number of hidden layers (SGD with momentum, Adam or RMSprop; optional gradient clipping); one-hidden-layer networks also inference-only (weights only, can live in flash) | Weight decay and learning-rate schedules, recurrent layers, the rest of the int8 family (residual add, recurrent cells, attention), SIMD |
+| Trainable networks with any number of hidden layers (SGD with momentum, Adam or RMSprop; optional gradient clipping); inference-only networks of any depth (weights only, can live in flash) | Weight decay and learning-rate schedules, recurrent layers, the rest of the int8 family (explicit padding, multiply, concatenation, recurrent cells, attention), SIMD |
 | | Floating-point (`float`, `double`) networks |
 
 The crate is on [crates.io](https://crates.io/crates/tinymind); the API is not stable yet (before 1.0, a minor version may break it). tinymind (C++) itself is the full library; this port grows by porting slices of it.

@@ -17,8 +17,8 @@ use tinymind::rand::GlibcRand;
 use tinymind::tree::{self, QDecisionTree, QGbdt, QTreeNode};
 
 use tinymind::{
-    Activation, Adam, Dense, Fixed, InferencePerceptron, Linear, MultilayerPerceptron,
-    NeuralNetwork, Q8_8, Q16_16, Relu, RmsProp, Sigmoid, Sqrt, Tanh,
+    Activation, Adam, Dense, Fixed, InferenceDense, InferenceNetwork, InferencePerceptron, Linear,
+    MultilayerPerceptron, NeuralNetwork, Q8_8, Q16_16, Relu, RmsProp, Sigmoid, Sqrt, Tanh,
 };
 
 /// Every `QValue` operation on run-time operands.
@@ -144,6 +144,15 @@ fn deep_network<V: Fixed, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V)
     layers.1.set_weights(&black_box([[raw(3); 6]; 8]));
     layers.2.set_bias_weights(&black_box([raw(3); 5]));
     black_box(layers.1.weights());
+    // The inference-only form, both ways.
+    let inference = black_box(nn.to_inference());
+    black_box(inference.feed_forward(&black_box([raw(1); 4])));
+    nn.set_weights(&inference);
+    let single = InferenceNetwork::new((InferenceDense::<V, O, 2, 3>::new(
+        black_box([[raw(5); 3]; 2]),
+        black_box([raw(-5); 3]),
+    ),));
+    black_box(single.feed_forward(&black_box([raw(7); 2])));
 }
 
 /// Adam and RMSprop on both network types, in both formats, with clipping on.

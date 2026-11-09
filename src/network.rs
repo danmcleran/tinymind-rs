@@ -208,6 +208,72 @@ impl<V: Fixed, A: Activation<V>, const IN: usize, const OUT: usize> Dense<V, A, 
     }
 }
 
+/// A fully connected layer holding only its weights: the inference-only form
+/// of [`Dense`] (C++ `IsTrainable = false`), for [`InferenceNetwork`].
+///
+/// One value per connection, no training state, and [`new`](Self::new) is a
+/// `const fn`, so trained weights can be a `static` in flash.
+pub struct InferenceDense<V, A, const IN: usize, const OUT: usize> {
+    /// `weights[i][o]`: from input `i` to neuron `o`, as [`Dense::weights`]
+    /// returns them.
+    pub weights: [[V; OUT]; IN],
+    /// `bias_weights[o]`: the bias input's weight to neuron `o`.
+    pub bias_weights: [V; OUT],
+    activation: PhantomData<fn() -> A>,
+}
+
+impl<V: Copy, A, const IN: usize, const OUT: usize> Clone for InferenceDense<V, A, IN, OUT> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<V: Copy, A, const IN: usize, const OUT: usize> Copy for InferenceDense<V, A, IN, OUT> {}
+
+impl<V, A, const IN: usize, const OUT: usize> InferenceDense<V, A, IN, OUT> {
+    /// A layer with these weights, laid out as [`Dense::weights`] and
+    /// [`Dense::bias_weights`] return them.
+    pub const fn new(weights: [[V; OUT]; IN], bias_weights: [V; OUT]) -> Self {
+        Self {
+            weights,
+            bias_weights,
+            activation: PhantomData,
+        }
+    }
+}
+
+impl<V: Fixed, A: Activation<V>, const IN: usize, const OUT: usize> InferenceDense<V, A, IN, OUT> {
+    /// `out[o] = A(1 * bias[o] + (0 + in[0] * w[0][o] + in[1] * w[1][o] + ...))`,
+    /// the C++ sum order, as [`Dense`] computes it.
+    pub fn forward(&self, input: &[V; IN]) -> [V; OUT] {
+        let mut out = [V::ZERO; OUT];
+        for (o, y) in out.iter_mut().enumerate() {
+            let mut sum = V::ONE * self.bias_weights[o];
+            let mut layer_sum = V::ZERO;
+            for (&x, row) in input.iter().zip(&self.weights) {
+                layer_sum += x * row[o];
+            }
+            sum += layer_sum;
+            *y = A::activate(sum);
+        }
+        out
+    }
+}
+
+impl<V: Copy, A, const IN: usize, const OUT: usize> Dense<V, A, IN, OUT> {
+    /// This layer's weights as an [`InferenceDense`].
+    pub fn to_inference(&self) -> InferenceDense<V, A, IN, OUT> {
+        InferenceDense::new(self.weights(), self.bias_weights())
+    }
+
+    /// Load the weights of an [`InferenceDense`] of the same shape (the
+    /// training state is left as it is).
+    pub fn set_from(&mut self, from: &InferenceDense<V, A, IN, OUT>) {
+        self.set_weights(&from.weights);
+        self.set_bias_weights(&from.bias_weights);
+    }
+}
+
 mod sealed {
     /// The per-network operations, implemented for tuples of [`Dense`] layers
     /// whose sizes chain. Sealed: the set of layer types is the crate's to grow.
@@ -234,6 +300,18 @@ mod sealed {
         /// Number of output neurons: each owns one unused C++ connection whose
         /// initialisation consumes a random draw.
         const OUTPUTS: usize;
+        /// The same stack as [`InferenceDense`](super::InferenceDense) layers.
+        type Inference: InferenceLayersImpl<Inputs = Self::Inputs, Outputs = Self::Outputs>;
+        fn to_inference(&self) -> Self::Inference;
+        fn set_from(&mut self, from: &Self::Inference);
+    }
+
+    /// The forward pass over a tuple of
+    /// [`InferenceDense`](super::InferenceDense) layers whose sizes chain.
+    pub trait InferenceLayersImpl {
+        type Inputs: Copy;
+        type Outputs: Copy;
+        fn feed_forward(&self, inputs: &Self::Inputs) -> Self::Outputs;
     }
 }
 
@@ -243,6 +321,13 @@ mod sealed {
 pub trait Layers: sealed::LayersImpl {}
 
 impl<T: sealed::LayersImpl> Layers for T {}
+
+/// A stack of layers [`InferenceNetwork`] can run: a tuple of 1 to 8
+/// [`InferenceDense`] layers in which each layer's `OUT` is the next layer's
+/// `IN`. Implemented by the crate only.
+pub trait InferenceLayers: sealed::InferenceLayersImpl {}
+
+impl<T: sealed::InferenceLayersImpl> InferenceLayers for T {}
 
 /// Mean-squared error against `targets` (C++ `MeanSquaredErrorCalculator`):
 /// the sum of squared differences, divided by the output count when it is more
@@ -320,6 +405,29 @@ macro_rules! impl_layers {
                 $(self.$next.gradients(&self.$prev.outputs);)*
                 self.$last.update(rates, clip, optimizer);
                 $(self.$lo.update(rates, clip, optimizer);)*
+            }
+
+            type Inference = ($(InferenceDense<V, $act, $din, $dout>,)+);
+
+            fn to_inference(&self) -> Self::Inference {
+                ($(self.$idx.to_inference(),)+)
+            }
+
+            fn set_from(&mut self, from: &Self::Inference) {
+                $(self.$idx.set_from(&from.$idx);)+
+            }
+        }
+
+        impl<V: Fixed, $($act: Activation<V>,)+ $(const $d: usize,)+> sealed::InferenceLayersImpl
+            for ($(InferenceDense<V, $act, $din, $dout>,)+)
+        {
+            type Inputs = [V; $d0];
+            type Outputs = [V; $dn];
+
+            fn feed_forward(&self, inputs: &[V; $d0]) -> [V; $dn] {
+                let x = self.$first.forward(inputs);
+                $(let x = self.$next.forward(&x);)*
+                x
             }
         }
     };
@@ -474,6 +582,77 @@ impl<V: Fixed, L: Layers<Value = V>, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
     /// The layers, to load weights (`nn.layers_mut().0.set_weights(..)`).
     pub fn layers_mut(&mut self) -> &mut L {
         &mut self.layers
+    }
+
+    /// The trained network as an [`InferenceNetwork`]: the same weights and the
+    /// same outputs, bit for bit, without the training state.
+    pub fn to_inference(&self) -> InferenceNetwork<L::Inference> {
+        InferenceNetwork::new(self.layers.to_inference())
+    }
+
+    /// Load every weight from an inference network of the same shape, for
+    /// example to keep training shipped weights on the device. The optimizer
+    /// state and delta weights are left as they are.
+    pub fn set_weights(&mut self, from: &InferenceNetwork<L::Inference>) {
+        self.layers.set_from(&from.layers);
+    }
+}
+
+/// An inference-only feed-forward network over a tuple of [`InferenceDense`]
+/// layers: tinymind (C++)'s `NeuralNetwork<..., HiddenLayers<...>, ...>` with
+/// `IsTrainable = false`, and the any-depth form of
+/// [`InferencePerceptron`](crate::InferencePerceptron).
+///
+/// Train with [`NeuralNetwork`] (on a host or on the device), then ship this:
+/// one value per connection, no per-neuron state and no training code. Its
+/// outputs are bit-identical to the trainable network's with the same
+/// weights. [`feed_forward`](Self::feed_forward) takes `&self`, and
+/// [`new`](Self::new) and [`InferenceDense::new`] are `const fn`, so a trained
+/// network can be a `static`:
+///
+/// ```
+/// use tinymind::{InferenceDense, InferenceNetwork, Q16_16, Relu, Sigmoid};
+///
+/// const fn q(x: i32) -> Q16_16 {
+///     Q16_16::from_int(x)
+/// }
+///
+/// // 2 inputs -> 2 ReLU -> 2 ReLU -> 1 sigmoid output: XOR by hand (OR minus
+/// // twice AND, then a margin). Weights from `NeuralNetwork::to_inference`
+/// // go here the same way.
+/// static XOR: InferenceNetwork<(
+///     InferenceDense<Q16_16, Relu, 2, 2>,
+///     InferenceDense<Q16_16, Relu, 2, 2>,
+///     InferenceDense<Q16_16, Sigmoid, 2, 1>,
+/// )> = InferenceNetwork::new((
+///     InferenceDense::new([[q(1), q(1)], [q(1), q(1)]], [q(0), q(-1)]), // [OR-ish, AND]
+///     InferenceDense::new([[q(1), q(0)], [q(-2), q(0)]], [q(0), q(0)]), // OR - 2 AND
+///     InferenceDense::new([[q(8)], [q(0)]], [q(-4)]),
+/// ));
+///
+/// let half = Q16_16::from_raw(1 << 15);
+/// for (a, b, want) in [(0, 0, false), (0, 1, true), (1, 0, true), (1, 1, false)] {
+///     let [y] = XOR.feed_forward(&[q(a), q(b)]);
+///     assert_eq!(y > half, want);
+/// }
+/// ```
+pub struct InferenceNetwork<L> {
+    /// The layers, first to last.
+    pub layers: L,
+}
+
+impl<L> InferenceNetwork<L> {
+    /// A network over these layers.
+    pub const fn new(layers: L) -> Self {
+        Self { layers }
+    }
+}
+
+impl<L: InferenceLayers> InferenceNetwork<L> {
+    /// One forward pass: the output layer's activations. Nothing is kept
+    /// between calls.
+    pub fn feed_forward(&self, inputs: &L::Inputs) -> L::Outputs {
+        self.layers.feed_forward(inputs)
     }
 }
 

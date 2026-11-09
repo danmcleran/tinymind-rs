@@ -177,6 +177,26 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --test inference_mlp >/dev/null
   && same "inference_mlp Rust vs tests/golden/inference_mlp" \
   || { echo "DIFFERENT  inference_mlp Rust vs tests/golden/inference_mlp"; status=1; }
 
+echo "== inference_deep"
+# tinymind's inference-only NeuralNetwork (IsTrainable = false) with one to
+# three hidden layers and loaded weights; tests/inference_deep.rs checks
+# InferenceNetwork against the committed golden.
+mkdir -p "$TMP/inference_deep"
+g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/inference_deep/inference_deep" "$ROOT/scripts/cpp/inference_deep.cpp" \
+  "$TINYMIND_DIR/cpp/lookupTables.cpp" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_TANH_16_16=1 \
+  -DTINYMIND_USE_SIGMOID_8_8=1 -DTINYMIND_USE_TANH_8_8=1
+"$TMP/inference_deep/inference_deep" > "$TMP/inference_deep/stdout.txt"
+if cmp -s "$TMP/inference_deep/stdout.txt" "$ROOT/tests/golden/inference_deep/stdout.txt"; then
+  same "inference_deep stdout.txt (C++ vs tests/golden/inference_deep)"
+else
+  echo "DIFFERENT  inference_deep stdout.txt (C++ vs tests/golden/inference_deep)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --test inference_deep >/dev/null 2>&1 \
+  && same "inference_deep Rust vs tests/golden/inference_deep" \
+  || { echo "DIFFERENT  inference_deep Rust vs tests/golden/inference_deep"; status=1; }
+
 echo "== gbdt"
 mkdir -p "$TMP/gbdt/cpp" "$TMP/gbdt/rust"
 # Flags from examples/gbdt_tabular_int8/Makefile's release target. The C++
@@ -458,6 +478,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/deep_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/deep_mlp/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/inference_mlp"
   cp "$TMP/inference_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/inference_mlp/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/inference_deep"
+  cp "$TMP/inference_deep/stdout.txt" "$KEEP_CPP_OUTPUT/inference_deep/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/softmax"
   cp "$TMP/softmax/stdout.txt" "$KEEP_CPP_OUTPUT/softmax/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/imported_mlp"
