@@ -157,6 +157,25 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --test deep_mlp >/dev/null 2>&1
   && same "deep_mlp Rust vs tests/golden/deep_mlp" \
   || { echo "DIFFERENT  deep_mlp Rust vs tests/golden/deep_mlp"; status=1; }
 
+echo "== float_mlp"
+# tinymind's NeuralNetwork in double and float with its floating-point
+# activations; tests/float_mlp.rs checks the Rust f64/f32 networks against the
+# committed golden. -ffp-contract=off: fused multiply-adds would change the sums.
+mkdir -p "$TMP/float_mlp"
+g++ -O2 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/float_mlp/float_mlp" "$ROOT/scripts/cpp/float_mlp.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_RAND=1
+"$TMP/float_mlp/float_mlp" > "$TMP/float_mlp/stdout.txt"
+if cmp -s "$TMP/float_mlp/stdout.txt" "$ROOT/tests/golden/float_mlp/stdout.txt"; then
+  same "float_mlp stdout.txt (C++ vs tests/golden/float_mlp)"
+else
+  echo "DIFFERENT  float_mlp stdout.txt (C++ vs tests/golden/float_mlp)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test float_mlp >/dev/null 2>&1 \
+  && same "float_mlp Rust vs tests/golden/float_mlp" \
+  || { echo "DIFFERENT  float_mlp Rust vs tests/golden/float_mlp"; status=1; }
+
 echo "== inference_mlp"
 # tinymind's inference-only MultilayerPerceptron (IsTrainable = false) with loaded
 # weights; tests/inference_mlp.rs checks InferencePerceptron against the committed
@@ -506,6 +525,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/deep_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/deep_mlp/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/inference_mlp"
   cp "$TMP/inference_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/inference_mlp/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/float_mlp"
+  cp "$TMP/float_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/float_mlp/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/inference_deep"
   cp "$TMP/inference_deep/stdout.txt" "$KEEP_CPP_OUTPUT/inference_deep/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/softmax"

@@ -490,6 +490,11 @@ pub extern "C" fn _start() -> ! {
     adaptive::<Q16_16>(Q16_16::from_raw);
     adaptive::<Q8_8>(|r| Q8_8::from_raw(r as i16));
     deep_network::<Q8_8, Tanh, Sigmoid>(|r| Q8_8::from_raw(r as i16));
+    // Floating point (Tanh and Sigmoid from the libm crate without std).
+    network::<f32, Tanh, Sigmoid, 2, 4, 1>(|r| r as f32 / 65536.0);
+    network::<f64, Relu, Linear, 8, 16, 2>(|r| f64::from(r) / 65536.0);
+    deep_network::<f64, Relu, Sigmoid>(|r| f64::from(r) / 65536.0);
+    deep_network::<f32, Tanh, Sigmoid>(|r| r as f32 / 65536.0);
     #[allow(clippy::empty_loop)]
     loop {}
 }

@@ -4,10 +4,14 @@
 //! C++ policy classes with static member functions become zero-sized Rust types
 //! implementing a trait. `Relu` and `Linear` need no table and work for every
 //! value type.
-//! `Tanh` and `Sigmoid` are implemented only for the formats that have lookup
+//! `Tanh` and `Sigmoid` are implemented for the formats that have lookup
 //! tables (`Q16_16`, `Q8_8`): asking for `Tanh` on another format is a compile
 //! error, as it is in C++ when the matching `TINYMIND_USE_TANH_x_y` table is not
-//! compiled in.
+//! compiled in. For `f32` and `f64` they compute `tanh(x)` and `1 / (1 +
+//! exp(-x))`, as tinymind (C++)'s floating-point activations do, with the `std`
+//! feature (the platform's math library, glibc on a Linux host, which the C++
+//! uses too: the results are bit-identical there) or the `libm` feature (the
+//! `libm` crate, for `no_std`: within a few ulps of glibc, not bit-identical).
 
 use crate::lut::{
     NUMBER_OF_ACTIVATION_TABLE_VALUES, SIGMOID_Q8_8, SIGMOID_Q16_16, TANH_Q8_8, TANH_Q16_16,
@@ -30,10 +34,12 @@ pub struct Relu;
 /// Its gradient is unbounded; see `set_gradient_clip` on the networks.
 pub struct Linear;
 
-/// Hyperbolic tangent via the 96-entry lookup table.
+/// Hyperbolic tangent: the 96-entry lookup table for the Q formats, `tanh` for
+/// `f32` and `f64` (feature `std` or `libm`).
 pub struct Tanh;
 
-/// Logistic sigmoid via the 96-entry lookup table.
+/// Logistic sigmoid: the 96-entry lookup table for the Q formats, `1 / (1 +
+/// exp(-x))` for `f32` and `f64` (feature `std` or `libm`).
 pub struct Sigmoid;
 
 impl<V: Fixed> Activation<V> for Relu {
@@ -86,6 +92,43 @@ macro_rules! impl_table_activations {
 
 impl_table_activations!(Q16_16, TANH_Q16_16, SIGMOID_Q16_16);
 impl_table_activations!(Q8_8, TANH_Q8_8, SIGMOID_Q8_8);
+
+/// `Tanh` and `Sigmoid` for a float type, as tinymind (C++)'s floating-point
+/// activation policies write them: `tanh(x)` and `1 / (1 + exp(-x))`, with the
+/// derivatives taken from the output, `1 - y * y` and `y * (1 - y)`.
+#[cfg(any(feature = "std", feature = "libm"))]
+macro_rules! impl_float_activations {
+    ($t:ty, $tanh:path, $exp:path) => {
+        impl Activation<$t> for Tanh {
+            fn activate(x: $t) -> $t {
+                $tanh(x)
+            }
+
+            fn derivative(y: $t) -> $t {
+                1.0 - (y * y)
+            }
+        }
+
+        impl Activation<$t> for Sigmoid {
+            fn activate(x: $t) -> $t {
+                1.0 / (1.0 + $exp(-x))
+            }
+
+            fn derivative(y: $t) -> $t {
+                y * (1.0 - y)
+            }
+        }
+    };
+}
+
+#[cfg(feature = "std")]
+impl_float_activations!(f32, f32::tanh, f32::exp);
+#[cfg(feature = "std")]
+impl_float_activations!(f64, f64::tanh, f64::exp);
+#[cfg(all(feature = "libm", not(feature = "std")))]
+impl_float_activations!(f32, libm::tanhf, libm::expf);
+#[cfg(all(feature = "libm", not(feature = "std")))]
+impl_float_activations!(f64, libm::tanh, libm::exp);
 
 /// Table domain is [-6, 6] with knots 1/8 apart (`cpp/activation.hpp`).
 const MIN_X_TABLE_VALUE: i32 = -6;

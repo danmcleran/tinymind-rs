@@ -50,6 +50,10 @@ impl<S: fmt::Display, const FRAC: u32> fmt::Display for QValue<S, FRAC> {
 /// counterpart of the implicit "ValueType concept" that the C++ templates rely on:
 /// in C++ a missing operator is a template instantiation error, here it is a
 /// trait-bound error at the call site.
+///
+/// Implemented for the [`QValue`] formats and, despite the name, for `f32` and
+/// `f64`: the networks run in floating point too, as tinymind (C++)'s do when
+/// instantiated with `float` or `double`.
 pub trait Fixed:
     Copy
     + Default
@@ -69,6 +73,33 @@ pub trait Fixed:
     /// Divide by a whole number (C++ `operator/=(int)`).
     fn div_int(self, n: i32) -> Self;
 }
+
+/// `f32` and `f64` as network value types. `pow2_neg` builds the power of two
+/// exactly; `div_int` divides by the integer converted to the float type, as
+/// the C++ `value /= n` does.
+macro_rules! impl_fixed_float {
+    ($t:ty) => {
+        impl Fixed for $t {
+            const ZERO: Self = 0.0;
+            const ONE: Self = 1.0;
+
+            fn pow2_neg(n: u32) -> Self {
+                let mut x: $t = 1.0;
+                for _ in 0..n.min(1100) {
+                    x *= 0.5;
+                }
+                x
+            }
+
+            fn div_int(self, n: i32) -> Self {
+                self / (n as $t)
+            }
+        }
+    };
+}
+
+impl_fixed_float!(f32);
+impl_fixed_float!(f64);
 
 /// Square root of a non-negative value (C++ `SquareRootApproximation`):
 /// integer Newton iteration on `raw << FRAC` in the wide type, which gives the

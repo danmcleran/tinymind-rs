@@ -393,12 +393,26 @@ done, including BatchNorm folding (tinymind #256 ported). The TFLite translator 
 F411, and ResNet-8 too (`QAdd` ported, ADD in the translator), with RAM and cycles tuned (arena, 16-bit band path, ADD tables). Possible next: the same 16-bit pairing for pointwise/depthwise/dense (the DS-CNN's pointwise layers), and 2x2 register blocking that LLVM does not spill. The inference-only
 multi-layer network is done (`InferenceNetwork`, 2026-11-09).
 
-Floating point is also unported: tinymind's networks are generic over the value
-type and its unit tests and `examples/lstm_sinusoid_float` run them with `float`
-and `double`. Two catches for a port: `core` has no `tanh`/`exp`, so `no_std` needs
-the `libm` crate or its own implementation, and bit-exactness with glibc's libm is
-not guaranteed (compare results before promising it). The `Fixed` trait would also
-need a name that fits floats (e.g. `ValueType`); rename it before the first release.
+Floating point (2026-11-09): `Fixed` is implemented for `f32`/`f64` (`pow2_neg`
+by exact halving, `div_int` = `self / n as $t`, as the C++ `value /= n`), so every
+network type is generic over them; `Tanh`/`Sigmoid` for floats come from
+`impl_float_activations!` (tanh, `1/(1+exp(-x))`, derivatives `1-y*y`,
+`y*(1-y)`, as tinymind's float example and `nn_unit_test.cpp` write them) with
+feature `std` (system libm: bit-exact with the C++ on glibc) or the optional
+`libm` feature/dependency (`no_std`, not bit-exact; `all(libm, not(std))`, so
+`--all-features` uses std). tinymind ships no float transfer-function bundle:
+the library templates plus user specializations are its float path, copied
+unchanged into `scripts/cpp/float_mlp.cpp` (needs `<new>` and
+`fixedPointTransferFunctions.hpp` for `ZeroToleranceCalculator`; built with
+`-ffp-contract=off`). The bundle's rates are 0.15/0.5/0.1; the Rust default rates
+stay 1/4, 1/2, 1/16 for every type, so tests set them. `tests/float_mlp.rs`
+(feature std) matches every step of five configs (f64/f32; 1-2 hidden layers;
+tanh/ReLU; sigmoid/linear) on the first run; plants (tanh derivative as
+(1-y)(1+y), div_int via reciprocal, sigmoid +eps/4) fail it. panic-never runs
+float networks with `libm` (M0+ soft float and M4F). Not ported: tinymind's
+`AdamOptimizerFloat`/`RmsPropOptimizerFloat` (double hyperparameters, `std::pow`
+bias correction; the Q-format Adam is a different algorithm on floats). The
+`Fixed` name now covers floats too; renaming it would be a breaking change.
 
 ## Docs site (GitHub Pages)
 
@@ -468,9 +482,8 @@ release. That is why the audit gates the release, not just each PR.
 
 ## Conventions
 
-- Do not describe tinymind, or this crate as a design, as fixed-point only: tinymind
-  also runs networks in `float`/`double`. "Fixed-point so far" is the accurate scope
-  of the port.
+- Do not describe tinymind, or this crate as a design, as fixed-point only: both
+  run networks in fixed point and in `float`/`double` (`f32`/`f64`).
 - Project names are lowercase in prose: "tinymind" (the C++ library), "tinymind-rs"
   (this port). The crate is `tinymind`; write it in backticks when you mean the crate.
 - **In user-facing text the C++ library is "tinymind (C++)"**, never a bare

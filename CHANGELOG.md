@@ -9,6 +9,14 @@ break the API).
 
 ### Added
 
+- Floating-point networks: `Fixed` is implemented for `f32` and `f64`, so
+  `NeuralNetwork`, `MultilayerPerceptron` and the inference-only networks run
+  in floating point, as tinymind (C++)'s do with `float` and `double`. `Tanh`
+  and `Sigmoid` for them need the `std` feature (the platform's math library)
+  or the new optional `libm` feature (`no_std`, from the `libm` crate). With
+  `std` on a glibc host, SGD training is bit-identical to tinymind (C++)'s
+  floating-point networks, checked over every step in five configurations.
+  The floating-point Adam and RMSprop are not ported yet.
 - Int8 `QMul` (elementwise multiplication, TFLite MUL), `QPad2D` (explicit
   padding, PAD) and `QConcat` (channel concatenation, CONCATENATION), from
   tinymind (C++)'s `cpp/qmul.hpp`, `cpp/qpad.hpp` and `cpp/qconcat.hpp`, with

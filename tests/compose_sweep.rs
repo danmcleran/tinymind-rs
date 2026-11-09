@@ -6,6 +6,9 @@
 // scripts/compare-with-cpp.sh rebuilds it and checks the golden is current.
 // See that program for what the cases cover.
 
+// The calibration functions need the `std` feature.
+#![cfg(feature = "std")]
+
 use std::fmt::Write;
 
 use tinymind::int8::calibration::{build_mul_requantizer, build_rescaler};
