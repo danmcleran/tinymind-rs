@@ -17,8 +17,10 @@ break the API).
   and zero-point padding (SAME or any asymmetric amount) are const parameters,
   and an output size that does not match the input, kernel, strides and padding
   is a compile error. Bit-identical to tinymind (C++), checked over 57 random
-  layer configurations. Convolutions over two or more input channels add
-  16-bit products in pairs; on Cortex-M4, M7 and M33, building with `-C
+  layer configurations. Tuned on Cortex-M4 and M0+ boards: one-channel
+  convolutions gather each window once and run filters in pairs, pointwise
+  layers run two pixels per pass, and convolutions over two or more input
+  channels add 16-bit products in pairs; on Cortex-M4, M7 and M33, building with `-C
   llvm-args=-arm-parallel-dsp-load-limit=512` lets LLVM turn them into `SMLAD`
   instructions (see the int8 page).
 - Int8 elementwise addition, `int8::QAdd` (tinymind (C++)'s `cpp/qadd.hpp`,

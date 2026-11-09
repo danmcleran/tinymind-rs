@@ -291,6 +291,26 @@ fn int8_conv() {
     conv.forward(&input, &mut out);
     black_box(&out);
 
+    // One input channel: the gathered-window path, padded on every side,
+    // stride 2, an odd number of filters.
+    let mono: [[[i8; 1]; 7]; 6] = black_box([[[1; 1]; 7]; 6]);
+    let mono_weights: [[[[i8; 1]; 3]; 3]; 3] = black_box([[[[1; 1]; 3]; 3]; 3]);
+    let mono_rqs: [Requantizer; 3] = black_box([rq; 3]);
+    let mono_biases: [i32; 3] = black_box([1; 3]);
+    let conv: QConv2DPerChannel<'_, 1, 3, 3, 3, 2, 2, 1, 1, 1, 1> = QConv2DPerChannel {
+        weights: &mono_weights,
+        biases: if black_box(true) {
+            Some(&mono_biases)
+        } else {
+            None
+        },
+        input_zero_point: zp,
+        requantizers: &mono_rqs,
+    };
+    let mut out = [[[0i8; 3]; 4]; 3];
+    conv.forward(&mono, &mut out);
+    black_box(&out);
+
     let dw_weights: [[[i8; 3]; 3]; 2] = black_box([[[1; 3]; 3]; 2]);
     let dw_biases: [i32; 2] = black_box([1; 2]);
     let dw_rqs: [Requantizer; 2] = black_box([rq; 2]);

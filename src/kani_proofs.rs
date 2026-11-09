@@ -413,7 +413,7 @@ mod conv {
     /// on top, stride 1 across with one column on the right: two outputs,
     /// each with taps in the padding.
     #[kani::proof]
-    #[kani::unwind(4)]
+    #[kani::unwind(6)]
     fn conv_never_panics() {
         let weights: [[[[i8; 1]; 2]; 2]; 1] = kani::any();
         let biases: [i32; 1] = kani::any();
@@ -449,7 +449,7 @@ mod conv {
     }
 
     #[kani::proof]
-    #[kani::unwind(4)]
+    #[kani::unwind(6)]
     fn conv_per_channel_never_panics() {
         let weights: [[[[i8; 1]; 2]; 2]; 2] = kani::any();
         let biases: [i32; 2] = kani::any();
