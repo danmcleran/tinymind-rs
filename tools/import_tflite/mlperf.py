@@ -86,15 +86,18 @@ def _rust_str(s: str) -> str:
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def run_module(module: str, xs: np.ndarray, input_shape: list, target_dir: str = None) -> bytes:
+def run_module(module: str, xs: np.ndarray, input_shape: list, target_dir: str = None,
+               output_map: bool = False) -> bytes:
     """Every output byte of the module's forward on each input, in order.
-    `input_shape` is the model's input shape without the batch axis."""
+    `input_shape` is the model's input shape without the batch axis;
+    `output_map` says the output is a feature map (NHWC) rather than a vector."""
     shaped = xs.reshape([len(xs)] + list(input_shape))
     main = [f"#[path = {_rust_str(os.path.abspath(module))}]\nmod model;\n",
             f"static X: {tt._rust_type([len(xs)] + list(input_shape))} = {tt._rust_nested(shaped)};",
             "fn main() {",
             "    for x in &X {",
-            "        for v in model::forward(x) {",
+            "        let y = model::forward(x);",
+            ("        for v in y.as_flattened().as_flattened() {" if output_map else "        for v in y {"),
             "            print!(\"{v} \");",
             "        }",
             "        println!();",

@@ -57,8 +57,9 @@ break the API).
 - A TFLite translator in the repository (`tools/import_tflite`, not part of the
   crate), ported from tinymind (C++)'s MLPerf translation script: int8 `.tflite`
   models with convolutions (per-channel), depthwise and pointwise convolutions,
-  global average pooling, fully connected layers, softmax and residual
-  additions become a `no_std` Rust module. The MLPerf Tiny keyword-spotting
+  global average pooling, fully connected layers, softmax, residual
+  additions, multiplications, padding and channel concatenation become a
+  `no_std` Rust module. The MLPerf Tiny keyword-spotting
   (DS-CNN) and image-classification (ResNet-8) models translate to the same
   output hashes as tinymind (C++) and TFLite's reference kernels, on the host
   and on an STM32F411. Feature maps share one planned byte arena, as in

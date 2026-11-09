@@ -431,6 +431,16 @@ else
   echo "DIFFERENT  MLPerf Tiny image classification (ResNet-8)"
   status=1
 fi
+# PAD, MUL and CONCATENATION, which the MLPerf models do not use: small models
+# built by tools/import_tflite/tflite_build.py, against TFLite's reference
+# kernels (LiteRT, ai-edge-litert in PYTHON).
+if "$PYTHON" -I -B "$ROOT/tools/import_tflite/test_ops.py" > "$TMP/tflite_ops.txt" 2>&1; then
+  same "TFLite translator PAD, MUL, CONCATENATION: output = TFLite reference kernels"
+else
+  cat "$TMP/tflite_ops.txt"
+  echo "DIFFERENT  TFLite translator PAD, MUL, CONCATENATION"
+  status=1
+fi
 
 echo "== imported_trees (tree importer)"
 # Needs scikit-learn in PYTHON; XGBoost and LightGBM for all of test_parity.py.
