@@ -34,7 +34,9 @@ It has also run on two boards, an STM32F411 (Cortex-M4F, 100 MHz) and an
 STM32L031 (Cortex-M0+, 32 MHz, 32 KB flash, 8 KB RAM). On both, tinymind (C++)'s int8
 digits classifier gives the same output hash as the C++ (214 µs per inference on
 the M4F, 1.33 ms on the M0+), so does its KWS-shaped convolutional network, in
-13-26% fewer cycles than the C++'s portable build (1.90 ms and 20.4 ms), XOR trained on the board reproduces the desktop
+13-26% fewer cycles than the C++'s portable build (1.90 ms and 20.4 ms), and on
+the F411 the MLPerf Tiny keyword-spotting model, translated from TFLite, gives
+the C++'s output hash in 161 ms, within 2.5% of the C++, XOR trained on the board reproduces the desktop
 weight trajectory bit for bit, and the anomaly example trains on the chip in
 0.14 s and 4.2 s respectively. Results and method:
 [On-board results](https://danmcleran.github.io/tinymind-rs/benchmarks) and
@@ -54,7 +56,9 @@ The API reference is on [docs.rs](https://docs.rs/tinymind).
 To run a model trained in PyTorch, `tools/import_pytorch` in this repository
 turns it into a Rust module (int8 weights, integer requantizers and a `forward`
 function; `no_std`). See its README. `tools/import_trees` does the same for
-scikit-learn, XGBoost and LightGBM tree models.
+scikit-learn, XGBoost and LightGBM tree models, and `tools/import_tflite` for
+int8 TensorFlow Lite models (convolutional networks such as the MLPerf Tiny
+keyword spotter).
 
 ## Quick start
 
@@ -131,6 +135,7 @@ set.
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
 | `examples/kws_cortex_m_int8.rs` | `examples/kws_cortex_m_int8/kws_cortex_m_int8.cpp` |
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
+| `tools/import_tflite/` | `benchmarks/framework_comparison_f411/gen/make_mlperf.py`: the int8 TFLite translator, emitting Rust |
 | `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer, emitting Rust |
 | `examples/imported_trees.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
 | `examples/imported_cnn.rs` | two convolutional models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
@@ -189,7 +194,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (47 checks today, including
+  example does, runs both sides, and compares every output file (49 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

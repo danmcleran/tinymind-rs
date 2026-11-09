@@ -164,14 +164,16 @@ jobs:
           rustc --version
           g++ --version
       # The importer checks in compare-with-cpp.sh need numpy (PyTorch
-      # importer) and scikit-learn, XGBoost and LightGBM (tree importer). The
+      # importer), scikit-learn, XGBoost and LightGBM (tree importer) and
+      # tflite with flatbuffers (TFLite translator). The
       # committed example models are retrained and must come out identical, so
       # every package that can touch training is pinned.
       - name: Python with numpy and the tree libraries
         run: |
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install -q numpy==2.5.4 scipy==1.18.1 scikit-learn==1.9.1 \
-            joblib==1.6.0 threadpoolctl==3.8.0 xgboost-cpu==3.4.1 lightgbm==4.7.0
+            joblib==1.6.0 threadpoolctl==3.8.0 xgboost-cpu==3.4.1 lightgbm==4.7.0 \
+            tflite==2.18.0 flatbuffers==25.12.19
       - name: Byte-compare the C++ and Rust outputs
         env:
           TINYMIND_DIR: ${{ github.workspace }}/tinymind
@@ -187,8 +189,13 @@ jobs:
         run: |
           rustup target add thumbv7em-none-eabihf thumbv6m-none-eabi
           python3 -I gen.py 32
+          # The MLPerf image's model: compare-with-cpp.sh has fetched it.
+          "$RUNNER_TEMP/venv/bin/python" -I -B ../tools/import_tflite/mlperf.py kws \
+            --out src/gen/mlperf_kws.rs --data src/gen/mlperf_kws_data.rs --target-dir "$RUNNER_TEMP/tflite_target"
           for spec in f411:thumbv7em-none-eabihf l031:thumbv6m-none-eabi; do
-            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",trees" ",kws" ",kws-profile"; do
+            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",trees" ",kws" ",kws-profile" ",mlperf-kws"; do
+              # The MLPerf model does not fit the L031.
+              [ "${spec%%:*}$wl" = "l031,mlperf-kws" ] && continue
               echo "== ${spec%%:*}$wl"
               # As run.sh: the L031 trees image fits 32 KB only at opt-level s.
               opt=3; [ "${spec%%:*}$wl" = "l031,trees" ] && opt=s

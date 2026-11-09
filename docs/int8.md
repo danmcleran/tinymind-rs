@@ -121,6 +121,6 @@ Where the C++ would hit undefined behaviour (an int32 accumulator overflowing, a
 
 ## Not yet
 
-The rest of tinymind (C++)'s int8 family (residual add, explicit padding, recurrent cells, attention) is not ported yet, and the importer does not take batch normalization or branches. tinymind (C++)'s ONNX importer is not ported. Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
+The rest of tinymind (C++)'s int8 family (residual add, explicit padding, recurrent cells, attention) is not ported yet, and the importer does not take batch normalization or branches. tinymind (C++)'s ONNX importer is not ported. For int8 TensorFlow Lite models, `tools/import_tflite` translates convolutional networks into a Rust module the same way tinymind (C++)'s MLPerf benchmark translates them into C++; it runs the MLPerf Tiny keyword-spotting model with tinymind (C++)'s output hash ([On-board results]({{ site.baseurl }}/benchmarks)). Residual networks (TFLite `ADD`) are not supported yet. Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
 
 The [API reference]({{ site.baseurl }}/api/tinymind/int8/) documents every function.
