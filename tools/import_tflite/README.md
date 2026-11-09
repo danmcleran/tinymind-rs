@@ -52,7 +52,8 @@ A single chain of:
 
 with fused `NONE`, `RELU` or `RELU6` activations and int8 tensors. Anything else
 is rejected with an error naming the operator. `ADD` (residual networks such as
-the MLPerf Tiny ResNet-8) is not supported yet: the crate has no `QAdd`.
+the MLPerf Tiny ResNet-8) is not supported yet: the crate has `QAdd`, but the translator does not emit it
+yet.
 
 ## How it is checked
 

@@ -253,6 +253,24 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --test conv_sweep >/dev/null 2>
   && same "conv Rust vs tests/golden/conv" \
   || { echo "DIFFERENT  conv Rust vs tests/golden/conv"; status=1; }
 
+echo "== add"
+# tinymind's int8 elementwise addition and its calibration;
+# tests/add_sweep.rs checks the Rust layer against the committed golden.
+mkdir -p "$TMP/add"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/add/add_sweep" "$ROOT/scripts/cpp/add_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+"$TMP/add/add_sweep" > "$TMP/add/stdout.txt"
+if cmp -s "$TMP/add/stdout.txt" "$ROOT/tests/golden/add/stdout.txt"; then
+  same "add stdout.txt (C++ vs tests/golden/add)"
+else
+  echo "DIFFERENT  add stdout.txt (C++ vs tests/golden/add)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test add_sweep >/dev/null 2>&1 \
+  && same "add Rust vs tests/golden/add" \
+  || { echo "DIFFERENT  add Rust vs tests/golden/add"; status=1; }
+
 echo "== kws_int8"
 # tinymind's examples/kws_cortex_m_int8, compiled unchanged inside
 # scripts/cpp/kws_int8_dump.cpp, which prints every tensor (its own stdout
@@ -447,6 +465,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/cnn/cpp.txt" "$KEEP_CPP_OUTPUT/imported_cnn/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/conv"
   cp "$TMP/conv/stdout.txt" "$KEEP_CPP_OUTPUT/conv/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/add"
+  cp "$TMP/add/stdout.txt" "$KEEP_CPP_OUTPUT/add/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"
 fi
 # Every comparison passed: the count the docs quote must be this one.

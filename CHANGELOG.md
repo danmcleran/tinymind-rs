@@ -18,6 +18,12 @@ break the API).
   and an output size that does not match the input, kernel, strides and padding
   is a compile error. Bit-identical to tinymind (C++), checked over 57 random
   layer configurations.
+- Int8 elementwise addition, `int8::QAdd` (tinymind (C++)'s `cpp/qadd.hpp`,
+  TFLite ADD), for residual connections, with `int8::calibration::build_add`
+  (`buildQAddParams`). It takes any int8 tensor shape through the sealed
+  `int8::Tensor` trait; both inputs and the output must have the same shape, or
+  the call does not compile. Bit-identical to tinymind (C++), checked on every
+  input pair for 48 calibrated layers.
 - `int8::calibration::per_channel_symmetric_scales` (tinymind (C++)'s
   `computePerChannelSymmetricScales`), `affine_params_symmetric`
   (`computeAffineParamsSymmetric`) and `RangeObserver`, for fitting activation

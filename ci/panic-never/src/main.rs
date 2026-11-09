@@ -9,7 +9,7 @@ use core::hint::black_box;
 
 use core::mem::size_of;
 use tinymind::int8::{
-    self, QAvgPool2D, QConv2D, QConv2DPerChannel, QDense, QDensePerChannel, QDepthwiseConv2D,
+    self, QAdd, QAvgPool2D, QConv2D, QConv2DPerChannel, QDense, QDensePerChannel, QDepthwiseConv2D,
     QGlobalAvgPool2D, QMaxPool2D, QPointwiseConv2D, QPointwiseConv2DPerChannel, QSoftmax,
     Requantizer,
 };
@@ -342,6 +342,27 @@ fn int8_conv() {
         qmax: black_box(127),
     };
     black_box(global.forward(&input));
+
+    // Elementwise addition over each tensor shape, every parameter opaque.
+    let add = QAdd {
+        input_a_zero_point: black_box(-3),
+        input_b_zero_point: black_box(7),
+        left_shift: black_box(20),
+        input_a_multiplier: black_box(1 << 30),
+        input_a_shift: black_box(1),
+        input_b_multiplier: black_box(1 << 30),
+        input_b_shift: black_box(0),
+        output_requantizer: rq,
+    };
+    let mut sum = [[[0i8; 2]; 7]; 6];
+    add.forward(&input, &black_box(input), &mut sum);
+    black_box(&sum);
+    let mut row = [[0i8; 2]; 7];
+    add.forward(&input[0], &black_box(input[1]), &mut row);
+    black_box(&row);
+    let mut flat = [0i8; 2];
+    add.forward(&input[0][0], &black_box(input[1][1]), &mut flat);
+    black_box(&flat);
 }
 
 /// Trees and ensembles with every field opaque, so any index may be out of
