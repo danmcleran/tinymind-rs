@@ -1,32 +1,31 @@
 // Golden test for the kws_cortex_m_int8 example: every tensor (quantized
-// input, weights, requantizers and each layer's output) against
+// input, weights, requantizers and each layer's output) and the logits report
+// (int8 logits against the float model's) against
 // tests/golden/kws_int8/tensors.txt, which scripts/cpp/kws_int8_dump.cpp
 // prints from tinymind (C++)'s example, compiled unchanged.
 // scripts/compare-with-cpp.sh rebuilds it and checks the golden is current.
-//
-// The example's stdout is not compared: it carries host timings and each
-// build's own sizes, and its logits are all zero (the synthetic weights shrink
-// the signal at every layer), so it would check little.
+// The rest of the example's stdout (host timings, each build's sizes) is not
+// compared.
 
 #[path = "../examples/common/kws_int8_driver.rs"]
 mod kws_int8_driver;
 
 #[test]
-fn kws_int8_tensors_match_cpp_golden() {
+fn kws_int8_matches_cpp_golden() {
     let mut stdout = Vec::new();
     let tensors = kws_int8_driver::run(&mut stdout, || 0).expect("kws example failed");
+    let text = String::from_utf8(stdout).unwrap();
+    let report = text.find("\nLogits (int8").expect("no logits report");
+    let ours = format!(
+        "{}--- stdout from the logits report on\n{}",
+        kws_int8_driver::dump(&tensors),
+        &text[report + 1..]
+    );
     let golden = include_str!("golden/kws_int8/tensors.txt");
-    let ours = kws_int8_driver::dump(&tensors);
     for (n, (a, b)) in ours.lines().zip(golden.lines()).enumerate() {
         assert_eq!(a, b, "line {} differs", n + 1);
     }
     assert_eq!(ours, golden);
-
-    // The report's last lines follow from the logits.
-    let text = String::from_utf8(stdout).unwrap();
-    assert!(text.ends_with(
-        "\nLogits (int8): 0 0 0 0 0 0 0 0 0 0 \nPredicted class (untrained random weights): 0\n"
-    ));
 }
 
 /// The generator is the standard's mt19937: its 10,000th output from the
