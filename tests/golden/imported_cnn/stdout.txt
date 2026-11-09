@@ -1,7 +1,7 @@
-cnn conv1 rq=1148599947,7,-128
-cnn conv2 rq=1365197620,7,-128
-cnn conv3 rq=1267994369,7,-1
-cnn fc1 rq=2110628314,6,127
+cnn conv1 rq=1148600020,7,-128
+cnn conv2 rq=1365197643,7,-128
+cnn conv3 rq=1267994386,7,-1
+cnn fc1 rq=2110628117,6,127
 cnn softmax=1409258752,18,-7936
 cnn s=0 layers=0xE85EDD12 probs=-38,-21,-69 class=1
 cnn s=1 layers=0x03C8A5B9 probs=-35,-24,-69 class=1
