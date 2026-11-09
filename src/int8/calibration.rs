@@ -79,6 +79,63 @@ pub fn build_requantizer(
     }
 }
 
+/// Symmetric affine parameters `(scale, 0)` covering `[fmin, fmax]`: the scale
+/// maps the larger magnitude to `qmax` (C++ `computeAffineParamsSymmetric`).
+/// A range of zeros, or a `qmax` of 0 or below, gives scale 1.0.
+pub fn affine_params_symmetric(fmin: f32, fmax: f32, qmax: i32) -> (f32, i32) {
+    // Comparisons as the C++ writes them, so a NaN takes the same branch.
+    let abs_min = if fmin < 0.0 { -fmin } else { fmin };
+    let abs_max = if fmax < 0.0 { -fmax } else { fmax };
+    let absmax = if abs_min > abs_max { abs_min } else { abs_max };
+    if absmax == 0.0 || qmax <= 0 {
+        return (1.0, 0);
+    }
+    (absmax / qmax as f32, 0)
+}
+
+/// The running minimum and maximum of the values it has observed, for fitting
+/// an activation's scale from calibration inputs (C++ `RangeObserver`). Before
+/// any observation the range is `[0, 0]`.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct RangeObserver {
+    /// Smallest value observed.
+    pub min_value: f32,
+    /// Largest value observed.
+    pub max_value: f32,
+    /// Whether anything has been observed.
+    pub has_data: bool,
+}
+
+impl RangeObserver {
+    /// An observer with nothing observed.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Widen the range to include `x`. The first value sets both ends.
+    pub fn observe(&mut self, x: f32) {
+        if !self.has_data {
+            self.min_value = x;
+            self.max_value = x;
+            self.has_data = true;
+        } else {
+            if x < self.min_value {
+                self.min_value = x;
+            }
+            if x > self.max_value {
+                self.max_value = x;
+            }
+        }
+    }
+
+    /// [`observe`](Self::observe) each value in order.
+    pub fn observe_all(&mut self, xs: &[f32]) {
+        for &x in xs {
+            self.observe(x);
+        }
+    }
+}
+
 /// Asymmetric per-tensor affine parameters `(scale, zero_point)` that map the
 /// real range `[fmin, fmax]`, widened to include 0, onto `[qmin, qmax]` (C++
 /// `computeAffineParamsAsymmetric`). An empty range gives `(1.0, qmin)`.
@@ -299,5 +356,24 @@ mod tests {
         assert_eq!(quantize(1000.0, 1.0, 0, -128, 127), 127);
         assert_eq!(quantize(-1000.0, 1.0, 0, -128, 127), -128);
         assert_eq!(dequantize(-128, 0.5, -128), 0.0);
+    }
+
+    #[test]
+    fn range_observer_starts_from_its_first_value() {
+        let mut obs = RangeObserver::new();
+        assert!(!obs.has_data);
+        obs.observe(5.0);
+        assert_eq!((obs.min_value, obs.max_value), (5.0, 5.0));
+        obs.observe_all(&[7.0, 6.0, 2.5]);
+        assert_eq!((obs.min_value, obs.max_value), (2.5, 7.0));
+        assert!(obs.has_data);
+    }
+
+    #[test]
+    fn symmetric_params_cover_the_larger_magnitude() {
+        assert_eq!(affine_params_symmetric(-4.0, 2.0, 127), (4.0 / 127.0, 0));
+        assert_eq!(affine_params_symmetric(-1.0, 3.0, 127), (3.0 / 127.0, 0));
+        assert_eq!(affine_params_symmetric(0.0, 0.0, 127), (1.0, 0));
+        assert_eq!(affine_params_symmetric(-1.0, 1.0, 0), (1.0, 0));
     }
 }

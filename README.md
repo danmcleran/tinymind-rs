@@ -94,7 +94,9 @@ class at each point); `--golden` before the directory prints tinymind (C++)'s co
 golden report instead. The `kws_cortex_m_int8` example (feature `std`) runs a
 keyword-spotting shaped int8 network (convolution, max pooling, depthwise and
 pointwise convolution, global average pooling, a dense head) with synthetic
-weights and prints each layer's size and time. The `imported_trees` example runs two scikit-learn
+weights, fits each layer's activation scale from a float reference pass over
+calibration inputs, prints each layer's size and time, and compares its logits
+with the float model's. The `imported_trees` example runs two scikit-learn
 classifiers for the UCI Wine data (CC BY 4.0), written by the tree importer, on
 the held-out samples and on random inputs.
 
@@ -165,10 +167,10 @@ the int8 quantization tiers, SIMD backends, and so on.
   `tests/softmax_sweep.rs` against the tinymind (C++) softmax and its calibration
   over 504 calibrations and row lengths 1 to 511.
 - `tests/kws_int8_golden.rs` checks every tensor of the `kws_cortex_m_int8`
-  example (quantized input, weights, requantizers and each layer's output)
-  against `tests/golden/kws_int8/`, printed by tinymind (C++)'s example compiled
-  unchanged (`scripts/cpp/kws_int8_dump.cpp`). The example's own stdout is not
-  compared: it reports host timings and each build's sizes.
+  example (quantized input, weights, requantizers and each layer's output) and
+  its logits report against `tests/golden/kws_int8/`, printed by tinymind (C++)'s
+  example compiled unchanged (`scripts/cpp/kws_int8_dump.cpp`). The rest of its
+  stdout, host timings and each build's sizes, is not compared.
 - `tests/conv_sweep.rs` checks the int8 convolution and pooling layers against
   tinymind (C++)'s over random tensors: 13 convolution shapes (per tensor and per
   channel), 7 depthwise, 5 pointwise (both), 5 pooling windows (max and average)

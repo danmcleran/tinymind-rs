@@ -69,7 +69,19 @@ input [20 x 20 x 1] -> QConv2D 3x3, 8 filters    -> [18 x 18 x 8]
 cargo run --release --features std --example kws_cortex_m_int8
 ```
 
-The weights and the input are drawn from C++'s `std::mt19937` through libstdc++'s `uniform_real_distribution<float>`, reproduced in the example, and calibrated with `calibration::per_channel_symmetric_scales`, `build_requantizer` and `quantize`. Every tensor (the quantized input, every weight table and requantizer, and each layer's output) is byte-identical to the C++ example's, which CI compiles unchanged and dumps. The report's sizes and timings are each build's own (the Rust max-pool layer has no state, so it reports 0 bytes where the C++ empty struct reports 1). With these synthetic weights the signal shrinks at every layer and the ten logits come out 0 in both versions; the comparison of the intermediate tensors is what checks the layers.
+The weights and the input are drawn from C++'s `std::mt19937` through libstdc++'s `uniform_real_distribution<float>`, reproduced in the example. The weights are quantized with one symmetric scale per tensor (per channel for the depthwise layer, `calibration::per_channel_symmetric_scales`). Each layer's activation scale comes from calibration: the example runs the same network in float over 32 random inputs, records each layer's output range with `calibration::RangeObserver`, and gives the layer the symmetric scale that covers it (`affine_params_symmetric`), from which `build_requantizer` makes the integer requantizers. It then runs the int8 network and compares its logits with the float model's on the same input:
+
+```
+Logits (int8 -> dequantized, float reference):
+  class 0:  115 ->  0.001697   float  0.001709
+  class 1:  -30 -> -0.000443   float -0.000460
+  ...
+  class 9:  -15 -> -0.000221   float -0.000214
+max |int8 - float| = 0.000020 (0.6% of the float logits' range)
+argmax (untrained weights): int8 0, float 0
+```
+
+Every tensor (the quantized input, every weight table and requantizer, and each layer's output) and this report are byte-identical to the C++ example's, which CI compiles unchanged and dumps. The per-layer report before it shows each build's own sizes and timings (the Rust max-pool layer has no state, so it reports 0 bytes where the C++ empty struct reports 1).
 
 ## Importing a PyTorch model
 

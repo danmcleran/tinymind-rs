@@ -19,9 +19,12 @@ break the API).
   is a compile error. Bit-identical to tinymind (C++), checked over 57 random
   layer configurations.
 - `int8::calibration::per_channel_symmetric_scales` (tinymind (C++)'s
-  `computePerChannelSymmetricScales`).
+  `computePerChannelSymmetricScales`), `affine_params_symmetric`
+  (`computeAffineParamsSymmetric`) and `RangeObserver`, for fitting activation
+  scales from calibration inputs.
 - Example `kws_cortex_m_int8` (feature `std`), a keyword-spotting shaped int8
-  network: every tensor byte-identical to tinymind (C++)'s example.
+  network calibrated from a float reference pass: every tensor and its logits
+  report byte-identical to tinymind (C++)'s example.
 
 ## [0.1.5] - 2026-11-08
 
