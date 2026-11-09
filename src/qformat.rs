@@ -46,15 +46,17 @@ impl<S: fmt::Display, const FRAC: u32> fmt::Display for QValue<S, FRAC> {
     }
 }
 
-/// The arithmetic a network needs from its value type. This is the Rust
-/// counterpart of the implicit "ValueType concept" that the C++ templates rely on:
-/// in C++ a missing operator is a template instantiation error, here it is a
-/// trait-bound error at the call site.
+/// A network's value type: the arithmetic a network needs from the numbers it
+/// computes with. This is the Rust counterpart of the implicit "ValueType
+/// concept" that the C++ templates rely on: in C++ a missing operator is a
+/// template instantiation error, here it is a trait-bound error at the call
+/// site.
 ///
-/// Implemented for the [`QValue`] formats and, despite the name, for `f32` and
-/// `f64`: the networks run in floating point too, as tinymind (C++)'s do when
-/// instantiated with `float` or `double`.
-pub trait Fixed:
+/// Implemented for the [`QValue`] formats and for `f32` and `f64`: the networks
+/// run in fixed point or in floating point, as tinymind (C++)'s do when
+/// instantiated with a Q format, `float` or `double`. Called `Fixed` up to
+/// 0.1.5; that name remains as a deprecated alias ([`Fixed`]).
+pub trait Scalar:
     Copy
     + Default
     + PartialOrd
@@ -74,12 +76,35 @@ pub trait Fixed:
     fn div_int(self, n: i32) -> Self;
 }
 
+/// The name of [`Scalar`] up to 0.1.5, kept so that bounds written `V: Fixed`
+/// still compile. Every [`Scalar`] is a `Fixed`; implement [`Scalar`] instead.
+///
+/// ```
+/// # #![allow(deprecated)]
+/// use tinymind::{Fixed, Q16_16};
+///
+/// // Code written against 0.1.5 keeps compiling (with a deprecation warning).
+/// fn one<V: Fixed>() -> V {
+///     V::ONE
+/// }
+/// assert_eq!(one::<Q16_16>(), Q16_16::ONE);
+/// assert_eq!(one::<f64>(), 1.0);
+/// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "renamed to `Scalar`, which covers f32 and f64 as well as the Q formats"
+)]
+pub trait Fixed: Scalar {}
+
+#[allow(deprecated)]
+impl<T: Scalar> Fixed for T {}
+
 /// `f32` and `f64` as network value types. `pow2_neg` builds the power of two
 /// exactly; `div_int` divides by the integer converted to the float type, as
 /// the C++ `value /= n` does.
 macro_rules! impl_fixed_float {
     ($t:ty) => {
-        impl Fixed for $t {
+        impl Scalar for $t {
             const ZERO: Self = 0.0;
             const ONE: Self = 1.0;
 
@@ -287,7 +312,7 @@ macro_rules! impl_qvalue {
             }
         }
 
-        impl<const FRAC: u32> Fixed for QValue<$s, FRAC> {
+        impl<const FRAC: u32> Scalar for QValue<$s, FRAC> {
             const ZERO: Self = Self::ZERO;
             const ONE: Self = Self::ONE;
             fn pow2_neg(n: u32) -> Self {

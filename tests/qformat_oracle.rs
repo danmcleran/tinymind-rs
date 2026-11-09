@@ -24,7 +24,7 @@
 // run with `cargo test --release --test qformat_oracle -- --ignored`) checks the
 // binary operations over every Q8.8 operand pair.
 
-use tinymind::{Fixed, QValue};
+use tinymind::{QValue, Scalar};
 
 type Wide = i64;
 
@@ -142,7 +142,7 @@ fn wrap_to(x: Wide, bits: u32) -> Wide {
 
 /// `QValue` seen through wide integers. Implemented for every `i16` and `i32`
 /// format; the methods called are the crate's public API.
-trait Oracle: Fixed + Ord {
+trait Oracle: Scalar + Ord {
     const FORMAT: Format;
     fn from_wide(v: Wide) -> Self;
     fn to_wide(self) -> Wide;
@@ -510,13 +510,13 @@ fn check_value<Q: Oracle>(t: &mut Tally, a: Wide) {
 fn check_representation<Q: Oracle>(t: &mut Tally, rng: &mut Rng) {
     let f = Q::FORMAT;
     t.check(f, "ZERO", &[], Q::q_zero().to_wide(), 0);
-    t.check(f, "Fixed::ZERO", &[], <Q as Fixed>::ZERO.to_wide(), 0);
+    t.check(f, "Scalar::ZERO", &[], <Q as Scalar>::ZERO.to_wide(), 0);
     t.check(f, "ONE", &[], Q::q_one().to_wide(), f.int_value(1));
     t.check(
         f,
-        "Fixed::ONE",
+        "Scalar::ONE",
         &[],
-        <Q as Fixed>::ONE.to_wide(),
+        <Q as Scalar>::ONE.to_wide(),
         f.int_value(1),
     );
     t.check(f, "default", &[], Q::default().to_wide(), 0);

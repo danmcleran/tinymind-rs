@@ -25,7 +25,7 @@ macro_rules! format_proofs {
     ($module:ident, $s:ty, $frac:expr) => {
         mod $module {
             use super::congruent;
-            use crate::qformat::{Fixed, QValue};
+            use crate::qformat::{QValue, Scalar};
 
             type Q = QValue<$s, $frac>;
             const FRAC: u32 = $frac;

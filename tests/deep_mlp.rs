@@ -10,8 +10,8 @@ use std::fmt::Write;
 
 use tinymind::rand::GlibcRand;
 use tinymind::{
-    Adam, Dense, Fixed, Layers, Linear, MultilayerPerceptron, NeuralNetwork, Q8_8, Q16_16, Relu,
-    RmsProp, Sigmoid, Tanh,
+    Adam, Dense, Layers, Linear, MultilayerPerceptron, NeuralNetwork, Q8_8, Q16_16, Relu, RmsProp,
+    Scalar, Sigmoid, Tanh,
 };
 
 struct Lcg(u32);
@@ -31,7 +31,7 @@ fn absorb(hash: &mut u32, raw: i32) {
 }
 
 /// A format's raw-value conversions.
-trait Raw: Fixed + PartialEq + core::fmt::Debug {
+trait Raw: Scalar + PartialEq + core::fmt::Debug {
     const ONE_RAW: i32;
     fn from_raw_i32(r: i32) -> Self;
     fn to_raw_i32(self) -> i32;

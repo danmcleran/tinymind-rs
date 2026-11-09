@@ -16,7 +16,7 @@
 use crate::lut::{
     NUMBER_OF_ACTIVATION_TABLE_VALUES, SIGMOID_Q8_8, SIGMOID_Q16_16, TANH_Q8_8, TANH_Q16_16,
 };
-use crate::qformat::{Fixed, Q8_8, Q16_16, QValue};
+use crate::qformat::{Q8_8, Q16_16, QValue, Scalar};
 
 /// A neuron activation function and its derivative.
 pub trait Activation<V> {
@@ -42,7 +42,7 @@ pub struct Tanh;
 /// exp(-x))` for `f32` and `f64` (feature `std` or `libm`).
 pub struct Sigmoid;
 
-impl<V: Fixed> Activation<V> for Relu {
+impl<V: Scalar> Activation<V> for Relu {
     fn activate(x: V) -> V {
         if x <= V::ZERO { V::ZERO } else { x }
     }
@@ -54,7 +54,7 @@ impl<V: Fixed> Activation<V> for Relu {
     }
 }
 
-impl<V: Fixed> Activation<V> for Linear {
+impl<V: Scalar> Activation<V> for Linear {
     fn activate(x: V) -> V {
         x
     }
@@ -136,10 +136,10 @@ const MAX_X_TABLE_VALUE: i32 = 6;
 const ACTIVATION_DELTA_SHIFT: u32 = 3;
 const MAX_ACTIVATION_INDEX: usize = NUMBER_OF_ACTIVATION_TABLE_VALUES - 1;
 
-/// What [`lookup`] needs from a format beyond [`Fixed`]: its raw value widened
+/// What [`lookup`] needs from a format beyond [`Scalar`]: its raw value widened
 /// to `i32` (exact for both storage types; every intermediate stays far inside
 /// `i32`), and the reverse for values known to fit.
-trait TableFormat: Fixed {
+trait TableFormat: Scalar {
     const FRAC: u32;
     fn raw_i32(self) -> i32;
     fn from_raw_i32(raw: i32) -> Self;
@@ -212,7 +212,7 @@ fn lookup<V: TableFormat, T: Copy + Into<u32>>(
 
 /// C++ `linearInterpolation`: `y0 + (y1 - y0) * ((x - x0) / (x1 - x0))`, in
 /// fixed point, with the same operation order (it matters for truncation).
-fn linear_interpolation<V: Fixed>(x: V, x0: V, x1: V, y0: V, y1: V) -> V {
+fn linear_interpolation<V: Scalar>(x: V, x0: V, x1: V, y0: V, y1: V) -> V {
     if x1 == x0 {
         return y0;
     }

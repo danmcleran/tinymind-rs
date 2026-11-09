@@ -49,7 +49,7 @@ use core::marker::PhantomData;
 use crate::activation::Activation;
 use crate::neuralnet::Connection;
 use crate::optimizer::{Optimizer, Sgd};
-use crate::qformat::Fixed;
+use crate::qformat::Scalar;
 
 /// A fully connected layer: `IN` inputs (plus a bias) to `OUT` neurons with
 /// activation `A`, and the training state of every connection.
@@ -67,7 +67,7 @@ pub struct Dense<V, A, const IN: usize, const OUT: usize> {
     activation: PhantomData<fn() -> A>,
 }
 
-impl<V: Fixed, A, const IN: usize, const OUT: usize> Default for Dense<V, A, IN, OUT> {
+impl<V: Scalar, A, const IN: usize, const OUT: usize> Default for Dense<V, A, IN, OUT> {
     fn default() -> Self {
         Self {
             weights: [[Connection::default(); OUT]; IN],
@@ -113,7 +113,7 @@ impl<V: Copy, A, const IN: usize, const OUT: usize> Dense<V, A, IN, OUT> {
     }
 }
 
-impl<V: Fixed, A: Activation<V>, const IN: usize, const OUT: usize> Dense<V, A, IN, OUT> {
+impl<V: Scalar, A: Activation<V>, const IN: usize, const OUT: usize> Dense<V, A, IN, OUT> {
     /// C++ `initializeWeights` for this layer's sources: each input's outgoing
     /// connections in order (one random draw each, then the delta weights
     /// zeroed), then the bias neuron's.
@@ -242,7 +242,7 @@ impl<V, A, const IN: usize, const OUT: usize> InferenceDense<V, A, IN, OUT> {
     }
 }
 
-impl<V: Fixed, A: Activation<V>, const IN: usize, const OUT: usize> InferenceDense<V, A, IN, OUT> {
+impl<V: Scalar, A: Activation<V>, const IN: usize, const OUT: usize> InferenceDense<V, A, IN, OUT> {
     /// `out[o] = A(1 * bias[o] + (0 + in[0] * w[0][o] + in[1] * w[1][o] + ...))`,
     /// the C++ sum order, as [`Dense`] computes it.
     pub fn forward(&self, input: &[V; IN]) -> [V; OUT] {
@@ -332,7 +332,7 @@ impl<T: sealed::InferenceLayersImpl> InferenceLayers for T {}
 /// Mean-squared error against `targets` (C++ `MeanSquaredErrorCalculator`):
 /// the sum of squared differences, divided by the output count when it is more
 /// than one.
-fn mean_squared_error<V: Fixed, const OUT: usize>(outputs: &[V; OUT], targets: &[V; OUT]) -> V {
+fn mean_squared_error<V: Scalar, const OUT: usize>(outputs: &[V; OUT], targets: &[V; OUT]) -> V {
     let mut error = V::ZERO;
     for (&target, &out) in targets.iter().zip(outputs) {
         let delta = target - out;
@@ -354,7 +354,7 @@ macro_rules! impl_layers {
         fwd [$($prev:tt > $next:tt),*]; back [$($hi:tt > $lo:tt),*];
         consts [$($d:ident),+]
     ) => {
-        impl<V: Fixed, $($act: Activation<V>,)+ $(const $d: usize,)+> sealed::LayersImpl
+        impl<V: Scalar, $($act: Activation<V>,)+ $(const $d: usize,)+> sealed::LayersImpl
             for ($(Dense<V, $act, $din, $dout>,)+)
         {
             type Value = V;
@@ -418,7 +418,7 @@ macro_rules! impl_layers {
             }
         }
 
-        impl<V: Fixed, $($act: Activation<V>,)+ $(const $d: usize,)+> sealed::InferenceLayersImpl
+        impl<V: Scalar, $($act: Activation<V>,)+ $(const $d: usize,)+> sealed::InferenceLayersImpl
             for ($(InferenceDense<V, $act, $din, $dout>,)+)
         {
             type Inputs = [V; $d0];
@@ -476,7 +476,7 @@ pub struct NeuralNetwork<L: Layers, Opt = Sgd> {
     optimizer: Opt,
 }
 
-impl<V: Fixed, L: Layers<Value = V> + Default> NeuralNetwork<L, Sgd> {
+impl<V: Scalar, L: Layers<Value = V> + Default> NeuralNetwork<L, Sgd> {
     /// Build the network, trained with [`Sgd`], and initialise its weights from
     /// `random_weight`, in the C++ order: each layer's inputs and then its bias,
     /// from the input side, then one draw per output neuron (the C++ output
@@ -486,7 +486,7 @@ impl<V: Fixed, L: Layers<Value = V> + Default> NeuralNetwork<L, Sgd> {
     }
 }
 
-impl<V: Fixed, L: Layers<Value = V> + Default, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
+impl<V: Scalar, L: Layers<Value = V> + Default, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
     /// As [`new`](NeuralNetwork::new), trained with `optimizer`, for example
     /// [`Adam`](crate::Adam).
     pub fn with_optimizer(mut random_weight: impl FnMut() -> V, optimizer: Opt) -> Self {
@@ -508,7 +508,7 @@ impl<V: Fixed, L: Layers<Value = V> + Default, Opt: Optimizer<V>> NeuralNetwork<
     }
 }
 
-impl<V: Fixed, L: Layers<Value = V>, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
+impl<V: Scalar, L: Layers<Value = V>, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
     /// The optimizer, for example to read [`Adam::timestep`](crate::Adam::timestep).
     pub fn optimizer(&self) -> &Opt {
         &self.optimizer
@@ -670,7 +670,7 @@ mod tests {
         raw: impl Fn(i32) -> V,
         seed: u32,
     ) where
-        V: Fixed + PartialEq + core::fmt::Debug,
+        V: Scalar + PartialEq + core::fmt::Debug,
         H: Activation<V>,
         O: Activation<V>,
     {

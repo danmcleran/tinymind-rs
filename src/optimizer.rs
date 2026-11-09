@@ -23,7 +23,7 @@
 #![allow(private_interfaces)]
 
 use crate::neuralnet::{Connection, clip_gradient, update_connection};
-use crate::qformat::{Fixed, Sqrt};
+use crate::qformat::{Scalar, Sqrt};
 
 /// Stochastic gradient descent with momentum and acceleration (the default;
 /// C++ `NullOptimizerPolicy`). The rates are the network's
@@ -109,7 +109,7 @@ pub trait Optimizer<V>: sealed::OptimizerImpl<V> {}
 
 impl<V, T: sealed::OptimizerImpl<V>> Optimizer<V> for T {}
 
-impl<V: Fixed> sealed::OptimizerImpl<V> for Sgd {
+impl<V: Scalar> sealed::OptimizerImpl<V> for Sgd {
     fn begin_layer(&mut self) {}
 
     fn update_weight(&self, c: &mut Connection<V>, rates: (V, V, V), clip: Option<(V, V)>) {
@@ -121,14 +121,14 @@ impl<V: Fixed> sealed::OptimizerImpl<V> for Sgd {
     }
 }
 
-fn clipped<V: Fixed>(gradient: V, clip: Option<(V, V)>) -> V {
+fn clipped<V: Scalar>(gradient: V, clip: Option<(V, V)>) -> V {
     match clip {
         Some(range) => clip_gradient(gradient, range),
         None => gradient,
     }
 }
 
-impl<V: Fixed + Sqrt> sealed::OptimizerImpl<V> for Adam<V> {
+impl<V: Scalar + Sqrt> sealed::OptimizerImpl<V> for Adam<V> {
     fn begin_layer(&mut self) {
         self.timestep = self.timestep.wrapping_add(1);
     }
@@ -170,7 +170,7 @@ impl<V: Fixed + Sqrt> sealed::OptimizerImpl<V> for Adam<V> {
     fn update_bias(&self, _c: &mut Connection<V>, _rates: (V, V, V)) {}
 }
 
-impl<V: Fixed + Sqrt> sealed::OptimizerImpl<V> for RmsProp<V> {
+impl<V: Scalar + Sqrt> sealed::OptimizerImpl<V> for RmsProp<V> {
     /// C++ counts steps for RMSprop too but never reads the count.
     fn begin_layer(&mut self) {}
 

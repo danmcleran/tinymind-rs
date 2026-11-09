@@ -81,4 +81,6 @@ pub use network::{
 };
 pub use neuralnet::{InferencePerceptron, MultilayerPerceptron};
 pub use optimizer::{Adam, Optimizer, RmsProp, Sgd};
-pub use qformat::{Fixed, Q8_8, Q16_16, QValue, Sqrt};
+#[allow(deprecated)]
+pub use qformat::Fixed;
+pub use qformat::{Q8_8, Q16_16, QValue, Scalar, Sqrt};

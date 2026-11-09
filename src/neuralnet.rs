@@ -19,7 +19,7 @@ use core::marker::PhantomData;
 
 use crate::activation::Activation;
 use crate::optimizer::{Optimizer, Sgd};
-use crate::qformat::Fixed;
+use crate::qformat::Scalar;
 
 /// One weighted edge to a neuron in the next layer (C++ `TrainableConnection`).
 #[derive(Clone, Copy, Debug, Default)]
@@ -46,7 +46,7 @@ pub(crate) struct Neuron<V, const N: usize> {
     pub connections: [Connection<V>; N],
 }
 
-impl<V: Fixed, const N: usize> Default for Neuron<V, N> {
+impl<V: Scalar, const N: usize> Default for Neuron<V, N> {
     fn default() -> Self {
         Self {
             output: V::ZERO,
@@ -56,7 +56,7 @@ impl<V: Fixed, const N: usize> Default for Neuron<V, N> {
     }
 }
 
-impl<V: Fixed, const N: usize> Neuron<V, N> {
+impl<V: Scalar, const N: usize> Neuron<V, N> {
     /// C++ `TrainableNeuron::initializeWeights`: one random weight per connection,
     /// in connection order, then zero the delta weights.
     fn initialize_weights(&mut self, random_weight: &mut impl FnMut() -> V) {
@@ -105,7 +105,7 @@ pub struct MultilayerPerceptron<
 impl<V, H, O, const IN: usize, const HID: usize, const OUT: usize>
     MultilayerPerceptron<V, H, O, IN, HID, OUT, Sgd>
 where
-    V: Fixed,
+    V: Scalar,
     H: Activation<V>,
     O: Activation<V>,
 {
@@ -123,7 +123,7 @@ where
 impl<V, H, O, const IN: usize, const HID: usize, const OUT: usize, Opt>
     MultilayerPerceptron<V, H, O, IN, HID, OUT, Opt>
 where
-    V: Fixed,
+    V: Scalar,
     H: Activation<V>,
     O: Activation<V>,
     Opt: Optimizer<V>,
@@ -474,7 +474,7 @@ impl<V, H, O, const IN: usize, const HID: usize, const OUT: usize>
 impl<V, H, O, const IN: usize, const HID: usize, const OUT: usize>
     InferencePerceptron<V, H, O, IN, HID, OUT>
 where
-    V: Fixed,
+    V: Scalar,
     H: Activation<V>,
     O: Activation<V>,
 {
@@ -554,7 +554,7 @@ impl<V: core::fmt::Debug, H, O, const IN: usize, const HID: usize, const OUT: us
 /// `bias.output * bias.w[target] + sum(layer[n].output * layer[n].w[target])`,
 /// summed in the C++ order: the layer sum starts from zero, then is added to the
 /// bias term.
-fn weighted_sum<V: Fixed, const N: usize, const C: usize>(
+fn weighted_sum<V: Scalar, const N: usize, const C: usize>(
     bias: &Neuron<V, C>,
     layer: &[Neuron<V, C>; N],
     target: usize,
@@ -580,7 +580,7 @@ fn weighted_sum<V: Fixed, const N: usize, const C: usize>(
 /// `GradientClipByValue`). The C++ applies it to the weights only: bias
 /// connections are updated by `BiasNeuronConnectionWeightUpdater`, which uses the
 /// raw gradient, so callers pass `None` for them.
-pub(crate) fn update_connection<V: Fixed>(
+pub(crate) fn update_connection<V: Scalar>(
     c: &mut Connection<V>,
     (lr, momentum, acceleration): (V, V, V),
     clip: Option<(V, V)>,
@@ -599,7 +599,7 @@ pub(crate) fn update_connection<V: Fixed>(
 /// C++ `GradientClipByValue::clip`: two tests, max first, so a range with
 /// `min > max` gives `max` for large gradients and `min` for small ones rather
 /// than panicking as `clamp` would.
-pub(crate) fn clip_gradient<V: Fixed>(gradient: V, (min, max): (V, V)) -> V {
+pub(crate) fn clip_gradient<V: Scalar>(gradient: V, (min, max): (V, V)) -> V {
     if gradient > max {
         max
     } else if gradient < min {
@@ -624,7 +624,7 @@ mod tests {
         raw: impl Fn(i32) -> V,
         seed: u32,
     ) where
-        V: Fixed + PartialEq + core::fmt::Debug,
+        V: Scalar + PartialEq + core::fmt::Debug,
         H: Activation<V>,
         O: Activation<V>,
     {

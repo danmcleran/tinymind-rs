@@ -11,7 +11,7 @@
 use std::fmt::Write;
 
 use tinymind::{
-    Fixed, InferenceDense, InferenceNetwork, Layers, Linear, NeuralNetwork, Q8_8, Q16_16, Relu,
+    InferenceDense, InferenceNetwork, Layers, Linear, NeuralNetwork, Q8_8, Q16_16, Relu, Scalar,
     Sigmoid, Tanh,
 };
 
@@ -59,7 +59,7 @@ fn run<V, T, const IN: usize, const OUT: usize>(
     build: impl Fn(&mut Lcg) -> InferenceNetwork<T::Inference>,
     out: &mut String,
 ) where
-    V: Fixed + PartialEq + core::fmt::Debug,
+    V: Scalar + PartialEq + core::fmt::Debug,
     T: Layers<Value = V, Inputs = [V; IN], Outputs = [V; OUT]> + Default,
 {
     let mut rng = Lcg(seed);

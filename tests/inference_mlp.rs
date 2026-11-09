@@ -10,7 +10,8 @@
 use std::fmt::Write;
 
 use tinymind::{
-    Activation, Fixed, InferencePerceptron, MultilayerPerceptron, Q8_8, Q16_16, Relu, Sigmoid, Tanh,
+    Activation, InferencePerceptron, MultilayerPerceptron, Q8_8, Q16_16, Relu, Scalar, Sigmoid,
+    Tanh,
 };
 
 struct Lcg(u32);
@@ -32,7 +33,7 @@ fn run<V, H, O, const IN: usize, const HID: usize, const OUT: usize>(
     to_raw: impl Fn(V) -> i32,
     out: &mut String,
 ) where
-    V: Fixed + PartialEq + core::fmt::Debug,
+    V: Scalar + PartialEq + core::fmt::Debug,
     H: Activation<V>,
     O: Activation<V>,
 {
