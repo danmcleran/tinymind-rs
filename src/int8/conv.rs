@@ -2,7 +2,7 @@
 //! `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp` and `cpp/qpointwiseconv2d.hpp`.
 //! Re-exported from [`int8`](super); the conventions are in its module docs.
 
-use super::{Requantizer, dot_with_zero_point};
+use super::{FastRequantizer, Requantizer, dot_with_zero_point};
 
 /// Whether `out` is the size a window of `kernel` at `stride` produces over
 /// `input` padded by `before` and `after`, `(input + before + after - kernel)
@@ -53,6 +53,9 @@ pub(crate) struct Window {
     pub(crate) stride_w: usize,
     pub(crate) pad_top: usize,
     pub(crate) pad_left: usize,
+    /// Any padding at all. Without it every window lies inside the input, so
+    /// a layer needs no code for windows that reach into the padding.
+    pub(crate) padded: bool,
 }
 
 /// The body of [`QConv2D`] and [`QConv2DPerChannel`]: `rqs` yields filter
@@ -188,6 +191,7 @@ impl<
             stride_w: SW,
             pad_top: PT,
             pad_left: PL,
+            padded: PT + PB + PL + PR != 0,
         };
         let rqs = core::iter::repeat(&self.requantizer);
         conv2d(
@@ -261,6 +265,7 @@ impl<
             stride_w: SW,
             pad_top: PT,
             pad_left: PL,
+            padded: PT + PB + PL + PR != 0,
         };
         let rqs = self.requantizers.iter();
         conv2d(
@@ -319,8 +324,10 @@ impl<
     /// One forward pass over an `H` x `W` x `C` input into an `OH` x `OW` x
     /// `C` output; `OH` and `OW` as in [`QConv2D::forward`].
     ///
-    /// tinymind (C++) folds the zero point into the bias (`bias - zp * sum w`)
-    /// and runs channel by channel; the `i32` sums are the same integers.
+    /// Channel by channel, as tinymind (C++) runs it: each channel's taps, its
+    /// bias folded with the zero point (`bias - zp * sum w`) and its prepared
+    /// requantizer stay put across the pixels. The `i32` sums are the same
+    /// integers as the per-tap form, modulo 2^32.
     pub fn forward<const H: usize, const W: usize, const OH: usize, const OW: usize>(
         &self,
         input: &[[[i8; C]; W]; H],
@@ -332,49 +339,227 @@ impl<
                 "QDepthwiseConv2D: the output size does not match the input, kernel, strides and padding, or the layer is invalid"
             )
         };
-        let zero_point = i32::from(self.input_zero_point);
+        let window = Window {
+            stride_h: SH,
+            stride_w: SW,
+            pad_top: PT,
+            pad_left: PL,
+            padded: PT + PB + PL + PR != 0,
+        };
+        let zero_point = self.input_zero_point;
+        let channels = self.weights.iter().zip(self.requantizers);
+        for (c, (taps, rq)) in channels.enumerate() {
+            let taps = *taps;
+            let bias = bias_of(self.biases, c);
+            let folded = folded_bias(bias, zero_point, taps.iter().flatten().copied());
+            let k = DepthwiseChannel {
+                c,
+                taps: &taps,
+                bias,
+                folded,
+                zero_point,
+                window,
+            };
+            // The pixel loop once per requantizer form, as the C++ writes it.
+            match FastRequantizer::new(rq) {
+                Some(fast) => k.run(input, output, |acc| fast.apply(acc)),
+                None => k.run_general(input, output, *rq),
+            }
+        }
+    }
+}
+
+/// One depthwise channel: its taps, its bias as given and folded with the
+/// zero point (see [`folded_bias`]).
+struct DepthwiseChannel<'t, const KH: usize, const KW: usize> {
+    c: usize,
+    taps: &'t [[i8; KW]; KH],
+    bias: i32,
+    folded: i32,
+    zero_point: i8,
+    window: Window,
+}
+
+impl<const KH: usize, const KW: usize> DepthwiseChannel<'_, KH, KW> {
+    /// [`run`](Self::run) for a requantizer without a prepared form (a
+    /// scale ratio of 0.25 or more, a negative multiplier): rare, so kept out
+    /// of line and cold, which keeps the common loop's code from doubling.
+    #[cold]
+    #[inline(never)]
+    fn run_general<
+        const H: usize,
+        const W: usize,
+        const C: usize,
+        const OH: usize,
+        const OW: usize,
+    >(
+        &self,
+        input: &[[[i8; C]; W]; H],
+        output: &mut [[[i8; C]; OW]; OH],
+        rq: Requantizer,
+    ) {
+        self.run(input, output, |acc| rq.apply(acc));
+    }
+
+    /// Every output pixel of this channel. A window wholly inside the input
+    /// reads its rows and pixels as slices and runs a plain multiply-accumulate
+    /// on the folded bias; one that reaches into the padding takes the
+    /// general form, skipping the padded taps.
+    #[inline(always)]
+    fn run<const H: usize, const W: usize, const C: usize, const OH: usize, const OW: usize>(
+        &self,
+        input: &[[[i8; C]; W]; H],
+        output: &mut [[[i8; C]; OW]; OH],
+        requantize: impl Fn(i32) -> i8,
+    ) {
+        let Window {
+            stride_h,
+            stride_w,
+            pad_top,
+            pad_left,
+            padded,
+        } = self.window;
+        let c = self.c;
         for (oh, out_row) in output.iter_mut().enumerate() {
-            let top = oh * SH;
+            let top = oh * stride_h;
             for (ow, out_pixel) in out_row.iter_mut().enumerate() {
-                let left = ow * SW;
-                let channels = out_pixel
-                    .iter_mut()
-                    .zip(self.weights)
-                    .zip(self.requantizers);
-                for (c, ((out, filter), rq)) in channels.enumerate() {
-                    let mut acc = bias_of(self.biases, c);
-                    for (kh, filter_row) in filter.iter().enumerate() {
-                        for (kw, &w) in filter_row.iter().enumerate() {
-                            let pixel = tap(input, top + kh, left + kw, PT, PL);
-                            if let Some(&x) = pixel.and_then(|p| p.get(c)) {
-                                acc = acc.wrapping_add(i32::from(w) * (i32::from(x) - zero_point));
+                let left = ow * stride_w;
+                let rows = top.checked_sub(pad_top).and_then(|r| input.get(r..r + KH));
+                let column = left.checked_sub(pad_left).filter(|&col| col + KW <= W);
+                let acc = match (rows, column) {
+                    (Some(rows), Some(col)) => {
+                        let mut acc = self.folded;
+                        for (row, tap_row) in rows.iter().zip(self.taps) {
+                            if let Some(pixels) = row.get(col..col + KW) {
+                                for (pixel, &w) in pixels.iter().zip(tap_row) {
+                                    if let Some(&x) = pixel.get(c) {
+                                        acc = acc.wrapping_add(i32::from(w) * i32::from(x));
+                                    }
+                                }
                             }
                         }
+                        acc
                     }
-                    *out = rq.apply(acc);
+                    // Unreachable without padding (every window lies inside
+                    // the input); this arm keeps the general path out of an
+                    // unpadded layer's code.
+                    _ if !padded => self.folded,
+                    _ => {
+                        let zp = i32::from(self.zero_point);
+                        let mut acc = self.bias;
+                        for (kh, tap_row) in self.taps.iter().enumerate() {
+                            for (kw, &w) in tap_row.iter().enumerate() {
+                                let pixel = tap(input, top + kh, left + kw, pad_top, pad_left);
+                                if let Some(&x) = pixel.and_then(|p| p.get(c)) {
+                                    acc = acc.wrapping_add(i32::from(w) * (i32::from(x) - zp));
+                                }
+                            }
+                        }
+                        acc
+                    }
+                };
+                if let Some(out) = out_pixel.get_mut(c) {
+                    *out = requantize(acc);
                 }
             }
         }
     }
 }
 
+/// `sum w * x` in `i32`, wrapping. With the zero point folded into the bias
+/// (see [`folded_bias`]) this is the whole per-output dot product.
+#[inline]
+fn dot<const N: usize>(x: &[i8; N], w: &[i8; N]) -> i32 {
+    x.iter().zip(w).fold(0i32, |acc, (&x, &w)| {
+        acc.wrapping_add(i32::from(w) * i32::from(x))
+    })
+}
+
+/// `bias - zero_point * sum w`: since `sum w * (x - zp) == sum w * x - zp *
+/// sum w`, a filter whose taps all read the input (no padding) can run a plain
+/// multiply-accumulate. `i32` arithmetic wraps, so the two forms are equal
+/// modulo 2^32, as the C++'s are.
+#[inline]
+fn folded_bias(bias: i32, zero_point: i8, weights: impl IntoIterator<Item = i8>) -> i32 {
+    let sum = weights
+        .into_iter()
+        .fold(0i32, |s, w| s.wrapping_add(i32::from(w)));
+    bias.wrapping_sub(i32::from(zero_point).wrapping_mul(sum))
+}
+
 /// The body of [`QPointwiseConv2D`] and [`QPointwiseConv2DPerChannel`]: a
-/// dense layer applied to every pixel.
+/// dense layer applied to every pixel. Filter by filter, as the C++ runs it:
+/// each filter's weights, folded bias and requantizer stay in registers or on
+/// the stack across the pixels.
 fn pointwise<'r, const H: usize, const W: usize, const C: usize, const F: usize>(
     input: &[[[i8; C]; W]; H],
     output: &mut [[[i8; F]; W]; H],
     weights: &[[i8; C]; F],
     biases: Option<&[i32; F]>,
     zero_point: i8,
-    rqs: impl Iterator<Item = &'r Requantizer> + Clone,
+    rqs: impl Iterator<Item = &'r Requantizer>,
 ) {
-    let pixels = output.iter_mut().flatten().zip(input.iter().flatten());
-    for (out_pixel, in_pixel) in pixels {
-        let filters = out_pixel.iter_mut().zip(weights).zip(rqs.clone());
-        for (f, ((out, row), rq)) in filters.enumerate() {
-            let acc =
-                bias_of(biases, f).wrapping_add(dot_with_zero_point(in_pixel, row, zero_point));
-            *out = rq.apply(acc);
+    if H * W == 1 {
+        // A single pixel (a dense layer): one pass, output by output, so the
+        // folded bias is not worth its sum of the weights.
+        let pixel = output
+            .iter_mut()
+            .flatten()
+            .next()
+            .zip(input.iter().flatten().next());
+        if let Some((out_pixel, in_pixel)) = pixel {
+            let filters = out_pixel.iter_mut().zip(weights).zip(rqs);
+            for (f, ((out, row), rq)) in filters.enumerate() {
+                let acc =
+                    bias_of(biases, f).wrapping_add(dot_with_zero_point(in_pixel, row, zero_point));
+                *out = rq.apply(acc);
+            }
+        }
+        return;
+    }
+    for (f, (row, rq)) in weights.iter().zip(rqs).enumerate() {
+        let w = *row;
+        let bias = folded_bias(bias_of(biases, f), zero_point, w);
+        // The pixel loop once per requantizer form, so neither tests the form
+        // per output.
+        match FastRequantizer::new(rq) {
+            Some(fast) => pointwise_filter(input, output, f, &w, bias, |acc| fast.apply(acc)),
+            None => pointwise_filter_general(input, output, f, &w, bias, *rq),
+        }
+    }
+}
+
+/// [`pointwise_filter`] for a requantizer without a prepared form: rare, so
+/// kept out of line and cold (see [`DepthwiseChannel::run_general`]).
+#[cold]
+#[inline(never)]
+fn pointwise_filter_general<const H: usize, const W: usize, const C: usize, const F: usize>(
+    input: &[[[i8; C]; W]; H],
+    output: &mut [[[i8; F]; W]; H],
+    f: usize,
+    w: &[i8; C],
+    bias: i32,
+    rq: Requantizer,
+) {
+    pointwise_filter(input, output, f, w, bias, |acc| rq.apply(acc));
+}
+
+/// One pointwise filter over every pixel. Nested loops rather than `flatten`,
+/// whose iterator state costs more per pixel than an 8-channel dot product.
+#[inline(always)]
+fn pointwise_filter<const H: usize, const W: usize, const C: usize, const F: usize>(
+    input: &[[[i8; C]; W]; H],
+    output: &mut [[[i8; F]; W]; H],
+    f: usize,
+    w: &[i8; C],
+    bias: i32,
+    requantize: impl Fn(i32) -> i8,
+) {
+    for (out_row, in_row) in output.iter_mut().zip(input) {
+        for (out_pixel, in_pixel) in out_row.iter_mut().zip(in_row) {
+            if let Some(out) = out_pixel.get_mut(f) {
+                *out = requantize(bias.wrapping_add(dot(in_pixel, w)));
+            }
         }
     }
 }

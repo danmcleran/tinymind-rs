@@ -3,6 +3,7 @@
 #
 #   bench/run.sh [board ...]       boards: f411 l031 (default: both)
 #   WORKLOADS="anomaly" bench/run.sh f411    only some workloads
+#   OPT=s bench/run.sh                       every image at opt-level s
 #
 # Needs: the thumbv7em-none-eabihf and thumbv6m-none-eabi Rust targets, openocd,
 # arm-none-eabi-size, a tinymind checkout (TINYMIND_DIR, default ../tinymind; the
@@ -33,9 +34,10 @@ run_image() { # board target cfg serial features name
   port="$(ls /dev/serial/by-id/*STLink_"$serial"-if02 2>/dev/null | head -1)"
   [ -n "$port" ] || { echo "no VCP for ST-LINK $serial" >&2; exit 1; }
   # The trees image fits the L031's 32 KB only at opt-level s: at 3 the
-  # nested-if form of the 90-tree model is expanded further.
-  local opt=3
-  [ "$board-$name" = l031-trees ] && opt=s
+  # nested-if form of the 90-tree model is expanded further. OPT=s (or z, 2)
+  # builds every image at that level instead.
+  local opt=${OPT:-3}
+  [ -z "${OPT:-}" ] && [ "$board-$name" = l031-trees ] && opt=s
   (cd "$HERE" && CARGO_PROFILE_RELEASE_OPT_LEVEL=$opt cargo build -q --release --target "$target" --features "$features")
   elf="$HERE/target/$target/release/tinymind-bench"
   cp "$elf" "$OUT/$board-$name.elf"

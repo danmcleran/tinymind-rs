@@ -209,6 +209,64 @@ impl Requantizer {
     }
 }
 
+/// [`Requantizer::apply`] with the work that does not depend on the
+/// accumulator done once (C++ `detail::FastRequantizer`): on the fused path
+/// the output zero point folds into the rounding nudge. The C++ form takes
+/// only the full int8 range; this one also takes the narrower ranges of a fused
+/// ReLU, saturating in `apply`'s order. Layers prepare one per filter
+/// and run their pixel loop once per form. A Kani proof checks it equals
+/// `apply` for every accumulator wherever [`FastRequantizer::new`] accepts the
+/// requantizer.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct FastRequantizer {
+    multiplier: i32,
+    nudge_high: u32,
+    high_shift: u32,
+    qmin: i32,
+    qmax: i32,
+}
+
+impl FastRequantizer {
+    /// The fast form, or `None` where `apply` must take its general path: a
+    /// negative multiplier, a shift outside `2..=31`, or a zero-point term
+    /// above 2^29 (which could carry out of the nudge's high word).
+    pub(crate) fn new(rq: &Requantizer) -> Option<Self> {
+        if rq.multiplier < 0 || !(2..=31).contains(&rq.shift) {
+            return None;
+        }
+        let zp_term = i64::from(rq.zero_point) * (1i64 << (rq.shift - 1));
+        if zp_term.abs() > 1 << 29 {
+            return None;
+        }
+        Some(FastRequantizer {
+            multiplier: rq.multiplier,
+            nudge_high: ((1i64 << (rq.shift - 2)) + zp_term) as u32,
+            high_shift: (rq.shift - 1) as u32,
+            qmin: rq.qmin.into(),
+            qmax: rq.qmax.into(),
+        })
+    }
+
+    /// `rq.apply(acc)` for the requantizer this was prepared from.
+    #[inline]
+    pub(crate) fn apply(&self, acc: i32) -> i8 {
+        let negative = (acc as u32) >> 31;
+        let high = self.nudge_high.wrapping_sub(negative);
+        let low = (negative << 31) | 0x4000_0000;
+        let nudge = (u64::from(high) << 32) | u64::from(low);
+        let v = nudge.wrapping_add((i64::from(acc) * i64::from(self.multiplier)) as u64);
+        let mut r = ((v >> 32) as u32 as i32) >> (self.high_shift & 31);
+        // Two tests in `apply`'s order: with qmin > qmax the result is qmax.
+        if r < self.qmin {
+            r = self.qmin;
+        }
+        if r > self.qmax {
+            r = self.qmax;
+        }
+        r as i8
+    }
+}
+
 /// `sum_i w[i] * (x[i] - zero_point)` in `i32` (C++
 /// `dotProductWithZeroPoint`, scalar path). The sum wraps on overflow, which
 /// needs vectors far longer than any layer here.
