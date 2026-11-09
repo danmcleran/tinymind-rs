@@ -13,8 +13,8 @@ break the API).
   `qlearn` module's `QLearner` (tinymind (C++)'s `QLearner` with its default
   learning and arg-max policies), `QTable` (`QValueTablePolicy`), the
   `Environment` trait through which a program describes its world (valid
-  actions and a random-number source) and the `QValues` trait for other Q-value
-  stores. It is generic over the value type (`Q16_16`, `Q8_8`, `f32`, `f64`),
+  actions and a random-number source), `Experience` (one step's action, reward
+  and new state) and the `QValues` trait for other Q-value stores. It is generic over the value type (`Q16_16`, `Q8_8`, `f32`, `f64`),
   `no_std` and allocation-free. `tests/qlearn_sweep.rs` checks the Q table
   after every update against tinymind (C++)'s `QLearner` on the maze and on 60
   random environments in Q16.16 and Q8.8; a Kani proof shows it never panics.
