@@ -165,7 +165,8 @@ jobs:
           g++ --version
       # The importer checks in compare-with-cpp.sh need numpy (PyTorch
       # importer), scikit-learn, XGBoost and LightGBM (tree importer) and
-      # tflite with flatbuffers (TFLite translator). The
+      # tflite with flatbuffers (TFLite translator), and LiteRT (ai-edge-litert,
+      # TFLite's reference kernels for the translator's operator tests). The
       # committed example models are retrained and must come out identical, so
       # every package that can touch training is pinned.
       - name: Python with numpy and the tree libraries
@@ -173,7 +174,7 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install -q numpy==2.5.4 scipy==1.18.1 scikit-learn==1.9.1 \
             joblib==1.6.0 threadpoolctl==3.8.0 xgboost-cpu==3.4.1 lightgbm==4.7.0 \
-            tflite==2.18.0 flatbuffers==25.12.19
+            tflite==2.18.0 flatbuffers==25.12.19 ai-edge-litert==2.3.0
       - name: Byte-compare the C++ and Rust outputs
         env:
           TINYMIND_DIR: ${{ github.workspace }}/tinymind

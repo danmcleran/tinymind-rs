@@ -43,7 +43,8 @@ Differences from tinymind's script:
 
 Supported operators: CONV_2D, DEPTHWISE_CONV_2D (depth multiplier 1),
 AVERAGE_POOL_2D (global only, as tinymind), FULLY_CONNECTED, SOFTMAX (one row),
-RESHAPE and ADD (same shapes, no broadcasting); fused NONE / RELU / RELU6
+RESHAPE, ADD and MUL (same shapes, no broadcasting), PAD (height and width)
+and CONCATENATION (two maps along channels, quantized as the output); fused NONE / RELU / RELU6
 activations; int8 activations and weights, per-tensor or per-channel. The graph
 may branch (residual connections): each operator reads any tensor written
 before it.
@@ -309,6 +310,12 @@ class Translation:
                 self.reshape(ins, out)
             elif name == "ADD":
                 self.add(op, ins, out)
+            elif name == "MUL":
+                self.mul(op, ins, out)
+            elif name == "PAD":
+                self.pad(ins, out)
+            elif name == "CONCATENATION":
+                self.concat(op, ins, out)
             else:
                 raise ValueError(f"unsupported operator {name}")
         if self._src(self.output.index) not in self.shapes:
@@ -472,6 +479,84 @@ class Translation:
         else:
             self._step("value", f"let mut {{y}} = [0i8; {shape[1]}]; "
                        f"{tag}.forward({{x0}}, {{x1}}, &mut {{y}});", [a, b], y, shape)
+
+    def mul(self, op, ins, y):
+        a, b = ins[0], ins[1]
+        shape = self._reads(a)
+        if self._reads(b) != shape or self._shape_of(y) != shape:
+            raise ValueError("MUL: only inputs and output of one shape are supported (no broadcasting)")
+        for t in (a, b, y):
+            if t.scales.size != 1:
+                raise ValueError(f"MUL: tensor {t.name!r} is not quantized per tensor")
+        act = _options(op, tflite.MulOptions).FusedActivationFunction()
+        qmin, qmax = act_range(act, y.scale(), y.zp())
+        # TFLite mul.cc: scale_a * scale_b / scale_out in double, as rq() computes it.
+        r = rq(a.scale(), b.scale(), y.scale(), y.zp(), qmin, qmax)
+        i = self.n
+        self.n += 1
+        tag = f"MUL{i}"
+        dims = " x ".join(str(d) for d in shape[1:])
+        self.decls.append(f"/// `{y.name}`: elementwise multiplication, {dims}.")
+        self.decls.append(f"static {tag}: QMul = QMul {{ input_a_zero_point: {a.zp()}, "
+                          f"input_b_zero_point: {b.zp()}, requantizer: {_rq_literal(r)} }};\n")
+        if shape[0] == "map":
+            self._step("buffer", f"{tag}.forward({{x0}}, {{x1}}, {{y}})", [a, b], y, shape)
+        else:
+            self._step("value", f"let mut {{y}} = [0i8; {shape[1]}]; "
+                       f"{tag}.forward({{x0}}, {{x1}}, &mut {{y}});", [a, b], y, shape)
+
+    def pad(self, ins, y):
+        x, paddings = ins[0], ins[1]
+        shape = self._reads(x)
+        if shape[0] != "map":
+            raise ValueError("PAD: only feature maps are supported")
+        p = paddings.array().reshape(-1, 2).tolist()
+        if len(p) != 4 or p[0] != [0, 0] or p[3] != [0, 0]:
+            raise ValueError("PAD: only height and width padding is supported")
+        if np.float32(x.scale()) != np.float32(y.scale()) or x.zp() != y.zp():
+            raise ValueError("PAD: input and output quantization differ")
+        (pt, pb), (pl, pr) = p[1], p[2]
+        _, H, W, C = shape
+        out_shape = ("map", H + pt + pb, W + pl + pr, C)
+        if self._shape_of(y) != out_shape:
+            raise ValueError("PAD: output shape does not match the padding")
+        i = self.n
+        self.n += 1
+        tag = f"PAD{i}"
+        self.decls.append(f"/// `{y.name}`: padding {pt}/{pb}/{pl}/{pr} (top/bottom/left/right) with the "
+                          f"zero point, {H}x{W}x{C} -> {out_shape[1]}x{out_shape[2]}x{C}.")
+        # TFLite pads with the output zero point (a real 0.0).
+        self.decls.append(f"static {tag}: QPad2D<{pt}, {pb}, {pl}, {pr}> = QPad2D {{ pad_value: {y.zp()} }};\n")
+        self._step("buffer", f"{tag}.forward({{x0}}, {{y}})", [x], y, out_shape)
+
+    def concat(self, op, ins, y):
+        if len(ins) != 2:
+            raise ValueError("CONCATENATION: only two inputs are supported")
+        a, b = ins
+        sa, sb = self._reads(a), self._reads(b)
+        o = _options(op, tflite.ConcatenationOptions)
+        axis = o.Axis() + (4 if o.Axis() < 0 else 0)
+        if sa[0] != "map" or sb[0] != "map" or axis != 3 or sa[1:3] != sb[1:3]:
+            raise ValueError("CONCATENATION: only two feature maps along the channel axis are supported")
+        if o.FusedActivationFunction() != tflite.ActivationFunctionType.NONE:
+            raise ValueError("CONCATENATION: a fused activation is not supported")
+        # TFLite's int8 kernel copies when every input has the output's
+        # quantization and rescales in float otherwise, which no integer
+        # requantizer reproduces bit for bit: only the first case is taken.
+        for t in (a, b):
+            if np.float32(t.scale()) != np.float32(y.scale()) or t.zp() != y.zp():
+                raise ValueError(f"CONCATENATION: input {t.name!r} is not quantized as the output")
+        out_shape = ("map", sa[1], sa[2], sa[3] + sb[3])
+        if self._shape_of(y) != out_shape:
+            raise ValueError("CONCATENATION: output shape does not match the inputs")
+        r = _rq_literal(rq(y.scale(), 1.0, y.scale(), y.zp(), -128, 127))
+        i = self.n
+        self.n += 1
+        tag = f"CONCAT{i}"
+        self.decls.append(f"/// `{y.name}`: channel concatenation, {sa[3]} + {sb[3]} channels.")
+        self.decls.append(f"static {tag}: QConcat = QConcat {{ input_a_zero_point: {a.zp()}, "
+                          f"input_b_zero_point: {b.zp()}, requantizer_a: {r}, requantizer_b: {r} }};\n")
+        self._step("buffer", f"{tag}.forward({{x0}}, {{x1}}, {{y}})", [a, b], y, out_shape)
 
     def emit(self, path: str, model_note: str = ""):
         """Write the Rust module: constants, layers and `forward`."""

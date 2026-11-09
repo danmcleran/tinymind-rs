@@ -19,6 +19,8 @@ TFLite schema; no TensorFlow):
 
 ```bash
 pip install numpy tflite==2.18.0 flatbuffers==25.12.19
+# only for test_ops.py, which runs TFLite's reference kernels:
+pip install ai-edge-litert==2.3.0
 python3 tools/import_tflite/tinymind_import_tflite.py model.tflite model.rs model
 ```
 
@@ -55,9 +57,16 @@ A graph, branches included (residual connections), of:
 | `SOFTMAX` (one row) | `QSoftmax` |
 | `RESHAPE` | nothing, or a copy of a feature map into a vector |
 | `ADD` (both inputs and the output of one shape) | `QAdd` |
+| `MUL` (both inputs and the output of one shape) | `QMul` |
+| `PAD` (height and width only) | `QPad2D`, padding with the zero point as TFLite does |
+| `CONCATENATION` (two feature maps along channels, quantized as the output) | `QConcat` |
 
 with fused `NONE`, `RELU` or `RELU6` activations and int8 tensors. Anything else
-is rejected with an error naming the operator, as is an `ADD` that broadcasts.
+is rejected with an error naming the operator, as is an `ADD` or `MUL` that
+broadcasts. A `CONCATENATION` whose inputs are quantized differently from its
+output is rejected too: TFLite's int8 kernel copies when they match (what
+converters produce) and rescales in float otherwise, which no integer
+requantizer reproduces bit for bit.
 
 ## How it is checked
 
@@ -78,5 +87,14 @@ is rejected with an error naming the operator, as is an `ADD` that broadcasts.
   equal tinymind (C++)'s `buildQAddParams` on 48 calibrations, and fused ReLU
   and ReLU6 ranges, on `ADD` too (the models' activations all have zero point
   -128, where a fused ReLU changes nothing).
+- `test_ops.py` checks `PAD`, `MUL` and `CONCATENATION`, which the MLPerf
+  models do not use, against TFLite itself: `tflite_build.py` writes three small
+  int8 models (deterministic weights, scales calibrated from a float pass; a
+  fused ReLU's output calibrated over the values before it, so it clips)
+  combining them with SAME and VALID convolutions, LiteRT runs them with
+  TFLite's reference kernels on 16 random inputs, and the translated Rust module
+  must give the same bytes for every output. Planted mistakes (the `MUL` ratio
+  off by 0.1%, its fused ReLU dropped, padding with 0 or on the wrong side, the
+  concatenation's inputs swapped) each fail it.
 - On the NUCLEO-F411RE both translated models give the same hashes
   (`bench/`, workloads `mlperf-kws` and `mlperf-ic`).
