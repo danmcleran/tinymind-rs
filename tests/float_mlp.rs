@@ -6,7 +6,8 @@
 // 0.1) and hashes every weight after every step; scripts/compare-with-cpp.sh
 // rebuilds it and checks the golden is current. tanh and exp come from the
 // platform's math library on both sides (feature `std`), so on a glibc host
-// every step is bit-identical.
+// every step is bit-identical. The committed golden holds the f64 lines only;
+// see the end of the test.
 #![cfg(feature = "std")]
 
 use std::fmt::Write;
@@ -225,5 +226,23 @@ fn float_networks_match_cpp() {
         2000,
         &mut out,
     );
-    assert_eq!(out, include_str!("golden/float_mlp/stdout.txt"));
+    // With TINYMIND_FLOAT_MLP_CPP set (scripts/compare-with-cpp.sh sets it),
+    // every line is compared with the C++ program's output from the same
+    // machine. Otherwise the f64 lines are compared with the committed golden:
+    // the f32 ones depend on the C library's tanhf and expf, which glibc 2.41
+    // replaced with correctly rounded versions, so they differ between hosts.
+    match std::env::var("TINYMIND_FLOAT_MLP_CPP") {
+        Ok(path) => {
+            let cpp = std::fs::read_to_string(path).expect("the C++ program's output");
+            assert_eq!(out, cpp);
+        }
+        Err(_) => {
+            let f64_lines: String = out
+                .lines()
+                .filter(|l| l.starts_with("f64 "))
+                .map(|l| format!("{l}\n"))
+                .collect();
+            assert_eq!(f64_lines, include_str!("golden/float_mlp/stdout.txt"));
+        }
+    }
 }

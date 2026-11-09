@@ -8,16 +8,6 @@ f64 2-4-1 tanh/sigmoid final0 3FA76E1F5732F317
 f64 2-4-1 tanh/sigmoid final1 3FEEDBA2D1914156
 f64 2-4-1 tanh/sigmoid final2 3FEEDBA2D1914156
 f64 2-4-1 tanh/sigmoid final3 3FA79C54453662A6
-f32 2-4-4-1 tanh/sigmoid step=500 error= 3E7605DE hash=0x63A44556
-f32 2-4-4-1 tanh/sigmoid step=1000 error= 3E846F49 hash=0xE8B1BFB9
-f32 2-4-4-1 tanh/sigmoid step=1500 error= 3E91B400 hash=0x5E503390
-f32 2-4-4-1 tanh/sigmoid step=2000 error= 3D9837AB hash=0x3B0CAF5A
-f32 2-4-4-1 tanh/sigmoid step=2500 error= 3B6178E2 hash=0xBF54C7A3
-f32 2-4-4-1 tanh/sigmoid step=3000 error= 3A0730EA hash=0xAE948D62
-f32 2-4-4-1 tanh/sigmoid final0 3CB97757
-f32 2-4-4-1 tanh/sigmoid final1 3CB97757
-f32 2-4-4-1 tanh/sigmoid final2 3F775A19
-f32 2-4-4-1 tanh/sigmoid final3 3D12ACA2
 f64 4-8-6-3 relu/sigmoid step=500 error= 3FC25CDA49E8FADB hash=0x9C5C8B49
 f64 4-8-6-3 relu/sigmoid step=1000 error= 3FB18C32225ECD23 hash=0x14EE3F21
 f64 4-8-6-3 relu/sigmoid step=1500 error= 3F58104850A0752D hash=0xB51FF278
@@ -26,14 +16,6 @@ f64 4-8-6-3 relu/sigmoid final0 3F83FFD4403FB455 3FEECB94F6A96102 3FADA8B9DBBD6A
 f64 4-8-6-3 relu/sigmoid final1 3FB47A2CAEDC33DC 3F7BDBD60A704C1C 3FED616B13782BA9
 f64 4-8-6-3 relu/sigmoid final2 3FB4D8249C786948 3F95F27DBF0D963B 3FEC6EFBD03914C4
 f64 4-8-6-3 relu/sigmoid final3 3F83FFD4403FB455 3FEECB94F6A96102 3FADA8B9DBBD6A95
-f32 4-8-3 tanh/sigmoid step=500 error= 3B8B97E4 hash=0xB22DE361
-f32 4-8-3 tanh/sigmoid step=1000 error= 3EC53ADB hash=0x1C41CCF4
-f32 4-8-3 tanh/sigmoid step=1500 error= 3E19EE49 hash=0xDEB5C058
-f32 4-8-3 tanh/sigmoid step=2000 error= 3BC6DAEF hash=0x10E4E3CC
-f32 4-8-3 tanh/sigmoid final0 3F7D8FB7 3D8CA211 39B03E9B
-f32 4-8-3 tanh/sigmoid final1 3F7F4062 3B46EC85 3B96C506
-f32 4-8-3 tanh/sigmoid final2 3F74A41E 3D9FD32B 3BC569CD
-f32 4-8-3 tanh/sigmoid final3 3BD06893 3F72B25A 3DE1527E
 f64 3-6-2 relu/linear step=500 error= 3F029A5A5514742C hash=0xB03D20F2
 f64 3-6-2 relu/linear step=1000 error= 3EED93DE920B7816 hash=0xD1CAD29A
 f64 3-6-2 relu/linear step=1500 error= 3F02FE19887385C0 hash=0x81E0B64F

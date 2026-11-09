@@ -407,7 +407,11 @@ unchanged into `scripts/cpp/float_mlp.cpp` (needs `<new>` and
 `-ffp-contract=off`). The bundle's rates are 0.15/0.5/0.1; the Rust default rates
 stay 1/4, 1/2, 1/16 for every type, so tests set them. `tests/float_mlp.rs`
 (feature std) matches every step of five configs (f64/f32; 1-2 hidden layers;
-tanh/ReLU; sigmoid/linear) on the first run; plants (tanh derivative as
+tanh/ReLU; sigmoid/linear) on the first run. The f32 runs differ between glibc
+2.39 (here) and CI's newer glibc (2.41 made tanhf/expf correctly rounded; f64
+matched): so the committed golden holds only the f64 lines, and
+compare-with-cpp.sh runs the test with `TINYMIND_FLOAT_MLP_CPP` = that host's C++
+output to compare every line live (KEEP_CPP_OUTPUT copies only f64 lines); plants (tanh derivative as
 (1-y)(1+y), div_int via reciprocal, sigmoid +eps/4) fail it. panic-never runs
 float networks with `libm` (M0+ soft float and M4F). Not ported: tinymind's
 `AdamOptimizerFloat`/`RmsPropOptimizerFloat` (double hyperparameters, `std::pow`

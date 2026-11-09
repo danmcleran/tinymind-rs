@@ -178,7 +178,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   tinymind (C++)'s `NeuralNetwork` instantiated with `float` and `double` (its
   floating-point activations and transfer-function bundle), in five
   configurations, and compares every weight after every step: bit-identical on
-  a glibc host.
+  a glibc host. The committed golden holds the `f64` runs; the `f32` runs depend
+  on the C library's `tanhf`/`expf` (correctly rounded since glibc 2.41), so
+  `scripts/compare-with-cpp.sh` compares them live, C++ and Rust on one host.
 - `tests/inference_mlp.rs` checks the inference-only perceptron against
   tinymind (C++)'s untrainable network (`IsTrainable = false`) with the same weights,
   in both formats and two shapes, and `tests/inference_deep.rs` checks

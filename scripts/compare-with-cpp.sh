@@ -166,15 +166,19 @@ g++ -O2 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/float_mlp/fl
   -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
   -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_RAND=1
 "$TMP/float_mlp/float_mlp" > "$TMP/float_mlp/stdout.txt"
-if cmp -s "$TMP/float_mlp/stdout.txt" "$ROOT/tests/golden/float_mlp/stdout.txt"; then
-  same "float_mlp stdout.txt (C++ vs tests/golden/float_mlp)"
+# The golden holds the double runs only: the float ones depend on the C
+# library's tanhf/expf (correctly rounded since glibc 2.41), so they are
+# compared live below, C++ and Rust on this machine.
+if cmp -s <(grep '^f64 ' "$TMP/float_mlp/stdout.txt") "$ROOT/tests/golden/float_mlp/stdout.txt"; then
+  same "float_mlp double runs (C++ vs tests/golden/float_mlp)"
 else
-  echo "DIFFERENT  float_mlp stdout.txt (C++ vs tests/golden/float_mlp)"
+  echo "DIFFERENT  float_mlp double runs (C++ vs tests/golden/float_mlp)"
   status=1
 fi
-cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test float_mlp >/dev/null 2>&1 \
-  && same "float_mlp Rust vs tests/golden/float_mlp" \
-  || { echo "DIFFERENT  float_mlp Rust vs tests/golden/float_mlp"; status=1; }
+TINYMIND_FLOAT_MLP_CPP="$TMP/float_mlp/stdout.txt" \
+  cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test float_mlp >/dev/null 2>&1 \
+  && same "float_mlp Rust vs C++ on this host (float and double, every step)" \
+  || { echo "DIFFERENT  float_mlp Rust vs C++ on this host"; status=1; }
 
 echo "== inference_mlp"
 # tinymind's inference-only MultilayerPerceptron (IsTrainable = false) with loaded
@@ -526,7 +530,7 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   mkdir -p "$KEEP_CPP_OUTPUT/inference_mlp"
   cp "$TMP/inference_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/inference_mlp/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/float_mlp"
-  cp "$TMP/float_mlp/stdout.txt" "$KEEP_CPP_OUTPUT/float_mlp/stdout.txt"
+  grep '^f64 ' "$TMP/float_mlp/stdout.txt" > "$KEEP_CPP_OUTPUT/float_mlp/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/inference_deep"
   cp "$TMP/inference_deep/stdout.txt" "$KEEP_CPP_OUTPUT/inference_deep/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/softmax"
