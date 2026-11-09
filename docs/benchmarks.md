@@ -24,6 +24,7 @@ The crate has been run on two microcontroller boards, with the same boards, cloc
 | imported decision trees: every score and class on the 54 Wine samples equals the host run | match | match |
 | int8 KWS-shaped CNN (convolutions): output hash equals tinymind (C++)'s | match | match |
 | MLPerf Tiny keyword spotting (DS-CNN), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
+| MLPerf Tiny image classification (ResNet-8), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 
 The int8 MLP is tinymind (C++)'s 64-32-16-10 digits classifier with per-channel requantizers (`QDensePerChannel`). tinymind (C++) and TensorFlow Lite for Microcontrollers produce the same output hash on these boards, so the Rust port matches both. For training, the board hashes the exact bytes of the weight trajectory the xor example writes, every weight after every step.
 
@@ -85,13 +86,29 @@ The MLPerf Tiny keyword-spotting reference model (49x10 MFCC input, a 10x4 convo
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **16,125,065** | **161.3 ms** | **45,776 B** | **16,336 B** |
+| **tinymind-rs** | **16,115,226** | **161.2 ms** | **45,732 B** | **16,336 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,432 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,828 B |
 
-The Rust model is within 2.5% of tinymind (C++)'s portable build in less flash and RAM; tinymind (C++)'s SMLAD build and TFLM with CMSIS-NN are faster, as neither SIMD path is open to the Rust port.
+The Rust model is within 2.4% of tinymind (C++)'s portable build in less flash and RAM; tinymind (C++)'s SMLAD build and TFLM with CMSIS-NN are faster, as neither SIMD path is open to the Rust port.
+
+## MLPerf Tiny image classification (ResNet-8)
+
+The MLPerf Tiny image-classification reference model (32x32x3 CIFAR-10 input, a 3x3 convolution, three residual blocks of 3x3 convolutions with 16, 32 and 64 channels, the last two with a strided 1x1 shortcut, global average pooling, a 10-way softmax), translated the same way; its three residual additions run on `QAdd`. Same method and caveats as above.
+
+| F411, 100 MHz | Cycles | Time | Code + weights | RAM |
+|---|---:|---:|---:|---:|
+| **tinymind-rs** | **91,096,190** | **911.0 ms** | **100,220 B** | **86,520 B** |
+| tinymind (C++), scalar | 85,467,754 | 854.7 ms | 120,836 B | 54,380 B |
+| tinymind (C++), +SMLAD | 26,753,191 | 267.5 ms | 108,324 B | 54,424 B |
+| TFLM int8 (CMSIS-NN) | 37,372,049 | 373.7 ms | 191,212 B | 56,608 B |
+| TFLM int8 (reference kernels) | 191,555,451 | 1,915.6 ms | 155,412 B | 55,396 B |
+
+The Rust model takes 6.6% more cycles than tinymind (C++)'s portable build, in 17% less flash but 59% more RAM: tinymind (C++) plans one byte arena for every tensor, while the Rust module keeps typed buffers per shape (three of each of the three shapes), which cannot share storage without `unsafe`. Its 3x3 convolutions over 16 to 64 channels have not been tuned on the board yet, as the KWS-shaped network's were.
+
+Timings on the F411 also move with where the hot loops fall in flash: a library change that shifted the code by 10 bytes, with no other effect, once cost the DS-CNN 11% more cycles (17.9M); with loops aligned to 16 bytes both builds took 16.2M. Figures here are from the commit that published them.
 
 ## On-device training
 

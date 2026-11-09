@@ -369,13 +369,14 @@ for model in cnn cnn_flat; do
 done
 
 echo "== import_tflite (TFLite translator)"
-# Needs tflite and flatbuffers in PYTHON. The MLPerf Tiny keyword-spotting model
-# is downloaded at tinymind's pinned commit (cached in target/tflite-models).
+# Needs tflite and flatbuffers in PYTHON. The MLPerf Tiny keyword-spotting and
+# image-classification models are downloaded at tinymind's pinned commit
+# (cached in target/tflite-models).
 if "$PYTHON" -I -B "$ROOT/tools/import_tflite/test_translator.py" > "$TMP/tflite_unit.txt"; then
-  same "TFLite translator softmax params and activation ranges"
+  same "TFLite translator softmax and ADD params, activation ranges"
 else
   cat "$TMP/tflite_unit.txt"
-  echo "DIFFERENT  TFLite translator softmax params and activation ranges"
+  echo "DIFFERENT  TFLite translator softmax and ADD params, activation ranges"
   status=1
 fi
 if "$PYTHON" -I -B "$ROOT/tools/import_tflite/mlperf.py" kws --target-dir "$TMP/tflite_target" > "$TMP/tflite_kws.txt"; then
@@ -383,6 +384,13 @@ if "$PYTHON" -I -B "$ROOT/tools/import_tflite/mlperf.py" kws --target-dir "$TMP/
 else
   cat "$TMP/tflite_kws.txt"
   echo "DIFFERENT  MLPerf Tiny keyword spotting (DS-CNN)"
+  status=1
+fi
+if "$PYTHON" -I -B "$ROOT/tools/import_tflite/mlperf.py" ic --target-dir "$TMP/tflite_target" > "$TMP/tflite_ic.txt"; then
+  same "MLPerf Tiny image classification (ResNet-8): output hash = tinymind's"
+else
+  cat "$TMP/tflite_ic.txt"
+  echo "DIFFERENT  MLPerf Tiny image classification (ResNet-8)"
   status=1
 fi
 

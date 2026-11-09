@@ -34,17 +34,19 @@ module computes the same integers as tinymind's translation and as TFLM.
 Differences from tinymind's script:
   * the model is read with the `tflite` package (flatbuffer bindings of the
     TFLite schema, numpy only) instead of TensorFlow's interpreter;
-  * the output is a `no_std` Rust module with a `forward` function. Each layer's
-    output is a typed array in its own block, so a tensor's stack space ends
-    with the layer that reads it (tinymind plans one arena instead); SAME
-    padding goes into the layers' padding parameters, which have no band limit
-    in the crate (tinymind adds a QPad2D pass for wide layers: same values).
+  * the output is a `no_std` Rust module with a `forward` function. Feature
+    maps live in typed buffers, one per shape and as many as are live at once
+    (tinymind plans one byte arena instead; typed arrays of different shapes
+    cannot share storage without `unsafe`); SAME padding goes into the layers'
+    padding parameters, which have no band limit in the crate (tinymind adds a
+    QPad2D pass for wide layers: same values).
 
 Supported operators: CONV_2D, DEPTHWISE_CONV_2D (depth multiplier 1),
-AVERAGE_POOL_2D (global only, as tinymind), FULLY_CONNECTED, SOFTMAX (one row)
-and RESHAPE; fused NONE / RELU / RELU6 activations; int8 activations and
-weights, per-tensor or per-channel. ADD (residual networks) is not supported
-yet.
+AVERAGE_POOL_2D (global only, as tinymind), FULLY_CONNECTED, SOFTMAX (one row),
+RESHAPE and ADD (same shapes, no broadcasting); fused NONE / RELU / RELU6
+activations; int8 activations and weights, per-tensor or per-channel. The graph
+may branch (residual connections): each operator reads any tensor written
+before it.
 """
 
 import math
@@ -98,6 +100,17 @@ def rq(in_scale, w_scale, out_scale, out_zp, qmin, qmax):
     crate's shift > 0 means right shift (opposite of TFLite), as tinymind's."""
     mult, shift = quantize_multiplier(f64(in_scale) * f64(w_scale) / f64(out_scale))
     return (mult, -shift, out_zp, qmin, qmax)
+
+
+def add_params(sa, sb, so):
+    """ADD's ((mult_a, shift_a), (mult_b, shift_b), (mult_out, shift_out)) in
+    the crate's shift convention, as make_mlperf.py computes them."""
+    # TFLM add.cc: left shift 20, twice the larger input scale (in float).
+    twice_max = f64(np.float32(2) * max(np.float32(sa), np.float32(sb)))
+    ma, ea = quantize_multiplier(f64(sa) / twice_max)
+    mb, eb = quantize_multiplier(f64(sb) / twice_max)
+    mo, eo = quantize_multiplier(twice_max / f64(np.float32((1 << 20) * np.float32(so))))
+    return (ma, -ea), (mb, -eb), (mo, -eo)
 
 
 def same_pads(in_size, k, stride):
@@ -199,6 +212,16 @@ def _f32_literal(x: float) -> str:
     return s + "0" if s.endswith(".") else s
 
 
+def add_literal(a, b, y, act) -> str:
+    """A `QAdd` literal for inputs and output `(scale, zero point)` `a`, `b`, `y`
+    and fused activation `act`."""
+    (ma, sa), (mb, sb), (mo, so) = add_params(a[0], b[0], y[0])
+    qmin, qmax = act_range(act, y[0], y[1])
+    return (f"QAdd {{ input_a_zero_point: {a[1]}, input_b_zero_point: {b[1]}, left_shift: 20, "
+            f"input_a_multiplier: {ma}, input_a_shift: {sa}, input_b_multiplier: {mb}, "
+            f"input_b_shift: {sb}, output_requantizer: {_rq_literal((mo, so, y[1], qmin, qmax))} }}")
+
+
 def _rq_literal(r) -> str:
     return ("Requantizer { multiplier: %d, shift: %d, zero_point: %d, qmin: %d, qmax: %d }"
             % tuple(int(v) for v in r))
@@ -206,7 +229,7 @@ def _rq_literal(r) -> str:
 
 class Translation:
     """The model's operators as crate layers: `decls` (statics) and `steps`,
-    each a function of the previous step's value, `x`."""
+    each reading tensors written by earlier steps (or the input)."""
 
     def __init__(self, blob: bytes, name: str):
         self.name = name
@@ -222,13 +245,15 @@ class Translation:
             if t.type != _INT8:
                 raise ValueError(f"tensor {t.name!r}: only int8 inputs and outputs are supported")
         self.decls: list[str] = []
-        self.steps: list[str] = []
+        # (kind, code, input tensors, output tensor, output shape)
+        self.steps: list[tuple] = []
         self.ops: list[str] = []
         self.n = 0
-        # The value flowing through the chain: its tensor index and shape,
-        # ("map", h, w, c) or ("vec", n).
-        self.current = self.input.index
-        self.shape = self._shape_of(self.input)
+        # The shape of every tensor written so far, ("map", h, w, c) or ("vec", n),
+        # and the tensors that are another's value under a new name (a RESHAPE
+        # that moves nothing).
+        self.shapes = {self.input.index: self._shape_of(self.input)}
+        self.alias: dict[int, int] = {}
 
     def tensor(self, idx):
         return Tensor(self.model, self.sub, idx)
@@ -243,18 +268,23 @@ class Translation:
             return ("vec", s[0])
         raise ValueError(f"tensor {t.name!r}: shape {s} is not supported (batch 1, NHWC or a vector)")
 
-    def _reads(self, t):
-        if t.index != self.current:
-            raise ValueError(f"operator reads {t.name!r}, but the chain is at tensor {self.current}: "
-                             f"only a single chain is supported")
+    def _src(self, idx: int) -> int:
+        return self.alias.get(idx, idx)
 
-    def _step(self, kind: str, code: str, out_tensor, out_shape):
-        """kind "buffer": `code` is a layer that writes a feature map into a
-        caller-owned buffer; kind "value": `code` is an expression of `{x}`
-        (or, with `{y}`, statements that fill the new value `{y}`)."""
-        self.steps.append((kind, code, out_shape))
-        self.current = out_tensor.index
-        self.shape = out_shape
+    def _reads(self, t):
+        """The shape of `t`, which an earlier operator (or the input) wrote."""
+        i = self._src(t.index)
+        if i not in self.shapes:
+            raise ValueError(f"operator reads {t.name!r} before any operator writes it")
+        return self.shapes[i]
+
+    def _step(self, kind: str, code: str, ins, out_tensor, out_shape):
+        """kind "buffer": `code` writes a feature map into the caller-owned
+        buffer `{y}`; kind "value": `code` is an expression, or, with `{y}`,
+        statements that fill the new value `{y}`. In both, `{x0}`, `{x1}` are
+        references to the inputs and `{n0}` the first input's variable."""
+        self.steps.append((kind, code, [self._src(t.index) for t in ins], out_tensor.index, out_shape))
+        self.shapes[out_tensor.index] = out_shape
 
     def translate(self):
         for k in range(self.sub.OperatorsLength()):
@@ -277,15 +307,18 @@ class Translation:
                 self.softmax(op, ins, out)
             elif name == "RESHAPE":
                 self.reshape(ins, out)
+            elif name == "ADD":
+                self.add(op, ins, out)
             else:
                 raise ValueError(f"unsupported operator {name}")
-        if self.current != self.output.index:
-            raise ValueError("the chain does not end at the model's output")
+        if self._src(self.output.index) not in self.shapes:
+            raise ValueError("no operator writes the model's output")
         return self
 
     def conv(self, op, ins, y, depthwise):
         x, w, b = ins[0], ins[1], ins[2] if len(ins) > 2 else None
-        self._reads(x)
+        if self._reads(x)[0] != "map":
+            raise ValueError("convolution of a vector")
         o = _options(op, tflite.DepthwiseConv2DOptions if depthwise else tflite.Conv2DOptions)
         if o.DilationHFactor() != 1 or o.DilationWFactor() != 1:
             raise ValueError("dilated convolution is not supported")
@@ -343,11 +376,12 @@ class Translation:
             init = "QConv2DPerChannel"
         self.decls.append(f"static {tag}: {ty} = {init} {{ weights: &{tag}_WEIGHTS, biases: {biases}, "
                           f"input_zero_point: {z_in}, requantizers: &{tag}_REQUANTIZERS }};\n")
-        self._step("buffer", tag, y, ("map", OH, OW, F))
+        self._step("buffer", f"{tag}.forward({{x0}}, &mut {{y}})", [x], y, ("map", OH, OW, F))
 
     def avgpool(self, op, ins, y):
         x = ins[0]
-        self._reads(x)
+        if self._reads(x)[0] != "map":
+            raise ValueError("average pool of a vector")
         o = _options(op, tflite.Pool2DOptions)
         _, H, W, C = x.shape
         if not (o.FilterHeight() == H and o.FilterWidth() == W and o.Padding() == tflite.Padding.VALID):
@@ -359,12 +393,11 @@ class Translation:
         tag = f"AVGPOOL{i}"
         self.decls.append(f"/// `{y.name}`: global average pool, {H}x{W}x{C} -> {C}.")
         self.decls.append(f"static {tag}: QGlobalAvgPool2D = QGlobalAvgPool2D {{ qmin: {qmin}, qmax: {qmax} }};\n")
-        self._step("value", f"{tag}.forward({{x}})", y, ("vec", C))
+        self._step("value", f"{tag}.forward({{x0}})", [x], y, ("vec", C))
 
     def fully_connected(self, op, ins, y):
         x, w, b = ins[0], ins[1], ins[2] if len(ins) > 2 else None
-        self._reads(x)
-        if self.shape[0] != "vec":
+        if self._reads(x)[0] != "vec":
             raise ValueError("FULLY_CONNECTED on a feature map: RESHAPE it to a vector first")
         o = _options(op, tflite.FullyConnectedOptions)
         W8 = w.array()
@@ -385,12 +418,12 @@ class Translation:
         r = rq(x.scale(), w.scale(), y.scale(), y.zp(), qmin, qmax)
         self.decls.append(f"static {tag}: QDense<'static, {n_in}, {n_out}> = QDense {{ weights: &{tag}_WEIGHTS, "
                           f"biases: {biases}, input_zero_point: {x.zp()}, requantizer: {_rq_literal(r)} }};\n")
-        self._step("value", f"{tag}.forward({{x}})", y, ("vec", n_out))
+        self._step("value", f"{tag}.forward({{x0}})", [x], y, ("vec", n_out))
 
     def softmax(self, op, ins, y):
         x = ins[0]
-        self._reads(x)
-        if self.shape[0] != "vec":
+        shape = self._reads(x)
+        if shape[0] != "vec":
             raise ValueError("only a softmax over one row is supported")
         beta = _options(op, tflite.SoftmaxOptions).Beta()
         assert np.float32(y.scale()) == np.float32(1.0 / 256) and y.zp() == -128
@@ -398,31 +431,54 @@ class Translation:
         i = self.n
         self.n += 1
         tag = f"SOFTMAX{i}"
-        self.decls.append(f"/// `{y.name}`: softmax over {self.shape[1]} logits.")
+        self.decls.append(f"/// `{y.name}`: softmax over {shape[1]} logits.")
         self.decls.append(f"static {tag}: QSoftmax = QSoftmax {{ input_multiplier: {mult}, "
                           f"input_left_shift: {left}, diff_min: {diff_min} }};\n")
-        self._step("value", f"{tag}.forward({{x}})", y, self.shape)
+        self._step("value", f"{tag}.forward({{x0}})", [x], y, shape)
 
     def reshape(self, ins, y):
         x = ins[0]
-        self._reads(x)
+        shape = self._reads(x)
         new = self._shape_of(y)
-        if new == self.shape or (new[0] == "vec" and self.shape[0] == "vec"):
-            self.current = y.index  # same memory, nothing to do
+        if new == shape or (new[0] == "vec" and shape[0] == "vec"):
+            self.alias[y.index] = self._src(x.index)  # same memory, nothing to do
             return
-        if self.shape[0] == "map" and new[0] == "vec":
+        if shape[0] == "map" and new[0] == "vec":
             # NHWC is the vector's order already: copy the elements.
             n = new[1]
             self._step("value", f"let mut {{y}} = [0i8; {n}]; for (o, &v) in {{y}}.iter_mut()"
-                       f".zip({{x}}.iter().flatten().flatten()) {{{{ *o = v; }}}}", y, new)
+                       f".zip({{n0}}.iter().flatten().flatten()) {{ *o = v; }}", [x], y, new)
             return
-        raise ValueError(f"RESHAPE from {self.shape} to {new} is not supported")
+        raise ValueError(f"RESHAPE from {shape} to {new} is not supported")
+
+    def add(self, op, ins, y):
+        a, b = ins[0], ins[1]
+        shape = self._reads(a)
+        if self._reads(b) != shape or self._shape_of(y) != shape:
+            raise ValueError("ADD: only inputs and output of one shape are supported (no broadcasting)")
+        for t in (a, b, y):
+            if t.scales.size != 1:
+                raise ValueError(f"ADD: tensor {t.name!r} is not quantized per tensor")
+        act = _options(op, tflite.AddOptions).FusedActivationFunction()
+        i = self.n
+        self.n += 1
+        tag = f"ADD{i}"
+        dims = " x ".join(str(d) for d in shape[1:])
+        self.decls.append(f"/// `{y.name}`: elementwise addition, {dims}.")
+        self.decls.append(f"static {tag}: QAdd = "
+                          f"{add_literal((a.scale(), a.zp()), (b.scale(), b.zp()), (y.scale(), y.zp()), act)};\n")
+        if shape[0] == "map":
+            self._step("buffer", f"{tag}.forward({{x0}}, {{x1}}, &mut {{y}})", [a, b], y, shape)
+        else:
+            self._step("value", f"let mut {{y}} = [0i8; {shape[1]}]; "
+                       f"{tag}.forward({{x0}}, {{x1}}, &mut {{y}});", [a, b], y, shape)
 
     def emit(self, path: str, model_note: str = ""):
         """Write the Rust module: constants, layers and `forward`."""
         in_t, out_t = self.input, self.output
         in_shape = self._shape_of(in_t)
-        out_shape = self.shape
+        out_src = self._src(out_t.index)
+        out_shape = self.shapes[out_src]
         lines = [f"//! `{self.name}`: generated by tinymind-rs tools/import_tflite/tinymind_import_tflite.py",
                  "//! from an int8 TFLite model. Do not edit; regenerate from the model instead."]
         if model_note:
@@ -453,33 +509,46 @@ class Translation:
                   ""]
         lines += self.decls
         # Feature maps go into buffers, one per shape and as many as are live
-        # at once: a layer writes into a buffer of its output's shape that does
-        # not hold its input, so a chain of same-shaped layers ping-pongs
-        # between two (typed arrays of different shapes cannot share storage
-        # without `unsafe`). Vectors are values.
+        # at once: a layer writes into a buffer of its output's shape whose
+        # tensor no later step reads, so a chain of same-shaped layers
+        # ping-pongs between two and a residual block keeps its skip tensor
+        # (typed arrays of different shapes cannot share storage without
+        # `unsafe`). Vectors are values.
+        last_use = {}
+        for k, (_, _, ins, _, _) in enumerate(self.steps):
+            for t in ins:
+                last_use[t] = k
+        last_use[out_src] = len(self.steps)
         body: list[str] = []
         buffers: dict[tuple, list[str]] = {}
-        cur = None  # the variable holding the chain's value; None: `input`
-        for k, (kind, code, shape) in enumerate(self.steps):
-            x = "input" if cur is None else f"&{cur}"
+        holds: dict[str, int] = {}  # buffer -> the tensor in it
+        var = {in_t.index: "input"}  # tensor -> the variable holding it
+        cur = "input"
+        for k, (kind, code, ins, out, shape) in enumerate(self.steps):
+            refs = [var[t] if var[t] == "input" else f"&{var[t]}" for t in ins]
+            code = code.replace("{n0}", var[ins[0]])
+            for j, r in enumerate(refs):
+                code = code.replace("{x%d}" % j, r)
             if kind == "buffer":
                 dims = tuple(shape[1:])
-                free = [b for b in buffers.get(dims, []) if b != cur]
+                free = [b for b in buffers.get(dims, []) if last_use.get(holds[b], -1) < k]
                 if free:
-                    out = free[0]
+                    y = free[0]
                 else:
-                    out = f"b{sum(len(v) for v in buffers.values())}"
-                    buffers.setdefault(dims, []).append(out)
-                    body.append(f"    let mut {out} = {_zeros(dims)};")
-                body.append(f"    {code}.forward({x}, &mut {out});")
-                cur = out
+                    y = f"b{sum(len(v) for v in buffers.values())}"
+                    buffers.setdefault(dims, []).append(y)
+                    body.append(f"    let mut {y} = {_zeros(dims)};")
+                holds[y] = out
+                body.append(f"    {code.replace('{y}', y)};")
             else:
-                v = f"v{k}"
+                y = f"v{k}"
                 if "{y}" in code:
-                    body.append("    " + code.replace("{y}", v).replace("{x}", x.lstrip("&")))
+                    body.append("    " + code.replace("{y}", y))
                 else:
-                    body.append(f"    let {v} = {code.replace('{x}', x)};")
-                cur = v
+                    body.append(f"    let {y} = {code};")
+            var[out] = y
+            cur = y
+        cur = var[out_src]
         # The last value is the function's value (clippy::let_and_return).
         last = body[-1]
         if last.startswith(f"    let {cur} = ") and last.endswith(";"):

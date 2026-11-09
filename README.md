@@ -35,8 +35,9 @@ STM32L031 (Cortex-M0+, 32 MHz, 32 KB flash, 8 KB RAM). On both, tinymind (C++)'s
 digits classifier gives the same output hash as the C++ (214 µs per inference on
 the M4F, 1.33 ms on the M0+), so does its KWS-shaped convolutional network, in
 13-26% fewer cycles than the C++'s portable build (1.90 ms and 20.4 ms), and on
-the F411 the MLPerf Tiny keyword-spotting model, translated from TFLite, gives
-the C++'s output hash in 161 ms, within 2.5% of the C++, XOR trained on the board reproduces the desktop
+the F411 the MLPerf Tiny keyword-spotting and image-classification (ResNet-8)
+models, translated from TFLite, give the C++'s output hashes in 161 ms and 911
+ms (2.4% and 6.6% more cycles than the C++'s portable build), XOR trained on the board reproduces the desktop
 weight trajectory bit for bit, and the anomaly example trains on the chip in
 0.14 s and 4.2 s respectively. Results and method:
 [On-board results](https://danmcleran.github.io/tinymind-rs/benchmarks) and
@@ -57,8 +58,8 @@ To run a model trained in PyTorch, `tools/import_pytorch` in this repository
 turns it into a Rust module (int8 weights, integer requantizers and a `forward`
 function; `no_std`). See its README. `tools/import_trees` does the same for
 scikit-learn, XGBoost and LightGBM tree models, and `tools/import_tflite` for
-int8 TensorFlow Lite models (convolutional networks such as the MLPerf Tiny
-keyword spotter).
+int8 TensorFlow Lite models (convolutional and residual networks such as the
+MLPerf Tiny keyword spotter and ResNet-8).
 
 ## Quick start
 
@@ -199,7 +200,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (51 checks today, including
+  example does, runs both sides, and compares every output file (52 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

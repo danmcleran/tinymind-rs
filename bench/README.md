@@ -52,6 +52,11 @@ samples, so the numbers sit next to the tinymind (C++) ones.
   downloaded, Apache-2.0, not committed), then `WORKLOADS="mlperf-kws"
   bench/run.sh f411`. Its output hash over 8 seeded random inputs must equal
   tinymind (C++)'s, which TFLite's reference kernels also produce.
+- **`mlperf-ic`** (F411 only): the MLPerf Tiny image-classification reference
+  model (ResNet-8, 32x32x3 input, 10 classes, three residual blocks), the same
+  way: `mlperf.py ic --out bench/src/gen/mlperf_ic.rs --data
+  bench/src/gen/mlperf_ic_data.rs`, then `WORKLOADS="mlperf-ic" bench/run.sh
+  f411`.
 - **baseline** (no workload feature): the MLP harness with a do-nothing network,
   for size and stack deltas. **`profile`**: the MLP with per-layer timing.
 
@@ -70,6 +75,7 @@ own (`docs/benchmarks.md`, gcc 13.2.1 `-O3`), measured on these same boards.
 | anomaly demo: report and hash = host run (`0x427BACE2`) | match | match |
 | KWS CNN output hash = tinymind (C++)'s (`0x6B1854D3`) | match | match |
 | MLPerf Tiny DS-CNN (translated from TFLite) output hash = tinymind (C++)'s (`0xF623A166`) | match | - |
+| MLPerf Tiny ResNet-8 (translated from TFLite) output hash = tinymind (C++)'s (`0x8897F6ED`) | match | - |
 | MLP accuracy | 346/360 (96.11%) | 31/32 (96.88%) |
 
 ### int8 MLP, NUCLEO-F411RE
@@ -190,13 +196,13 @@ includes its tensor arena).
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **16,125,065** | **161.3 ms** | **45,776 B** | **16,336 B** |
+| **tinymind-rs** | **16,115,226** | **161.2 ms** | **45,732 B** | **16,336 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,432 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,828 B |
 
-- The Rust model takes 2.5% more cycles than tinymind (C++)'s portable build, in
+- The Rust model takes 2.4% more cycles than tinymind (C++)'s portable build, in
   13% less flash and 5% less RAM; tinymind (C++)'s SMLAD build and TFLM with
   CMSIS-NN are faster, as neither SIMD path is available to the Rust port.
 - RAM: the translator gives each feature-map shape as many buffers as are live
@@ -204,6 +210,32 @@ includes its tensor arena).
   tinymind (C++)'s planned arena does. A first version nested each layer in its
   own block instead and peaked at three tensors (24,512 B): the value each block
   returned took a slot of its own.
+- Re-measured 2026-11-09 (16,125,065 cycles and 45,776 B before; the bench crate
+  changed, the module did not). A library change that moved the code after it
+  by 10 bytes, and changed nothing else, measured 17,882,704 cycles: built with
+  `-C llvm-args=-align-loops=16`, both versions take 16,197,424-16,197,426 cycles. F411 timings
+  depend on where hot loops fall against the flash lines, so differences of a
+  few percent between builds are not necessarily the code.
+
+### MLPerf Tiny image classification (ResNet-8), translated from TFLite
+
+Same method and caveats. Test inputs are 24,576 B.
+
+| F411, 100 MHz | Cycles | Time | Code + weights | RAM |
+|---|---:|---:|---:|---:|
+| **tinymind-rs** | **91,096,190** | **911.0 ms** | **100,220 B** | **86,520 B** |
+| tinymind (C++), scalar | 85,467,754 | 854.7 ms | 120,836 B | 54,380 B |
+| tinymind (C++), +SMLAD | 26,753,191 | 267.5 ms | 108,324 B | 54,424 B |
+| TFLM int8 (CMSIS-NN) | 37,372,049 | 373.7 ms | 191,212 B | 56,608 B |
+| TFLM int8 (reference kernels) | 191,555,451 | 1,915.6 ms | 155,412 B | 55,396 B |
+
+- 6.6% more cycles than tinymind (C++)'s portable build, in 17% less flash. The
+  3x3 convolutions over 16 to 64 channels (most of the work) are not tuned on
+  the board yet.
+- RAM is 59% higher: the module keeps three buffers of each of the three
+  feature-map shapes (3 x 16,384 + 3 x 8,192 + 3 x 4,096 B), while the planned
+  byte arena of tinymind (C++) reuses the same 49,152 B across shapes. Typed
+  arrays of different shapes cannot share storage without `unsafe`.
 
 ### Decision trees, imported from scikit-learn
 
