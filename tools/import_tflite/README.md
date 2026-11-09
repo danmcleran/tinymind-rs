@@ -34,12 +34,17 @@ let y = model::forward(&input); // &model::Input -> model::Output
 `OUTPUT_ZERO_POINT`.
 
 Feature maps live in buffers inside `forward`, one per shape and as many as are
-live at once, so a chain of same-shaped layers ping-pongs between two of them,
-as tinymind (C++)'s planned arena does.
+live at once: a layer writes into a buffer whose tensor no later layer reads, so
+a chain of same-shaped layers ping-pongs between two of them, as the planned
+arena of tinymind (C++) does, and a residual block keeps its skip tensor until
+the `ADD` that reads it. tinymind (C++) plans one byte arena for every shape; typed
+arrays of different shapes cannot share storage without `unsafe`, so the module
+needs more RAM when shapes change along the network (the MLPerf ResNet-8: 86.5
+KB against 54 KB).
 
 ## What it supports
 
-A single chain of:
+A graph, branches included (residual connections), of:
 
 | TFLite operator | Becomes |
 |---|---|
@@ -49,26 +54,29 @@ A single chain of:
 | `FULLY_CONNECTED` (per-tensor weights) | `QDense` |
 | `SOFTMAX` (one row) | `QSoftmax` |
 | `RESHAPE` | nothing, or a copy of a feature map into a vector |
+| `ADD` (both inputs and the output of one shape) | `QAdd` |
 
 with fused `NONE`, `RELU` or `RELU6` activations and int8 tensors. Anything else
-is rejected with an error naming the operator. `ADD` (residual networks such as
-the MLPerf Tiny ResNet-8) is not supported yet: the crate has `QAdd`, but the translator does not emit it
-yet.
+is rejected with an error naming the operator, as is an `ADD` that broadcasts.
 
 ## How it is checked
 
-- `mlperf.py kws` fetches the MLPerf Tiny keyword-spotting reference model
-  (DS-CNN) at the commit tinymind (C++)'s benchmark pins, checks its SHA-256,
-  translates it, runs the module with cargo on the benchmark's 8 seeded random
-  inputs, and compares the hash of every output byte with tinymind (C++)'s
+- `mlperf.py kws` and `mlperf.py ic` fetch the MLPerf Tiny keyword-spotting
+  (DS-CNN) and image-classification (ResNet-8, three residual blocks) reference
+  models at the commit tinymind (C++)'s benchmark pins, check their SHA-256,
+  translate each, run the module with cargo on the benchmark's 8 seeded random
+  inputs, and compare the hash of every output byte with tinymind (C++)'s
   expected hash, which tinymind (C++) and TFLite's reference kernels produce.
-  `scripts/compare-with-cpp.sh` runs it (the model is downloaded, not
-  committed: it is Apache-2.0, MLCommons). Planted mistakes (SAME padding on the
-  wrong side, a transposed depthwise kernel, the requantizer's shift sign,
-  per-channel scales collapsed) each change the hash.
-- `test_translator.py` checks what that model cannot show: the softmax
-  parameters equal tinymind (C++)'s on 504 calibrations, and fused ReLU and
-  ReLU6 ranges (the model's activations all have zero point -128, where a fused
-  ReLU changes nothing).
-- On the NUCLEO-F411RE the translated model gives the same hash
-  (`bench/`, workload `mlperf-kws`).
+  `scripts/compare-with-cpp.sh` runs both (the models are downloaded, not
+  committed: they are Apache-2.0, MLCommons). Planted mistakes (SAME padding on
+  the wrong side, a transposed depthwise kernel, the requantizer's shift sign,
+  per-channel scales collapsed; in `ADD`, one input's multiplier or zero point
+  given to the other, a left shift of 19; a buffer plan that overwrites the
+  skip tensor) each change the hash.
+- `test_translator.py` checks what those models cannot show: the softmax
+  parameters equal tinymind (C++)'s on 504 calibrations, the `ADD` parameters
+  equal tinymind (C++)'s `buildQAddParams` on 48 calibrations, and fused ReLU
+  and ReLU6 ranges, on `ADD` too (the models' activations all have zero point
+  -128, where a fused ReLU changes nothing).
+- On the NUCLEO-F411RE both translated models give the same hashes
+  (`bench/`, workloads `mlperf-kws` and `mlperf-ic`).

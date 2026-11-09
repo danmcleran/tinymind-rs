@@ -5,22 +5,26 @@
 #![no_std]
 #![no_main]
 
+#[cfg(all(feature = "mlperf-kws", feature = "mlperf-ic"))]
+compile_error!("one MLPerf model per image: enable mlperf-kws or mlperf-ic, not both");
+
 #[cfg(feature = "anomaly")]
 mod anomaly;
 mod board;
 #[cfg(feature = "kws")]
 mod kws;
-#[cfg(feature = "mlperf-kws")]
-mod mlperf;
 #[cfg(not(any(
     feature = "xor-q16",
     feature = "xor-q8",
     feature = "anomaly",
     feature = "trees",
     feature = "kws",
-    feature = "mlperf-kws"
+    feature = "mlperf-kws",
+    feature = "mlperf-ic"
 )))]
 mod mlp;
+#[cfg(any(feature = "mlperf-kws", feature = "mlperf-ic"))]
+mod mlperf;
 #[cfg(feature = "trees")]
 mod trees;
 #[cfg(any(feature = "xor-q16", feature = "xor-q8"))]
@@ -54,12 +58,13 @@ fn main() -> ! {
         feature = "anomaly",
         feature = "trees",
         feature = "kws",
-        feature = "mlperf-kws"
+        feature = "mlperf-kws",
+        feature = "mlperf-ic"
     )))]
     mlp::run(&mut out);
     #[cfg(feature = "kws")]
     kws::run(&mut out);
-    #[cfg(feature = "mlperf-kws")]
+    #[cfg(any(feature = "mlperf-kws", feature = "mlperf-ic"))]
     mlperf::run(&mut out);
     #[cfg(feature = "trees")]
     trees::run(&mut out);

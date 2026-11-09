@@ -189,13 +189,15 @@ jobs:
         run: |
           rustup target add thumbv7em-none-eabihf thumbv6m-none-eabi
           python3 -I gen.py 32
-          # The MLPerf image's model: compare-with-cpp.sh has fetched it.
-          "$RUNNER_TEMP/venv/bin/python" -I -B ../tools/import_tflite/mlperf.py kws \
-            --out src/gen/mlperf_kws.rs --data src/gen/mlperf_kws_data.rs --target-dir "$RUNNER_TEMP/tflite_target"
+          # The MLPerf images' models: compare-with-cpp.sh has fetched them.
+          for m in kws ic; do
+            "$RUNNER_TEMP/venv/bin/python" -I -B ../tools/import_tflite/mlperf.py $m \
+              --out src/gen/mlperf_$m.rs --data src/gen/mlperf_${m}_data.rs --target-dir "$RUNNER_TEMP/tflite_target"
+          done
           for spec in f411:thumbv7em-none-eabihf l031:thumbv6m-none-eabi; do
-            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",trees" ",kws" ",kws-profile" ",mlperf-kws"; do
-              # The MLPerf model does not fit the L031.
-              [ "${spec%%:*}$wl" = "l031,mlperf-kws" ] && continue
+            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",trees" ",kws" ",kws-profile" ",mlperf-kws" ",mlperf-ic"; do
+              # The MLPerf models do not fit the L031.
+              case "${spec%%:*}$wl" in l031,mlperf-*) continue ;; esac
               echo "== ${spec%%:*}$wl"
               # As run.sh: the L031 trees image fits 32 KB only at opt-level s.
               opt=3; [ "${spec%%:*}$wl" = "l031,trees" ] && opt=s
