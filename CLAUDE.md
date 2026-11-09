@@ -399,8 +399,24 @@ done, including BatchNorm folding (tinymind #256 ported). The TFLite translator 
 F411, and ResNet-8 too (`QAdd` ported, ADD in the translator), with RAM and cycles tuned (arena, 16-bit band path, ADD tables). Possible next: the same 16-bit pairing for pointwise/depthwise/dense (the DS-CNN's pointwise layers), and 2x2 register blocking that LLVM does not spill. The inference-only
 multi-layer network is done (`InferenceNetwork`, 2026-11-09). Report rank 6:
 tabular Q-learning and the maze are done (2026-11-09); the DQN waits on the
-C++ `getQValue` defect above. Rank 7 (LSTM/GRU, starting with trainable
-recurrent layers from `neuralnet.hpp`) is next.
+C++ `getQValue` defect above. Rank 7 (LSTM/GRU/Elman from `neuralnet.hpp`)
+is on hold until Dan fixes the C++ (his call, 2026-11-09). Found here, verified
+in the source and by a probe at 02bea40: (R1) `computeGateDeltas()` is never
+called (dropped in 681b804), so LSTM/GRU gate weights (input, input bias,
+recurrent) never change, only hidden->output trains, and the hidden->output
+bias of LSTM/GRU is never trained (`NumberOfBiasNeuronsInLayer = 0`); (R2) the
+forward pass writes each neuron's h_t into the recurrent layer inside the
+loop, so later neurons mix h_t and h_{t-1}; (R3) the fixed-point GRU's
+`ValueType(1)` is raw 1 = 2^-16; (R4) Elman's recurrent gradient uses h_t, not
+the h_{t-1} fed in; (R5) LSTM `resetState` clears only the cell state.
+Lower priority, from a read only: Adam `step()` 3x per recurrent train step,
+`RecurrentConnectionDepth > 1` a no-op, batch bookkeeping ignores recurrent
+gradients, `setWeights` copies only H of G*H input connections. Write-ups and
+probes for Dan: `~/Documents/tinymind/tinymind-rs-findings-2026-11-09/`. When
+the fixes land (see `scripts/upstream-changes.sh`), port against the fixed
+code: `har_activity` (LSTM, default truncating Q16.16) first; `gru_xor`,
+`lstm_sinusoid` and `elman_temporal_xor` also need `RoundUpPolicy`, which is
+not ported (a policy parameter on `QValue` is an API change).
 
 Floating point (2026-11-09): `Scalar` (was `Fixed`) is implemented for `f32`/`f64` (`pow2_neg`
 by exact halving, `div_int` = `self / n as $t`, as the C++ `value /= n`), so every
