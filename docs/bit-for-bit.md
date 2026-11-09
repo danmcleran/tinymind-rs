@@ -73,10 +73,10 @@ int8 MLP, one inference:
 
 | Board | tinymind-rs | tinymind (C++), scalar | Code + weights (Rust) |
 |---|---|---|---|
-| STM32F411 | 21,386 cycles | 20,486 cycles | 5,436 B |
+| STM32F411 | 21,502 cycles | 20,486 cycles | 5,548 B |
 | STM32L031 | 42,514 cycles | 35,963 cycles | 5,412 B |
 
-TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,207 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction; Arm DSP intrinsics are not available in stable Rust, so the port stays on the scalar path for now.
+TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,204 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction; Arm DSP intrinsics are not available in stable Rust, so the port stays on the scalar path for now.
 
 ## Shipping a trained network
 

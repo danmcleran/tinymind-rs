@@ -1,2 +1,10 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
 rustflags = ["-C", "link-arg=-Tlink.x"]
+
+# F411 (Cortex-M4F) timings depend on where hot loops fall against the flash
+# accelerator's 16-byte lines: without this, an unrelated 10-byte code change
+# moved the MLPerf DS-CNN by 11%, and shifting all code by 4, 8 or 12 bytes moved
+# other workloads by up to 2%. With every loop aligned to 16 bytes, timings are
+# the same at every offset. Cargo joins these flags with the ones above.
+[target.thumbv7em-none-eabihf]
+rustflags = ["-C", "llvm-args=-align-loops=16"]
