@@ -22,6 +22,13 @@ break the API).
   `computePerChannelSymmetricScales`), `affine_params_symmetric`
   (`computeAffineParamsSymmetric`) and `RangeObserver`, for fitting activation
   scales from calibration inputs.
+- The PyTorch importer (`tools/import_pytorch`, not part of the crate) writes
+  convolutional networks: `Conv2D` (stride, padding, depthwise), max, average
+  and global average pooling, and flatten, from hand-written descriptors or from
+  `nn.Conv2d`, `nn.MaxPool2d`, `nn.AvgPool2d`, `nn.AdaptiveAvgPool2d(1)` and
+  `nn.Flatten` through `from_torch(model, input_shape=...)`. Example
+  `imported_cnn` (feature `std`) runs two such models, byte-identical to
+  tinymind (C++)'s importer and runtime on the same models.
 - Example `kws_cortex_m_int8` (feature `std`), a keyword-spotting shaped int8
   network calibrated from a float reference pass: every tensor and its logits
   report byte-identical to tinymind (C++)'s example.

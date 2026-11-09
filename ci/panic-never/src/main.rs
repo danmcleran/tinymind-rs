@@ -195,6 +195,12 @@ const _: () = assert!(size_of::<MultilayerPerceptron<Q8_8, Tanh, Sigmoid, 2, 3, 
 #[path = "../../../examples/common/imported_mlp_model.rs"]
 mod imported;
 
+/// Convolutional models written by the PyTorch importer: padded, depthwise and
+/// pointwise convolutions, max, average and global pooling, flatten.
+#[path = "../../../examples/common/imported_cnn_model.rs"]
+mod imported_cnn;
+#[path = "../../../examples/common/imported_cnn_flat_model.rs"]
+mod imported_cnn_flat;
 /// The voting form (one `QDecisionTree` per tree), on `i16` inputs.
 #[path = "../../../examples/common/imported_trees_forest_model.rs"]
 mod imported_forest;
@@ -380,6 +386,8 @@ pub extern "C" fn _start() -> ! {
         imported_trees::predict(&q),
         imported_trees::predict_inline(&q),
     ));
+    black_box(imported_cnn::forward(&black_box([[[0i8; 1]; 12]; 12])));
+    black_box(imported_cnn_flat::forward(&black_box([[[0i8; 2]; 11]; 9])));
     let f = black_box([0i16; imported_forest::NUM_FEATURES]);
     black_box((
         imported_forest::predict(&f),

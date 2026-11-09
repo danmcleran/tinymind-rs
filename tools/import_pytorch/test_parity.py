@@ -2,7 +2,10 @@
 """Parity of this importer's calibration and quantization with tinymind's
 (apps/import_pytorch/tinymind_import.py, from TINYMIND_DIR, default
 ../tinymind): on several models, every tensor's (scale, zero point), every weight
-scale, and every int8 weight and int32 bias must be identical. Also: the softmax
+scale, and every int8 weight and int32 bias must be identical. The models are
+dense chains, and the convolutional examples of example_cnn.py (tinymind's
+importer has no pooling or flatten layers, so there each one runs inside the
+next layer's float forward, as example_cnn.py --cpp does). Also: the softmax
 parameters it bakes equal tinymind's C++ buildQSoftmaxFixedPointParams on the
 504 calibrations of tests/golden/softmax/stdout.txt.
 
@@ -94,8 +97,39 @@ def main():
         failures += not same
         print(f"case {i} {case[0]} final={case[2]}: {'IDENTICAL' if same else 'DIFFERENT'}"
               f" ({len(a[0])} tensors, {sum(len(d[2]) * len(d[2][0]) for d in a[1])} weights)")
+    failures += not conv_models_match(ours, theirs)
     failures += not softmax_params_match(ours)
     sys.exit(1 if failures else 0)
+
+
+def conv_models_match(ours, theirs):
+    """example_cnn.py's models: every tensor tinymind's importer calibrates has
+    the same (scale, zero point) in ours, and every Conv2D and Dense the same
+    weight scale, int8 weights and int32 biases."""
+    ex = load(os.path.join(HERE, "example_cnn.py"), "example_cnn")
+    ok = True
+    for name, (build, shape, _) in sorted(ex.MODELS.items()):
+        data = ex.calibration_set(shape)
+        a_layers = build(ours, False)
+        a_ranges = ours.calibrate(a_layers, "input", ours.MinMaxObserver(), data)
+        ours.quantize_weights(a_layers, a_ranges)
+        b_layers = theirs.fuse_layers(build(theirs, True))
+        b_ranges = theirs.calibrate(b_layers, "input", theirs.MinMaxObserver(), data)
+        theirs.quantize_weights(b_layers, b_ranges)
+
+        def weights(layers):
+            return {l.name: (l.weight_scale, l.q_weight.tolist(),
+                             None if l.q_bias is None else l.q_bias.tolist())
+                    for l in layers if type(l).__name__ in ("Conv2D", "Dense")}
+
+        same_ranges = all(a_ranges.get(k) == v for k, v in b_ranges.items())
+        a_w, b_w = weights(a_layers), weights(b_layers)
+        same = same_ranges and a_w == b_w
+        ok &= same
+        n = sum(len(np.array(w[1]).reshape(-1)) for w in a_w.values())
+        print(f"case {name}: {'IDENTICAL' if same else 'DIFFERENT'} ({len(b_ranges)} tensors, "
+              f"{n} weights, {len(a_w)} conv/dense layers)")
+    return ok
 
 
 def softmax_params_match(mod):

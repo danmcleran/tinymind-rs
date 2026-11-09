@@ -66,6 +66,7 @@ cargo run --release --example energy_efficiency -- output    # energy-load regre
 cargo run --release --example anomaly -- output              # anomaly detection: an autoencoder trained on the device
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo run --release --features std --example imported_mlp    # two models written by the PyTorch importer
+cargo run --release --features std --example imported_cnn    # two convolutional models written by the PyTorch importer
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN, per-layer report
 cargo run --release --example imported_trees                 # scikit-learn tree models via the tree importer
@@ -132,6 +133,7 @@ set.
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
 | `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer, emitting Rust |
 | `examples/imported_trees.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
+| `examples/imported_cnn.rs` | two convolutional models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 | `examples/imported_mlp.rs` | two models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 
 Everything else in tinymind (C++) is not ported: floating-point networks, other Q
@@ -149,7 +151,8 @@ the int8 quantization tiers, SIMD backends, and so on.
   does the same for iris against `tests/golden/iris/`, `tests/energy_golden.rs`
   for energy_efficiency against `tests/golden/energy/`, and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`,
-  and `tests/imported_mlp_golden.rs` for the PyTorch importer's models. `TINYMIND_REF`
+  and `tests/imported_mlp_golden.rs` and `tests/imported_cnn_golden.rs` for the
+  PyTorch importer's models. `TINYMIND_REF`
   records the tinymind (C++) commit they were last verified against. The int8, GBDT and
   PyTorch-importer tests need the `std` feature: run `cargo test --all-features`.
 - `tests/deep_mlp.rs` checks networks with one, two and three hidden layers
@@ -186,7 +189,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (44 checks today, including
+  example does, runs both sides, and compares every output file (47 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
