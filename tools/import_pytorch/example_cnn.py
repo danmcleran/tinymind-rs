@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The importer's convolutional examples:
-  cnn       12x12x1 -> 3x3 conv (4 filters, padding 1) + ReLU -> 2x2 max pool ->
-            3x3 depthwise (padding 1) + ReLU -> 1x1 conv 4 -> 8 + ReLU ->
-            global average pool -> dense 8 -> 3 -> softmax;
+  cnn       12x12x1 -> 3x3 conv (4 filters, padding 1) + batch norm + ReLU ->
+            2x2 max pool -> 3x3 depthwise (padding 1) + batch norm + ReLU ->
+            1x1 conv 4 -> 8 + ReLU -> global average pool -> dense 8 -> 3 ->
+            softmax (each batch norm folded into its convolution);
   cnn_flat  9x11x2 -> 3x2 conv (5 filters, stride 2x1) + ReLU -> 2x2 average pool
             -> flatten -> dense 50 -> 6 + ReLU -> dense 6 -> 2 -> tanh.
 
@@ -53,6 +54,18 @@ def dense(x: np.ndarray, w: np.ndarray, b: np.ndarray) -> np.ndarray:
     return load(os.path.join(HERE, "tinymind_import.py"), "tinymind_import_rs").dense_ref(x, w, b)
 
 
+def batch_norm(mod, name: str, input_name: str, n: int, layer: int):
+    """A BatchNorm2D with exact-float, non-trivial statistics."""
+    k = np.arange(n)
+    f = lambda v: np.array(v, dtype=np.float32)  # noqa: E731
+    return mod.BatchNorm2D(name=name, input_name=input_name,
+                           gamma=f(1.0 + ((k * 3 + layer) % 5 - 2) / 4.0),
+                           beta=f(((k * 5 + layer) % 7 - 3) / 8.0),
+                           mean=f(((k * 2 + layer) % 5 - 2) / 8.0),
+                           variance=f(0.5 + ((k + layer) % 4) / 4.0),
+                           observer=mod.MinMaxObserver())
+
+
 def calibration_set(shape: tuple) -> list:
     """32 NHWC inputs in [-1, 1]."""
     h, w, c = shape
@@ -87,10 +100,12 @@ def cnn(mod, tinymind_cpp: bool) -> list:
         mp = lambda x: pool(x, (2, 2), (2, 2), np.max)  # noqa: E731
         return [
             mod.Conv2D(name="conv1", weight=w1, bias=b1, input_name="input", forward=f1, observer=obs()),
-            mod.ReLU(name="relu1", input_name="conv1", observer=obs()),
+            batch_norm(mod, "bn1", "conv1", 4, 1),
+            mod.ReLU(name="relu1", input_name="bn1", observer=obs()),
             mod.Conv2D(name="conv2", weight=w2, bias=b2, input_name="relu1",
                        forward=lambda x: f2(mp(x)), observer=obs()),
-            mod.ReLU(name="relu2", input_name="conv2", observer=mod.PercentileObserver(0.05, 99.95)),
+            batch_norm(mod, "bn2", "conv2", 4, 2),
+            mod.ReLU(name="relu2", input_name="bn2", observer=mod.PercentileObserver(0.05, 99.95)),
             mod.Conv2D(name="conv3", weight=w3, bias=b3, input_name="relu2", forward=f3, observer=obs()),
             mod.ReLU(name="relu3", input_name="conv3", observer=mod.KLDivergenceObserver()),
             mod.Dense(name="fc1", weight=w4, bias=b4, input_name="relu3",
@@ -100,11 +115,13 @@ def cnn(mod, tinymind_cpp: bool) -> list:
     return [
         mod.Conv2D(name="conv1", weight=w1, bias=b1, input_name="input", forward=f1,
                    padding=(1, 1, 1, 1), observer=obs()),
-        mod.ReLU(name="relu1", input_name="conv1", observer=obs()),
+        batch_norm(mod, "bn1", "conv1", 4, 1),
+        mod.ReLU(name="relu1", input_name="bn1", observer=obs()),
         mod.MaxPool2D(name="pool1", input_name="relu1", kernel=(2, 2)),
         mod.Conv2D(name="conv2", weight=w2, bias=b2, input_name="pool1", forward=f2,
                    padding=(1, 1, 1, 1), depthwise=True, observer=obs()),
-        mod.ReLU(name="relu2", input_name="conv2", observer=mod.PercentileObserver(0.05, 99.95)),
+        batch_norm(mod, "bn2", "conv2", 4, 2),
+        mod.ReLU(name="relu2", input_name="bn2", observer=mod.PercentileObserver(0.05, 99.95)),
         mod.Conv2D(name="conv3", weight=w3, bias=b3, input_name="relu2", forward=f3, observer=obs()),
         mod.ReLU(name="relu3", input_name="conv3", observer=mod.KLDivergenceObserver()),
         mod.GlobalAvgPool2D(name="gap", input_name="relu3"),

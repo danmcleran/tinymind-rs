@@ -23,27 +23,27 @@ pub const INPUT_SCALE: f32 = 0.007843138;
 /// Zero point of the `input` tensor.
 pub const INPUT_ZERO_POINT: i8 = -1;
 /// Scale of the `relu1` tensor.
-pub const RELU1_SCALE: f32 = 0.0073897056;
+pub const RELU1_SCALE: f32 = 0.011801419;
 /// Zero point of the `relu1` tensor.
 pub const RELU1_ZERO_POINT: i8 = -128;
 /// Scale of the `pool1` tensor.
-pub const POOL1_SCALE: f32 = 0.0073897056;
+pub const POOL1_SCALE: f32 = 0.011801419;
 /// Zero point of the `pool1` tensor.
 pub const POOL1_ZERO_POINT: i8 = -128;
 /// Scale of the `relu2` tensor.
-pub const RELU2_SCALE: f32 = 0.005857843;
+pub const RELU2_SCALE: f32 = 0.010787795;
 /// Zero point of the `relu2` tensor.
 pub const RELU2_ZERO_POINT: i8 = -128;
 /// Scale of the `relu3` tensor.
-pub const RELU3_SCALE: f32 = 0.0049994993;
+pub const RELU3_SCALE: f32 = 0.0009883966;
 /// Zero point of the `relu3` tensor.
 pub const RELU3_ZERO_POINT: i8 = -1;
 /// Scale of the `gap` tensor.
-pub const GAP_SCALE: f32 = 0.0049994993;
+pub const GAP_SCALE: f32 = 0.0009883966;
 /// Zero point of the `gap` tensor.
 pub const GAP_ZERO_POINT: i8 = -1;
 /// Scale of the `fc1` tensor.
-pub const FC1_SCALE: f32 = 0.0025634267;
+pub const FC1_SCALE: f32 = 0.0033405602;
 /// Zero point of the `fc1` tensor.
 pub const FC1_ZERO_POINT: i8 = 127;
 /// Scale of the `probs` tensor.
@@ -55,12 +55,12 @@ pub const OUTPUT_SCALE: f32 = PROBS_SCALE;
 /// Zero point of the output (`probs`).
 pub const OUTPUT_ZERO_POINT: i8 = PROBS_ZERO_POINT;
 
-/// `conv1` int8 weights, `[filter][row][column][channel]` (weight scale 0.003937008).
-pub static CONV1_WEIGHTS: [[[[i8; 1]; 3]; 3]; 4] = [
+/// `bn1` int8 weights, `[filter][row][column][channel]` (weight scale 0.0059054825).
+pub static BN1_WEIGHTS: [[[[i8; 1]; 3]; 3]; 4] = [
     [
-        [[-48], [64], [-95]],
-        [[-79], [32], [-127]],
-        [[-111], [0], [111]],
+        [[-27], [37], [-55]],
+        [[-46], [18], [-73]],
+        [[-64], [0], [64]],
     ],
     [
         [[127], [-32], [79]],
@@ -68,25 +68,25 @@ pub static CONV1_WEIGHTS: [[[[i8; 1]; 3]; 3]; 4] = [
         [[64], [-95], [16]],
     ],
     [
-        [[32], [-127], [-16]],
-        [[0], [111], [-48]],
-        [[-32], [79], [-79]],
+        [[19], [-76], [-9]],
+        [[0], [66], [-28]],
+        [[-19], [47], [-47]],
     ],
     [
-        [[-64], [48], [-111]],
-        [[-95], [16], [127]],
-        [[-127], [-16], [95]],
+        [[-30], [22], [-52]],
+        [[-45], [7], [60]],
+        [[-60], [-7], [45]],
     ],
 ];
-/// `conv1` int32 biases (scale = input scale * weight scale).
-pub static CONV1_BIASES: [i32; 4] = [-4048, 8096, 0, -8096];
-/// `conv1`: 3x3 convolution, 4 filters, stride 1x1, padding 1/1/1/1 (top/bottom/left/right), from `input` (12x12x1) to 12x12x4, then ReLU into `relu1`.
-pub static CONV1: QConv2D<'static, 1, 3, 3, 4, 1, 1, 1, 1, 1, 1> = QConv2D {
-    weights: &CONV1_WEIGHTS,
-    biases: Some(&CONV1_BIASES),
+/// `bn1` int32 biases (scale = input scale * weight scale).
+pub static BN1_BIASES: [i32; 4] = [-5398, 12144, 7526, -6515];
+/// `bn1`: 3x3 convolution, 4 filters, stride 1x1, padding 1/1/1/1 (top/bottom/left/right), from `input` (12x12x1) to 12x12x4, then ReLU into `relu1`.
+pub static BN1: QConv2D<'static, 1, 3, 3, 4, 1, 1, 1, 1, 1, 1> = QConv2D {
+    weights: &BN1_WEIGHTS,
+    biases: Some(&BN1_BIASES),
     input_zero_point: -1,
     requantizer: Requantizer {
-        multiplier: 1148600020,
+        multiplier: 1078824586,
         shift: 7,
         zero_point: -128,
         qmin: -128,
@@ -97,29 +97,29 @@ pub static CONV1: QConv2D<'static, 1, 3, 3, 4, 1, 1, 1, 1, 1, 1> = QConv2D {
 /// `pool1`: 2x2 max pooling, stride 2x2, from `relu1` (12x12x4) to 6x6x4, in the same grid.
 pub static POOL1: QMaxPool2D<2, 2, 2, 2> = QMaxPool2D;
 
-/// `conv2` int8 weights, `[channel][row][column]` (weight scale 0.003937008).
-pub static CONV2_WEIGHTS: [[[i8; 3]; 3]; 4] = [
-    [[32, -127, -16], [0, 111, -48], [-32, 79, -79]],
-    [[-64, 48, -111], [-95, 16, 127], [-127, -16, 95]],
-    [[111, -48, 64], [79, -79, 32], [48, -111, 0]],
-    [[16, 127, -32], [-16, 95, -64], [-48, 64, -95]],
+/// `bn2` int8 weights, `[channel][row][column]` (weight scale 0.0060896873).
+pub static BN2_WEIGHTS: [[[i8; 3]; 3]; 4] = [
+    [[21, -82, -10], [0, 72, -31], [-21, 51, -51]],
+    [[-18, 14, -32], [-28, 5, 37], [-37, -5, 28]],
+    [[127, -54, 73], [91, -91, 36], [54, -127, 0]],
+    [[9, 71, -18], [-9, 53, -36], [-27, 36, -53]],
 ];
-/// `conv2` int32 biases (scale = input scale * weight scale).
-pub static CONV2_BIASES: [i32; 4] = [0, -8593, 4297, -4297];
-/// `conv2` requantizers, one per channel (the weights share one scale).
-pub static CONV2_REQUANTIZERS: [Requantizer; 4] = [Requantizer {
-    multiplier: 1365197643,
+/// `bn2` int32 biases (scale = input scale * weight scale).
+pub static BN2_BIASES: [i32; 4] = [-1739, -8329, 9628, -3013];
+/// `bn2` requantizers, one per channel (the weights share one scale).
+pub static BN2_REQUANTIZERS: [Requantizer; 4] = [Requantizer {
+    multiplier: 1831202441,
     shift: 7,
     zero_point: -128,
     qmin: -128,
     qmax: 127,
 }; 4];
-/// `conv2`: 3x3 depthwise convolution, stride 1x1, padding 1/1/1/1 (top/bottom/left/right), from `pool1` (6x6x4) to 6x6x4, then ReLU into `relu2`.
-pub static CONV2: QDepthwiseConv2D<'static, 4, 3, 3, 1, 1, 1, 1, 1, 1> = QDepthwiseConv2D {
-    weights: &CONV2_WEIGHTS,
-    biases: Some(&CONV2_BIASES),
+/// `bn2`: 3x3 depthwise convolution, stride 1x1, padding 1/1/1/1 (top/bottom/left/right), from `pool1` (6x6x4) to 6x6x4, then ReLU into `relu2`.
+pub static BN2: QDepthwiseConv2D<'static, 4, 3, 3, 1, 1, 1, 1, 1, 1> = QDepthwiseConv2D {
+    weights: &BN2_WEIGHTS,
+    biases: Some(&BN2_BIASES),
     input_zero_point: -128,
-    requantizers: &CONV2_REQUANTIZERS,
+    requantizers: &BN2_REQUANTIZERS,
 };
 
 /// `conv3` int8 weights, `[filter][channel]` (weight scale 0.003937008).
@@ -134,15 +134,15 @@ pub static CONV3_WEIGHTS: [[i8; 4]; 8] = [
     [-64, 48, 64, -95],
 ];
 /// `conv3` int32 biases (scale = input scale * weight scale).
-pub static CONV3_BIASES: [i32; 8] = [5420, -5420, 10840, 0, -10840, 5420, -5420, 10840];
+pub static CONV3_BIASES: [i32; 8] = [2943, -2943, 5886, 0, -5886, 2943, -2943, 5886];
 /// `conv3`: 1x1 (pointwise) convolution, 4 -> 8 channels, from `relu2` (6x6x4) to 6x6x8, then ReLU into `relu3`.
 pub static CONV3: QPointwiseConv2D<'static, 4, 8> = QPointwiseConv2D {
     weights: &CONV3_WEIGHTS,
     biases: Some(&CONV3_BIASES),
     input_zero_point: -128,
     requantizer: Requantizer {
-        multiplier: 1267994386,
-        shift: 7,
+        multiplier: 1476446082,
+        shift: 4,
         zero_point: -1,
         qmin: -1,
         qmax: 127,
@@ -162,15 +162,15 @@ pub static FC1_WEIGHTS: [[i8; 8]; 3] = [
     [-127, -16, 0, 111, -48, -32, 79, -79],
 ];
 /// `fc1` int32 biases (scale = input scale * weight scale).
-pub static FC1_BIASES: [i32; 3] = [6351, 0, -6351];
+pub static FC1_BIASES: [i32; 3] = [32123, 0, -32123];
 /// `fc1`: 8 -> 3, from `gap`.
 pub static FC1: QDense<'static, 8, 3> = QDense {
     weights: &FC1_WEIGHTS,
     biases: Some(&FC1_BIASES),
     input_zero_point: -1,
     requantizer: Requantizer {
-        multiplier: 2110628117,
-        shift: 6,
+        multiplier: 1280790316,
+        shift: 8,
         zero_point: 127,
         qmin: -128,
         qmax: 127,
@@ -179,7 +179,7 @@ pub static FC1: QDense<'static, 8, 3> = QDense {
 
 /// `probs`: softmax over the `fc1` logits, onto the `probs` grid (scale 1/256, zero point -128).
 pub static PROBS: QSoftmax = QSoftmax {
-    input_multiplier: 1409258752,
+    input_multiplier: 1836492416,
     input_left_shift: 18,
     diff_min: -7936,
 };
@@ -187,11 +187,11 @@ pub static PROBS: QSoftmax = QSoftmax {
 /// Run the network on int8 inputs in the `INPUT` grid.
 pub fn forward(input: &Input) -> [i8; NUM_OUTPUTS] {
     let mut x0 = [[[0i8; 4]; 12]; 12];
-    CONV1.forward(input, &mut x0);
+    BN1.forward(input, &mut x0);
     let mut x2 = [[[0i8; 4]; 6]; 6];
     POOL1.forward(&x0, &mut x2);
     let mut x4 = [[[0i8; 4]; 6]; 6];
-    CONV2.forward(&x2, &mut x4);
+    BN2.forward(&x2, &mut x4);
     let mut x6 = [[[0i8; 8]; 6]; 6];
     CONV3.forward(&x4, &mut x6);
     let x8 = GAP.forward(&x6);

@@ -1,24 +1,24 @@
-cnn conv1 rq=1148600020,7,-128
-cnn conv2 rq=1365197643,7,-128
-cnn conv3 rq=1267994386,7,-1
-cnn fc1 rq=2110628117,6,127
-cnn softmax=1409258752,18,-7936
-cnn s=0 layers=0xE85EDD12 probs=-38,-21,-69 class=1
-cnn s=1 layers=0x03C8A5B9 probs=-35,-24,-69 class=1
-cnn s=2 layers=0x7822D4C6 probs=-40,-18,-70 class=1
-cnn s=3 layers=0xAC734040 probs=-35,-24,-70 class=1
-cnn s=4 layers=0x245EED31 probs=-36,-23,-69 class=1
-cnn s=5 layers=0xDD0E39AF probs=-34,-24,-70 class=1
-cnn s=6 layers=0xBC6063CF probs=-29,-28,-71 class=1
-cnn s=7 layers=0x8673DDBF probs=-38,-21,-69 class=1
-cnn s=8 layers=0xF2C30EF9 probs=-38,-21,-69 class=1
-cnn s=9 layers=0x3A5603BB probs=-39,-20,-69 class=1
-cnn s=10 layers=0x0C69C489 probs=-35,-23,-70 class=1
-cnn s=11 layers=0xE8F885D2 probs=-37,-22,-69 class=1
-cnn s=12 layers=0xBFC9BB44 probs=-36,-23,-69 class=1
-cnn s=13 layers=0x522F0B0C probs=-36,-20,-72 class=1
-cnn s=14 layers=0x77F0B1E8 probs=-40,-20,-69 class=1
-cnn s=15 layers=0x084ED5B1 probs=-33,-24,-70 class=1
+cnn conv1 rq=1078824586,7,-128
+cnn conv2 rq=1831202441,7,-128
+cnn conv3 rq=1476446082,4,-1
+cnn fc1 rq=1280790316,8,127
+cnn softmax=1836492416,18,-7936
+cnn s=0 layers=0xCBA74BE2 probs=-31,-31,-66 class=0
+cnn s=1 layers=0xC77BBE57 probs=-31,-31,-66 class=0
+cnn s=2 layers=0xA213A94C probs=-31,-31,-65 class=0
+cnn s=3 layers=0xEE869503 probs=-31,-31,-65 class=0
+cnn s=4 layers=0x9DFD3A5C probs=-31,-31,-66 class=0
+cnn s=5 layers=0x3AB12325 probs=-31,-31,-66 class=0
+cnn s=6 layers=0xFB54AE1D probs=-31,-32,-65 class=0
+cnn s=7 layers=0xDD05EC97 probs=-31,-31,-65 class=0
+cnn s=8 layers=0xCC52964F probs=-31,-31,-66 class=0
+cnn s=9 layers=0x149F2024 probs=-32,-32,-65 class=0
+cnn s=10 layers=0xCA3655A2 probs=-31,-31,-65 class=0
+cnn s=11 layers=0x21250647 probs=-31,-31,-66 class=0
+cnn s=12 layers=0xB106E4FE probs=-31,-31,-66 class=0
+cnn s=13 layers=0x91905843 probs=-31,-31,-65 class=0
+cnn s=14 layers=0x817AE40A probs=-31,-31,-66 class=0
+cnn s=15 layers=0x606DAEF0 probs=-31,-31,-66 class=0
 cnn_flat conv1 rq=1803660800,7,-128
 cnn_flat fc1 rq=1561810020,8,-1
 cnn_flat fc2 rq=2041150979,7,86

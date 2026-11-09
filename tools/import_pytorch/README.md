@@ -84,6 +84,7 @@ today.
 |---|---|---|
 | `Dense` | `nn.Linear` | `QDense` |
 | `Conv2D` | `nn.Conv2d`: stride, zero padding (including `"same"`), groups 1 or depthwise (groups = in = out channels), no dilation | `QConv2D`, `QDepthwiseConv2D`, or `QPointwiseConv2D` for a 1x1 stride-1 unpadded one |
+| `BatchNorm2D` (directly after a `Conv2D`) | `nn.BatchNorm2d` (its running statistics; put the model in `eval()` mode) | folded into the convolution's weights and bias, as tinymind (C++)'s importer does |
 | `ReLU` (directly after a `Dense` or `Conv2D`) | `nn.ReLU` | `qrelu` after a dense layer; folded into a convolution's requantizer bound |
 | `MaxPool2D`, `AvgPool2D` (no padding) | `nn.MaxPool2d`, `nn.AvgPool2d` | `QMaxPool2D`, `QAvgPool2D`, in the input's grid |
 | `GlobalAvgPool2D` | `nn.AdaptiveAvgPool2d(1)` | `QGlobalAvgPool2D`, in the input's grid |
@@ -93,9 +94,9 @@ today.
 
 Pooling and flattening keep their input's scale and zero point, as the crate's
 pooling layers have no requantizer. Anything else is rejected with an error
-naming the layer. **Batch normalization is not supported yet**: fold it into the
-preceding convolution before importing. tinymind (C++)'s importer covers more
-(branches, mixture of experts); those layers will come as the crate gains them.
+naming the layer, including a batch norm that does not follow a convolution.
+tinymind (C++)'s importer covers more (branches, mixture of experts); those
+layers will come as the crate gains them.
 
 ## How it is checked
 
@@ -122,11 +123,20 @@ preceding convolution before importing. tinymind (C++)'s importer covers more
   the same requantizers, a hash of every intermediate tensor and the outputs for
   16 inputs, byte for byte.
 - `torch_cnn.py` (needs PyTorch; not run in CI) checks `from_torch` against
-  PyTorch itself: on three models covering every supported module, the float
-  model built from the descriptors on NHWC inputs equals the PyTorch module on
-  NCHW inputs to within float rounding. Planted layout mistakes (no `Flatten`
-  reorder, rows and columns of the kernel swapped, `"same"` padded on the wrong
-  side, padding axes swapped) each fail it.
+  PyTorch itself: on four models covering every supported module, including
+  batch norms with non-trivial statistics after a convolution and after a
+  depthwise one, the float model built from the descriptors on NHWC inputs, and
+  the same chain run from each convolution's folded weights, equal the PyTorch
+  module on NCHW inputs to within float rounding. Planted mistakes (no
+  `Flatten` reorder, rows and columns of the kernel swapped, `"same"` padded on
+  the wrong side, padding axes swapped, the batch-norm scale on the wrong axis,
+  the bias folded without the mean, the depthwise flag lost in the fold) each
+  fail it.
+- The `cnn` example folds two batch norms (after a convolution and after a
+  depthwise one), so the parity and C++ checks cover the fold. The fused layer's
+  float forward runs the convolution and then the batch norm, so calibration
+  measures the range after the batch norm (tinymind (C++) #256); with the
+  convolution's own forward instead, the parity check fails.
 - The softmax parameters equal tinymind (C++)'s `buildQSoftmaxFixedPointParams`
   on 504 calibrations (`test_parity.py`).
 - The requantizers equal tinymind (C++)'s `buildRequantizer` on the same float32

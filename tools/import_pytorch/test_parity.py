@@ -110,7 +110,7 @@ def conv_models_match(ours, theirs):
     ok = True
     for name, (build, shape, _) in sorted(ex.MODELS.items()):
         data = ex.calibration_set(shape)
-        a_layers = build(ours, False)
+        a_layers = ours.fuse_layers(build(ours, False))
         a_ranges = ours.calibrate(a_layers, "input", ours.MinMaxObserver(), data)
         ours.quantize_weights(a_layers, a_ranges)
         b_layers = theirs.fuse_layers(build(theirs, True))
