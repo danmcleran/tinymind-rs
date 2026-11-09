@@ -53,11 +53,11 @@ weight trajectory bit for bit, and the anomaly example trains on the chip in
 
 ```toml
 [dependencies]
-tinymind = "0.1.5"
+tinymind = "0.2.0"
 # Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat:
-# tinymind = { version = "0.1.5", features = ["std"] }
+# tinymind = { version = "0.2.0", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
-# tinymind = { version = "0.1.5", features = ["libm"] }
+# tinymind = { version = "0.2.0", features = ["libm"] }
 ```
 
 The API reference is on [docs.rs](https://docs.rs/tinymind).

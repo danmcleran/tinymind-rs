@@ -26,9 +26,12 @@ Releases, each with a tag and a GitHub release: 0.1.0 (2026-11-07, `601098f`),
 0.1.1 (2026-11-07, `ab43794`: int8 softmax), 0.1.2 (2026-11-07, `7dd0423`:
 `InferencePerceptron`), 0.1.3 (2026-11-07, tag `v0.1.3`: `NeuralNetwork` with any
 number of hidden layers, `Linear`, gradient clipping, `energy_efficiency`), 0.1.4
-(2026-11-07, tag `v0.1.4`: Adam/RMSprop, `Sqrt`, the `anomaly` example, panic fixes) and 0.1.5
+(2026-11-07, tag `v0.1.4`: Adam/RMSprop, `Sqrt`, the `anomaly` example, panic fixes), 0.1.5
 (2026-11-08, tag `v0.1.5`: `tinymind::tree`, the tree importer, `gbdt_tabular_int8` and
-`imported_trees`). Agents run the
+`imported_trees`) and 0.2.0 (2026-11-09, tag `v0.2.0`: int8 conv/pool, `QAdd`,
+`QMul`, `QPad2D`, `QConcat`, `InferenceNetwork`, `f32`/`f64` networks with
+`AdamFloat`/`RmsPropFloat`, the optional `libm` feature, and the breaking rename
+`Fixed` -> `Scalar` with `Fixed` kept as a deprecated alias). Agents run the
 whole release in a session, including `cargo publish` (Dan's preference,
 2026-11-07), but only after Dan's explicit go-ahead for that release: a version
 cannot be deleted, only yanked. Semver applies: before 1.0 a minor bump may break
