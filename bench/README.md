@@ -154,44 +154,50 @@ data plus peak stack, each above the baseline's.
 
 | | F411 (100 MHz) | L031 (32 MHz) |
 |---|---:|---:|
-| **tinymind-rs**, cycles | **189,729** (1.90 ms) | **651,332** (20.4 ms) |
+| **tinymind-rs**, cycles | **186,257** (1.86 ms) | **649,286** (20.3 ms) |
 | tinymind (C++) scalar, `-O3` | 254,900 | 746,112 |
 | tinymind (C++) +SMLAD, `-O3` | 181,568 | – (no SMLAD on the M0+) |
 | TFLM int8 (CMSIS-NN), `-O3` | 576,368 | does not fit in 32 KB |
-| **tinymind-rs**, code + weights / RAM | **9,016 B / 4,668 B** | **9,228 B / 4,864 B** |
+| **tinymind-rs**, code + weights / RAM | **8,152 B / 4,668 B** | **8,320 B / 4,848 B** |
 | tinymind (C++) scalar `-O3`, flash / RAM | 6,848 B / 5,332 B | 8,452 B / 5,488 B |
-| tinymind-rs at `opt-level = "s"`, cycles / code + weights | 744,585 / 4,004 B | 1,230,230 / 3,724 B |
+| tinymind-rs at `opt-level = "s"`, cycles / code + weights | 546,503 / 4,308 B | 1,171,259 / 4,120 B |
 
 Per layer (cycles, each layer timed separately; C++ scalar `-O3` in brackets):
 
 | Layer | F411 | L031 |
 |---|---:|---:|
-| conv 3x3, 8 filters | 112,371 (173,164) | 414,052 (516,155) |
+| conv 3x3, 8 filters | 101,984 (173,164) | 400,956 (516,155) |
 | max pool 2x2 | 10,578 (10,156) | 20,192 (24,921) |
 | depthwise 3x3 | 22,807 (21,054) | 69,218 (73,079) |
-| pointwise 8 -> 16 | 41,284 (44,258) | 137,126 (137,483) |
+| pointwise 8 -> 16 | 37,788 (44,258) | 138,649 (137,483) |
 | global average pool | 2,507 (2,282) | 4,704 (5,756) |
 | dense 16 -> 10 | 1,604 (1,281) | 3,347 (2,830) |
 
-- **Faster than the portable C++.** The Rust model takes 26% fewer cycles than
+- **Faster than the portable C++.** The Rust model takes 27% fewer cycles than
   tinymind (C++)'s portable build on the M4F and 13% fewer on the M0+, and is
-  4.5% behind its SMLAD build on the M4F, without SIMD. It uses less RAM, and
-  32% (M4F) and 9% (M0+) more flash than the C++ at `-O3`: LLVM unrolls the
-  layers' loops fully at `opt-level = 3`. At `opt-level = "s"` the network's
-  code and weights take 3.7-4.0 KB, but it runs 1.9-3.9x slower (on the F411,
-  664,196 cycles and 3,632 B without loop alignment).
-- **Where it comes from.** The stem convolution (one input channel) reads each
-  window once for all filters and is 20-35% faster than the C++'s gathered
-  patches. Depthwise and pointwise run as the C++ does: filter by filter, with
-  the zero point folded into the bias, the weights held across the pixels and
-  the requantizer prepared once per filter (tinymind (C++)'s `FastRequantizer`,
+  2.6% behind its SMLAD build on the M4F, without SIMD. It uses less RAM, 19%
+  more flash on the M4F and 2% less on the M0+ than the C++ at `-O3`. At
+  `opt-level = "s"` the network's code and weights take 4.1-4.3 KB, and it
+  runs 1.8-2.9x slower.
+- **Where it comes from.** The stem convolution (one input channel) gathers
+  each window once, padding filled with the zero point, folds the zero point
+  into each filter's bias and runs the filters in pairs, so each window value
+  loaded serves two: 22-41% faster than the C++'s gathered patches. Pointwise
+  runs filter by filter, two pixels at a time (each weight loaded serves both;
+  four would spill registers), and depthwise channel by channel, as the C++
+  does: the zero point folded into the bias, the weights held across the
+  pixels and the requantizer prepared once per filter (tinymind (C++)'s `FastRequantizer`,
   extended to the ranges of a fused ReLU and proved equal to `apply` by Kani).
   A depthwise window that lies inside the input reads it as slices without
   per-tap checks. That took depthwise from 46,049 to 22,732 cycles and
   pointwise from 78,614 to 41,028 on the M4F (measured before loop alignment,
-  as are the figures in the next point).
+  as are the figures in the next point); two pixels per pass then took
+  pointwise to 37,788 (and the MLPerf DS-CNN's 64-channel pointwise layers from
+  2.60M to 2.17M cycles each), on the M0+ 1% slower (138,649).
 - **Measured, not assumed.** Running the stem filter by filter as well made
-  it 20% slower (135,172 cycles), so it keeps its window-once loop. One pixel
+  it 20% slower (135,172 cycles), so it reads each window once. The 16-bit
+  path of the multi-channel convolutions is slower for a one-channel stem
+  (286,132 cycles for the network). One pixel
   loop branching on the requantizer form per output, instead of one loop per
   form, saved 0.5 KB and cost depthwise 27%. Requantizers without a prepared
   form (a scale ratio of 0.25 or more) run a cold out-of-line loop: on this
@@ -213,15 +219,19 @@ includes its tensor arena).
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **16,148,194** | **161.5 ms** | **46,368 B** | **16,336 B** |
+| **tinymind-rs** | **13,225,965** | **132.3 ms** | **46,416 B** | **16,680 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,432 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,828 B |
 
-- The Rust model takes 2.6% more cycles than tinymind (C++)'s portable build, in
-  12% less flash and 5% less RAM; tinymind (C++)'s SMLAD build and TFLM with
-  CMSIS-NN are faster, as neither SIMD path is available to the Rust port.
+- The Rust model takes 16% fewer cycles than tinymind (C++)'s portable build, in
+  12% less flash and 3% less RAM; tinymind (C++)'s SMLAD build and TFLM with
+  CMSIS-NN are faster. Per layer: the 10x4 stem 1.77M cycles (3.09M before its
+  window was gathered once per pixel), each pointwise layer 2.17M (2.60M before
+  two pixels per pass), each depthwise layer 0.65M. The depthwise layers spend
+  about 82 cycles per output: LLVM unrolls the 25x5 pixel loop and keeps the
+  nine weights on the stack.
 - RAM: the translator plans one byte arena for the feature maps, as the
   translator of tinymind (C++) does, so the eight 25x5x64 layers ping-pong between two slots (16,000
   B). A first version nested each layer in its own block instead and peaked at
@@ -307,8 +317,10 @@ Cycles for one prediction (median of 33), first held-out sample.
 - Exactness holds on both cores: the integer arithmetic and every training step
   match the C++ and the host bit for bit.
 - Against tinymind (C++)'s scalar C++ the Rust port is 5% slower on the M4F and 7-18%
-  slower on the M0+, at about the same size. It has no SMLAD path: the Arm DSP
-  intrinsics are nightly-only and `asm!` would break `forbid(unsafe_code)`.
+  slower on the M0+, at about the same size. It has no SMLAD path of its own:
+  the Arm DSP intrinsics are nightly-only and `asm!` would break
+  `forbid(unsafe_code)`. Only the multi-channel convolutions' 16-bit pairs reach
+  SMLAD, through LLVM, with the opt-in option above.
 - On the M0+ the stack use is higher than the C++'s (472 B against 200 B).
 
 ## Run

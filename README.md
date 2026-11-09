@@ -34,10 +34,10 @@ It has also run on two boards, an STM32F411 (Cortex-M4F, 100 MHz) and an
 STM32L031 (Cortex-M0+, 32 MHz, 32 KB flash, 8 KB RAM). On both, tinymind (C++)'s int8
 digits classifier gives the same output hash as the C++ (215 µs per inference on
 the M4F, 1.33 ms on the M0+), so does its KWS-shaped convolutional network, in
-13-26% fewer cycles than the C++'s portable build (1.90 ms and 20.4 ms), and on
+13-27% fewer cycles than the C++'s portable build (1.86 ms and 20.3 ms), and on
 the F411 the MLPerf Tiny keyword-spotting and image-classification (ResNet-8)
-models, translated from TFLite, give the C++'s output hashes in 161 ms and 644
-ms (2.6% more and 25% fewer cycles than the C++'s portable build), XOR trained on the board reproduces the desktop
+models, translated from TFLite, give the C++'s output hashes in 132 ms and 644
+ms (16% and 25% fewer cycles than the C++'s portable build), XOR trained on the board reproduces the desktop
 weight trajectory bit for bit, and the anomaly example trains on the chip in
 0.14 s and 4.2 s respectively. Results and method:
 [On-board results](https://danmcleran.github.io/tinymind-rs/benchmarks) and

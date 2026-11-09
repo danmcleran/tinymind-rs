@@ -58,14 +58,23 @@ pub(crate) struct Window {
     pub(crate) padded: bool,
 }
 
-/// The body of [`QConv2D`] and [`QConv2DPerChannel`]: `rqs` yields filter
-/// `f`'s requantizer as its `f`-th item (the per-tensor layer repeats one).
-///
-/// `acc = bias + sum over the window of w * (x - zero_point)`. A padded tap
-/// holds the zero point, as TFLite pads, so it adds nothing and is skipped.
-/// tinymind (C++) gathers patches, tiles rows and pairs filters for speed;
-/// those add the same products, and `i32` sums wrap the same in any order.
-fn conv2d<
+// The bodies of `QConv2D` and `QConv2DPerChannel` (`conv2d_gather`,
+// `conv2d_band`) take `rqs` yielding filter `f`'s requantizer as its `f`-th
+// item (the per-tensor layer repeats one). Both compute `acc = bias + sum
+// over the window of w * (x - zero_point)`; a padded tap holds the zero
+// point, as TFLite pads, so it adds nothing. tinymind (C++) gathers patches,
+// tiles rows and pairs filters for speed; those add the same products, and
+// `i32` sums wrap the same in any order.
+
+/// The convolution for layers with fewer than [`BAND_MIN_CHANNELS`] input
+/// channels (a stem over one channel): per output pixel the window is gathered once
+/// into `win`, the padding filled with the zero point, so every filter runs a
+/// plain multiply-accumulate against it with the zero point folded into its
+/// bias (a padded tap then adds `w * zp - w * zp = 0`).
+/// Filters run in pairs, so each window value loaded serves two. Same `i32`
+/// sums modulo 2^32.
+#[allow(clippy::too_many_arguments)]
+fn conv2d_gather<
     'r,
     const H: usize,
     const W: usize,
@@ -84,22 +93,54 @@ fn conv2d<
     rqs: impl Iterator<Item = &'r Requantizer> + Clone,
     window: Window,
 ) {
+    let folded: [i32; F] = core::array::from_fn(|f| {
+        let taps = weights
+            .get(f)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .flatten()
+            .copied();
+        folded_bias(bias_of(biases, f), zero_point, taps)
+    });
+    let requantize = |f: usize, acc: i32| rqs.clone().nth(f).map_or(0, |rq| rq.apply(acc));
+    let mut win = [[[zero_point; C]; KW]; KH];
     for (oh, out_row) in output.iter_mut().enumerate() {
         let top = oh * window.stride_h;
         for (ow, out_pixel) in out_row.iter_mut().enumerate() {
             let left = ow * window.stride_w;
-            let filters = out_pixel.iter_mut().zip(weights).zip(rqs.clone());
-            for (f, ((out, filter), rq)) in filters.enumerate() {
-                let mut acc = bias_of(biases, f);
-                for (kh, filter_row) in filter.iter().enumerate() {
-                    for (kw, taps) in filter_row.iter().enumerate() {
-                        let x = tap(input, top + kh, left + kw, window.pad_top, window.pad_left);
-                        if let Some(x) = x {
-                            acc = acc.wrapping_add(dot_with_zero_point(x, taps, zero_point));
-                        }
+            for (kh, win_row) in win.iter_mut().enumerate() {
+                for (kw, taps) in win_row.iter_mut().enumerate() {
+                    *taps = *tap(input, top + kh, left + kw, window.pad_top, window.pad_left)
+                        .unwrap_or(&[zero_point; C]);
+                }
+            }
+            let x = win.as_flattened().as_flattened();
+            let mut f = 0;
+            while f + 1 < F {
+                if let (Some(w0), Some(w1)) = (weights.get(f), weights.get(f + 1)) {
+                    let (a0, a1) = dot2(
+                        x,
+                        w0.as_flattened().as_flattened(),
+                        w1.as_flattened().as_flattened(),
+                    );
+                    let b0 = folded.get(f).copied().unwrap_or(0);
+                    let b1 = folded.get(f + 1).copied().unwrap_or(0);
+                    if let Some(out) = out_pixel.get_mut(f) {
+                        *out = requantize(f, b0.wrapping_add(a0));
+                    }
+                    if let Some(out) = out_pixel.get_mut(f + 1) {
+                        *out = requantize(f + 1, b1.wrapping_add(a1));
                     }
                 }
-                *out = rq.apply(acc);
+                f += 2;
+            }
+            if let (Some(wf), Some(out), Some(&b)) =
+                (weights.get(f), out_pixel.get_mut(f), folded.get(f))
+            {
+                let wf = wf.as_flattened().as_flattened();
+                let (a, _) = dot2(x, wf, wf);
+                *out = requantize(f, b.wrapping_add(a));
             }
         }
     }
@@ -133,15 +174,14 @@ fn dot16(mut acc: i32, x: &[i16], w: &[i16]) -> i32 {
     acc
 }
 
-/// [`conv2d`] for layers with several input channels, in 16 bits: per output
+/// The convolution for layers with several input channels, in 16 bits: per output
 /// row, the `KH` input rows it reads are widened once into `band` as `x -
 /// zero_point` (`i16`), and per filter its weights into `wide`; each window
 /// inside the input is then `KH` dot products over contiguous `KW * C`
 /// elements ([`dot16`]). Windows reaching into the padding add tap by tap.
 /// Widening costs one pass over the rows and over the weights per output row,
 /// small against the `OW * KH * KW * C` products per filter; the scratch is
-/// `2 * KH * (W + KW) * C` bytes of stack. Same products, same `i32` sums
-/// modulo 2^32, as [`conv2d`].
+/// `2 * KH * (W + KW) * C` bytes of stack. Same `i32` sums modulo 2^32.
 #[allow(clippy::too_many_arguments)]
 fn conv2d_band<
     'r,
@@ -387,7 +427,7 @@ impl<
                 window,
             );
         } else {
-            conv2d(
+            conv2d_gather(
                 input,
                 output,
                 self.weights,
@@ -473,7 +513,7 @@ impl<
                 window,
             );
         } else {
-            conv2d(
+            conv2d_gather(
                 input,
                 output,
                 self.weights,
@@ -750,8 +790,9 @@ fn pointwise_filter_general<const H: usize, const W: usize, const C: usize, cons
     pointwise_filter(input, output, f, w, bias, |acc| rq.apply(acc));
 }
 
-/// One pointwise filter over every pixel. Nested loops rather than `flatten`,
-/// whose iterator state costs more per pixel than an 8-channel dot product.
+/// One pointwise filter over every pixel, two pixels at a time: each weight
+/// loaded serves both (four would spill registers on a Cortex-M4). Pixels are
+/// taken from the flattened rows; an odd last pixel runs alone.
 #[inline(always)]
 fn pointwise_filter<const H: usize, const W: usize, const C: usize, const F: usize>(
     input: &[[[i8; C]; W]; H],
@@ -761,13 +802,57 @@ fn pointwise_filter<const H: usize, const W: usize, const C: usize, const F: usi
     bias: i32,
     requantize: impl Fn(i32) -> i8,
 ) {
-    for (out_row, in_row) in output.iter_mut().zip(input) {
-        for (out_pixel, in_pixel) in out_row.iter_mut().zip(in_row) {
-            if let Some(out) = out_pixel.get_mut(f) {
-                *out = requantize(bias.wrapping_add(dot(in_pixel, w)));
+    let inputs = input.as_flattened();
+    let outputs = output.as_flattened_mut();
+    let mut ins = inputs.chunks_exact(2);
+    let mut outs = outputs.chunks_exact_mut(2);
+    for (out_pair, in_pair) in (&mut outs).zip(&mut ins) {
+        if let ([o0, o1], [x0, x1]) = (out_pair, in_pair) {
+            let (a0, a1) = dot2_pixels(x0, x1, w);
+            if let Some(out) = o0.get_mut(f) {
+                *out = requantize(bias.wrapping_add(a0));
+            }
+            if let Some(out) = o1.get_mut(f) {
+                *out = requantize(bias.wrapping_add(a1));
             }
         }
     }
+    for (out_pixel, in_pixel) in outs.into_remainder().iter_mut().zip(ins.remainder()) {
+        if let Some(out) = out_pixel.get_mut(f) {
+            *out = requantize(bias.wrapping_add(dot(in_pixel, w)));
+        }
+    }
+}
+
+/// `(sum x0 * w, sum x1 * w)`, wrapping: two pixels against one filter.
+#[inline(always)]
+fn dot2_pixels<const N: usize>(x0: &[i8; N], x1: &[i8; N], w: &[i8; N]) -> (i32, i32) {
+    x0.iter()
+        .zip(x1)
+        .zip(w)
+        .fold((0i32, 0i32), |(a0, a1), ((&x0, &x1), &w)| {
+            let w = i32::from(w);
+            (
+                a0.wrapping_add(w * i32::from(x0)),
+                a1.wrapping_add(w * i32::from(x1)),
+            )
+        })
+}
+
+/// `(sum x * w0, sum x * w1)` over the shortest of the three, wrapping: one
+/// window against two filters (an odd last filter passes itself twice).
+#[inline(always)]
+fn dot2(x: &[i8], w0: &[i8], w1: &[i8]) -> (i32, i32) {
+    x.iter()
+        .zip(w0)
+        .zip(w1)
+        .fold((0i32, 0i32), |(a0, a1), ((&x, &w0), &w1)| {
+            let x = i32::from(x);
+            (
+                a0.wrapping_add(x * i32::from(w0)),
+                a1.wrapping_add(x * i32::from(w1)),
+            )
+        })
 }
 
 /// A quantized 1x1 ("pointwise") convolution, the channel-mixing half of a

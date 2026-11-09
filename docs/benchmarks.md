@@ -59,26 +59,26 @@ tinymind (C++)'s keyword-spotting shaped benchmark network: a 20x20x1 input, a 3
 
 | | F411 (100 MHz) | L031 (32 MHz) |
 |---|---:|---:|
-| **tinymind-rs**, cycles | **189,729** (1.90 ms) | **651,332** (20.4 ms) |
+| **tinymind-rs**, cycles | **186,257** (1.86 ms) | **649,286** (20.3 ms) |
 | tinymind (C++) scalar, `-O3` | 254,900 | 746,112 |
 | tinymind (C++) +SMLAD, `-O3` | 181,568 | – (no SMLAD on the M0+) |
 | TFLM int8 (CMSIS-NN), `-O3` | 576,368 | does not fit in 32 KB |
-| **tinymind-rs**, code + weights / RAM | **9,016 B / 4,668 B** | **9,228 B / 4,864 B** |
+| **tinymind-rs**, code + weights / RAM | **8,152 B / 4,668 B** | **8,320 B / 4,848 B** |
 | tinymind (C++) scalar `-O3`, flash / RAM | 6,848 B / 5,332 B | 8,452 B / 5,488 B |
-| tinymind-rs at `opt-level = "s"`, cycles / code + weights | 744,585 / 4,004 B | 1,230,230 / 3,724 B |
+| tinymind-rs at `opt-level = "s"`, cycles / code + weights | 546,503 / 4,308 B | 1,171,259 / 4,120 B |
 
 Per layer (cycles, each layer timed separately; C++ scalar `-O3` in brackets):
 
 | Layer | F411 | L031 |
 |---|---:|---:|
-| conv 3x3, 8 filters | 112,371 (173,164) | 414,052 (516,155) |
+| conv 3x3, 8 filters | 101,984 (173,164) | 400,956 (516,155) |
 | max pool 2x2 | 10,578 (10,156) | 20,192 (24,921) |
 | depthwise 3x3 | 22,807 (21,054) | 69,218 (73,079) |
-| pointwise 8 -> 16 | 41,284 (44,258) | 137,126 (137,483) |
+| pointwise 8 -> 16 | 37,788 (44,258) | 138,649 (137,483) |
 | global average pool | 2,507 (2,282) | 4,704 (5,756) |
 | dense 16 -> 10 | 1,604 (1,281) | 3,347 (2,830) |
 
-The Rust port takes 26% fewer cycles than tinymind (C++)'s portable build on the M4F and 13% fewer on the M0+, and is within 5% of its SMLAD build on the M4F without SIMD. It uses less RAM but more flash than the C++ at `-O3` (32% and 9% more), because LLVM unrolls the layers' loops; at `opt-level = "s"` the network fits in 3.7-4.0 KB but runs 1.9-3.9x slower. The stem convolution reads each window once for all filters; depthwise and pointwise run filter by filter with each filter's weights, folded bias and prepared requantizer held across the pixels, as the C++ does.
+The Rust port takes 27% fewer cycles than tinymind (C++)'s portable build on the M4F and 13% fewer on the M0+, and is within 3% of its SMLAD build on the M4F without SIMD. It uses less RAM; its flash is 19% more than the C++'s at `-O3` on the M4F and 2% less on the M0+; at `opt-level = "s"` the network fits in 4.1-4.3 KB but runs 1.8-2.9x slower. The stem convolution gathers each window once and runs its filters in pairs; pointwise runs filter by filter, two pixels at a time, and depthwise channel by channel, with the weights, folded bias and prepared requantizer held across the pixels.
 
 ## MLPerf Tiny keyword spotting (DS-CNN)
 
@@ -86,13 +86,13 @@ The MLPerf Tiny keyword-spotting reference model (49x10 MFCC input, a 10x4 convo
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **16,148,194** | **161.5 ms** | **46,368 B** | **16,336 B** |
+| **tinymind-rs** | **13,225,965** | **132.3 ms** | **46,416 B** | **16,680 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,432 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,828 B |
 
-The Rust model is within 2.6% of tinymind (C++)'s portable build in less flash and RAM; tinymind (C++)'s SMLAD build and TFLM with CMSIS-NN are faster, as neither SIMD path is open to the Rust port.
+The Rust model takes 16% fewer cycles than tinymind (C++)'s portable build, in less flash and RAM; tinymind (C++)'s SMLAD build and TFLM with CMSIS-NN are faster. Most of its time is the four 64-channel pointwise layers (2.17M cycles each), which run in 8-bit and do not reach `SMLAD`.
 
 ## MLPerf Tiny image classification (ResNet-8)
 
@@ -148,7 +148,7 @@ The model is read-only data, so the linker places it in flash, and the CPU reads
 ## What these show
 
 - Exactness holds on both cores: int8 inference and every training step match the C++ (and, for the anomaly demo, the host run) bit for bit on the chips themselves, not only on a desktop.
-- Against tinymind (C++)'s portable C++ the Rust MLP is 5% slower on the Cortex-M4F and 7–18% slower on the Cortex-M0+, at about the same code size; the convolutional network takes 13-26% fewer cycles, in less RAM and more flash. It has no equivalent of tinymind (C++)'s SMLAD backend: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee.
+- Against tinymind (C++)'s portable C++ the Rust MLP is 5% slower on the Cortex-M4F and 7–18% slower on the Cortex-M0+, at about the same code size; the KWS-shaped network takes 13-27% fewer cycles, the MLPerf DS-CNN 16% and ResNet-8 25% fewer on the M4F. It has no SMLAD backend of its own: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee; only the 16-bit pairs of multi-channel convolutions reach `SMLAD`, through LLVM, with the opt-in option above.
 - These are two boards, one model per task and one compiler version.
 - F411 timings are taken with every loop aligned to 16 bytes, so they do not move when unrelated code changes shift the hot loops in flash (without it, a 10-byte shift once made the MLPerf DS-CNN 11% slower). The alignment padding costs 0-2% on most workloads, up to 7.8% on the tree walks and 12% at `opt-level = "s"`. The L031 figures, without it, stay sensitive to placement.
 
