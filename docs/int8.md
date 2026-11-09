@@ -22,9 +22,12 @@ Alongside the Q-format networks, the crate runs **int8 affine-quantized** models
 | `QPointwiseConv2D<'a, C, F>`, `QPointwiseConv2DPerChannel<'a, C, F>` | 1x1 convolution: the same `C`-to-`F` dense layer at every pixel | `QPointwiseConv2D`, `QPointwiseConv2DPerChannel` (`cpp/qpointwiseconv2d.hpp`) |
 | `QMaxPool2D<PH, PW, SH, SW>`, `QAvgPool2D<...>`, `QGlobalAvgPool2D` | Max, average (rounded half away from zero) and global average pooling, in the input's scale | `cpp/qpool2d.hpp` |
 | `QAdd` | Elementwise addition of two tensors with their own scales and zero points (TFLite ADD), for residual connections; any tensor shape, the same for all three | `QAdd` (`cpp/qadd.hpp`) |
+| `QMul` | Elementwise multiplication of two tensors with their own zero points (TFLite MUL), for squeeze-and-excite gating; any tensor shape, the same for all three | `QMul` (`cpp/qmul.hpp`) |
+| `QPad2D<PT, PB, PL, PR>` | Explicit padding of an NHWC tensor with a constant (TFLite PAD); the convolutions pad by themselves | `QPad2D` (`cpp/qpad.hpp`) |
+| `QConcat` | Two NHWC tensors joined along the channel axis, each rescaled onto the output grid (TFLite CONCATENATION) | `QConcat2_2D` (`cpp/qconcat.hpp`) |
 | `apply_lut` | Any activation through a 256-entry int8 table, such as sigmoid or tanh | `qApplyLUT` |
 | `QSoftmax` | Softmax over a row of int8 logits onto the 1/256 probability grid, bit-exact with TFLite's int8 softmax (and so with CMSIS-NN's `arm_softmax_s8`) | `QSoftmaxFixedPoint1D` (`cpp/qsoftmax_fixedpoint.hpp`) |
-| `calibration` (feature `std`) | Host side: build requantizers, additions, sigmoid/tanh tables and softmax parameters from float scales; affine parameters from a float range; quantize and dequantize | `cpp/include/qcalibration.hpp` |
+| `calibration` (feature `std`) | Host side: build requantizers, rescalers, additions, multiplications, sigmoid/tanh tables and softmax parameters from float scales; affine parameters from a float range; quantize and dequantize | `cpp/include/qcalibration.hpp` |
 
 A layer borrows its weights (`&[[i8; IN]; OUT]`, row-major as PyTorch and TFLite store them) and biases, so they can live in flash as `static` data. On a device, run the calibration on the host and embed the resulting integers; the five fields of a `Requantizer` are plain constants.
 
@@ -124,6 +127,6 @@ Where the C++ would hit undefined behaviour (an int32 accumulator overflowing, a
 
 ## Not yet
 
-The rest of tinymind (C++)'s int8 family (explicit padding, multiply, concatenation, recurrent cells, attention) is not ported yet, and the PyTorch importer does not take branches. tinymind (C++)'s ONNX importer is not ported. For int8 TensorFlow Lite models, `tools/import_tflite` translates convolutional networks into a Rust module the same way tinymind (C++)'s MLPerf benchmark translates them into C++; it runs the MLPerf Tiny keyword-spotting model and the residual ResNet-8 with tinymind (C++)'s output hashes ([On-board results]({{ site.baseurl }}/benchmarks)). Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
+The rest of tinymind (C++)'s int8 family (recurrent cells, attention, positional encoding, mixture of experts) is not ported yet, and the PyTorch importer does not take branches. tinymind (C++)'s ONNX importer is not ported. For int8 TensorFlow Lite models, `tools/import_tflite` translates convolutional networks into a Rust module the same way tinymind (C++)'s MLPerf benchmark translates them into C++; it runs the MLPerf Tiny keyword-spotting model and the residual ResNet-8 with tinymind (C++)'s output hashes ([On-board results]({{ site.baseurl }}/benchmarks)). Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
 
 The [API reference]({{ site.baseurl }}/api/tinymind/int8/) documents every function.

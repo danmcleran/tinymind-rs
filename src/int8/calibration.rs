@@ -1,7 +1,8 @@
 //! Host-side calibration: turning float scales into the integer parameters the
 //! int8 layers use (C++ `quantizeMultiplier`, `buildRequantizer`, `quantize`,
 //! `dequantize`, `buildQSigmoidLUT`, `buildQTanhLUT`,
-//! `buildQSoftmaxFixedPointParams`, `computeAffineParamsAsymmetric`, `buildQAddParams`).
+//! `buildQSoftmaxFixedPointParams`, `computeAffineParamsAsymmetric`, `buildQAddParams`, `buildRescaler`,
+//! `buildQMulRequantizer`).
 //!
 //! Needs the `std` feature, for `f32::exp` and `f32::tanh`; tinymind (C++) gates the
 //! same functions on `TINYMIND_ENABLE_FLOAT && TINYMIND_ENABLE_STD`. On a device,
@@ -77,6 +78,49 @@ pub fn build_requantizer(
         qmin: qmin as i8,
         qmax: qmax as i8,
     }
+}
+
+/// A requantizer for a pure rescale, `input_scale / output_scale`, with no
+/// weight: for [`QConcat`](super::QConcat) inputs and anything else that
+/// copies values from one grid to another (C++ `buildRescaler`, which is
+/// `buildRequantizer` with a weight scale of 1).
+pub fn build_rescaler(
+    input_scale: f32,
+    output_scale: f32,
+    output_zero_point: i32,
+    qmin: i32,
+    qmax: i32,
+) -> Requantizer {
+    build_requantizer(
+        input_scale,
+        1.0,
+        output_scale,
+        output_zero_point,
+        qmin,
+        qmax,
+    )
+}
+
+/// The requantizer of a [`QMul`](super::QMul): `input_a_scale * input_b_scale /
+/// output_scale`, in `f64` from the `f32` scales (C++ `buildQMulRequantizer`;
+/// the same ratio as [`build_requantizer`] with the second input's scale as the
+/// weight scale).
+pub fn build_mul_requantizer(
+    input_a_scale: f32,
+    input_b_scale: f32,
+    output_scale: f32,
+    output_zero_point: i32,
+    qmin: i32,
+    qmax: i32,
+) -> Requantizer {
+    build_requantizer(
+        input_a_scale,
+        input_b_scale,
+        output_scale,
+        output_zero_point,
+        qmin,
+        qmax,
+    )
 }
 
 /// Build a [`QAdd`] for inputs `(scale, zero point)` `input_a` and `input_b`

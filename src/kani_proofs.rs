@@ -238,6 +238,48 @@ mod int8 {
         assert!(saturating_shl(x, n) == want);
     }
 
+    /// Multiplication, padding and concatenation never panic, for any
+    /// parameters and inputs.
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn compose_never_panics() {
+        let mul = crate::int8::QMul {
+            input_a_zero_point: kani::any(),
+            input_b_zero_point: kani::any(),
+            requantizer: Requantizer {
+                multiplier: kani::any(),
+                shift: kani::any(),
+                zero_point: kani::any(),
+                qmin: kani::any(),
+                qmax: kani::any(),
+            },
+        };
+        let (a, b): ([i8; 2], [i8; 2]) = (kani::any(), kani::any());
+        let mut y = [0i8; 2];
+        mul.forward(&a, &b, &mut y);
+        let x: [[[i8; 1]; 1]; 1] = kani::any();
+        let mut padded = [[[0i8; 1]; 2]; 2];
+        crate::int8::QPad2D::<1, 0, 0, 1> {
+            pad_value: kani::any(),
+        }
+        .forward(&x, &mut padded);
+        let concat = crate::int8::QConcat {
+            input_a_zero_point: kani::any(),
+            input_b_zero_point: kani::any(),
+            requantizer_a: mul.requantizer,
+            requantizer_b: Requantizer {
+                multiplier: kani::any(),
+                shift: kani::any(),
+                zero_point: kani::any(),
+                qmin: kani::any(),
+                qmax: kani::any(),
+            },
+        };
+        let xb: [[[i8; 2]; 1]; 1] = kani::any();
+        let mut joined = [[[0i8; 3]; 1]; 1];
+        concat.forward(&x, &xb, &mut joined);
+    }
+
     /// The elementwise addition never panics, for any parameters and inputs,
     /// shifts far outside the documented range included.
     #[kani::proof]

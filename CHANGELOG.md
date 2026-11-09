@@ -9,6 +9,12 @@ break the API).
 
 ### Added
 
+- Int8 `QMul` (elementwise multiplication, TFLite MUL), `QPad2D` (explicit
+  padding, PAD) and `QConcat` (channel concatenation, CONCATENATION), from
+  tinymind (C++)'s `cpp/qmul.hpp`, `cpp/qpad.hpp` and `cpp/qconcat.hpp`, with
+  `int8::calibration::build_mul_requantizer` (`buildQMulRequantizer`) and
+  `build_rescaler` (`buildRescaler`). Padded and concatenated sizes are
+  checked at compile time. Bit-identical to tinymind (C++).
 - `InferenceNetwork` over `InferenceDense` layers: the inference-only form of
   `NeuralNetwork` for any number of hidden layers (tinymind (C++)'s
   `NeuralNetwork` with `IsTrainable = false`), the weights only, with `const fn`

@@ -9,9 +9,9 @@ use core::hint::black_box;
 
 use core::mem::size_of;
 use tinymind::int8::{
-    self, QAdd, QAvgPool2D, QConv2D, QConv2DPerChannel, QDense, QDensePerChannel, QDepthwiseConv2D,
-    QGlobalAvgPool2D, QMaxPool2D, QPointwiseConv2D, QPointwiseConv2DPerChannel, QSoftmax,
-    Requantizer,
+    self, QAdd, QAvgPool2D, QConcat, QConv2D, QConv2DPerChannel, QDense, QDensePerChannel,
+    QDepthwiseConv2D, QGlobalAvgPool2D, QMaxPool2D, QMul, QPad2D, QPointwiseConv2D,
+    QPointwiseConv2DPerChannel, QSoftmax, Requantizer,
 };
 use tinymind::rand::GlibcRand;
 use tinymind::tree::{self, QDecisionTree, QGbdt, QTreeNode};
@@ -392,6 +392,32 @@ fn int8_conv() {
     let mut flat = [0i8; 2];
     add.forward(&input[0][0], &black_box(input[1][1]), &mut flat);
     black_box(&flat);
+    // Multiplication, padding and concatenation, every parameter opaque.
+    let mul = QMul {
+        input_a_zero_point: black_box(-3),
+        input_b_zero_point: black_box(7),
+        requantizer: rq,
+    };
+    let mut product = [[[0i8; 2]; 7]; 6];
+    mul.forward(&input, &black_box(input), &mut product);
+    black_box(&product);
+    let mut padded = [[[0i8; 2]; 10]; 8];
+    QPad2D::<1, 1, 2, 1> {
+        pad_value: black_box(-5),
+    }
+    .forward(&input, &mut padded);
+    black_box(&padded);
+    let concat = QConcat {
+        input_a_zero_point: black_box(1),
+        input_b_zero_point: black_box(-1),
+        requantizer_a: rq,
+        requantizer_b: black_box(rq),
+    };
+    let mut joined = [[[0i8; 3]; 7]; 6];
+    let narrow: [[[i8; 1]; 7]; 6] = black_box([[[2; 1]; 7]; 6]);
+    concat.forward(&input, &narrow, &mut joined);
+    black_box(&joined);
+
     // 256 elements or more: the tabulated path.
     let big: [[[i8; 8]; 8]; 8] = black_box([[[3; 8]; 8]; 8]);
     let mut big_sum = [[[0i8; 8]; 8]; 8];

@@ -1,7 +1,8 @@
 //! Int8 affine-quantized inference, ported from tinymind (C++) `cpp/qaffine.hpp`,
 //! `cpp/qdense.hpp`, `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`,
-//! `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp`, `cpp/qadd.hpp`,
-//! `cpp/qactivations.hpp` and `cpp/qsoftmax_fixedpoint.hpp`.
+//! `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp`, `cpp/qadd.hpp`, `cpp/qmul.hpp`,
+//! `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `cpp/qactivations.hpp` and
+//! `cpp/qsoftmax_fixedpoint.hpp`.
 //!
 //! This is the TFLite / CMSIS-NN quantization model, separate from the Q-format
 //! [`QValue`](crate::QValue) pipeline: a real value is `scale * (q - zero_point)`,
@@ -31,7 +32,9 @@
 //! point: no requantizer.
 //!
 //! [`QAdd`] adds two tensors of the same shape with their own scales and zero
-//! points (TFLite ADD), for residual connections.
+//! points (TFLite ADD), for residual connections, and [`QMul`] multiplies them
+//! (TFLite MUL, squeeze-and-excite gating). [`QPad2D`] pads a tensor with a
+//! constant and [`QConcat`] joins two along the channel axis.
 //!
 //! A convolution over two or more input channels widens its input rows and
 //! each filter's weights to 16 bits and adds the products in pairs. On cores
@@ -81,10 +84,12 @@
 pub(crate) mod add;
 #[cfg(feature = "std")]
 pub mod calibration;
+pub(crate) mod compose;
 pub(crate) mod conv;
 pub(crate) mod pool;
 
 pub use add::{QAdd, Tensor};
+pub use compose::{QConcat, QMul, QPad2D};
 pub use conv::{
     QConv2D, QConv2DPerChannel, QDepthwiseConv2D, QPointwiseConv2D, QPointwiseConv2DPerChannel,
 };
