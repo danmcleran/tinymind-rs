@@ -16,7 +16,9 @@ Documentation, including the API reference: <https://danmcleran.github.io/tinymi
 ## Status
 
 Early. So far the port covers Q16.16 and Q8.8 arithmetic, ReLU, linear and
-lookup-table tanh and sigmoid activations, trainable networks with any number of
+lookup-table tanh and sigmoid activations, floating-point (`f32`, `f64`) networks
+trained with SGD (tanh and sigmoid from the math library: feature `std`, or
+`libm` without std), trainable networks with any number of
 hidden layers (SGD with momentum, Adam or RMSprop, optional gradient clipping) and
 inference-only networks of any depth that are just their weights, int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
@@ -145,7 +147,8 @@ set.
 | `examples/imported_cnn.rs` | two convolutional models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 | `examples/imported_mlp.rs` | two models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 
-Everything else in tinymind (C++) is not ported: floating-point networks, other Q
+Everything else in tinymind (C++) is not ported: the floating-point Adam and
+RMSprop optimizers (`AdamOptimizerFloat`, `RmsPropOptimizerFloat`), other Q
 formats, unsigned and 8/64-bit storage, the other activations, recurrent layers,
 the int8 quantization tiers, SIMD backends, and so on.
 
@@ -171,6 +174,13 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `tests/anomaly_golden.rs` pins the anomaly example's output and hash. The
   demo has no tinymind (C++) counterpart, so this golden is the crate's own output, a
   regression check; its parts are each checked against tinymind (C++) above.
+- `tests/float_mlp.rs` (feature `std`) trains `f32` and `f64` networks beside
+  tinymind (C++)'s `NeuralNetwork` instantiated with `float` and `double` (its
+  floating-point activations and transfer-function bundle), in five
+  configurations, and compares every weight after every step: bit-identical on
+  a glibc host. The committed golden holds the `f64` runs; the `f32` runs depend
+  on the C library's `tanhf`/`expf` (correctly rounded since glibc 2.41), so
+  `scripts/compare-with-cpp.sh` compares them live, C++ and Rust on one host.
 - `tests/inference_mlp.rs` checks the inference-only perceptron against
   tinymind (C++)'s untrainable network (`IsTrainable = false`) with the same weights,
   in both formats and two shapes, and `tests/inference_deep.rs` checks
@@ -208,7 +218,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (57 checks today, including
+  example does, runs both sides, and compares every output file (59 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

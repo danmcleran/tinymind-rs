@@ -26,7 +26,7 @@ nav_order: 1
 ## What it is
 
 - **`no_std` and allocation-free.** The library links only `core`. Networks are plain fixed-size arrays sized by const generics: no heap, no `alloc`, no global state.
-- **Fixed-point so far.** The ported value types are Q-format integers (Q16.16 and Q8.8), int8 in the TFLite/CMSIS-NN affine model, and the int8, uint8 or int16 feature grids of the decision trees, so training and inference need no FPU, and activations come from lookup tables. tinymind (C++)'s networks are generic over the value type and are also tested with `float` and `double`; floating-point networks are not ported yet.
+- **Fixed-point first, floating point too.** The value types are Q-format integers (Q16.16 and Q8.8), int8 in the TFLite/CMSIS-NN affine model, and the int8, uint8 or int16 feature grids of the decision trees, so training and inference need no FPU, and activations come from lookup tables. Like tinymind (C++)'s, the networks also run on `f32` and `f64`, with tanh and sigmoid from the math library (feature `std`, or `libm` without std); with `std` on a glibc host they train bit for bit like tinymind (C++)'s `float` and `double` networks.
 - **No `unsafe`, no reachable panics.** The library is `#![forbid(unsafe_code)]`, and CI links a Cortex-M firmware image that calls every public function and whose panic handler does not exist: any panic path left after optimisation would fail the build.
 - **Bit-exact with C++.** The port is checked byte for byte against tinymind (C++)'s own C++ build on every pull request. See [Equivalence with tinymind (C++)]({{ site.baseurl }}/equivalence).
 - **Built for microcontrollers, checked on them.** CI builds the library for Cortex-M4F (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`), and it has been run on an STM32F411 and an STM32L031: int8 inference and on-device training match the C++ bit for bit there, at about tinymind (C++)'s code size. See [On-board results]({{ site.baseurl }}/benchmarks). Minimum Rust version: 1.85.
@@ -42,7 +42,7 @@ Early. The port covers what six of tinymind (C++)'s examples use (XOR, iris, ene
 | Q16.16 (`i32`) and Q8.8 (`i16`) arithmetic, Truncate and Wrap policies | Other Q formats, saturating and rounding policies |
 | ReLU, linear, and tanh and sigmoid via lookup tables; int8 inference (requantizer, dense layers, 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition and multiplication, padding, concatenation, quantized ReLU, int8 activation tables, softmax bit-exact with TFLite's); quantized decision trees and gradient-boosted ensembles, with an importer for scikit-learn, XGBoost and LightGBM models | The other activations (capped and leaky ReLU, ...) |
 | Trainable networks with any number of hidden layers (SGD with momentum, Adam or RMSprop; optional gradient clipping); inference-only networks of any depth (weights only, can live in flash) | Weight decay and learning-rate schedules, recurrent layers, the rest of the int8 family (recurrent cells, attention), SIMD |
-| | Floating-point (`float`, `double`) networks |
+| Floating-point (`f32`, `f64`) networks, trained with SGD | The floating-point Adam and RMSprop (`AdamOptimizerFloat`, `RmsPropOptimizerFloat`) |
 
 The crate is on [crates.io](https://crates.io/crates/tinymind); the API is not stable yet (before 1.0, a minor version may break it). tinymind (C++) itself is the full library; this port grows by porting slices of it.
 

@@ -1,8 +1,10 @@
-//! Rust port of the tinymind (C++) neural network library. So far only fixed-point
-//! value types are ported; tinymind (C++) also runs its networks with `float` and `double`.
+//! Rust port of the tinymind (C++) neural network library. The networks run on
+//! fixed-point Q formats or, like tinymind (C++)'s, on `f32` and `f64`.
 //!
 //! Scope: Q16.16 and Q8.8 arithmetic and a fixed-point square root ([`Sqrt`]); ReLU, [`Linear`] and the tanh and sigmoid
-//! lookup-table activations; trainable networks with any number of hidden layers
+//! lookup-table activations; `f32` and `f64` as network value types (their
+//! [`Tanh`] and [`Sigmoid`] need the `std` or `libm` feature, and only SGD trains
+//! them so far); trainable networks with any number of hidden layers
 //! ([`NeuralNetwork`] over [`Dense`] layers, trained with SGD and momentum,
 //! [`Adam`] or [`RmsProp`], with optional gradient clipping) and their
 //! inference-only form ([`InferenceNetwork`] over [`InferenceDense`] layers:

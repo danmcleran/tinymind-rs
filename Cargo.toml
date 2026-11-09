@@ -18,12 +18,18 @@ categories = ["embedded", "no-std", "science", "algorithms"]
 exclude = [".claude/", "CLAUDE.md", "ci/", "bench/", ".github/", "docs/", "scripts/", "tools/", ".gitignore", ".gitattributes"]
 
 [dependencies]
+# Optional: tanh and exp for floating-point networks without std (feature `libm`).
+libm = { version = "0.2.16", optional = true }
 
 [features]
 # Host-side helpers that need floating-point math from std: turning float
 # calibration scales into int8 requantizers and activation tables
 # (int8::calibration). The library itself stays no_std without it.
 std = []
+# Floating-point Tanh and Sigmoid without std, from the libm crate (within a
+# few ulps of glibc's, so not bit-identical to the C++ on a Linux host; with
+# `std` the platform's math library is used instead).
+libm = ["dep:libm"]
 
 [package.metadata.docs.rs]
 all-features = true
