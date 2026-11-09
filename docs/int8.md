@@ -85,7 +85,7 @@ Every tensor (the quantized input, every weight table and requantizer, and each 
 
 ## Importing a PyTorch model
 
-`tools/import_pytorch` in the repository turns a trained `torch.nn.Sequential` of `Linear`, `ReLU`, `Sigmoid`, `Tanh` and `Softmax` layers into a Rust module: int8 weights and biases, integer requantizers, baked activation tables and a `forward` function. The generated module is integer-only and `no_std`, so nothing is computed on the device at startup.
+`tools/import_pytorch` in the repository turns a trained `torch.nn.Sequential` into a Rust module: int8 weights and biases, integer requantizers, baked activation tables and a `forward` function. It takes `Linear`, `ReLU`, `Sigmoid`, `Tanh` and `Softmax` layers, and convolutional networks: `Conv2d` (with stride and padding, including depthwise), `MaxPool2d`, `AvgPool2d`, `AdaptiveAvgPool2d(1)` and `Flatten`. The generated module is integer-only and `no_std`, so nothing is computed on the device at startup.
 
 ```python
 import tinymind_import as ti
@@ -93,6 +93,12 @@ import tinymind_import as ti
 layers = ti.from_torch(net)
 ti.import_pytorch_model(layers, "input", ti.MinMaxObserver(), calibration_inputs,
                         "my_model.rs", "my_model")
+
+# A convolutional network: its input shape, and NHWC calibration inputs.
+layers = ti.from_torch(cnn, input_shape=(1, 28, 28))     # (channels, height, width)
+ti.import_pytorch_model(layers, "input", ti.MinMaxObserver(),
+                        [x.permute(1, 2, 0).numpy() for x in images],
+                        "my_cnn.rs", "my_cnn", input_shape=(28, 28, 1))
 ```
 
 ```rust
@@ -100,7 +106,7 @@ mod my_model;
 let y = my_model::forward(&input);
 ```
 
-It is a port of tinymind (C++)'s PyTorch importer with a Rust back end: calibration (min/max, percentile or KL-divergence ranges per layer) and quantization are tinymind (C++)'s code, so the int8 numbers are the same. The `imported_mlp` example runs two models written by the importer (a sigmoid MLP and a softmax classifier); CI imports the same two models with tinymind (C++)'s importer, runs them on the tinymind (C++) runtime, and checks the outputs are byte-identical. See the importer's [README](https://github.com/danmcleran/tinymind-rs/tree/master/tools/import_pytorch).
+It is a port of tinymind (C++)'s PyTorch importer with a Rust back end: calibration (min/max, percentile or KL-divergence ranges per layer) and quantization are tinymind (C++)'s code, so the int8 numbers are the same. The `imported_mlp` example runs two models written by the importer (a sigmoid MLP and a softmax classifier), and `imported_cnn` two convolutional ones (padded, depthwise and pointwise convolutions with max and global pooling and softmax; a strided convolution with average pooling, flatten and dense layers). CI imports the same models with tinymind (C++)'s importer, runs them on the tinymind (C++) runtime, and checks the outputs, and for the convolutional ones a hash of every intermediate tensor, are byte-identical. A further check runs the convolutional import path against PyTorch itself, so the NCHW-to-NHWC conversion is tested too. Batch normalization is not supported yet: fold it into the preceding convolution first. See the importer's [README](https://github.com/danmcleran/tinymind-rs/tree/master/tools/import_pytorch).
 
 ## How it is checked
 
@@ -115,6 +121,6 @@ Where the C++ would hit undefined behaviour (an int32 accumulator overflowing, a
 
 ## Not yet
 
-The rest of tinymind (C++)'s int8 family (residual add, explicit padding, recurrent cells, attention) is not ported yet, and the importer does not emit convolutions yet: it accepts dense layers with ReLU, sigmoid, tanh or softmax only. tinymind (C++)'s ONNX importer is not ported. Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
+The rest of tinymind (C++)'s int8 family (residual add, explicit padding, recurrent cells, attention) is not ported yet, and the importer does not take batch normalization or branches. tinymind (C++)'s ONNX importer is not ported. Decision trees and gradient-boosted ensembles, with their own importer, are on the [Decision trees]({{ site.baseurl }}/trees) page.
 
 The [API reference]({{ site.baseurl }}/api/tinymind/int8/) documents every function.

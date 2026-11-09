@@ -58,6 +58,7 @@ cargo run --release --example energy_efficiency -- output    # building energy-l
 cargo run --release --example anomaly -- output              # autoencoder trained on the device flags faults
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
 cargo run --release --features std --example imported_mlp    # models written by the PyTorch importer
+cargo run --release --features std --example imported_cnn    # convolutional models written by the PyTorch importer
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN
 cargo run --release --example imported_trees                 # scikit-learn trees via the tree importer

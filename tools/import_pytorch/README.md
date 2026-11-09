@@ -8,7 +8,9 @@ no float math and no setup on the device.
 It is a port of tinymind (C++)'s [`apps/import_pytorch`](https://github.com/danmcleran/tinymind/tree/master/apps/import_pytorch).
 Calibration and quantization are tinymind (C++)'s code, unchanged, so a model imported
 here has the same int8 numbers as the same model imported with tinymind (C++); only the
-output is Rust instead of a C++ header.
+output is Rust instead of a C++ header. tinymind (C++)'s importer leaves the layer types to
+hand-written C++; this one also writes the network itself, so it tracks each
+layer's shape, stride and padding.
 
 ## Use
 
@@ -34,6 +36,20 @@ mod my_model;
 
 let y = my_model::forward(&input); // [i8; NUM_INPUTS] -> [i8; NUM_OUTPUTS]
 ```
+
+A convolutional model needs its input shape, in PyTorch's order, and its
+calibration inputs as NHWC arrays (the crate's layout):
+
+```python
+layers = ti.from_torch(net, input_shape=(1, 28, 28))   # (channels, height, width)
+calibration = [x.permute(1, 2, 0).numpy() for x in representative_images]
+ti.import_pytorch_model(layers, "input", ti.MinMaxObserver(), calibration,
+                        "my_cnn.rs", "my_cnn", input_shape=(28, 28, 1))  # (h, w, c)
+```
+
+The module's `forward` then takes an `&Input`, a `[[[i8; C]; W]; H]` feature
+map. `from_torch` turns PyTorch's NCHW tensors and OIHW weights into NHWC and
+OHWI, and reorders the columns of a `Linear` that follows a `Flatten` to match.
 
 Inputs are int8 in the `INPUT` grid and outputs int8 in the `OUTPUT` grid: a
 real value is `SCALE * (q - ZERO_POINT)`, with the constants in the module. On a
@@ -61,19 +77,34 @@ int8 grids.
 
 ## What it supports
 
-A single chain of `Dense` layers, each optionally followed by `ReLU`, `Sigmoid`
-or `Tanh`, and optionally ending in `Softmax` (over the last axis), with
-per-tensor symmetric int8 weights: what the crate runs today. The softmax is the
-crate's `QSoftmax`, bit-exact with TFLite's int8 softmax; its output is the
-probability grid (scale 1/256, zero point -128). Anything else (convolution,
-batch norm, branches) is rejected with an error naming the layer. tinymind (C++)'s
-importer covers more; those layers will come as the crate gains them.
+A single chain, with per-tensor symmetric int8 weights: what the crate runs
+today.
+
+| Layer | `from_torch` | Becomes |
+|---|---|---|
+| `Dense` | `nn.Linear` | `QDense` |
+| `Conv2D` | `nn.Conv2d`: stride, zero padding (including `"same"`), groups 1 or depthwise (groups = in = out channels), no dilation | `QConv2D`, `QDepthwiseConv2D`, or `QPointwiseConv2D` for a 1x1 stride-1 unpadded one |
+| `ReLU` (directly after a `Dense` or `Conv2D`) | `nn.ReLU` | `qrelu` after a dense layer; folded into a convolution's requantizer bound |
+| `MaxPool2D`, `AvgPool2D` (no padding) | `nn.MaxPool2d`, `nn.AvgPool2d` | `QMaxPool2D`, `QAvgPool2D`, in the input's grid |
+| `GlobalAvgPool2D` | `nn.AdaptiveAvgPool2d(1)` | `QGlobalAvgPool2D`, in the input's grid |
+| `Flatten` | `nn.Flatten` | a copy of the feature map in NHWC order |
+| `Sigmoid`, `Tanh` (on vectors) | `nn.Sigmoid`, `nn.Tanh` | a 256-entry table |
+| `Softmax` (last axis, on vectors) | `nn.Softmax` | `QSoftmax`, bit-exact with TFLite's int8 softmax; output on the probability grid (scale 1/256, zero point -128) |
+
+Pooling and flattening keep their input's scale and zero point, as the crate's
+pooling layers have no requantizer. Anything else is rejected with an error
+naming the layer. **Batch normalization is not supported yet**: fold it into the
+preceding convolution before importing. tinymind (C++)'s importer covers more
+(branches, mixture of experts); those layers will come as the crate gains them.
 
 ## How it is checked
 
-- `test_parity.py`: on five models (layer sizes, observers, activations
-  including softmax, input ranges), every scale, zero point, weight and bias
-  equals what tinymind (C++)'s importer computes.
+- `test_parity.py`: on five dense models (layer sizes, observers, activations
+  including softmax, input ranges) and the two convolutional examples, every
+  scale, zero point, weight and bias equals what tinymind (C++)'s importer
+  computes. tinymind (C++)'s importer has no pooling or flatten layers, so for it
+  each one runs inside the next layer's float forward; since they keep their
+  input's grid here, the calibrated ranges are the same.
 - `example_mlp.py` defines two models: a 3-8-4-2 MLP that uses all three
   observers and ends in sigmoid, and a 4-10-3 classifier that ends in softmax.
   CI imports both with both importers; the C++ build runs tinymind (C++)'s output on
@@ -82,6 +113,20 @@ importer covers more; those layers will come as the crate gains them.
   importer's output. The two print the same requantizers, table hash, softmax
   parameters and outputs, byte for byte (`scripts/compare-with-cpp.sh`). CI also
   regenerates the committed modules and checks they have not changed.
+- `example_cnn.py` defines two convolutional models: a 12x12x1 network with a
+  padded convolution, max pooling, depthwise and pointwise convolutions, global
+  average pooling and softmax, and a 9x11x2 network with a strided convolution,
+  average pooling, flatten, two dense layers and tanh. As for the MLPs, CI runs
+  tinymind (C++)'s import on its runtime (`scripts/cpp/imported_cnn.cpp`) and
+  this importer's in the Rust example (`examples/imported_cnn.rs`); they print
+  the same requantizers, a hash of every intermediate tensor and the outputs for
+  16 inputs, byte for byte.
+- `torch_cnn.py` (needs PyTorch; not run in CI) checks `from_torch` against
+  PyTorch itself: on three models covering every supported module, the float
+  model built from the descriptors on NHWC inputs equals the PyTorch module on
+  NCHW inputs to within float rounding. Planted layout mistakes (no `Flatten`
+  reorder, rows and columns of the kernel swapped, `"same"` padded on the wrong
+  side, padding axes swapped) each fail it.
 - The softmax parameters equal tinymind (C++)'s `buildQSoftmaxFixedPointParams`
   on 504 calibrations (`test_parity.py`).
 - The requantizers equal tinymind (C++)'s `buildRequantizer` on the same float32
@@ -89,7 +134,7 @@ importer covers more; those layers will come as the crate gains them.
   library through `ctypes`, as tinymind (C++)'s `buildQSigmoidLUT` and the crate's
   `int8::calibration` builders do, so the three agree (checked on 400 tables);
   without a C library the importer falls back to numpy and warns.
-- The generated module is part of the crate's Cortex-M panic check: it links with
-  no reachable panic.
+- The generated modules (one dense, two convolutional) are part of the crate's
+  Cortex-M panic check: they link with no reachable panic.
 
 If `rustfmt` is installed, the module is formatted as `cargo fmt` would.

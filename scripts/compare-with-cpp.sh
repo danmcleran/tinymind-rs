@@ -322,6 +322,34 @@ else
   status=1
 fi
 
+echo "== imported_cnn (PyTorch importer, convolutional models)"
+mkdir -p "$TMP/cnn"
+# The same models through tinymind's importer -> headers -> tinymind's C++ runtime.
+for model in cnn cnn_flat; do
+  "$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_cnn.py" --model "$model" --cpp "$TMP/cnn/$model.hpp" >/dev/null
+done
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/cnn/imported_cnn" "$ROOT/scripts/cpp/imported_cnn.cpp" \
+  -I"$TMP/cnn" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+"$TMP/cnn/imported_cnn" > "$TMP/cnn/cpp.txt"
+"$ROOT/target/release/examples/imported_cnn" > "$TMP/cnn/rust.txt"
+if cmp -s "$TMP/cnn/cpp.txt" "$TMP/cnn/rust.txt"; then
+  same "imported_cnn stdout.txt"
+else
+  echo "DIFFERENT  imported_cnn stdout.txt"
+  status=1
+fi
+# The committed generated modules are exactly what this repo's importer writes.
+for model in cnn cnn_flat; do
+  "$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_cnn.py" --model "$model" --rust "$TMP/cnn/$model.rs" >/dev/null
+  if cmp -s "$TMP/cnn/$model.rs" "$ROOT/examples/common/imported_${model}_model.rs"; then
+    same "imported_cnn examples/common/imported_${model}_model.rs (regenerated)"
+  else
+    echo "DIFFERENT  imported_cnn examples/common/imported_${model}_model.rs (regenerated)"
+    status=1
+  fi
+done
+
 echo "== imported_trees (tree importer)"
 # Needs scikit-learn in PYTHON; XGBoost and LightGBM for all of test_parity.py.
 mkdir -p "$TMP/trees"
@@ -397,6 +425,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/tree/stdout.txt" "$KEEP_CPP_OUTPUT/tree/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/kws_int8"
   cp "$TMP/kws_int8/tensors.txt" "$KEEP_CPP_OUTPUT/kws_int8/tensors.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/imported_cnn"
+  cp "$TMP/cnn/cpp.txt" "$KEEP_CPP_OUTPUT/imported_cnn/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/conv"
   cp "$TMP/conv/stdout.txt" "$KEEP_CPP_OUTPUT/conv/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"
