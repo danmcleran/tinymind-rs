@@ -357,8 +357,8 @@ mod tree {
 mod conv {
     use crate::int8::pool::rounded_divide;
     use crate::int8::{
-        QAvgPool2D, QConv2D, QConv2DPerChannel, QDepthwiseConv2D, QGlobalAvgPool2D, QMaxPool2D,
-        QPointwiseConv2D, QPointwiseConv2DPerChannel, Requantizer,
+        FastRequantizer, QAvgPool2D, QConv2D, QConv2DPerChannel, QDepthwiseConv2D,
+        QGlobalAvgPool2D, QMaxPool2D, QPointwiseConv2D, QPointwiseConv2DPerChannel, Requantizer,
     };
 
     fn any_requantizer() -> Requantizer {
@@ -473,6 +473,18 @@ mod conv {
             qmax: kani::any(),
         };
         let _ = global.forward(&input);
+    }
+
+    /// The prepared requantizer the conv layers use (tinymind (C++)'s
+    /// `FastRequantizer`) gives exactly `Requantizer::apply`'s result, for every
+    /// accumulator and every requantizer it accepts.
+    #[kani::proof]
+    fn fast_requantizer_matches_apply() {
+        let rq = any_requantizer();
+        if let Some(fast) = FastRequantizer::new(&rq) {
+            let acc: i32 = kani::any();
+            assert!(fast.apply(acc) == rq.apply(acc));
+        }
     }
 
     /// Total for every numerator and denominator.

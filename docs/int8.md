@@ -33,7 +33,7 @@ Tensors are NHWC without the batch axis, as nested arrays: an input is `[[[i8; C
 
 The [`int8` API reference]({{ site.baseurl }}/api/tinymind/int8/) has a compiled example: a convolution followed by max pooling.
 
-The C++ layers gather patches, tile output rows and pair filters for speed; those add the same integer products, so the results are the same. The Rust layers are plain loops for now.
+The C++ layers gather patches, tile output rows and pair filters for speed; the Rust layers fold the zero point into each filter's bias, hold its weights and a prepared requantizer across the pixels, and read windows inside the input as slices. Both add the same integer products, so the results are the same. On the boards the Rust layers run a keyword-spotting shaped network in 13-26% fewer cycles than tinymind (C++)'s portable build ([On-board results]({{ site.baseurl }}/benchmarks)).
 
 ## Example: a PyTorch-trained XOR network
 
