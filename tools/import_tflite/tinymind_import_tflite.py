@@ -279,8 +279,8 @@ class Translation:
         return self.shapes[i]
 
     def _step(self, kind: str, code: str, ins, out_tensor, out_shape):
-        """kind "buffer": `code` writes a feature map into the caller-owned
-        buffer `{y}`; kind "value": `code` is an expression, or, with `{y}`,
+        """kind "buffer": `code` writes a feature map through `{y}`, a
+        `&mut` view of its place in the arena; kind "value": `code` is an expression, or, with `{y}`,
         statements that fill the new value `{y}`. In both, `{x0}`, `{x1}` are
         references to the inputs and `{n0}` the first input's variable."""
         self.steps.append((kind, code, [self._src(t.index) for t in ins], out_tensor.index, out_shape))
@@ -376,7 +376,7 @@ class Translation:
             init = "QConv2DPerChannel"
         self.decls.append(f"static {tag}: {ty} = {init} {{ weights: &{tag}_WEIGHTS, biases: {biases}, "
                           f"input_zero_point: {z_in}, requantizers: &{tag}_REQUANTIZERS }};\n")
-        self._step("buffer", f"{tag}.forward({{x0}}, &mut {{y}})", [x], y, ("map", OH, OW, F))
+        self._step("buffer", f"{tag}.forward({{x0}}, {{y}})", [x], y, ("map", OH, OW, F))
 
     def avgpool(self, op, ins, y):
         x = ins[0]
@@ -468,7 +468,7 @@ class Translation:
         self.decls.append(f"static {tag}: QAdd = "
                           f"{add_literal((a.scale(), a.zp()), (b.scale(), b.zp()), (y.scale(), y.zp()), act)};\n")
         if shape[0] == "map":
-            self._step("buffer", f"{tag}.forward({{x0}}, {{x1}}, &mut {{y}})", [a, b], y, shape)
+            self._step("buffer", f"{tag}.forward({{x0}}, {{x1}}, {{y}})", [a, b], y, shape)
         else:
             self._step("value", f"let mut {{y}} = [0i8; {shape[1]}]; "
                        f"{tag}.forward({{x0}}, {{x1}}, &mut {{y}});", [a, b], y, shape)
@@ -508,53 +508,117 @@ class Translation:
                   f"/// Zero point of the output tensor.\npub const OUTPUT_ZERO_POINT: i8 = {out_t.zp()};",
                   ""]
         lines += self.decls
-        # Feature maps go into buffers, one per shape and as many as are live
-        # at once: a layer writes into a buffer of its output's shape whose
-        # tensor no later step reads, so a chain of same-shaped layers
-        # ping-pongs between two and a residual block keeps its skip tensor
-        # (typed arrays of different shapes cannot share storage without
-        # `unsafe`). Vectors are values.
+        # Feature maps live in one byte arena, planned as tinymind's translator
+        # plans its arena: each map is placed first-fit at the lowest offset
+        # that overlaps no map still to be read, so maps of every shape share
+        # the same bytes (ResNet-8: 49,152 B). Layers take typed tensors: a
+        # step splits the arena around its output (`split_at_mut`) and views
+        # each part as an NHWC array (`view`/`view_mut`, safe: `as_chunks` and
+        # `first_chunk`). Vectors are values.
         last_use = {}
         for k, (_, _, ins, _, _) in enumerate(self.steps):
             for t in ins:
                 last_use[t] = k
         last_use[out_src] = len(self.steps)
+        place: dict[int, tuple] = {}  # map tensor -> (offset, length, dims)
+        live: list[int] = []
+        arena = 0
+        for k, (kind, _, _, out, shape) in enumerate(self.steps):
+            if kind != "buffer":
+                continue
+            live = [t for t in live if last_use.get(t, -1) >= k]
+            dims = tuple(shape[1:])
+            need = int(np.prod(dims))
+            off = 0
+            for t in sorted(live, key=lambda t: place[t][0]):
+                o, n, _ = place[t]
+                if off + need <= o:
+                    break
+                off = max(off, o + n)
+            place[out] = (off, need, dims)
+            live.append(out)
+            arena = max(arena, off + need)
+
+        def dims_args(dims):
+            return ", ".join(str(d) for d in dims)
+
+        def read(t, part=None):
+            """Expression for tensor t: a reference (`input`, a view, `&v`)."""
+            if t == in_t.index:
+                return "input"
+            if t in place:
+                o, n, dims = place[t]
+                if part is None:
+                    return f"view::<{dims_args(dims)}>(&arena[{o}..{o + n}])"
+                name, base = part(o, n)
+                return f"view::<{dims_args(dims)}>(&{name}[{o - base}..{o - base + n}])"
+            return f"&{var[t]}"
+
         body: list[str] = []
-        buffers: dict[tuple, list[str]] = {}
-        holds: dict[str, int] = {}  # buffer -> the tensor in it
-        var = {in_t.index: "input"}  # tensor -> the variable holding it
-        cur = "input"
+        if place:
+            body.append(f"    let mut arena = [0i8; {arena}];")
+        var = {in_t.index: "input"}  # tensor -> the variable holding it (vectors)
         for k, (kind, code, ins, out, shape) in enumerate(self.steps):
-            refs = [var[t] if var[t] == "input" else f"&{var[t]}" for t in ins]
-            code = code.replace("{n0}", var[ins[0]])
-            for j, r in enumerate(refs):
-                code = code.replace("{x%d}" % j, r)
             if kind == "buffer":
-                dims = tuple(shape[1:])
-                free = [b for b in buffers.get(dims, []) if last_use.get(holds[b], -1) < k]
-                if free:
-                    y = free[0]
-                else:
-                    y = f"b{sum(len(v) for v in buffers.values())}"
-                    buffers.setdefault(dims, []).append(y)
-                    body.append(f"    let mut {y} = {_zeros(dims)};")
-                holds[y] = out
-                body.append(f"    {code.replace('{y}', y)};")
+                o, n, dims = place[out]
+                used = set()
+
+                def part(to, tn, o=o, n=n, used=used):
+                    if to + tn <= o:
+                        used.add("lo")
+                        return "lo", 0
+                    used.add("hi")
+                    return "hi", o + n
+
+                refs = [read(t, part) for t in ins]
+                for j, r in enumerate(refs):
+                    code = code.replace("{x%d}" % j, r)
+                code = code.replace("{y}", f"view_mut::<{dims_args(dims)}>(y)")
+                lo = "lo" if "lo" in used else "_"
+                hi = "hi" if "hi" in used else "_"
+                body += ["    {",
+                         f"        let ({lo}, rest) = arena.split_at_mut({o});",
+                         f"        let (y, {hi}) = rest.split_at_mut({n});",
+                         f"        {code};",
+                         "    }"]
             else:
+                refs = [read(t) for t in ins]
+                bare = refs[0][1:] if refs[0].startswith("&") else refs[0]
+                code = code.replace("{n0}", bare)
+                for j, r in enumerate(refs):
+                    code = code.replace("{x%d}" % j, r)
                 y = f"v{k}"
                 if "{y}" in code:
                     body.append("    " + code.replace("{y}", y))
                 else:
                     body.append(f"    let {y} = {code};")
-            var[out] = y
-            cur = y
-        cur = var[out_src]
-        # The last value is the function's value (clippy::let_and_return).
-        last = body[-1]
-        if last.startswith(f"    let {cur} = ") and last.endswith(";"):
-            body[-1] = "    " + last[len(f"    let {cur} = "):-1]
+                var[out] = y
+        if out_src in place:
+            body.append(f"    *{read(out_src)}")
         else:
-            body.append(f"    {cur}")
+            cur = var[out_src]
+            # The last value is the function's value (clippy::let_and_return).
+            last = body[-1]
+            if last.startswith(f"    let {cur} = ") and last.endswith(";"):
+                body[-1] = "    " + last[len(f"    let {cur} = "):-1]
+            else:
+                body.append(f"    {cur}")
+        if place:
+            lines += ["/// Feature map `[..; H]` of `[..; W]` of `[i8; C]` stored at `s` (its first",
+                      "/// `H * W * C` bytes), as an NHWC tensor.",
+                      "fn view<const H: usize, const W: usize, const C: usize>(s: &[i8]) -> &[[[i8; C]; W]; H] {",
+                      "    let (pixels, _) = s.as_chunks::<C>();",
+                      "    let (rows, _) = pixels.as_chunks::<W>();",
+                      "    rows.first_chunk::<H>().expect(\"the arena plan gives every map its size\")",
+                      "}",
+                      "",
+                      "/// [`view`], writable.",
+                      "fn view_mut<const H: usize, const W: usize, const C: usize>(s: &mut [i8]) -> &mut [[[i8; C]; W]; H] {",
+                      "    let (pixels, _) = s.as_chunks_mut::<C>();",
+                      "    let (rows, _) = pixels.as_chunks_mut::<W>();",
+                      "    rows.first_chunk_mut::<H>().expect(\"the arena plan gives every map its size\")",
+                      "}",
+                      ""]
         lines += ["/// Run the network on an int8 input in the `INPUT` grid.",
                   "pub fn forward(input: &Input) -> Output {"] + body + ["}"]
         text = "\n".join(lines) + "\n"

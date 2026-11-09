@@ -33,14 +33,14 @@ let y = model::forward(&input); // &model::Input -> model::Output
 `INPUT_SCALE` and `INPUT_ZERO_POINT`, the output's `OUTPUT_SCALE` and
 `OUTPUT_ZERO_POINT`.
 
-Feature maps live in buffers inside `forward`, one per shape and as many as are
-live at once: a layer writes into a buffer whose tensor no later layer reads, so
-a chain of same-shaped layers ping-pongs between two of them, as the planned
-arena of tinymind (C++) does, and a residual block keeps its skip tensor until
-the `ADD` that reads it. tinymind (C++) plans one byte arena for every shape; typed
-arrays of different shapes cannot share storage without `unsafe`, so the module
-needs more RAM when shapes change along the network (the MLPerf ResNet-8: 86.5
-KB against 54 KB).
+Feature maps live in one byte arena inside `forward`, planned the way the
+translator of tinymind (C++) plans its own: each map goes first-fit at the lowest offset
+that overlaps no map still to be read, so a chain ping-pongs between two slots,
+a residual block keeps its skip tensor until the `ADD` that reads it, and maps
+of every shape share the same bytes (the MLPerf ResNet-8: 49,152 B, as in
+tinymind (C++)). Each layer gets typed NHWC views of its slots through safe
+`as_chunks`/`first_chunk` and `split_at_mut`, so the generated module needs
+Rust 1.88 or later (the crate itself needs 1.85).
 
 ## What it supports
 

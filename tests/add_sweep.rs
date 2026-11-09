@@ -148,6 +148,18 @@ fn add_matches_cpp() {
         let mut y = [0i8; 256];
         add.forward(&a, &b, &mut y);
         print(&mut out, "direct", k, &add, fnv(0x811C_9DC5, &y));
+        // Below 256 elements the layer rescales element by element instead of
+        // through tables: the same outputs.
+        for ((ya, yb), yc) in a
+            .chunks_exact(8)
+            .zip(b.chunks_exact(8))
+            .zip(y.chunks_exact(8))
+        {
+            let (ya, yb): ([i8; 8], [i8; 8]) = (ya.try_into().unwrap(), yb.try_into().unwrap());
+            let mut small = [0i8; 8];
+            add.forward(&ya, &yb, &mut small);
+            assert_eq!(&small[..], yc, "direct {k}: element-wise path differs");
+        }
     }
 
     for k in 0..16 {

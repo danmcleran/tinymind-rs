@@ -213,20 +213,19 @@ includes its tensor arena).
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **16,197,424** | **162.0 ms** | **46,384 B** | **16,336 B** |
+| **tinymind-rs** | **16,148,194** | **161.5 ms** | **46,368 B** | **16,336 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,432 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,828 B |
 
-- The Rust model takes 2.9% more cycles than tinymind (C++)'s portable build, in
+- The Rust model takes 2.6% more cycles than tinymind (C++)'s portable build, in
   12% less flash and 5% less RAM; tinymind (C++)'s SMLAD build and TFLM with
   CMSIS-NN are faster, as neither SIMD path is available to the Rust port.
-- RAM: the translator gives each feature-map shape as many buffers as are live
-  at once, so the eight 25x5x64 layers ping-pong between two (16,000 B), as
-  tinymind (C++)'s planned arena does. A first version nested each layer in its
-  own block instead and peaked at three tensors (24,512 B): the value each block
-  returned took a slot of its own.
+- RAM: the translator plans one byte arena for the feature maps, as the
+  translator of tinymind (C++) does, so the eight 25x5x64 layers ping-pong between two slots (16,000
+  B). A first version nested each layer in its own block instead and peaked at
+  three tensors (24,512 B): the value each block returned took a slot of its own.
 
 ### MLPerf Tiny image classification (ResNet-8), translated from TFLite
 
@@ -234,19 +233,43 @@ Same method and caveats. Test inputs are 24,576 B.
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **91,085,417** | **910.9 ms** | **101,076 B** | **86,520 B** |
+| **tinymind-rs** | **64,407,536** | **644.1 ms** | **130,184 B** | **57,692 B** |
+| tinymind-rs, `-C llvm-args=-arm-parallel-dsp-load-limit=512` | 41,401,469 | 414.0 ms | 125,384 B | 57,700 B |
 | tinymind (C++), scalar | 85,467,754 | 854.7 ms | 120,836 B | 54,380 B |
 | tinymind (C++), +SMLAD | 26,753,191 | 267.5 ms | 108,324 B | 54,424 B |
 | TFLM int8 (CMSIS-NN) | 37,372,049 | 373.7 ms | 191,212 B | 56,608 B |
 | TFLM int8 (reference kernels) | 191,555,451 | 1,915.6 ms | 155,412 B | 55,396 B |
 
-- 6.6% more cycles than tinymind (C++)'s portable build, in 16% less flash. The
-  3x3 convolutions over 16 to 64 channels (most of the work) are not tuned on
-  the board yet.
-- RAM is 59% higher: the module keeps three buffers of each of the three
-  feature-map shapes (3 x 16,384 + 3 x 8,192 + 3 x 4,096 B), while the planned
-  byte arena of tinymind (C++) reuses the same 49,152 B across shapes. Typed
-  arrays of different shapes cannot share storage without `unsafe`.
+- 25% fewer cycles than tinymind (C++)'s portable build, in 8% more flash and
+  6% more RAM. Before this tuning: 91,085,417 cycles, 101,076 B, 86,520 B.
+- Convolutions over several input channels (`conv2d_band` in
+  `src/int8/conv.rs`) widen the `KH` input rows of each output row to `i16` as
+  `x - zero_point`, and each filter's weights to `i16`, then add each window
+  inside the input as `KH` dot products over contiguous `KW * C` values, in
+  pairs: 91.1M to 68.4M cycles for the network (a 16-channel 3x3 layer then
+  took 11.1M, 4.7 cycles per multiply-accumulate). Computing two filters at
+  two pixels at a time was barely faster by default (68.0M), slower with the
+  flag below (48.1M against 45.9M) and took 68 KB more flash: dropped.
+- The three additions tabulate each input's rescaling for all 256 int8 values
+  first: 185 cycles per element down to 22 (3.03M to 0.36M cycles for the
+  first one).
+- RAM: one planned byte arena (49,152 B, as tinymind (C++)'s), viewed as typed
+  tensors through `as_chunks` and `first_chunk` (safe Rust, 1.88 or later in
+  the generated module), with `split_at_mut` separating a layer's output from
+  its inputs. Per-shape typed buffers needed 86,520 B. Most of the rest is
+  the convolutions' 16-bit scratch (about 4.2 KB for the 64-channel layer) and
+  the addition tables (2 KB).
+- **SMLAD from stable Rust.** LLVM's Arm parallel-DSP pass turns two adjacent
+  `i16` products added to one sum into `SMLAD`, on M4/M7/M33, with no
+  intrinsics. It analyses at most 16 loads by default and gives up on the
+  fully unrolled sums here; with `-C
+  llvm-args=-arm-parallel-dsp-load-limit=512` it pairs them: 41,401,469 cycles,
+  1.55 times tinymind (C++)'s +SMLAD build (which reads four int8 values per
+  load with `SXTB16`, an intrinsic). The flag changes no other workload here.
+  It is an LLVM internal option, so it is opt-in, not in this bench's config.
+- The 16-bit path on the M0+ (no DSP): a 10x10x8 3x3 convolution measured
+  675,064 cycles against 835,734 on the previous path (F411: 303,574 against
+  451,012), with the same output.
 
 ### Decision trees, imported from scikit-learn
 
