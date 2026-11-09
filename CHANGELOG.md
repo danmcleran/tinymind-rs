@@ -26,7 +26,8 @@ break the API).
   convolutional networks: `Conv2D` (stride, padding, depthwise), max, average
   and global average pooling, and flatten, from hand-written descriptors or from
   `nn.Conv2d`, `nn.MaxPool2d`, `nn.AvgPool2d`, `nn.AdaptiveAvgPool2d(1)` and
-  `nn.Flatten` through `from_torch(model, input_shape=...)`. Example
+  `nn.Flatten` through `from_torch(model, input_shape=...)`, and folds a
+  `BatchNorm2D` (`nn.BatchNorm2d`) into the convolution before it. Example
   `imported_cnn` (feature `std`) runs two such models, byte-identical to
   tinymind (C++)'s importer and runtime on the same models.
 - A TFLite translator in the repository (`tools/import_tflite`, not part of the

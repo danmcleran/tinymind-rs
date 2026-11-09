@@ -53,8 +53,8 @@ fn fnv<'a>(h: u32, tensor: impl IntoIterator<Item = &'a i8>) -> u32 {
 }
 
 fn run_cnn(out: &mut dyn Write) -> io::Result<()> {
-    print_rq(out, "cnn", "conv1", &cnn::CONV1.requantizer)?;
-    print_rq(out, "cnn", "conv2", &cnn::CONV2_REQUANTIZERS[0])?;
+    print_rq(out, "cnn", "conv1", &cnn::BN1.requantizer)?;
+    print_rq(out, "cnn", "conv2", &cnn::BN2_REQUANTIZERS[0])?;
     print_rq(out, "cnn", "conv3", &cnn::CONV3.requantizer)?;
     print_rq(out, "cnn", "fc1", &cnn::FC1.requantizer)?;
     let p = cnn::PROBS;
@@ -67,11 +67,11 @@ fn run_cnn(out: &mut dyn Write) -> io::Result<()> {
         let x: cnn::Input = input(s, cnn::INPUT_SCALE, cnn::INPUT_ZERO_POINT);
         // Layer by layer, for the hash of every intermediate tensor.
         let mut a1 = [[[0i8; 4]; 12]; 12];
-        cnn::CONV1.forward(&x, &mut a1);
+        cnn::BN1.forward(&x, &mut a1);
         let mut p1 = [[[0i8; 4]; 6]; 6];
         cnn::POOL1.forward(&a1, &mut p1);
         let mut a2 = [[[0i8; 4]; 6]; 6];
-        cnn::CONV2.forward(&p1, &mut a2);
+        cnn::BN2.forward(&p1, &mut a2);
         let mut a3 = [[[0i8; 8]; 6]; 6];
         cnn::CONV3.forward(&a2, &mut a3);
         let g = cnn::GAP.forward(&a3);

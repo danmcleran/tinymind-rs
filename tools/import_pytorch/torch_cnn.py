@@ -5,12 +5,14 @@
 
 `from_torch` turns PyTorch's NCHW tensors and OIHW weights into the NHWC
 tensors and OHWI weights the crate uses, reorders a Linear after a Flatten, and
-translates padding and depthwise groups. A mistake in any of that leaves the
+translates padding and depthwise groups, and folds batch norm into the
+convolution before it. A mistake in any of that leaves the
 importer self-consistent (calibration and the integer model both use the
 translated descriptors) while the model computes something else, so it is
 checked here against PyTorch's own output: for several models, the descriptors'
-float forward on NHWC inputs must equal the module's on NCHW inputs to within
-float rounding. With an argument, it also writes the first model as a Rust
+float forward on NHWC inputs, and the same chain run from each convolution's
+folded weights, must equal the module's on NCHW inputs to within float
+rounding. With an argument, it also writes the first model as a Rust
 module.
 """
 
@@ -39,7 +41,37 @@ MODELS = [
         nn.Conv2d(3, 6, (5, 3), padding=(2, 1), bias=False), nn.ReLU(),
         nn.Conv2d(6, 6, 4, padding="same", groups=6), nn.ReLU(),
         nn.MaxPool2d(3, stride=2), nn.Flatten(), nn.Linear(6 * 3 * 4, 4))),
+    ("batch norm after a conv and after a depthwise conv", (2, 10, 10), lambda: with_bn_stats(nn.Sequential(
+        nn.Conv2d(2, 4, 3, padding=1), nn.BatchNorm2d(4), nn.ReLU(),
+        nn.Conv2d(4, 4, 3, groups=4, bias=False), nn.BatchNorm2d(4), nn.ReLU(),
+        nn.AdaptiveAvgPool2d(1), nn.Flatten(), nn.Linear(4, 3)))),
 ]
+
+
+def with_bn_stats(model):
+    """Give every BatchNorm2d non-trivial statistics and affine parameters (a
+    fresh one is the identity), so a mistake in the folding shows."""
+    g = torch.Generator().manual_seed(1)
+    for m in model:
+        if isinstance(m, nn.BatchNorm2d):
+            c = m.num_features
+            m.running_mean.copy_(torch.randn(c, generator=g) * 0.5)
+            m.running_var.copy_(torch.rand(c, generator=g) * 2.0 + 0.1)
+            m.weight.data.copy_(torch.randn(c, generator=g) * 2.0)
+            m.bias.data.copy_(torch.randn(c, generator=g))
+    return model
+
+
+def from_folded_weights(layers):
+    """The chain with BatchNorm folded, every Conv2D running from its own
+    (folded) weights and bias rather than its float forward: what the int8
+    layer is quantized from."""
+    fused = ti.fuse_layers(layers)
+    for layer in fused:
+        if isinstance(layer, ti.Conv2D):
+            layer.forward = (lambda x, l=layer:
+                             ti.conv2d_nhwc(x, l.weight, l.bias, l.stride, l.padding, l.depthwise))
+    return fused
 
 
 def main():
@@ -54,7 +86,8 @@ def main():
             with torch.no_grad():
                 ref = model(torch.from_numpy(x)[None])[0].numpy()
             ours = ti.run_float(layers, x.transpose(1, 2, 0))
-            err = float(np.max(np.abs(ours - ref)))
+            folded = ti.run_float(from_folded_weights(layers), x.transpose(1, 2, 0))
+            err = max(float(np.max(np.abs(ours - ref))), float(np.max(np.abs(folded - ref))))
             tol = 1e-5 * max(1.0, float(np.max(np.abs(ref))))
             worst = max(worst, err)
             if ours.shape != ref.shape or err > tol:

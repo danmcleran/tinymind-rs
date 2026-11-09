@@ -39,9 +39,10 @@ Supported layers (what the crate can run today), in a single chain: Dense,
 ReLU, Sigmoid, Tanh and Softmax (over the last axis) on vectors; Conv2D
 (tinymind's descriptor, plus the stride, padding and depthwise flag the
 generated Rust needs), MaxPool2D, AvgPool2D, GlobalAvgPool2D and Flatten on
-NHWC feature maps. A ReLU follows a Dense or Conv2D directly. BatchNorm2D is not
-supported yet. Observers: MinMaxObserver, PercentileObserver,
-KLDivergenceObserver (per tensor).
+NHWC feature maps, and BatchNorm2D directly after a Conv2D (folded into it, as
+tinymind's importer does). A ReLU follows a Dense or Conv2D directly.
+Observers: MinMaxObserver, PercentileObserver, KLDivergenceObserver (per
+tensor).
 
 numpy only; PyTorch is needed only to train the model, and `from_torch` imports
 it lazily.
@@ -317,6 +318,17 @@ class Conv2D(Layer):
 
 
 @dataclass
+class BatchNorm2D(Layer):
+    """BN that may fuse into a preceding Conv2D (tinymind's descriptor)."""
+    gamma: np.ndarray = None
+    beta: np.ndarray = None
+    mean: np.ndarray = None
+    variance: np.ndarray = None
+    eps: float = 1.0e-5
+    input_name: str = ""
+
+
+@dataclass
 class MaxPool2D(Layer):
     """Max pooling over `kernel` windows at `stride` (default: the kernel), no
     padding. Its output keeps its input's scale and zero point."""
@@ -349,6 +361,69 @@ class Flatten(Layer):
 SUPPORTED = (Dense, ReLU, Sigmoid, Tanh, Softmax, Conv2D, MaxPool2D, AvgPool2D,
              GlobalAvgPool2D, Flatten)
 PASS_THROUGH = (MaxPool2D, AvgPool2D, GlobalAvgPool2D, Flatten)
+
+
+def fold_conv_bn(conv: Conv2D, bn: BatchNorm2D) -> Conv2D:
+    """Fold BN into a preceding Conv2D, returning the fused Conv2D.
+
+    tinymind's fold_conv_bn (cpp/include/qcalibration.hpp::foldBatchNorm math),
+    including its fix in tinymind #256: the fused layer's float forward runs
+    the conv and then the BN, so calibration measures the range after the BN,
+    which is what the fused int8 layer outputs. Added here: the fused layer
+    keeps the conv's stride, padding and depthwise flag (a depthwise filter is
+    one channel, so the per-filter scaling is per channel)."""
+    sigma_eff = bn.gamma / np.sqrt(bn.variance + bn.eps)
+    fused_w = conv.weight * sigma_eff.reshape(-1, 1, 1, 1)
+    if conv.bias is not None:
+        fused_b = (conv.bias - bn.mean) * sigma_eff + bn.beta
+    else:
+        fused_b = -bn.mean * sigma_eff + bn.beta
+    # Calibration observes the fused layer's output through `forward`, and
+    # the int8 layer computes conv-then-BN, so the float forward must too.
+    # conv.forward alone would fit the output scale to the range before BN.
+    forward = None
+    if conv.forward is not None:
+        conv_forward = conv.forward
+
+        def forward(x: np.ndarray) -> np.ndarray:
+            return (conv_forward(x) - bn.mean) * sigma_eff + bn.beta
+    fused = Conv2D(
+        name=bn.name,
+        observer=bn.observer,
+        weight=fused_w,
+        bias=fused_b,
+        input_name=conv.input_name,
+        forward=forward,
+        stride=conv.stride,
+        padding=conv.padding,
+        depthwise=conv.depthwise,
+    )
+    return fused
+
+
+def fuse_layers(layers: Sequence[Layer]) -> list[Layer]:
+    """Detect Conv2D-then-BatchNorm2D pairs and fuse them (tinymind's).
+
+    A BatchNorm immediately downstream of a Conv2D collapses into the
+    conv weights/bias. The fused layer inherits the BN's observer (so the
+    activation observed at runtime is the fused-conv output) and the BN's
+    output name (downstream layers referencing the BN keep working).
+    """
+    out: list[Layer] = []
+    i = 0
+    while i < len(layers):
+        a = layers[i]
+        if (i + 1 < len(layers)
+                and isinstance(a, Conv2D)
+                and isinstance(layers[i + 1], BatchNorm2D)
+                and layers[i + 1].input_name == a.name):
+            fused = fold_conv_bn(a, layers[i + 1])
+            out.append(fused)
+            i += 2
+            continue
+        out.append(a)
+        i += 1
+    return out
 
 
 def _windows(x: np.ndarray, kernel: tuple, stride: tuple) -> np.ndarray:
@@ -434,9 +509,10 @@ def _float_step(layer: Layer, parent: np.ndarray) -> np.ndarray:
 
 def run_float(layers: Sequence[Layer], x: np.ndarray) -> np.ndarray:
     """The float reference model on one input (NHWC for feature maps): what
-    calibration observes, layer by layer. Returns the chain's output."""
+    calibration observes, layer by layer, with each BatchNorm2D folded into
+    its Conv2D as the import does. Returns the chain's output."""
     y = x.astype(np.float32)
-    for layer in layers:
+    for layer in fuse_layers(layers):
         y = _float_step(layer, y)
     return y
 
@@ -993,10 +1069,13 @@ def import_pytorch_model(layers: Sequence[Layer], input_name: str, input_observe
                          dataset: Iterable[np.ndarray], output_path: str,
                          model_name: str,
                          input_shape: Optional[tuple] = None) -> dict[str, tuple[float, int]]:
-    """Calibrate -> quantize -> write the Rust module. Returns the activation
-    ranges (tensor name -> (scale, zero_point)). A model that starts with a
-    Conv2D needs `input_shape=(height, width, channels)`; its calibration inputs
-    are NHWC arrays of that shape."""
+    """Fuse -> calibrate -> quantize -> write the Rust module (tinymind's
+    order). Returns the activation ranges (tensor name -> (scale,
+    zero_point)). A model that starts with a Conv2D needs
+    `input_shape=(height, width, channels)`; its calibration inputs are NHWC
+    arrays of that shape. A BatchNorm2D directly after a Conv2D is folded into
+    it; anywhere else it is rejected."""
+    layers = fuse_layers(layers)
     _plan(layers, input_name, input_shape)  # reject unsupported models before calibrating
     ranges = calibrate(layers, input_name, input_observer, dataset)
     quantize_weights(layers, ranges)
@@ -1021,7 +1100,10 @@ def from_torch(model, input_name: str = "input", observers: Optional[dict] = Non
     PyTorch's NCHW tensors and OIHW weights become NHWC and OHWI, and a Linear
     after a Flatten has its columns reordered to match, so the descriptors and
     the generated module take NHWC inputs: calibrate with
-    `x.permute(1, 2, 0).numpy()` per sample. BatchNorm2d is not supported yet."""
+    `x.permute(1, 2, 0).numpy()` per sample. A BatchNorm2d directly after a
+    Conv2d becomes a BatchNorm2D (its running statistics), which
+    import_pytorch_model folds into the convolution; put the model in
+    `eval()` mode."""
     import torch  # lazily: only this helper needs PyTorch
 
     observers = observers or {}
@@ -1141,8 +1223,23 @@ def from_torch(model, input_name: str = "input", observers: Optional[dict] = Non
             name = name_for("softmax")
             layers.append(Softmax(name=name, input_name=current))
         elif isinstance(module, torch.nn.BatchNorm2d):
-            raise NotImplementedError("BatchNorm2d is not supported yet: fold it into the "
-                                      "preceding Conv2d before importing")
+            # Inference-mode statistics; import_pytorch_model folds it into
+            # the Conv2d before it.
+            if not (layers and isinstance(layers[-1], Conv2D)):
+                raise NotImplementedError("BatchNorm2d is supported only directly after a Conv2d")
+            if not module.track_running_stats or module.running_mean is None:
+                raise NotImplementedError("BatchNorm2d without running statistics is not supported")
+            c = module.num_features
+            gamma = (module.weight.detach().cpu().numpy().astype(np.float32)
+                     if module.affine else np.ones(c, np.float32))
+            beta = (module.bias.detach().cpu().numpy().astype(np.float32)
+                    if module.affine else np.zeros(c, np.float32))
+            name = name_for("bn")
+            layers.append(BatchNorm2D(
+                name=name, input_name=current, gamma=gamma, beta=beta,
+                mean=module.running_mean.detach().cpu().numpy().astype(np.float32),
+                variance=module.running_var.detach().cpu().numpy().astype(np.float32),
+                eps=float(module.eps), observer=observer(name)))
         else:
             raise NotImplementedError(f"{type(module).__name__} is not supported yet")
         current = layers[-1].name

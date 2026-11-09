@@ -1,4 +1,6 @@
-// The importer's convolutional example models (tools/import_pytorch/example_cnn.py)
+// The importer's convolutional example models (tools/import_pytorch/example_cnn.py,
+// whose batch norms both importers fold into the convolutions: the fused layers
+// take the batch norms' names, bn1 and bn2)
 // on tinymind's C++ int8 runtime, from the headers tinymind's own importer
 // writes (cnn.hpp, cnn_flat.hpp). It builds the requantizers, the softmax
 // parameters and the tanh table at startup, runs 16 inputs through each model,
@@ -65,19 +67,19 @@ static void runCnn()
 {
     namespace m = example_cnn;
     tinymind::QConv2D<int8_t, int8_t, int32_t, int8_t, 12, 12, 1, 3, 3, 1, 1, 4, 1, 1, 1, 1> conv1;
-    conv1.weights = m::kconv1_Weights;
-    conv1.biases = m::kconv1_Biases;
+    conv1.weights = m::kbn1_Weights;
+    conv1.biases = m::kbn1_Biases;
     conv1.input_zero_point = static_cast<int8_t>(m::kinput_ZeroPoint);
-    conv1.requantizer = rq(m::kinput_Scale, m::kconv1_WeightScale, m::krelu1_Scale, m::krelu1_ZeroPoint);
+    conv1.requantizer = rq(m::kinput_Scale, m::kbn1_WeightScale, m::krelu1_Scale, m::krelu1_ZeroPoint);
     const tinymind::QMaxPool2D<int8_t, 12, 12, 4, 2, 2, 2, 2> pool1 = {};
     Rq rq2[4];
     for (Rq& r : rq2)
     {
-        r = rq(m::krelu1_Scale, m::kconv2_WeightScale, m::krelu2_Scale, m::krelu2_ZeroPoint);
+        r = rq(m::krelu1_Scale, m::kbn2_WeightScale, m::krelu2_Scale, m::krelu2_ZeroPoint);
     }
     tinymind::QDepthwiseConv2D<int8_t, int8_t, int32_t, int8_t, 6, 6, 4, 3, 3, 1, 1, 1, 1, 1, 1> conv2;
-    conv2.weights = m::kconv2_Weights;
-    conv2.biases = m::kconv2_Biases;
+    conv2.weights = m::kbn2_Weights;
+    conv2.biases = m::kbn2_Biases;
     conv2.input_zero_point = static_cast<int8_t>(m::krelu1_ZeroPoint);
     conv2.requantizers = rq2;
     tinymind::QPointwiseConv2D<int8_t, int8_t, int32_t, int8_t, 6, 6, 4, 8> conv3;
