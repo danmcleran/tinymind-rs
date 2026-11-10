@@ -37,7 +37,7 @@ The program writes the same files the C++ example writes, byte for byte:
 
 ![Training loss, test confusion matrix and one window per activity]({{ site.baseurl }}/assets/plots/har_activity.png)
 
-The mean error at a window's last sample stays near 0.09 for 30 epochs, then falls within about seven epochs and stays between about 0.001 and 0.006. The network classifies 153 of the 200 test windows correctly (76.5%): every upstairs, downstairs and sitting window, but only 3 of the 50 walking windows, 45 of which it takes for upstairs. Recurrent training in Q16.16 is noisy on this task and this data seed is a weak one: tinymind (C++)'s notes for the example report 89.6% on average over ten data seeds, never at chance. With `--readout-only` it gets 50.0%, the nearest-centroid baseline 52.5% and chance 25%: what separates the stairs classes is learned by the recurrent weights.
+The mean error at a window's last sample stays near 0.09 for 30 epochs, then falls within about seven epochs and stays between about 0.001 and 0.006. The network classifies 153 of the 200 test windows correctly (76.5%): every upstairs, downstairs and sitting window, but only 3 of the 50 walking windows, 45 of which it takes for upstairs. Recurrent training in Q16.16 is noisy on this task and this data seed (7) is a weak one: with the data seed set to 1 through 10 (initial weights unchanged), the network scores 89.6% on average, from 73.5% to 100%, never at chance, while `--readout-only` stays at 50.0% on every seed. The nearest-centroid baseline gets 52.5% at the default seed and chance is 25%: what separates the stairs classes is learned by the recurrent weights.
 
 The figure is drawn from this port's output with tinymind (C++)'s plotting style (`scripts/plot-examples.py`).
 
