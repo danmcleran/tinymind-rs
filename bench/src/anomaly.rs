@@ -17,7 +17,7 @@ use anomaly_demo::{
 };
 
 /// The host run's hash (`cargo run --release --example anomaly`).
-const EXPECT_HASH: u32 = 0x427B_ACE2;
+const EXPECT_HASH: u32 = 0xE577_81D0;
 
 pub fn run(out: &mut Uart) {
     let _ = writeln!(out, "name=anomaly");

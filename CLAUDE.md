@@ -187,7 +187,12 @@ Bit-exactness against the C++ is the acceptance test. These details all matter:
 1. **Operation order.** Fixed-point multiply truncates, so `(a*b)*c != a*(b*c)` in
    general. Keep the C++ expression shape exactly, e.g. the weighted sum is
    `bias_term + (0 + t0 + t1 + ...)` and the weight update is
-   `(lr*g + momentum*dw) + accel*prev_dw`.
+   `(lr*g + momentum*dw) + accel*prev_dw`, where since tinymind #266 the two
+   momentum products round toward zero (`mul_round_toward_zero`, C++
+   `multiplyRoundTowardZero`; plain `*` for floats). Found porting #266
+   (2026-11-10): the Q8.8 xor build no longer learns XOR (3/4, error stuck
+   at 0.32-0.44 after step ~1000; before #266 it reached 4/4, likely helped by
+   the 1-LSB momentum drift). Same in the C++; worth telling Dan.
 2. **Multiply** = product in the wide type (`i64` for `i32` storage, `i32` for `i16`),
    arithmetic `>> FRAC` (floors toward -inf), wrap to the storage type.
    **Divide** = `(a as wide * 2^FRAC) / b` truncating toward zero; divide-by-zero gives
@@ -240,9 +245,15 @@ runs `examples/common/anomaly_demo.rs`, shared with `examples/anomaly.rs`: its
 hash must equal `EXPECT_HASH` in `bench/src/anomaly.rs`, which
 `tests/anomaly_golden.rs` pins to the host run. That golden is the one exception
 to "goldens come from the C++": the demo has no tinymind counterpart, so it is a
-regression pin, said so in the test. The L031 anomaly image leaves only ~200 B of
-its 32 KB flash: library growth can overflow it, and CI's bench build will say so
-(`train_step` and `score` are `#[inline(never)]` for this reason).
+regression pin, said so in the test. The L031 anomaly image is tight on its 32 KB
+flash (2026-11-10: 30,756 B, ~2 KB free): library growth can overflow it, and CI's
+bench build will say so (`train_step` and `score` are `#[inline(never)]` for this
+reason, and so is `optimizer::update_all`: the #264 sync's separate bias path
+overflowed it by 952 B; inlined weight + bias loops by 928 B; a single chained
+iterator fit but cost the F411 32% per step; the never-inlined slice helper costs
+10%). #266's round-toward-zero momentum costs the F411 anomaly step +37%
+(4,730 -> 6,460 cycles); its hash changed to 0xE57781D0 (stall 39/64, was 30)
+and the xor trajectories too, all reproduced on both boards 2026-11-10.
 The `kws` workload (4C) is tinymind's framework-comparison KWS-shaped CNN
 (`gen/out/kws_tinymind.hpp`, generated into `bench/src/gen/kws.rs` by `gen.py`;
 hash `TM_KWS_HASH`), with per-layer cycles in `kws-profile`. After tuning, Rust
@@ -331,7 +342,7 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
   sanitizer for that code.
 - **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, about
-  seven minutes): 71 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
+  seven minutes): 77 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
   and Q1.31: add/sub wrap, multiply floors then wraps, division never panics,
   `from_int`, `pow2_neg`, zero tolerance and comparisons match their definitions.
   Tanh and sigmoid (both formats) stay within their tables' range and never index

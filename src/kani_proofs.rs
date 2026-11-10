@@ -74,6 +74,28 @@ macro_rules! format_proofs {
                 assert!(congruent(wide(a * b), f, BITS));
             }
 
+            /// `mul_round_toward_zero` (C++ `multiplyRoundTowardZero`): the
+            /// exact product rounded toward zero to the format's resolution,
+            /// then wrapped; the `Scalar` method is the same function.
+            #[kani::proof]
+            fn mul_round_toward_zero_then_wraps() {
+                let (a, b) = (any(), any());
+                let p = i128::from(wide(a)) * i128::from(wide(b));
+                // z is p / 2^FRAC rounded toward zero: for p >= 0 the integer
+                // with z * 2^FRAC <= p < (z + 1) * 2^FRAC, for p < 0 the one
+                // with (z - 1) * 2^FRAC < p <= z * 2^FRAC.
+                let z: i64 = kani::any();
+                let scaled = i128::from(z) * (1i128 << FRAC);
+                if p >= 0 {
+                    kani::assume(scaled <= p && p - scaled < (1i128 << FRAC));
+                } else {
+                    kani::assume(p <= scaled && scaled - p < (1i128 << FRAC));
+                }
+                let r = a.mul_round_toward_zero(b);
+                assert!(congruent(wide(r), z, BITS));
+                assert!(<Q as Scalar>::mul_round_toward_zero(a, b) == r);
+            }
+
             /// Division never panics, for any operands (Kani's built-in overflow
             /// and divide-by-zero checks; no functional specification).
             #[kani::proof]

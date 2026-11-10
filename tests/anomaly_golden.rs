@@ -23,7 +23,7 @@ fn anomaly_demo_output_is_unchanged() {
     assert_eq!(report, golden);
     assert_eq!(scores, 256 + 4 * 64);
     assert!(
-        report.contains("hash=0x427BACE2"),
+        report.contains("hash=0xE57781D0"),
         "bench/src/anomaly.rs EXPECT_HASH must match"
     );
 }

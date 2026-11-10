@@ -118,9 +118,11 @@ The xor network (2-4-1, tanh hidden, sigmoid output, SGD with momentum), trained
 
 | | F411 Q16.16 | F411 Q8.8 | L031 Q16.16 | L031 Q8.8 |
 |---|---:|---:|---:|---:|
-| Cycles per training step | 1,204 | 344 | 5,929 | 2,238 |
-| Time per step | 12.0 µs | 3.4 µs | 185 µs | 70 µs |
-| Inference cycles | 1,109 | 191 | 4,119 | 619 |
+| Cycles per training step | 1,217 | 746 | 5,954 | 3,000 |
+| Time per step | 12.2 µs | 7.5 µs | 186 µs | 94 µs |
+| Inference cycles | 1,108 | 190 | 4,151 | 599 |
+
+The example skips training while its error is within the fixed-point zero tolerance. The Q8.8 network never solves XOR (see the [XOR example]({{ site.baseurl }}/xor)), so it trains on every step.
 
 ## Anomaly detection, trained on the device
 
@@ -128,9 +130,9 @@ The [anomaly-detection example]({{ site.baseurl }}/anomaly) on the boards: an 8-
 
 | | F411 | L031 |
 |---|---:|---:|
-| Training, 3,000 steps (signal generation included) | 0.14 s | 4.2 s |
-| One training step | 4,250 cycles | 35,336 cycles |
-| One detection | 1,333 cycles | 8,104 cycles |
+| Training, 3,000 steps (signal generation included) | 0.21 s | 4.4 s |
+| One training step | 6,460 cycles | 38,081 cycles |
+| One detection | 1,333 cycles | 8,105 cycles |
 
 ## Decision trees, imported from scikit-learn
 

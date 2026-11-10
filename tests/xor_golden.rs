@@ -84,9 +84,9 @@ fn xor_q16_16_matches_cpp_golden() {
         "q16.16",
         "q16_16",
         NnFile {
-            len: 2_587_725,
+            len: 2_568_638,
             lines: 20_001,
-            fnv1a: 0x0f6d_21c3_e3a5_076b,
+            fnv1a: 0x014b_652a_2248_1540,
         },
     );
 }
@@ -97,9 +97,9 @@ fn xor_q8_8_matches_cpp_golden() {
         "q8.8",
         "q8_8",
         NnFile {
-            len: 2_383_566,
+            len: 2_166_574,
             lines: 20_001,
-            fnv1a: 0x189a_6e57_c8c2_2955,
+            fnv1a: 0x9b86_0310_bac8_334c,
         },
     );
 }
