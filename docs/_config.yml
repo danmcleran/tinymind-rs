@@ -1,6 +1,6 @@
 theme: just-the-docs
 title: tinymind-rs
-description: "Neural networks for embedded Rust: a no_std, allocation-free port of the tinymind C++ library, bit-exact with it."
+description: "Neural networks for embedded Rust: a no_std, allocation-free port of the tinymind (C++) library, bit-exact with it."
 logo: "/assets/tinymind_logo.png"
 baseurl: "/tinymind-rs"
 url: "https://danmcleran.github.io"
