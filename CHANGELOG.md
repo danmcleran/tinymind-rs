@@ -57,8 +57,8 @@ break the API).
   sitting; upstairs and downstairs differ only in sample order), and its
   output is byte-identical to the C++ example's. It also prints a
   nearest-centroid baseline, and `--readout-only` trains only the output
-  weights. It trains at learning rate 0.1 without momentum, as tinymind
-  (C++)'s example does.
+  weights. It trains at learning rate 0.1 without momentum, as
+  tinymind (C++)'s example does.
 
 ### Changed
 

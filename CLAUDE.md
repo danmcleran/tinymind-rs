@@ -33,9 +33,9 @@ number of hidden layers, `Linear`, gradient clipping, `energy_efficiency`), 0.1.
 `AdamFloat`/`RmsPropFloat`, the optional `libm` feature, and the breaking rename
 `Fixed` -> `Scalar` with `Fixed` kept as a deprecated alias) and 0.3.0 (2026-11-10,
 tag `v0.3.0`: tabular Q-learning and the maze, the LSTM and `har_activity`,
-the syncs to tinymind #261-#266: optimizers train biases with one step per
-update, SGD momentum rounds toward zero; `Default` Adam/RmsProp constants,
-`mul_round_toward_zero`; minor bump because results change and `Scalar` gained
+the syncs to tinymind #261-#267: optimizers train biases with one step per
+update, SGD momentum rounds toward zero and its step to nearest; `Default`
+Adam/RmsProp constants, `mul_round_toward_zero`, `mul_round_nearest`; minor bump because results change and `Scalar` gained
 a method). Agents run the
 whole release in a session, including `cargo publish` (Dan's preference,
 2026-11-07), but only after Dan's explicit go-ahead for that release: a version

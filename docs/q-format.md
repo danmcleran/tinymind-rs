@@ -41,6 +41,7 @@ The port implements tinymind (C++)'s default policies, `TruncatePolicy` and `Wra
 | `a / b` | `(a × 2^FRAC) / b` in the wide type, truncating toward zero |
 | `a / 0` | The storage type's maximum for a positive `a`, its minimum for a negative `a`, 0 for 0 |
 | `a.mul_round_toward_zero(b)` | As `a * b`, but the product is rounded toward zero instead of floored (C++ `multiplyRoundTowardZero`); SGD uses it for the momentum terms |
+| `a.mul_round_nearest(b)` | As `a * b`, but the product is rounded to nearest, ties away from zero, instead of floored (C++ `multiplyRoundNearest`); SGD uses it for the step `learning rate * gradient` |
 | `a.div_int(n)` | Division by a whole number, computed in `i64`; not the same as `a / QValue::from_int(n)` |
 | `QValue::from_int(n)` | `n` truncated to the integer bits: in Q8.8, 200 becomes -56 |
 | comparisons | On the raw integer |

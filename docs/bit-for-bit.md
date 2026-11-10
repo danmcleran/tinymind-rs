@@ -30,7 +30,7 @@ Fixed-point arithmetic is deterministic, so two implementations of the same netw
 
 It is also more demanding than it sounds. A few of the things it took:
 
-**Operation order.** A fixed-point multiply truncates, so `(a * b) * c` and `a * (b * c)` can differ in the last bit. Every expression in the port keeps the C++ shape: the weight update is `(lr * g + momentum * dw) + accel * prev_dw`, with the two momentum products rounded toward zero as tinymind (C++) rounds them, not any algebraically equal rearrangement. Additions, on the other hand, wrap at the storage width, and wrapping addition is associative, so the order of a sum does not matter. Knowing which operations are order-sensitive tells you where to be careful.
+**Operation order.** A fixed-point multiply truncates, so `(a * b) * c` and `a * (b * c)` can differ in the last bit. Every expression in the port keeps the C++ shape: the weight update is `(lr * g + momentum * dw) + accel * prev_dw`, with `lr * g` rounded to nearest and the two momentum products rounded toward zero as tinymind (C++) rounds them, not any algebraically equal rearrangement. Additions, on the other hand, wrap at the storage width, and wrapping addition is associative, so the order of a sum does not matter. Knowing which operations are order-sensitive tells you where to be careful.
 
 **The random number generator.** The C++ examples initialise weights and draw training samples with `rand()`. The port carries a bit-exact reimplementation of glibc's `srand`/`rand`, checked against the real one over FFI for 212 seeds. It also has to make the same number of draws in the same order: the C++ output neurons carry one outgoing connection that is never used, and initialising it consumes a draw, so the Rust output neurons keep that connection too.
 
@@ -78,7 +78,7 @@ int8 MLP, one inference:
 | STM32F411 | 21,502 cycles | 20,486 cycles | 5,548 B |
 | STM32L031 | 42,514 cycles | 35,963 cycles | 5,412 B |
 
-TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,217 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction. Arm DSP intrinsics are not available in stable Rust, so the port has no SMLAD path of its own; only its multi-channel convolutions reach SMLAD, through LLVM, when built with an opt-in LLVM option. Convolutional networks are faster than the C++'s portable build even without it: the KWS-shaped CNN by 13-27%, the MLPerf Tiny DS-CNN by 16% and ResNet-8 by 25% (full tables on [On-board results]({{ site.baseurl }}/benchmarks)).
+TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,221 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction. Arm DSP intrinsics are not available in stable Rust, so the port has no SMLAD path of its own; only its multi-channel convolutions reach SMLAD, through LLVM, when built with an opt-in LLVM option. Convolutional networks are faster than the C++'s portable build even without it: the KWS-shaped CNN by 13-27%, the MLPerf Tiny DS-CNN by 16% and ResNet-8 by 25% (full tables on [On-board results]({{ site.baseurl }}/benchmarks)).
 
 ## Shipping a trained network
 
