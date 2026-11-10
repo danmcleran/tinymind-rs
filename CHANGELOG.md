@@ -26,8 +26,9 @@ break the API).
   `recurrent` module's `LstmNetwork` (tinymind (C++)'s `LstmNeuralNetwork`
   with one hidden layer), trained one step back in time with SGD and momentum,
   Adam or RMSprop and optional gradient clipping, with `reset_state` between
-  sequences and whole-matrix weight getters and setters (gates indexed by the
-  `GATE_*` constants). It runs on `Q16_16`, `Q8_8`, `f32` and `f64`, `no_std`
+  sequences and whole-matrix weight getters and setters (gates indexed by
+  `GATE_CANDIDATE`, `GATE_INPUT`, `GATE_FORGET` and `GATE_OUTPUT`; `LSTM_GATES`
+  is their number). It runs on `Q16_16`, `Q8_8`, `f32` and `f64`, `no_std`
   and allocation-free. `tests/lstm_sweep.rs` checks every weight after every
   step against tinymind (C++)'s `LstmNeuralNetwork` in seven fixed-point
   configurations and `tests/float_mlp.rs` in four floating-point ones; a Kani
