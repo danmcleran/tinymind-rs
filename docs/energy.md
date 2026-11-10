@@ -33,7 +33,7 @@ The dataset ships in the repository as `data/ENB2012_data.csv` (licensed [CC BY 
 
 ![Energy efficiency training loss and predicted-vs-actual loads]({{ site.baseurl }}/assets/plots/energy_regression.png)
 
-The error falls from about 0.0096 over the first 2,000 steps to about 0.0019. On the 154 test buildings the mean absolute error is 1.69 for the heating load (R² 0.958) and 1.95 for the cooling load (R² 0.924). The scatter shows where a 16-neuron fixed-point network falls short: it under-predicts the largest cooling loads, predicting at most about 40 where the true values reach about 48.
+The error falls from about 0.0096 over the first 2,000 steps to about 0.0020. On the 154 test buildings the mean absolute error is 1.74 for the heating load (R² 0.954) and 1.84 for the cooling load (R² 0.926). The scatter shows where a 16-neuron fixed-point network falls short: it under-predicts the largest cooling loads, predicting at most about 40 where the true values reach about 48.
 
 The figure is drawn from this port's output with tinymind (C++)'s plotting style (`scripts/plot-examples.py`).
 

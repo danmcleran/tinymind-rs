@@ -96,6 +96,30 @@ macro_rules! format_proofs {
                 assert!(<Q as Scalar>::mul_round_toward_zero(a, b) == r);
             }
 
+            /// `mul_round_nearest` (C++ `multiplyRoundNearest`): the exact
+            /// product rounded to nearest, ties away from zero, to the
+            /// format's resolution, then wrapped; the `Scalar` method is the
+            /// same function.
+            #[kani::proof]
+            fn mul_round_nearest_then_wraps() {
+                let (a, b) = (any(), any());
+                let p = i128::from(wide(a)) * i128::from(wide(b));
+                // n is p / 2^FRAC rounded to nearest, ties away from zero:
+                // |p - n * 2^FRAC| <= 2^(FRAC - 1), and a tie (equality)
+                // takes the n further from zero, the one with p's sign.
+                let n: i64 = kani::any();
+                let scaled = i128::from(n) * (1i128 << FRAC);
+                let half = 1i128 << (FRAC - 1);
+                if p >= 0 {
+                    kani::assume(p - half < scaled && scaled <= p + half);
+                } else {
+                    kani::assume(p - half <= scaled && scaled < p + half);
+                }
+                let r = a.mul_round_nearest(b);
+                assert!(congruent(wide(r), n, BITS));
+                assert!(<Q as Scalar>::mul_round_nearest(a, b) == r);
+            }
+
             /// Division never panics, for any operands (Kani's built-in overflow
             /// and divide-by-zero checks; no functional specification).
             #[kani::proof]

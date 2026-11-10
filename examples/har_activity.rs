@@ -11,7 +11,7 @@
 //! - `har_confusion.csv`: the test confusion matrix
 //!
 //! Network: 3 inputs -> 16 LSTM cells -> 4 sigmoid outputs, Q16.16, trained
-//! at learning rate 0.05 without momentum, gradients clipped to [-1, 1]. The
+//! at learning rate 0.1 without momentum, gradients clipped to [-1, 1]. The
 //! windows are synthesized unless a `har.csv` file in the C++ example's format
 //! (`window,t,ax,ay,az,label`) is found, as in the C++.
 //!

@@ -10,7 +10,7 @@
 //! or a sawtooth with noise from glibc `rand()` seeded with 7), unless a
 //! `har.csv` file in the C++ example's long format is given. Network: 3 inputs
 //! -> 16 LSTM cells (tanh) -> 4 sigmoid outputs, Q16.16, gradients clipped to
-//! [-1, 1], learning rate 0.05 without momentum, trained toward the window's
+//! [-1, 1], learning rate 0.1 without momentum, trained toward the window's
 //! label at every step for 60 epochs. The program also prints a nearest-centroid
 //! baseline on per-axis mean and standard deviation, which ignores sample order.
 
@@ -314,7 +314,7 @@ fn process_window(
 
 /// The network with the C++ example's initial weights (`rand()` seeded with
 /// `WEIGHT_INIT_SEED`, each weight symmetric in [-0.25, 0.25]) and its
-/// `HarNetworkInitializer` rates: learning rate 0.05, no momentum.
+/// `HarNetworkInitializer` rates: learning rate 0.1, no momentum.
 pub fn new_network() -> Network {
     let mut init_rng = GlibcRand::new(WEIGHT_INIT_SEED);
     let quarter = 1 << 14;
@@ -322,7 +322,7 @@ pub fn new_network() -> Network {
         Network::new(|| Q16_16::from_raw(init_rng.next_i32() % (2 * quarter + 1) - quarter));
     // GradientClipByValue<ValueType>: [-1, 1].
     nn.set_gradient_clip(Some((Q16_16::from_int(-1), Q16_16::ONE)));
-    nn.set_learning_rate(Q16_16::from_raw(3277)); // 0.05
+    nn.set_learning_rate(Q16_16::from_raw(6554)); // 0.1
     nn.set_momentum_rate(Q16_16::ZERO);
     nn.set_acceleration_rate(Q16_16::ZERO);
     nn

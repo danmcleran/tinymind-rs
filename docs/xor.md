@@ -46,11 +46,11 @@ tinymind (C++) ships this example in Q16.16 only. The Q8.8 run is the same progr
 
 ![XOR learning curve, Q8.8]({{ site.baseurl }}/assets/plots/xor_q8_8_learning_curve.png)
 
-With 1/256 resolution the error falls from 0.5 to about 0.37 in the first 1,000 steps and then stays between 0.32 and 0.44 for the remaining 19,000: the network never finds a solution.
+With 1/256 resolution the error stays near 0.5 for about 600 steps, then falls to 0.086 by step 1,600 and stays there. All four cases are classified correctly, with predictions of 0.086 and 0.914 (22 and 234 in raw Q8.8 units).
 
 ![XOR decision surface, Q8.8]({{ site.baseurl }}/assets/plots/xor_q8_8_decision_surface.png)
 
-It classifies three of the four cases: the network outputs 0.5625 at 99% of the grid points, so (1, 1) is taken for a 1, and only the corner (0, 0) falls below 0.5. Q8.8 is too coarse for this network to learn XOR with these rates. tinymind (C++)'s notes on this example say that Q8.8 with three hidden neurons lurched through plateaus in the same way, which is why its example uses Q16.16 with four.
+The network separates the two classes with a diagonal band: about 82% of the input square is above 0.5, and only the corners around (0, 0) and (1, 1) fall below it. tinymind (C++)'s notes on this example say that Q8.8 with three hidden neurons lurched through plateaus before snapping to a solution, which is why its example uses Q16.16 with four; they add that with four it learns XOR in Q8.8 too, from 100 of 100 random seeds.
 
 ## Shipping a trained network
 
