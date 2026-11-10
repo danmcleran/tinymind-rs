@@ -17,7 +17,8 @@
 //! depthwise and pointwise), pooling, elementwise addition and multiplication,
 //! padding, concatenation, quantized activations
 //! and a TFLite-exact softmax), quantized decision trees and gradient-boosted
-//! ensembles ([`tree`]), and tabular Q-learning ([`qlearn`]). Every part produces the same bits as
+//! ensembles ([`tree`]), tabular Q-learning ([`qlearn`]), and LSTM recurrent
+//! networks ([`recurrent::LstmNetwork`]). Every part produces the same bits as
 //! tinymind (C++) (floating point: with `std` on a glibc host). [`rand`] re-implements glibc's `rand()`, which tinymind (C++)'s
 //! examples use for weight initialisation and sampling, so they can be
 //! reproduced bit for bit. The library is `no_std` and allocation-free, like tinymind (C++)'s
@@ -81,6 +82,7 @@ pub mod optimizer;
 pub mod qformat;
 pub mod qlearn;
 pub mod rand;
+pub mod recurrent;
 pub mod tree;
 
 #[cfg(kani)]

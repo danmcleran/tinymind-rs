@@ -15,12 +15,13 @@ use tinymind::int8::{
 };
 use tinymind::qlearn;
 use tinymind::rand::GlibcRand;
+use tinymind::recurrent::LstmNetwork;
 use tinymind::tree::{self, QDecisionTree, QGbdt, QTreeNode};
 
 use tinymind::{
     Activation, Adam, AdamFloat, Dense, InferenceDense, InferenceNetwork, InferencePerceptron,
     Linear, MultilayerPerceptron, NeuralNetwork, Q8_8, Q16_16, Relu, RmsProp, RmsPropFloat, Scalar,
-    Sigmoid, Sqrt, Tanh,
+    Sgd, Sigmoid, Sqrt, Tanh,
 };
 
 /// Every `QValue` operation on run-time operands.
@@ -221,6 +222,56 @@ where
         mlp.optimizer().timestep(),
     ));
     black_box(raw(black_box(5)).sqrt());
+}
+
+/// An LSTM network: sequences with resets, training with clipping, an
+/// optimizer, and every getter and setter.
+fn lstm<V, H, O, const IN: usize, const HID: usize, const OUT: usize, Opt>(
+    raw: fn(i32) -> V,
+    opt: Opt,
+) where
+    V: Scalar,
+    H: Activation<V>,
+    O: Activation<V>,
+    Sigmoid: Activation<V>,
+    Tanh: Activation<V>,
+    Opt: tinymind::Optimizer<V>,
+{
+    let mut rng = GlibcRand::new(black_box(1));
+    let mut nn =
+        LstmNetwork::<V, H, O, IN, HID, OUT, Opt>::with_optimizer(|| raw(rng.next_i32()), opt);
+    nn.set_learning_rate(raw(black_box(8192)));
+    nn.set_momentum_rate(raw(black_box(4096)));
+    nn.set_acceleration_rate(raw(black_box(2048)));
+    nn.set_gradient_clip(black_box(Some((raw(-4096), raw(4096)))));
+    for step in 0..black_box(10) {
+        if black_box(step) == 4 {
+            nn.reset_state();
+        }
+        nn.feed_forward(&black_box([raw(1); IN]));
+        let target = black_box([raw(2); OUT]);
+        if black_box(nn.calculate_error(&target)) != V::ZERO {
+            nn.train(&target);
+        }
+    }
+    black_box((nn.learned_values(), nn.hidden_outputs(), nn.cell_states()));
+    black_box((
+        nn.input_weights(),
+        nn.input_bias_weights(),
+        nn.recurrent_weights(),
+    ));
+    black_box((
+        nn.hidden_weights(),
+        nn.hidden_bias_weights(),
+        nn.optimizer(),
+    ));
+    nn.set_input_weights(&black_box([[[raw(3); 4]; HID]; IN]));
+    nn.set_input_bias_weights(&black_box([[raw(3); 4]; HID]));
+    nn.set_recurrent_weights(&black_box([[[raw(3); 4]; HID]; HID]));
+    nn.set_hidden_weights(&black_box([[raw(3); OUT]; HID]));
+    nn.set_hidden_bias_weights(&black_box([raw(3); OUT]));
+    nn.feed_forward(&black_box([raw(1); IN]));
+    black_box(nn.learned_values());
 }
 
 // An inference network holds one value per connection and nothing else, on the
@@ -568,6 +619,18 @@ pub extern "C" fn _start() -> ! {
     deep_network::<f32, Tanh, Sigmoid>(|r| r as f32 / 65536.0);
     adaptive_float();
     // Q-learning, both formats and floating point.
+    lstm::<Q16_16, Tanh, Sigmoid, 3, 16, 4, _>(Q16_16::from_raw, Sgd);
+    lstm::<Q8_8, Relu, Linear, 2, 4, 2, _>(|r| Q8_8::from_raw(r as i16), Sgd);
+    lstm::<Q16_16, Tanh, Sigmoid, 2, 4, 2, _>(
+        Q16_16::from_raw,
+        Adam::new(
+            Q16_16::from_raw(black_box(58982)),
+            Q16_16::from_raw(black_box(65470)),
+            Q16_16::from_raw(black_box(16)),
+        ),
+    );
+    lstm::<f32, Tanh, Sigmoid, 2, 3, 1, _>(|r| r as f32 / 65536.0, Sgd);
+    lstm::<f64, Relu, Linear, 2, 3, 2, _>(|r| f64::from(r) / 65536.0, AdamFloat::default());
     q_learning::<Q16_16>(Q16_16::from_raw);
     q_learning::<Q8_8>(|r| Q8_8::from_raw(r as i16));
     q_learning::<f32>(|r| r as f32 / 65536.0);

@@ -22,6 +22,22 @@ break the API).
 - The `maze` example, a port of tinymind (C++)'s `examples/maze`: a Q-learner
   finds the way out of a six-room maze, and its output is byte-identical to the
   C++ example's.
+- LSTM networks, ported from tinymind (C++)'s `neuralnet.hpp`: the
+  `recurrent` module's `LstmNetwork` (tinymind (C++)'s `LstmNeuralNetwork`
+  with one hidden layer), trained one step back in time with SGD and momentum,
+  Adam or RMSprop and optional gradient clipping, with `reset_state` between
+  sequences and whole-matrix weight getters and setters (gates indexed by
+  `GATE_CANDIDATE`, `GATE_INPUT`, `GATE_FORGET` and `GATE_OUTPUT`; `LSTM_GATES`
+  is their number). It runs on `Q16_16`, `Q8_8`, `f32` and `f64`, `no_std`
+  and allocation-free. `tests/lstm_sweep.rs` checks every weight after every
+  step against tinymind (C++)'s `LstmNeuralNetwork` in seven fixed-point
+  configurations and `tests/float_mlp.rs` in four floating-point ones; a Kani
+  proof shows it never panics. tinymind (C++)'s GRU and Elman networks are not
+  ported.
+- The `har_activity` example, a port of tinymind (C++)'s
+  `examples/har_activity`: a 3-16-4 LSTM network classifies windows of
+  accelerometer samples into four activities, and its output is
+  byte-identical to the C++ example's.
 
 ## [0.2.0] - 2026-11-09
 

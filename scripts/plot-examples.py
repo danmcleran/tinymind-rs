@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Render the example plots for the docs site: xor in both formats, iris,
-energy efficiency, anomaly detection, the int8 GBDT and the Q-learning maze.
+energy efficiency, anomaly detection, the int8 GBDT, the Q-learning maze and the
+LSTM activity classifier.
 
-Runs the Rust `xor`, `iris`, `energy_efficiency`, `anomaly`, `gbdt_tabular_int8` and `maze`
+Runs the Rust `xor`, `iris`, `energy_efficiency`, `anomaly`, `gbdt_tabular_int8`, `maze` and
+`har_activity`
 examples (which, except anomaly, write byte-identical output to the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
 from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
@@ -33,6 +35,8 @@ ENERGY = os.path.join(ROOT, "target", "release", "examples", "energy_efficiency"
 ANOMALY = os.path.join(ROOT, "target", "release", "examples", "anomaly")
 GBDT = os.path.join(ROOT, "target", "release", "examples", "gbdt_tabular_int8")
 MAZE = os.path.join(ROOT, "target", "release", "examples", "maze")
+HAR = os.path.join(ROOT, "target", "release", "examples", "har_activity")
+HAR_NAMES = ["walking", "upstairs", "sitting", "standing"]
 IRIS_NAMES = ["setosa", "versicolor", "virginica"]
 OUT = os.path.join(ROOT, "docs", "assets", "plots")
 FORMATS = [("q16.16", "Q16.16", "q16_16"), ("q8.8", "Q8.8", "q8_8")]
@@ -281,8 +285,63 @@ def maze(out_dir, png):
     tp.plt.close(fig)
 
 
+def har(out_dir, png):
+    """Training loss, test confusion matrix, and one synthesized window per activity."""
+    loss, _ = tp.read_csv(os.path.join(out_dir, "har_loss.csv"))
+    with open(os.path.join(out_dir, "har_confusion.csv"), newline="") as f:
+        rows = list(csv.reader(f))
+    n = len(HAR_NAMES)
+    mat = [[int(rows[r + 1][c + 1]) for c in range(n)] for r in range(n)]
+    total = sum(sum(r) for r in mat)
+    acc = sum(mat[i][i] for i in range(n)) / total
+    traces = {}
+    with open(os.path.join(out_dir, "har_samples.csv"), newline="") as f:
+        for row in csv.DictReader(f):
+            tr = traces.setdefault(row["class"], {"t": [], "ax": [], "ay": [], "az": []})
+            for k in tr:
+                tr[k].append(float(row[k]))
+
+    tp.apply_style()
+    fig, (ax1, ax2, ax3) = tp.plt.subplots(1, 3, figsize=(15, 4.6))
+    fig.suptitle("tinymind-rs: LSTM activity classifier (Q16.16, 3-16-4)",
+                 fontsize=13, fontweight="bold")
+    tp.line(ax1, loss["epoch"], {"mean squared error": loss["avg_err"]},
+            xlabel="training epoch", ylabel="error at a window's last step")
+    ax1.set_title("training loss", fontsize=9, color=tp.MUTED)
+
+    ax2.imshow(mat, cmap="Blues")
+    ax2.set_xticks(range(n))
+    ax2.set_xticklabels(HAR_NAMES, rotation=20, ha="right")
+    ax2.set_yticks(range(n))
+    ax2.set_yticklabels(HAR_NAMES)
+    ax2.set_xlabel("predicted")
+    ax2.set_ylabel("actual")
+    vmax = max(max(r) for r in mat)
+    for r in range(n):
+        for c in range(n):
+            ax2.text(c, r, str(mat[r][c]), ha="center", va="center",
+                     color="white" if mat[r][c] > vmax / 2 else "#222",
+                     fontsize=12, fontweight="bold")
+    ax2.set_title("200 test windows, accuracy %.1f%%" % (100 * acc), fontsize=9, color=tp.MUTED)
+    ax2.grid(False)
+
+    for k, name in enumerate(HAR_NAMES):
+        tr = traces[name]
+        for axis, style in (("ax", "-"), ("ay", "--"), ("az", ":")):
+            ax3.plot(tr["t"], tr[axis], style, color=tp.PALETTE[k], linewidth=1.4, alpha=0.9,
+                     label=name if axis == "ax" else None)
+    ax3.set_xlabel("sample in the window")
+    ax3.set_ylabel("acceleration / 1.5 g")
+    ax3.set_title("one window per activity (solid ax, dashed ay, dotted az)",
+                  fontsize=9, color=tp.MUTED)
+    ax3.legend(fontsize=8, loc="upper right")
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    fig.savefig(png)
+    tp.plt.close(fig)
+
+
 def main():
-    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY, GBDT, MAZE)):
+    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY, GBDT, MAZE, HAR)):
         sys.exit("build first: cargo build --release --examples --features std")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
@@ -321,6 +380,11 @@ def main():
         subprocess.run([MAZE, tmp], check=True, stdout=subprocess.DEVNULL)
         png = os.path.join(OUT, "maze_paths.png")
         maze(tmp, png)
+        print("wrote", os.path.relpath(png, ROOT))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([HAR, tmp, os.path.join(tmp, "har.csv")], check=True, stdout=subprocess.DEVNULL)
+        png = os.path.join(OUT, "har_activity.png")
+        har(tmp, png)
         print("wrote", os.path.relpath(png, ROOT))
 
 

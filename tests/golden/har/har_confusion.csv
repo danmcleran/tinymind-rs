@@ -1,0 +1,5 @@
+actual,pred_walk,pred_upstairs,pred_sitting,pred_standing
+walking,50,0,0,0
+upstairs,0,50,0,0
+sitting,0,0,50,0
+standing,0,0,0,50

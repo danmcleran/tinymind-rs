@@ -14,11 +14,12 @@
 // in float, 4-8-6-3 ReLU/sigmoid in double, 4-8-3 tanh/sigmoid in float, and a
 // 3-6-2 ReLU/linear regression in double; then four with tinymind's
 // AdamOptimizerFloat and RmsPropOptimizerFloat, attached as nn_unit_test.cpp
-// attaches them (the bundle with an OptimizerPolicyType typedef). Weights start from
+// attaches them (the bundle with an OptimizerPolicyType typedef); last, four
+// LstmNeuralNetwork runs (see runLstm). Weights start from
 // rand() / RAND_MAX - 0.5 (glibc rand, seeded per configuration). Built with
 // -ffp-contract=off: a compiler that fuses multiply-adds would change the
-// sums. tests/float_mlp.rs repeats every step with tinymind::NeuralNetwork over
-// f32/f64; tests/golden/float_mlp/stdout.txt is this program's output.
+// sums. tests/float_mlp.rs repeats every step with tinymind::NeuralNetwork and
+// tinymind::recurrent::LstmNetwork over f32/f64; tests/golden/float_mlp/stdout.txt is this program's output.
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -367,6 +368,82 @@ static void run(const char* name, const size_t (&sizes)[L], const unsigned seed,
     }
 }
 
+// LstmNeuralNetwork with the same bundle, on sequences of 1 to 12 steps with
+// resetState() before each: inputs in [-1, 1), output 0 is 1 when the
+// previous step's first input was positive, output 1 when the sign of the
+// first input changed. Every step is trained unless it is a multiple of 7 or
+// the error is within zero tolerance; the outputs and every weight (input,
+// input bias, recurrent, hidden -> output, hidden bias) are hashed after it.
+template<typename ValueType, template<typename> class Hidden, template<typename> class Output,
+         size_t IN, size_t HID, size_t OUT, template<typename> class Opt = NoOptimizer>
+static void runLstm(const char* name, const unsigned seed, const int steps)
+{
+    typedef FloatingPointTransferFunctions<ValueType, FloatRandomGen, Hidden, Output,
+                                           tinymind::NullActivationPolicy, tinymind::ZeroToleranceCalculator,
+                                           OUT> Bundle;
+    typedef WithOptimizer<Bundle, Opt<ValueType> > TF;
+    typedef tinymind::LstmNeuralNetwork<ValueType, IN, tinymind::HiddenLayers<HID>, OUT, TF> NN;
+
+    srand(seed);
+    static NN nn;
+    gState = seed;
+    uint32_t hash = 0x811C9DC5u;
+    ValueType x[IN];
+    ValueType t[OUT];
+    ValueType y[OUT];
+    int step = 0;
+    while (step < steps)
+    {
+        const int length = 1 + static_cast<int>((nextU32() >> 8) % 12u);
+        int previous = 0;
+        nn.resetState();
+        for (int k = 0; k < length && step < steps; ++k)
+        {
+            ++step;
+            int v[IN];
+            for (size_t i = 0; i < IN; ++i)
+            {
+                v[i] = static_cast<int>((nextU32() >> 8) % 65536u) - 32768;
+                x[i] = static_cast<ValueType>(v[i]) / static_cast<ValueType>(32768);
+            }
+            for (size_t o = 0; o < OUT; ++o)
+            {
+                const int bit = (o == 0) ? (previous > 0) : ((previous > 0) != (v[0] > 0));
+                t[o] = static_cast<ValueType>(bit);
+            }
+            previous = v[0];
+            nn.feedForward(x);
+            const ValueType error = nn.calculateError(t);
+            if (step % 7 != 0 && !TF::isWithinZeroTolerance(error))
+            {
+                nn.trainNetwork(t);
+            }
+            nn.getLearnedValues(y);
+            for (size_t o = 0; o < OUT; ++o)
+                absorb(hash, y[o]);
+            for (size_t i = 0; i < IN; ++i)
+                for (size_t c = 0; c < 4 * HID; ++c)
+                    absorb(hash, nn.getInputLayerWeightForNeuronAndConnection(i, c));
+            for (size_t c = 0; c < 4 * HID; ++c)
+                absorb(hash, nn.getInputLayerBiasNeuronWeightForConnection(c));
+            for (size_t j = 0; j < HID; ++j)
+                for (size_t c = 0; c < 4 * HID; ++c)
+                    absorb(hash, nn.getRecurrentLayer().getWeightForNeuronAndConnection(j, c));
+            for (size_t j = 0; j < HID; ++j)
+                for (size_t o = 0; o < OUT; ++o)
+                    absorb(hash, nn.getHiddenLayerWeightForNeuronAndConnection(0, j, o));
+            for (size_t o = 0; o < OUT; ++o)
+                absorb(hash, nn.getHiddenLayerBiasNeuronWeightForConnection(0, o));
+            if (step % 250 == 0)
+            {
+                std::printf("%s step=%d error=", name, step);
+                printBits(error);
+                std::printf(" hash=0x%08X\n", hash);
+            }
+        }
+    }
+}
+
 int main()
 {
     const size_t four[] = {4};
@@ -393,5 +470,14 @@ int main()
         tinymind::HiddenLayers<6>, 1, 2, tinymind::RmsPropOptimizerFloat>("f64 3-6-2 relu/linear rmsprop", six, 8, 2000);
     run<float, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 2,
         tinymind::HiddenLayers<4, 4>, 2, 1, tinymind::RmsPropOptimizerFloat>("f32 2-4-4-1 tanh/sigmoid rmsprop", fourFour, 9, 2000);
+    // LSTM networks.
+    runLstm<double, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 3, 6, 2>(
+        "f64 lstm 3-6-2 tanh/sigmoid", 10, 1500);
+    runLstm<float, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 2, 4, 2>(
+        "f32 lstm 2-4-2 tanh/sigmoid", 11, 1500);
+    runLstm<double, tinymind::ReluActivationPolicy, tinymind::LinearActivationPolicy, 2, 5, 1,
+            tinymind::AdamOptimizerFloat>("f64 lstm 2-5-1 relu/linear adam", 12, 1500);
+    runLstm<float, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 2, 3, 2,
+            tinymind::AdamOptimizerFloat>("f32 lstm 2-3-2 tanh/sigmoid adam", 13, 1500);
     return 0;
 }
