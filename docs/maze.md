@@ -28,8 +28,8 @@ Rooms 0 to 4 are inside; 5 is outside, the goal. Action `a` means "go to room `a
 ## How it works
 
 - `tinymind::qlearn::QLearner` keeps one Q value per (room, action) pair in a `QTable`: 36 Q16.16 values, 144 bytes. The maze tells it which actions each room allows and supplies random numbers, through the `Environment` trait.
-- Each step updates the Q value of the move just made, as tinymind (C++) does: `Q(s, a) = (1 - 0.2) * Q(s, a) + 0.2 * (reward + 0.8 * Q(s', a'))`, where `a'` is the action the learner would choose next.
-- 500 training episodes each start in a random room and run until the learner is outside. The first 400 explore at random; from then on the chance of a random move falls by one percentage point per episode, so the learner increasingly follows its Q table. 100 test episodes follow.
+- Each step updates the Q value of the move just made, as tinymind (C++) does: `Q(s, a) = (1 - 0.2) * Q(s, a) + 0.2 * (reward + 0.8 * max Q(s', a'))`, the maximum over the moves possible from the next room. Q-learning learns the best moves' values whatever the learner explores, so it can explore at random throughout.
+- 5,000 training episodes each start in a random room and run until the learner is outside. The first 4,900 explore at random; over the last 100 the chance of a random move falls by one percentage point per episode. The example then compares the learned table with the optimal Q values, Q\*, computed by value iteration, and runs 100 test episodes that always take the best move and learn nothing.
 - Random numbers come from the crate's re-implementation of glibc's `rand()`, seeded with 7 as in the C++, so every episode is the same as the C++ example's.
 
 The C++ example stores Q values in unsigned Q16.16; the crate's Q formats are signed. Every Q value, reward, rate and discount in this example is non-negative, where the two have the same bits and the same arithmetic, and the Q-learning sweep (below) checks the Q table after every update against the unsigned C++.
@@ -44,22 +44,23 @@ The program writes the same files the C++ example writes, byte for byte:
 
 | File | Contents |
 |---|---|
-| stdout | Each episode's start room and every action taken |
-| `maze_training.csv` | The rooms visited in each of the 500 training episodes |
+| stdout | Each episode's start room and every action taken, and the learned table's largest and RMS distance from Q\* |
+| `maze_training.csv` | The rooms visited in each of the 5,000 training episodes |
+| `maze_qtable.csv` | Each possible move's learned Q value and Q\* |
 | `maze_test.csv` | The rooms visited in each of the 100 test episodes |
 
 ## Output
 
 ![Moves per training episode, and moves per test episode against the shortest path]({{ site.baseurl }}/assets/plots/maze_paths.png)
 
-While it explores at random, the learner takes 6.0 moves per episode on average, and up to 38. Over the last 50 training episodes the average falls to 2.5. In all 100 test episodes it leaves by the shortest path from its starting room: 4-5 and 1-5 in one move, 0-4-5 and 3-1-5 in two, 2-3-1-5 in three, and from outside, 5-5.
+While it explores at random, the learner takes 6.2 moves per episode on average, and up to 56. Over the last 50 training episodes the average falls to 1.9. Every learned Q value is within 0.0007 of Q\* (RMS 0.00067): 5.0 for the moves outside, 4.0 one move further away, and so on down by the discount of 0.8. In all 100 test episodes the learner leaves by the shortest path from its starting room: 4-5 and 1-5 in one move, 0-4-5 and 3-1-5 in two, 2-3-1-5 in three, and from outside, 5-5.
 
 The figure is drawn from this port's output with tinymind (C++)'s plotting style (`scripts/plot-examples.py`).
 
 ## How it is checked
 
-- `tests/maze_golden.rs` runs the example and compares its stdout and both CSV files with the C++ example's.
-- `tests/qlearn_sweep.rs` hashes the whole Q table after every update and compares it with tinymind (C++)'s `QLearner`: the maze as above, and 60 random environments in Q16.16 and Q8.8 with negative rewards, rooms with zero, one, two or more valid actions, and learning rates, discount factors and exploration rates the setters must reject.
+- `tests/maze_golden.rs` runs the example and compares its stdout and all three CSV files with the C++ example's.
+- `tests/qlearn_sweep.rs` hashes the whole Q table after every update and compares it with tinymind (C++)'s `QLearner`: the maze as above, and 60 random environments in Q16.16 and Q8.8 with negative rewards, rooms with zero, one, two or more valid actions, learning rates and discount factors of exactly 1 and ones the setters must reject (negative or above 1), exploration rates above 100, and updates for a state other than the learner's, including an invalid one.
 - A Kani proof shows the learner never panics, whatever the Q values, rates, states and actions, and whatever the environment returns.
 
 tinymind (C++)'s deep Q-network (`QValueNeuralNetworkPolicy`, its `dqn_maze` example) is not ported yet.

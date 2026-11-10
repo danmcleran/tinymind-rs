@@ -13,15 +13,19 @@ break the API).
   `qlearn` module's `QLearner` (tinymind (C++)'s `QLearner` with its default
   learning and arg-max policies), `QTable` (`QValueTablePolicy`), the
   `Environment` trait through which a program describes its world (valid
-  actions and a random-number source), `Experience` (one step's action, reward
-  and new state) and the `QValues` trait for other Q-value stores. It is generic over the value type (`Q16_16`, `Q8_8`, `f32`, `f64`),
+  actions and a random-number source), `Experience` (one step's state, action,
+  reward and new state) and the `QValues` trait for other Q-value stores. The
+  update bootstraps from the best action in the next state, so the table
+  converges to the optimal Q values whatever the learner explores, as in
+  tinymind (C++) since its #261. It is generic over the value type (`Q16_16`, `Q8_8`, `f32`, `f64`),
   `no_std` and allocation-free. `tests/qlearn_sweep.rs` checks the Q table
   after every update against tinymind (C++)'s `QLearner` on the maze and on 60
   random environments in Q16.16 and Q8.8; a Kani proof shows it never panics.
   tinymind (C++)'s deep Q-network policy is not ported.
 - The `maze` example, a port of tinymind (C++)'s `examples/maze`: a Q-learner
-  finds the way out of a six-room maze, and its output is byte-identical to the
-  C++ example's.
+  finds the way out of a six-room maze and its Q table is compared with the
+  optimal one from value iteration; its output is byte-identical to the C++
+  example's.
 - LSTM networks, ported from tinymind (C++)'s `neuralnet.hpp`: the
   `recurrent` module's `LstmNetwork` (tinymind (C++)'s `LstmNeuralNetwork`
   with one hidden layer), trained one step back in time with SGD and momentum,
@@ -41,6 +45,14 @@ break the API).
   output is byte-identical to the C++ example's. It also prints a
   nearest-centroid baseline, and `--readout-only` trains only the output
   weights.
+
+### Changed
+
+- The `energy_efficiency` example trains on every sample, as tinymind (C++)'s
+  does since its #261 (it used to skip samples whose error was within the
+  fixed-point zero tolerance): test MAE 1.69 (heating) and 1.95 (cooling), R²
+  0.958 and 0.924, up from 0.903 and 0.883. Its output is still byte-identical
+  to the C++ example's.
 
 ## [0.2.0] - 2026-11-09
 

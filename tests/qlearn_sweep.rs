@@ -25,12 +25,16 @@ fn maze(out: &mut String) {
     let mut q = maze_driver::new_learner();
     let mut h = 0x811C_9DC5u32;
     let mut steps = 0u32;
-    for i in 0..600 {
-        if (400..500).contains(&i) {
+    for i in 0..5100 {
+        if (4900..5000).contains(&i) {
             let p = q.random_action_decision_point();
             if p > 0 {
                 q.set_random_action_decision_point(p - 1);
             }
+        }
+        if i == 5000 {
+            q.set_random_action_decision_point(0);
+            q.set_learning_rate(Q16_16::ZERO);
         }
         q.start_new_episode();
         let mut state = (q.environment_mut().rng.next_i32() % 6) as usize;
@@ -38,6 +42,7 @@ fn maze(out: &mut String) {
             let action = q.take_action(state).unwrap();
             let reward = q.environment().reward(state, action);
             q.update_from_experience(&Experience {
+                state,
                 action,
                 reward,
                 new_state: action,
@@ -133,12 +138,31 @@ impl<V, const S: usize, const A: usize> Environment<A> for RandomEnv<V, S, A> {
 
 fn rate_raw(r: &mut Lcg, frac: u32) -> i32 {
     let one = 1i32 << frac;
-    match r.draw(7) {
+    match r.draw(8) {
         0 => 0,
         1 => one,
         2 => one + 1 + r.draw(one as u32) as i32,
+        3 => -1 - r.draw(one as u32) as i32,
         _ => 1 + r.draw((one - 1) as u32) as i32,
     }
+}
+
+fn hash_table<
+    V: Format,
+    Q: tinymind::qlearn::QValues<V>,
+    E: Environment<A>,
+    const S: usize,
+    const A: usize,
+>(
+    mut h: u32,
+    q: &QLearner<V, E, S, A, Q>,
+) -> u32 {
+    for s in 0..S {
+        for a in 0..A {
+            h = fnv(h, q.q_value(s, a).raw32());
+        }
+    }
+    h
 }
 
 fn random_env<V: Format, const S: usize, const A: usize>(
@@ -190,19 +214,28 @@ fn random_env<V: Format, const S: usize, const A: usize>(
             q.start_new_episode();
             let mut state = q.environment_mut().lcg.draw(S as u32) as usize;
             if ep % 4 == 3 {
-                // An update with no current state: it only moves the learner.
+                // An update before any action, for a random state or the
+                // invalid state S.
                 let env = q.environment_mut();
+                let es = env.lcg.draw(S as u32 + 1) as usize;
                 let action = env.lcg.draw(A as u32) as usize;
-                let (reward, new_state) = (env.reward[state][action], env.next[state][action]);
+                let reward = if es < S {
+                    env.reward[es][action]
+                } else {
+                    V::ZERO
+                };
+                let new_state = env.next[es % S][action];
                 q.update_from_experience(&Experience {
+                    state: es,
                     action,
                     reward,
                     new_state,
                 });
                 h = fnv(h, q.state().unwrap() as u32);
+                h = hash_table(h, &q);
                 state = new_state;
             }
-            for _ in 0..25 {
+            for step in 0..25 {
                 let Some(action) = q.take_action(state) else {
                     h = fnv(h, 255); // the C++ InvalidAction
                     break;
@@ -211,17 +244,29 @@ fn random_env<V: Format, const S: usize, const A: usize>(
                 let env = q.environment();
                 let (reward, new_state) = (env.reward[state][action], env.next[state][action]);
                 q.update_from_experience(&Experience {
+                    state,
                     action,
                     reward,
                     new_state,
                 });
-                for s in 0..S {
-                    for a in 0..A {
-                        h = fnv(h, q.q_value(s, a).raw32());
-                    }
-                }
+                h = hash_table(h, &q);
                 steps += 1;
                 state = new_state;
+                if step % 5 == 4 {
+                    // A replayed experience for a random state.
+                    let env = q.environment_mut();
+                    let rs = env.lcg.draw(S as u32) as usize;
+                    let ra = env.lcg.draw(A as u32) as usize;
+                    let (reward, new_state) = (env.reward[rs][ra], env.next[rs][ra]);
+                    q.update_from_experience(&Experience {
+                        state: rs,
+                        action: ra,
+                        reward,
+                        new_state,
+                    });
+                    h = hash_table(h, &q);
+                    state = new_state;
+                }
                 if state == goal {
                     break;
                 }

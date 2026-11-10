@@ -3,10 +3,12 @@
 // tests/maze_golden.rs.
 //
 // Six rooms; room 5 is outside, the goal. Action `a` moves to room `a`, valid
-// only through a door. 500 training episodes start in a random room and run
-// until they reach the goal: the first 400 always explore, then exploration
-// drops by one percentage point per episode. 100 test episodes follow. Each
-// episode's path goes to a CSV line and to stdout.
+// only through a door. 5000 training episodes start in a random room and run
+// until they reach the goal: the first 4900 always explore, then exploration
+// drops by one percentage point per episode. The learned table is then
+// compared with Q* from value iteration (maze_qtable.csv, and a line on
+// stdout), and 100 greedy test episodes follow that learn nothing (learning
+// rate 0). Each episode's path goes to a CSV line and to stdout.
 //
 // The C++ stores Q values in unsigned Q16.16 (`QValue<16, 16, false>`); this
 // port uses the crate's signed Q16.16. Every Q value, reward, rate and
@@ -19,6 +21,10 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
+#[path = "cppfmt.rs"]
+mod cppfmt;
+use cppfmt::fmt_g;
+
 use tinymind::Q16_16;
 use tinymind::qlearn::{Environment, Experience, QLearner};
 use tinymind::rand::GlibcRand;
@@ -27,6 +33,9 @@ pub const STATES: usize = 6;
 pub const ACTIONS: usize = 6;
 const GOAL: usize = 5;
 const RANDOM_SEED: u32 = 7;
+const TOTAL_NUMBER_OF_EPISODES: usize = 5000;
+const NUMBER_OF_PURE_RANDOM_TRAINING_EPISODES: usize = TOTAL_NUMBER_OF_EPISODES - 100;
+const NUMBER_OF_TEST_EPISODES: usize = 100;
 
 /// mazelearner.h's MazeEnvironment: a reward per (room, action), -1 for an
 /// action with no door, and the C++ program's single rand() stream.
@@ -119,6 +128,7 @@ fn episode(learner: &mut Learner, out: &mut impl Write) -> io::Result<String> {
         line += &format!("{action},");
         let reward = learner.environment().reward(state, action);
         learner.update_from_experience(&Experience {
+            state,
             action,
             reward,
             new_state: action,
@@ -130,15 +140,88 @@ fn episode(learner: &mut Learner, out: &mut impl Write) -> io::Result<String> {
     }
 }
 
-/// Runs the example, writing maze_training.csv and maze_test.csv to `out_dir`
-/// and the log to `out`.
+fn to_double(value: Q16_16) -> f64 {
+    f64::from(value.raw()) / 65536.0
+}
+
+/// maze.cpp's `reportDistanceFromOptimal`: Q* by 5000 rounds of value
+/// iteration in `f64` (Q*(s, a) = r(s, a) + gamma * max_a' Q*(a, a'), since
+/// action `a` leads to room `a`), the learned and optimal values of every
+/// valid (state, action) to `path`, and the largest and RMS error to `out`.
+// Index loops, as the C++ writes them: the order of the f64 operations is the
+// C++'s, which bit-exact output needs.
+#[allow(clippy::needless_range_loop)]
+fn report_distance_from_optimal(
+    learner: &Learner,
+    path: &Path,
+    out: &mut impl Write,
+) -> io::Result<()> {
+    let gamma = to_double(learner.discount_factor());
+    let mut q_star = [[0.0f64; ACTIONS]; STATES];
+    for _ in 0..5000 {
+        let mut next = [[0.0f64; ACTIONS]; STATES];
+        for s in 0..STATES {
+            for a in 0..ACTIONS {
+                if !is_action_valid_for_state(s, a) {
+                    continue;
+                }
+                let mut best = 0.0;
+                let mut any = false;
+                for next_action in 0..ACTIONS {
+                    if is_action_valid_for_state(a, next_action)
+                        && (!any || q_star[a][next_action] > best)
+                    {
+                        best = q_star[a][next_action];
+                        any = true;
+                    }
+                }
+                next[s][a] = to_double(learner.environment().reward(s, a)) + (gamma * best);
+            }
+        }
+        q_star = next;
+    }
+
+    let mut file = BufWriter::new(File::create(path)?);
+    writeln!(file, "state,action,q,q_star")?;
+    let mut max_error = 0.0f64;
+    let mut sum_squares = 0.0;
+    let mut count = 0u32;
+    for s in 0..STATES {
+        for a in 0..ACTIONS {
+            if !is_action_valid_for_state(s, a) {
+                continue;
+            }
+            let q = to_double(learner.q_value(s, a));
+            let error = q - q_star[s][a];
+            writeln!(file, "{s},{a},{},{}", fmt_g(q), fmt_g(q_star[s][a]))?;
+            // std::max(maxError, fabs(error)): keeps maxError unless it is
+            // less than |error|.
+            if max_error < error.abs() {
+                max_error = error.abs();
+            }
+            sum_squares += error * error;
+            count += 1;
+        }
+    }
+    file.flush()?;
+    writeln!(
+        out,
+        "Q table vs Q*: max |error| {}, RMS {}",
+        fmt_g(max_error),
+        fmt_g((sum_squares / f64::from(count)).sqrt())
+    )
+}
+
+/// Runs the example, writing maze_training.csv, maze_qtable.csv and
+/// maze_test.csv to `out_dir` and the log to `out`.
 pub fn run(out_dir: &Path, out: &mut impl Write) -> io::Result<()> {
     let mut learner = new_learner();
 
     let mut training = BufWriter::new(File::create(out_dir.join("maze_training.csv"))?);
-    for i in 0..500 {
-        // After 400 random episodes, explore one percentage point less each episode.
-        if i >= 400 {
+    for i in 0..TOTAL_NUMBER_OF_EPISODES {
+        // After the pure random episodes, explore one percentage point less
+        // each episode.
+        if i >= NUMBER_OF_PURE_RANDOM_TRAINING_EPISODES {
             let point = learner.random_action_decision_point();
             if point > 0 {
                 learner.set_random_action_decision_point(point - 1);
@@ -149,8 +232,13 @@ pub fn run(out_dir: &Path, out: &mut impl Write) -> io::Result<()> {
     }
     training.flush()?;
 
+    report_distance_from_optimal(&learner, &out_dir.join("maze_qtable.csv"), out)?;
+
+    // The test runs are greedy and learn nothing.
+    learner.set_random_action_decision_point(0);
+    learner.set_learning_rate(Q16_16::ZERO);
     let mut test = BufWriter::new(File::create(out_dir.join("maze_test.csv"))?);
-    for _ in 0..100 {
+    for _ in 0..NUMBER_OF_TEST_EPISODES {
         let line = episode(&mut learner, out)?;
         writeln!(test, "{line}")?;
     }

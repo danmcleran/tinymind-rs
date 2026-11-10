@@ -255,16 +255,18 @@ def maze(out_dir, png):
     fig.suptitle("tinymind-rs: Q-learning, the way out of a six-room maze (Q16.16)",
                  fontsize=13, fontweight="bold")
     moves = [len(e) - 1 for e in train]
-    ax1.scatter(range(len(moves)), moves, s=9, color=tp.PALETTE[0], alpha=0.6, label="moves")
+    ax1.scatter(range(len(moves)), moves, s=3, color=tp.PALETTE[0], alpha=0.35, label="moves")
     shortest = [MAZE_SHORTEST[e[0]] for e in train]
-    ax1.scatter(range(len(shortest)), shortest, s=4, color=tp.PALETTE[3], alpha=0.5,
+    ax1.scatter(range(len(shortest)), shortest, s=2, color=tp.PALETTE[3], alpha=0.5,
                 label="shortest from the start room")
-    ax1.axvline(400, color=tp.MUTED, linestyle="--", linewidth=1.0)
-    ax1.text(405, max(moves) * 0.6, "exploration falls\n1 point per episode", fontsize=9, color=tp.MUTED)
+    decay = len(moves) - 100
+    ax1.axvline(decay, color=tp.MUTED, linestyle="--", linewidth=1.0)
+    ax1.text(decay - 60, max(moves) * 0.6, "exploration falls\n1 point per episode", fontsize=9,
+             color=tp.MUTED, ha="right")
     ax1.set_yscale("log")
     ax1.set_xlabel("training episode")
     ax1.set_ylabel("moves to the goal")
-    ax1.set_title("400 episodes of pure exploration, then 100 of decaying exploration",
+    ax1.set_title("%d episodes of pure exploration, then 100 of decaying exploration" % decay,
                   fontsize=9, color=tp.MUTED)
     ax1.legend(loc="upper left")
 
