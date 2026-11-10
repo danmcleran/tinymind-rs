@@ -25,7 +25,7 @@ networks of the same depths that are just their weights, int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
 (for residual connections) and multiplication, padding, concatenation, quantized
-ReLU, activation tables, and a softmax that is bit-exact with TFLite's), quantized decision trees and gradient-boosted ensembles, and tabular Q-learning. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
+ReLU, activation tables, and a softmax that is bit-exact with TFLite's), quantized decision trees and gradient-boosted ensembles, tabular Q-learning, and LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`). It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -84,6 +84,7 @@ cargo run --release --features std --example gbdt_tabular_int8 -- output   # int
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN, per-layer report
 cargo run --release --example imported_trees                 # scikit-learn tree models via the tree importer
 cargo run --release --example maze -- output                 # Q-learning: find the way out of a six-room maze
+cargo run --release --example har_activity -- output         # LSTM: classify accelerometer windows into four activities
 cargo test --all-features                                # unit, doc and golden tests against the C++ output
 PYTHON=<python with the packages below> scripts/compare-with-cpp.sh   # rebuild the C++ side and diff everything
 ```
@@ -102,7 +103,12 @@ flags faults by reconstruction error; the same code runs on the boards in
 `bench/`. It takes an optional output directory and writes `anomaly_scores.csv`
 there. The `maze` example trains a Q-learner to leave a six-room maze over 500
 episodes, then runs 100 test episodes, and writes each episode's path to
-`maze_training.csv` and `maze_test.csv`. The `int8_xor` example (feature
+`maze_training.csv` and `maze_test.csv`. The `har_activity` example trains a
+3-16-4 LSTM network on synthesized accelerometer windows (32 samples of three
+axes each) to tell walking, walking upstairs, sitting and standing apart,
+reading each window one sample at a time; it writes `har_samples.csv`,
+`har_loss.csv` and `har_confusion.csv`, and reads `har.csv` instead of
+synthesizing when the second argument names one in the C++ example's format. The `int8_xor` example (feature
 `std`) runs a PyTorch-trained, int8-quantized 2-4-1 network and writes
 `xor_decision_surface.csv`. The `gbdt_tabular_int8` example (feature `std`)
 quantizes a five-tree ensemble onto an int8 feature grid, compares it with the
@@ -141,6 +147,8 @@ set.
 | `examples/energy_efficiency.rs` | `examples/energy_efficiency/energy_efficiency.cpp` |
 | `src/qlearn.rs` | `cpp/qlearn.hpp`: tabular Q-learning (`QLearner` with a `QTable`, tinymind (C++)'s `QValueTablePolicy`, `ArgMaxPolicy` and `DefaultLearningPolicy`); not the deep Q-network policy |
 | `examples/maze.rs` | `examples/maze/maze.cpp`, `mazelearner.h` |
+| `src/recurrent.rs` | `cpp/neuralnet.hpp` (`LstmNeuralNetwork`): an LSTM network with one hidden layer (`LstmNetwork`), trained one step back in time with SGD with momentum, Adam or RMSprop and optional gradient clipping |
+| `examples/har_activity.rs` | `examples/har_activity/har_activity.cpp` |
 | `examples/anomaly.rs` | no counterpart: an on-device anomaly-detection demo built from the ported parts |
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qactivations.hpp`, `cpp/qsoftmax_fixedpoint.hpp`: requantizer, int8 dense layer (per-tensor and per-channel), quantized ReLU, activation tables, softmax |
 | `src/int8/conv.rs` | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`: int8 2D convolution (per-tensor and per-channel), depthwise and pointwise convolution, with zero-point padding |
@@ -160,7 +168,8 @@ set.
 | `examples/imported_mlp.rs` | two models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 
 Everything else in tinymind (C++) is not ported: other Q
-formats, unsigned and 8/64-bit storage, the other activations, recurrent layers,
+formats, unsigned and 8/64-bit storage, the other activations, the GRU and Elman
+recurrent networks and recurrent networks with more than one hidden layer,
 the deep Q-network (`QValueNeuralNetworkPolicy`),
 the int8 quantization tiers, SIMD backends, and so on.
 
@@ -174,7 +183,8 @@ the int8 quantization tiers, SIMD backends, and so on.
   example with both bit counts in `xornet.h` set to 8. `tests/iris_golden.rs`
   does the same for iris against `tests/golden/iris/`, `tests/energy_golden.rs`
   for energy_efficiency against `tests/golden/energy/`, `tests/maze_golden.rs`
-  for the maze against `tests/golden/maze/`, and
+  for the maze against `tests/golden/maze/`, `tests/har_golden.rs` for
+  har_activity against `tests/golden/har/`, and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`,
   and `tests/imported_mlp_golden.rs` and `tests/imported_cnn_golden.rs` for the
   PyTorch importer's models. `TINYMIND_REF`
@@ -235,6 +245,11 @@ the int8 quantization tiers, SIMD backends, and so on.
   same bits there) and 60 random environments in Q16.16 and Q8.8 with negative
   rewards, states with zero, one, two or more valid actions, and learning
   rates, discount factors and exploration rates the setters must reject.
+- `tests/lstm_sweep.rs` checks the LSTM network against tinymind (C++)'s
+  `LstmNeuralNetwork` in seven configurations (Q16.16 and Q8.8; tanh or ReLU
+  cells; sigmoid or linear outputs; gradient clipping; Adam), hashing the
+  outputs and every weight after every step of sequences with state resets;
+  `tests/float_mlp.rs` does the same for four `f32` and `f64` LSTM networks.
 - The TFLite translator (`tools/import_tflite`, run by
   `scripts/compare-with-cpp.sh`): `mlperf.py kws` and `mlperf.py ic` translate
   the MLPerf Tiny DS-CNN and ResNet-8 and compare the output hash over 8 seeded
@@ -243,9 +258,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   tinymind (C++)'s on 504 and 48 calibrations; `test_ops.py` checks PAD, MUL and
   CONCATENATION on generated models against TFLite's reference kernels (LiteRT).
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
-  (xor in both formats, iris, energy efficiency, maze, int8 xor, GBDT) with the flags their
+  (xor in both formats, iris, energy efficiency, maze, har_activity, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (64 checks today, including
+  example does, runs both sides, and compares every output file (70 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
@@ -261,7 +276,7 @@ the int8 quantization tiers, SIMD backends, and so on.
   requantizer's fast path equals gemmlowp's two-step rounding, and that the
   requantizer, the int8 dense layers, convolutions, pooling, addition,
   multiplication, padding and concatenation, the
-  tables, the softmax, the trees and the Q-learner never panic, and that pooling's divide rounds half away
+  tables, the softmax, the trees, the Q-learner and the LSTM network never panic, and that pooling's divide rounds half away
   from zero.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
   and whose panic handler is an undefined symbol, so CI fails to link it if any

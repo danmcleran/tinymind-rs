@@ -660,3 +660,35 @@ mod conv {
         }
     }
 }
+
+/// LSTM network: no panic for any weights, rates, clipping range, inputs and
+/// targets, over two steps with training and a reset (one input, one cell, one
+/// output in Q8.8; every loop is over the network's const sizes).
+mod recurrent {
+    use crate::activation::{Sigmoid, Tanh};
+    use crate::qformat::Q8_8;
+    use crate::recurrent::LstmNetwork;
+
+    fn any_q8_8() -> Q8_8 {
+        Q8_8::from_raw(kani::any())
+    }
+
+    #[kani::proof]
+    #[kani::unwind(6)]
+    fn lstm_never_panics() {
+        let mut nn = LstmNetwork::<Q8_8, Tanh, Sigmoid, 1, 1, 1>::new(any_q8_8);
+        nn.set_learning_rate(any_q8_8());
+        nn.set_momentum_rate(any_q8_8());
+        nn.set_acceleration_rate(any_q8_8());
+        if kani::any() {
+            nn.set_gradient_clip(Some((any_q8_8(), any_q8_8())));
+        }
+        nn.feed_forward(&[any_q8_8()]);
+        nn.train(&[any_q8_8()]);
+        if kani::any() {
+            nn.reset_state();
+        }
+        nn.feed_forward(&[any_q8_8()]);
+        let _ = (nn.calculate_error(&[any_q8_8()]), nn.learned_values());
+    }
+}

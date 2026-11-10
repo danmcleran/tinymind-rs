@@ -60,7 +60,7 @@ impl<V: Scalar, const N: usize> Default for Neuron<V, N> {
 impl<V: Scalar, const N: usize> Neuron<V, N> {
     /// C++ `TrainableNeuron::initializeWeights`: one random weight per connection,
     /// in connection order, then zero the delta weights.
-    fn initialize_weights(&mut self, random_weight: &mut impl FnMut() -> V) {
+    pub(crate) fn initialize_weights(&mut self, random_weight: &mut impl FnMut() -> V) {
         for c in &mut self.connections {
             c.weight = random_weight();
         }

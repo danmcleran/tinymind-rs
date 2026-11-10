@@ -275,6 +275,51 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --test qlearn_sweep >/dev/null 
   && same "qlearn Rust vs tests/golden/qlearn" \
   || { echo "DIFFERENT  qlearn Rust vs tests/golden/qlearn"; status=1; }
 
+echo "== lstm"
+# tinymind's LstmNeuralNetwork on short sequences, every weight hashed after
+# every step; tests/lstm_sweep.rs checks the Rust network against the committed
+# golden, so the golden must still be what the C++ prints.
+mkdir -p "$TMP/lstm"
+g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/lstm/lstm_sweep" "$ROOT/scripts/cpp/lstm_sweep.cpp" \
+  "$TINYMIND_DIR/cpp/lookupTables.cpp" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_TANH_16_16=1 \
+  -DTINYMIND_USE_SIGMOID_8_8=1 -DTINYMIND_USE_TANH_8_8=1
+"$TMP/lstm/lstm_sweep" > "$TMP/lstm/stdout.txt"
+if cmp -s "$TMP/lstm/stdout.txt" "$ROOT/tests/golden/lstm/stdout.txt"; then
+  same "lstm stdout.txt (C++ vs tests/golden/lstm)"
+else
+  echo "DIFFERENT  lstm stdout.txt (C++ vs tests/golden/lstm)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --test lstm_sweep >/dev/null 2>&1 \
+  && same "lstm Rust vs tests/golden/lstm" \
+  || { echo "DIFFERENT  lstm Rust vs tests/golden/lstm"; status=1; }
+
+echo "== har_activity"
+mkdir -p "$TMP/har/cpp" "$TMP/har/rust"
+# Flags from examples/har_activity/Makefile's release target, plus
+# -ffp-contract=off: the example synthesizes its windows in double arithmetic,
+# and a compiler that fuses multiply-adds (g++ 15 on CI does) changes them.
+g++ -g -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/har/har_activity" \
+  "$TINYMIND_DIR/examples/har_activity/har_activity.cpp" "$TINYMIND_DIR/cpp/lookupTables.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include/" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 \
+  -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_TANH_16_16=1
+(cd "$TMP/har/cpp" && ../har_activity > stdout.txt)
+(cd "$TMP/har/rust" && "$ROOT/target/release/examples/har_activity" . > stdout.txt)
+for f in stdout.txt har_samples.csv har_loss.csv har_confusion.csv; do
+  if cmp -s "$TMP/har/cpp/$f" "$TMP/har/rust/$f"; then
+    same "har_activity $f"
+  else
+    echo "DIFFERENT  har_activity $f"
+    status=1
+  fi
+  if ! cmp -s "$TMP/har/cpp/$f" "$ROOT/tests/golden/har/$f"; then
+    echo "DIFFERENT  har_activity $f (C++ vs tests/golden/har)"
+    status=1
+  fi
+done
+
 echo "== tree"
 # tinymind's QDecisionTree and QGBDT over random ensembles; tests/tree_sweep.rs
 # checks the Rust trees against the committed golden, so the golden must still
@@ -578,6 +623,9 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp -r "$TMP/maze/cpp" "$KEEP_CPP_OUTPUT/maze"
   mkdir -p "$KEEP_CPP_OUTPUT/qlearn"
   cp "$TMP/qlearn/stdout.txt" "$KEEP_CPP_OUTPUT/qlearn/stdout.txt"
+  cp -r "$TMP/har/cpp" "$KEEP_CPP_OUTPUT/har"
+  mkdir -p "$KEEP_CPP_OUTPUT/lstm"
+  cp "$TMP/lstm/stdout.txt" "$KEEP_CPP_OUTPUT/lstm/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/tree"
   cp "$TMP/tree/stdout.txt" "$KEEP_CPP_OUTPUT/tree/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/kws_int8"

@@ -4,7 +4,8 @@
 // trains nine networks with tinymind (C++)'s floating-point activations and
 // transfer-function bundle (learning rate 0.15, momentum 0.5, acceleration
 // 0.1), five with SGD and four with its AdamOptimizerFloat and
-// RmsPropOptimizerFloat (learning rate 0.01), and hashes every weight after
+// RmsPropOptimizerFloat (learning rate 0.01), plus four LstmNeuralNetwork
+// runs (SGD and Adam) on short sequences, and hashes every weight after
 // every step; scripts/compare-with-cpp.sh
 // rebuilds it and checks the golden is current. tanh and exp come from the
 // platform's math library on both sides (feature `std`), so on a glibc host
@@ -15,9 +16,10 @@
 use std::fmt::Write;
 
 use tinymind::rand::GlibcRand;
+use tinymind::recurrent::LstmNetwork;
 use tinymind::{
-    AdamFloat, Dense, Linear, NeuralNetwork, Optimizer, Relu, RmsPropFloat, Scalar, Sgd, Sigmoid,
-    Tanh,
+    Activation, AdamFloat, Dense, Linear, NeuralNetwork, Optimizer, Relu, RmsPropFloat, Scalar,
+    Sgd, Sigmoid, Tanh,
 };
 
 /// What the test needs from f32 and f64 beyond `Scalar`.
@@ -26,6 +28,8 @@ trait Float: Scalar + core::fmt::Debug {
     fn from_i32(x: i32) -> Self;
     fn absorb(self, hash: &mut u32);
     fn bits(self) -> String;
+    /// The C++ program's `ZeroToleranceCalculator` specialization: |x| < 0.004.
+    fn is_within_zero_tolerance(self) -> bool;
 }
 
 impl Float for f64 {
@@ -43,6 +47,9 @@ impl Float for f64 {
     fn bits(self) -> String {
         format!("{:016X}", self.to_bits())
     }
+    fn is_within_zero_tolerance(self) -> bool {
+        self == 0.0 || (self < 0.004 && self > -0.004)
+    }
 }
 
 impl Float for f32 {
@@ -59,6 +66,9 @@ impl Float for f32 {
     }
     fn bits(self) -> String {
         format!("{:08X}", self.to_bits())
+    }
+    fn is_within_zero_tolerance(self) -> bool {
+        self == 0.0 || (self < 0.004 && self > -0.004)
     }
 }
 
@@ -210,6 +220,90 @@ fn run_with<V, L, O, const IN: usize, const OUT: usize>(
     }
 }
 
+/// The C++ program's `runLstm`: an LSTM network on sequences of 1 to 12 steps.
+fn run_lstm<V, H, O, const IN: usize, const HID: usize, const OUT: usize, Opt>(
+    name: &str,
+    seed: u32,
+    steps: i32,
+    opt: Opt,
+    lr: f64,
+    out: &mut String,
+) where
+    V: Float,
+    H: Activation<V>,
+    O: Activation<V>,
+    Sigmoid: Activation<V>,
+    Tanh: Activation<V>,
+    Opt: Optimizer<V>,
+{
+    let mut rand = GlibcRand::new(seed);
+    let mut nn = LstmNetwork::<V, H, O, IN, HID, OUT, Opt>::with_optimizer(
+        || V::from_f64(f64::from(rand.next_i32()) / f64::from(i32::MAX) - 0.5),
+        opt,
+    );
+    nn.set_learning_rate(V::from_f64(lr));
+    nn.set_momentum_rate(V::from_f64(0.5));
+    nn.set_acceleration_rate(V::from_f64(0.1));
+    let mut g = Lcg(seed);
+    let mut hash = 0x811C_9DC5u32;
+    let mut step = 0;
+    while step < steps {
+        let length = 1 + ((g.next() >> 8) % 12) as i32;
+        let mut previous = 0;
+        nn.reset_state();
+        let mut k = 0;
+        while k < length && step < steps {
+            k += 1;
+            step += 1;
+            let mut v = [0i32; IN];
+            for vi in &mut v {
+                *vi = ((g.next() >> 8) % 65_536) as i32 - 32_768;
+            }
+            let x = v.map(|vi| V::from_i32(vi) / V::from_i32(32_768));
+            let t: [V; OUT] = core::array::from_fn(|o| {
+                let bit = if o == 0 {
+                    previous > 0
+                } else {
+                    (previous > 0) != (v[0] > 0)
+                };
+                V::from_i32(i32::from(bit))
+            });
+            previous = v[0];
+            nn.feed_forward(&x);
+            let error = nn.calculate_error(&t);
+            if step % 7 != 0 && !Float::is_within_zero_tolerance(error) {
+                nn.train(&t);
+            }
+            for y in nn.learned_values() {
+                y.absorb(&mut hash);
+            }
+            for w in nn.input_weights().iter().flatten().flatten() {
+                w.absorb(&mut hash);
+            }
+            for w in nn.input_bias_weights().iter().flatten() {
+                w.absorb(&mut hash);
+            }
+            for w in nn.recurrent_weights().iter().flatten().flatten() {
+                w.absorb(&mut hash);
+            }
+            for w in nn.hidden_weights().iter().flatten() {
+                w.absorb(&mut hash);
+            }
+            for w in nn.hidden_bias_weights() {
+                w.absorb(&mut hash);
+            }
+            if step % 250 == 0 {
+                writeln!(
+                    out,
+                    "{name} step={step} error= {} hash=0x{hash:08X}",
+                    error.bits()
+                )
+                .unwrap();
+            }
+        }
+    }
+}
+
 #[test]
 fn float_networks_match_cpp() {
     let mut out = String::new();
@@ -301,6 +395,39 @@ fn float_networks_match_cpp() {
         9,
         2000,
         RmsPropFloat::default(),
+        0.01,
+        &mut out,
+    );
+    // LSTM networks.
+    run_lstm::<f64, Tanh, Sigmoid, 3, 6, 2, _>(
+        "f64 lstm 3-6-2 tanh/sigmoid",
+        10,
+        1500,
+        Sgd,
+        0.15,
+        &mut out,
+    );
+    run_lstm::<f32, Tanh, Sigmoid, 2, 4, 2, _>(
+        "f32 lstm 2-4-2 tanh/sigmoid",
+        11,
+        1500,
+        Sgd,
+        0.15,
+        &mut out,
+    );
+    run_lstm::<f64, Relu, Linear, 2, 5, 1, _>(
+        "f64 lstm 2-5-1 relu/linear adam",
+        12,
+        1500,
+        AdamFloat::default(),
+        0.01,
+        &mut out,
+    );
+    run_lstm::<f32, Tanh, Sigmoid, 2, 3, 2, _>(
+        "f32 lstm 2-3-2 tanh/sigmoid adam",
+        13,
+        1500,
+        AdamFloat::default(),
         0.01,
         &mut out,
     );

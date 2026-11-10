@@ -1,0 +1,49 @@
+har.csv not found -- synthesizing accelerometer windows.
+Train: 800  Test: 200
+epoch   1   avg|err| = 0.0042
+epoch   2   avg|err| = 0.0029
+epoch   3   avg|err| = 0.0025
+epoch   4   avg|err| = 0.0021
+epoch   5   avg|err| = 0.0017
+epoch   6   avg|err| = 0.0017
+epoch   7   avg|err| = 0.0017
+epoch   8   avg|err| = 0.0014
+epoch   9   avg|err| = 0.0012
+epoch  10   avg|err| = 0.0012
+epoch  11   avg|err| = 0.0011
+epoch  12   avg|err| = 0.0011
+epoch  13   avg|err| = 0.0011
+epoch  14   avg|err| = 0.0010
+epoch  15   avg|err| = 0.0010
+epoch  16   avg|err| = 0.0009
+epoch  17   avg|err| = 0.0009
+epoch  18   avg|err| = 0.0009
+epoch  19   avg|err| = 0.0008
+epoch  20   avg|err| = 0.0008
+epoch  21   avg|err| = 0.0008
+epoch  22   avg|err| = 0.0008
+epoch  23   avg|err| = 0.0008
+epoch  24   avg|err| = 0.0008
+epoch  25   avg|err| = 0.0008
+epoch  26   avg|err| = 0.0008
+epoch  27   avg|err| = 0.0008
+epoch  28   avg|err| = 0.0008
+epoch  29   avg|err| = 0.0007
+epoch  30   avg|err| = 0.0007
+epoch  31   avg|err| = 0.0007
+epoch  32   avg|err| = 0.0007
+epoch  33   avg|err| = 0.0007
+epoch  34   avg|err| = 0.0007
+epoch  35   avg|err| = 0.0007
+epoch  36   avg|err| = 0.0007
+epoch  37   avg|err| = 0.0006
+epoch  38   avg|err| = 0.0006
+epoch  39   avg|err| = 0.0006
+epoch  40   avg|err| = 0.0006
+epoch  41   avg|err| = 0.0006
+epoch  42   avg|err| = 0.0006
+epoch  43   avg|err| = 0.0006
+epoch  44   avg|err| = 0.0006
+epoch  45   avg|err| = 0.0006
+
+Test accuracy: 1.0000  (200/200)
