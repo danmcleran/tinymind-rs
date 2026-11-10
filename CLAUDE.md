@@ -286,7 +286,7 @@ per tree run the padding), 12% for KWS at opt s (744,585 vs 664,196), up to
 1.7 KB flash. All F411 figures were re-measured with it. Not on the L031: 32-bit
 flash fetches and 4-byte function alignment mean `_stext` cannot shift code by
 2, so there is no sweep to show a gain, and its flash is nearly full.
-`WORKLOADS="anomaly" bench/run.sh f411 l031` runs one workload. Results and method are in
+**C++ figures are `-O3` only** (Dan, 2026-11-09): every tinymind (C++) or TFLM number compared with this crate must come from an `-O3` build (host timings too: the examples' Makefile release flags, never `-O2`). tinymind's `results/REPORT*.md` print RAM as max(O2, O3) (`report.py`), so take RAM from `results/raw_*_O3.txt` as (static_ram - baseline) + (stack_bytes - baseline); cycles and flash there are per level. An audit on 2026-11-09 found every cycle figure at `-O3` and fixed eight RAM cells and three L031 flash ranges that had come from the summary. `WORKLOADS="anomaly" bench/run.sh f411 l031` runs one workload. Results and method are in
 `bench/README.md`; rerun after changing arithmetic and update the tables.
 `bench/gen.py` generates the MLP from tinymind's headers (never hand-copied).
 probe-rs is not installed; OpenOCD and arm-none-eabi binutils are.
