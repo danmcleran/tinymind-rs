@@ -12,22 +12,22 @@ q16.16 2-6-3 tanh/sigmoid step=1250 trained=1072 error=1851 hash=0x54CDFD2C
 q16.16 2-6-3 tanh/sigmoid step=1500 trained=1286 error=16573 hash=0x5D3D59A9
 q16.16 2-6-3 tanh/sigmoid step=1750 trained=1500 error=3056 hash=0xFD3EC1C5
 q16.16 2-6-3 tanh/sigmoid step=2000 trained=1715 error=5824 hash=0x6E740CCC
-q16.16 2-5-2 relu/linear clip[-1,1] step=250 trained=215 error=212119 hash=0x7900B74E
-q16.16 2-5-2 relu/linear clip[-1,1] step=500 trained=429 error=132592 hash=0x59FEA5F4
-q16.16 2-5-2 relu/linear clip[-1,1] step=750 trained=643 error=212907 hash=0x57A92D34
-q16.16 2-5-2 relu/linear clip[-1,1] step=1000 trained=858 error=129248 hash=0xBC3219A9
-q16.16 2-5-2 relu/linear clip[-1,1] step=1250 trained=1072 error=123796 hash=0x93D7025B
-q16.16 2-5-2 relu/linear clip[-1,1] step=1500 trained=1286 error=158155 hash=0x78E3F00E
-q16.16 2-5-2 relu/linear clip[-1,1] step=1750 trained=1500 error=132164 hash=0xBB4DA1E9
-q16.16 2-5-2 relu/linear clip[-1,1] step=2000 trained=1715 error=160775 hash=0xC53589B2
+q16.16 2-5-2 relu/linear clip[-1,1] step=250 trained=215 error=325534 hash=0x14694117
+q16.16 2-5-2 relu/linear clip[-1,1] step=500 trained=429 error=130377 hash=0x5CFF7AF8
+q16.16 2-5-2 relu/linear clip[-1,1] step=750 trained=643 error=223155 hash=0x7EF03E49
+q16.16 2-5-2 relu/linear clip[-1,1] step=1000 trained=858 error=12401 hash=0x1C277FC9
+q16.16 2-5-2 relu/linear clip[-1,1] step=1250 trained=1072 error=26479 hash=0xDBD377CC
+q16.16 2-5-2 relu/linear clip[-1,1] step=1500 trained=1286 error=166023 hash=0xAD131159
+q16.16 2-5-2 relu/linear clip[-1,1] step=1750 trained=1500 error=99351 hash=0x7D608288
+q16.16 2-5-2 relu/linear clip[-1,1] step=2000 trained=1715 error=150458 hash=0x97DD193B
 q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=250 trained=212 error=70 hash=0x0DF0AD6B
 q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=500 trained=422 error=61 hash=0xCB431403
 q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=750 trained=623 error=30 hash=0x4A767DAE
 q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=1000 trained=823 error=88 hash=0x9F3D7015
-q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=1250 trained=1024 error=70 hash=0x2120D522
-q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=1500 trained=1231 error=28 hash=0x845BB3AE
-q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=1750 trained=1435 error=56 hash=0xC4BAD258
-q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=2000 trained=1641 error=19 hash=0xEFD8EF93
+q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=1250 trained=1024 error=70 hash=0x00AF0DAA
+q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=1500 trained=1232 error=32 hash=0xFEE649C9
+q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=1750 trained=1436 error=54 hash=0xEED3E6DF
+q8.8 2-4-2 tanh/sigmoid clip[-1,1] step=2000 trained=1633 error=43 hash=0x7AB541CE
 q8.8 3-6-3 relu/sigmoid clip[-1.5,2.5] step=250 trained=212 error=0 hash=0xDCEF67AB
 q8.8 3-6-3 relu/sigmoid clip[-1.5,2.5] step=500 trained=424 error=85 hash=0x8757FD1F
 q8.8 3-6-3 relu/sigmoid clip[-1.5,2.5] step=750 trained=629 error=76 hash=0x7F553EA1
@@ -40,11 +40,11 @@ q16.16 1-1-1 tanh/sigmoid step=250 trained=215 error=13999 hash=0xCEDDC46C
 q16.16 1-1-1 tanh/sigmoid step=500 trained=429 error=24649 hash=0xE8564FF7
 q16.16 1-1-1 tanh/sigmoid step=750 trained=643 error=11006 hash=0x0E663D76
 q16.16 1-1-1 tanh/sigmoid step=1000 trained=858 error=19334 hash=0x709A102E
-q16.16 2-4-2 tanh/sigmoid adam step=250 trained=189 error=32606 hash=0x4930CD27
-q16.16 2-4-2 tanh/sigmoid adam step=500 trained=370 error=15634 hash=0x783B3D08
-q16.16 2-4-2 tanh/sigmoid adam step=750 trained=557 error=17787 hash=0xACA91CE8
-q16.16 2-4-2 tanh/sigmoid adam step=1000 trained=746 error=14241 hash=0x294460A7
-q16.16 2-4-2 tanh/sigmoid adam step=1250 trained=927 error=32606 hash=0xB70EF4C5
-q16.16 2-4-2 tanh/sigmoid adam step=1500 trained=1111 error=17560 hash=0x12615153
-q16.16 2-4-2 tanh/sigmoid adam step=1750 trained=1301 error=0 hash=0xF1E8E19C
-q16.16 2-4-2 tanh/sigmoid adam step=2000 trained=1493 error=15955 hash=0x9530B69F
+q16.16 2-4-2 tanh/sigmoid adam step=250 trained=170 error=32606 hash=0x07CA2DC7
+q16.16 2-4-2 tanh/sigmoid adam step=500 trained=308 error=0 hash=0x8CCF6487
+q16.16 2-4-2 tanh/sigmoid adam step=750 trained=485 error=4 hash=0xB2EA0C13
+q16.16 2-4-2 tanh/sigmoid adam step=1000 trained=644 error=0 hash=0x4A13E781
+q16.16 2-4-2 tanh/sigmoid adam step=1250 trained=790 error=32606 hash=0xC3D542FC
+q16.16 2-4-2 tanh/sigmoid adam step=1500 trained=956 error=65190 hash=0x8FC9A167
+q16.16 2-4-2 tanh/sigmoid adam step=1750 trained=1108 error=0 hash=0x642D810D
+q16.16 2-4-2 tanh/sigmoid adam step=2000 trained=1275 error=65212 hash=0x5ABCB4EC

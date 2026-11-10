@@ -283,13 +283,14 @@ fn deep_mlp_matches_cpp() {
     // Adaptive optimizers: tinymind's default hyperparameters in Q8.8 (raw 230,
     // 255 and 1), and Q16.16 values (0.9 = raw 58982, 0.999 = raw 65470,
     // epsilon raw 16), as the C++ program sets them.
-    let adam8 = Adam::new(Q8_8::from_raw(230), Q8_8::from_raw(255), Q8_8::from_raw(1));
+    // tinymind (C++)'s AdamOptimizer<Q8> and RmsPropOptimizer<Q8> defaults.
+    let adam8 = Adam::<Q8_8>::default();
     let adam16 = Adam::new(
         Q16_16::from_raw(58982),
         Q16_16::from_raw(65470),
         Q16_16::from_raw(16),
     );
-    let rmsprop8 = RmsProp::new(Q8_8::from_raw(230), Q8_8::from_raw(1));
+    let rmsprop8 = RmsProp::<Q8_8>::default();
     let rmsprop16 = RmsProp::new(Q16_16::from_raw(58982), Q16_16::from_raw(16));
     run_adaptive!(
         out,

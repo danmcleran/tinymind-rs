@@ -140,10 +140,33 @@ static void run(const char* name, const size_t (&sizes)[L], const unsigned seed,
     }
 }
 
+// An asymmetric clip range [MinRaw, MaxRaw] (raw values), tested in
+// GradientClipByValue's order. Since tinymind #264 GradientClipByValue is
+// symmetric ([-b, b]); the Rust API takes any (min, max), so the asymmetric
+// case is kept with this policy.
+template<typename ValueType, long long MinRaw, long long MaxRaw>
+struct AsymmetricClip
+{
+    static ValueType clip(const ValueType& gradient)
+    {
+        static const ValueType maxValue(static_cast<typename ValueType::FullWidthValueType>(MaxRaw));
+        static const ValueType minValue(static_cast<typename ValueType::FullWidthValueType>(MinRaw));
+        if (gradient > maxValue)
+        {
+            return maxValue;
+        }
+        else if (gradient < minValue)
+        {
+            return minValue;
+        }
+        return gradient;
+    }
+};
+
 // Regression with a linear output and gradient clipping: 3 inputs in [-1, 1),
 // two targets up to about 9 in magnitude, so the output and bias gradients go
-// well past the clip range (tinymind clips the weights' gradients, not the
-// biases').
+// well past the clip range (tinymind clips weight and bias gradients alike
+// since its #264).
 template<typename ValueType, size_t IN, typename HL, size_t L, size_t OUT, typename Clip,
          typename Opt = tinymind::NullOptimizerPolicy<ValueType> >
 static void runRegression(const char* name, const size_t (&sizes)[L], const unsigned seed, const int steps)
@@ -241,7 +264,7 @@ int main()
     static const size_t reg1[1] = {6};
     runRegression<Q16, 3, tinymind::HiddenLayers<6, 4>, 2, 2, tinymind::GradientClipByValue<Q16> >(
         "q16.16 3-6-4-2 linear clip[-1,1]", reg2, 5, 2000);
-    runRegression<Q16, 3, tinymind::HiddenLayers<6>, 1, 2, tinymind::GradientClipByValue<Q16, 2, 0x8000> >(
+    runRegression<Q16, 3, tinymind::HiddenLayers<6>, 1, 2, AsymmetricClip<Q16, -98304, 163840> >(
         "q16.16 3-6-2 linear clip[-1.5,2.5]", reg1, 6, 2000);
 
     // Adaptive optimizers. Q8.8 runs use tinymind's default hyperparameters

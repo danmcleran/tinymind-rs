@@ -37,7 +37,7 @@ The program writes the same files the C++ example writes, byte for byte:
 
 ![Training loss, test confusion matrix and one window per activity]({{ site.baseurl }}/assets/plots/har_activity.png)
 
-Over 60 epochs the mean error at a window's last sample falls from 0.108 to 0.038. The network classifies 183 of the 200 test windows correctly (91.5%); most of its mistakes take walking for upstairs. With `--readout-only` it gets 50.0%, the nearest-centroid baseline 52.5% and chance 25%: what separates the stairs classes is learned by the recurrent weights.
+Over 60 epochs the mean error at a window's last sample falls from 0.108 to 0.039. The network classifies 185 of the 200 test windows correctly (92.5%); its mistakes are all between walking and the stairs. With `--readout-only` it gets 50.0%, the nearest-centroid baseline 52.5% and chance 25%: what separates the stairs classes is learned by the recurrent weights.
 
 The figure is drawn from this port's output with tinymind (C++)'s plotting style (`scripts/plot-examples.py`).
 

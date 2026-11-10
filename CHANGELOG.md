@@ -9,6 +9,10 @@ break the API).
 
 ### Added
 
+- `Default` for `Adam<Q16_16>`, `Adam<Q8_8>`, `RmsProp<Q16_16>` and
+  `RmsProp<Q8_8>`: tinymind (C++)'s defaults for each format (Adam: beta1 0.9,
+  beta2 0.99, epsilon `sqrt(LSB / (1 - beta2))`; RMSprop: decay 0.9, epsilon
+  one LSB), as its #264 computes them.
 - Tabular Q-learning, ported from tinymind (C++)'s `qlearn.hpp`: the
   `qlearn` module's `QLearner` (tinymind (C++)'s `QLearner` with its default
   learning and arg-max policies), `QTable` (`QValueTablePolicy`), the
@@ -48,6 +52,18 @@ break the API).
 
 ### Changed
 
+- The optimizers follow tinymind (C++) since its #264, so training results
+  change wherever these apply:
+  - `Adam` and `RmsProp` (and `AdamFloat` and `RmsPropFloat`) update the bias
+    weights too; they used to keep their initial values.
+  - Adam's step count `t` advances once per training step, before any weight
+    moves, instead of once per layer.
+  - `Adam` keeps `beta1^t` and `beta2^t` as running products and corrects
+    whenever `1 - beta^t > 0`, so its bias correction no longer stops at step
+    100 or depends on `epsilon`; `AdamFloat` keeps them as `f64` products
+    instead of calling `pow`.
+  - Gradient clipping (`set_gradient_clip`) applies to the bias weights' gradients
+    as well as the weights', with every optimizer.
 - The `energy_efficiency` example trains on every sample, as tinymind (C++)'s
   does since its #261 (it used to skip samples whose error was within the
   fixed-point zero tolerance): test MAE 1.69 (heating) and 1.95 (cooling), R²
