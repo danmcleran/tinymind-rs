@@ -2,9 +2,12 @@
 //! six-room maze, and the program writes the same files the C++ example
 //! writes, byte for byte:
 //!
-//! - stdout: each episode's start room and actions
-//! - `maze_training.csv`: the path of each of the 500 training episodes
-//! - `maze_test.csv`: the path of each of the 100 test episodes
+//! - stdout: each episode's start room and actions, and how far the learned Q
+//!   table is from the optimal Q*
+//! - `maze_training.csv`: the path of each of the 5000 training episodes
+//! - `maze_qtable.csv`: each valid (state, action)'s learned Q value and Q*
+//!   (from value iteration)
+//! - `maze_test.csv`: the path of each of the 100 greedy test episodes
 //!
 //! Run: `cargo run --release --example maze -- [output_dir]` (default `output`).
 

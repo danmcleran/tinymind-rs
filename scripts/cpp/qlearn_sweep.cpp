@@ -2,16 +2,21 @@
 // on the maze example and on random environments, with the Q table hashed
 // after every update.
 //
-// - maze: examples/maze exactly (unsigned Q16.16, glibc rand seeded with 7,
-//   500 training and 100 test episodes). The Rust example runs signed Q16.16;
-//   matching this hash shows the two give the same Q values here.
+// - maze: examples/maze's schedule (unsigned Q16.16, glibc rand seeded with 7,
+//   5000 training episodes, exploration phased out over the last 100, then
+//   100 greedy test episodes at learning rate 0). The Rust example runs signed
+//   Q16.16; matching this hash shows the two give the same Q values here.
 // - random: signed Q16.16 and Q8.8 environments of several shapes. Each state
 //   has 0 to ACTIONS valid actions (so every ArgMaxPolicy branch runs: none,
 //   one, two, and three or more, tied or not), random next states and
 //   rewards in [-1.5, 1.5], so Q values go negative. Learning rates,
-//   discount factors and exploration rates are random, including 0 and values
-//   the setters must ignore (>= 1, > 100). Exploration decays during the run.
-//   Every fourth episode starts with an update before any action is taken.
+//   discount factors and exploration rates are random, including 0, exactly
+//   1, and values the setters must ignore (> 1, < 0, > 100). Exploration
+//   decays during the run. Every fourth episode starts with an update before
+//   any action is taken, for a random state or the invalid state S (which
+//   must change nothing); every fifth step of an episode is followed by a
+//   replayed experience for a random state, not the learner's, and the
+//   episode goes on from where that experience leads.
 //
 // Each line hashes (FNV-1a) every action taken and every Q value (as a 32-bit
 // raw value) after every update. The draws come in a fixed order, which
@@ -134,15 +139,20 @@ static void maze()
     MazeLearner q(UQ(1, 0) / UQ(5, 0), UQ(8, 0) / UQ(10, 0), 100);
     uint32_t h = 0x811C9DC5u;
     unsigned steps = 0;
-    for (unsigned i = 0; i < 600; ++i)
+    for (unsigned i = 0; i < 5100; ++i)
     {
-        if (i >= 400 && i < 500)
+        if (i >= 4900 && i < 5000)
         {
             const size_t p = q.getEnvironment().getRandomActionDecisionPoint();
             if (p > 0)
             {
                 q.getEnvironment().setRandomActionDecisionPoint(p - 1);
             }
+        }
+        if (i == 5000)
+        {
+            q.getEnvironment().setRandomActionDecisionPoint(0);
+            q.getEnvironment().setLearningRate(UQ(0));
         }
         q.startNewEpisode();
         state_t state = rand() % 6;
@@ -223,17 +233,32 @@ struct RandomEnv : public tinymind::QLearningEnvironment<state_t, action_t, V, S
 };
 
 // Raw value of 1.0 is 2^FRAC; draws a raw value for a learning rate or
-// discount: 0, exactly 1, above 1 (both ignored by the setter), or in (0, 1).
+// discount: 0, exactly 1, above 1 or below 0 (both ignored by the setter), or
+// in (0, 1).
 static int32_t rateRaw(const int frac)
 {
     const int32_t one = 1 << frac;
-    switch (draw(7))
+    switch (draw(8))
     {
         case 0: return 0;
         case 1: return one;
         case 2: return one + 1 + static_cast<int32_t>(draw(static_cast<uint32_t>(one)));
+        case 3: return -1 - static_cast<int32_t>(draw(static_cast<uint32_t>(one)));
         default: return 1 + static_cast<int32_t>(draw(static_cast<uint32_t>(one - 1)));
     }
+}
+
+template<typename V, size_t S, size_t A, typename Learner>
+static uint32_t hashTable(uint32_t h, const Learner& q)
+{
+    for (state_t s = 0; s < S; ++s)
+    {
+        for (action_t a = 0; a < A; ++a)
+        {
+            h = fnv(h, static_cast<uint32_t>(static_cast<int32_t>(q.getQValue(s, a).getValue())));
+        }
+    }
+    return h;
 }
 
 template<typename V, int FRAC, size_t S, size_t A>
@@ -295,14 +320,18 @@ static void randomEnv(const char* name, const int trials)
             state_t state = static_cast<state_t>(draw(S));
             if (ep % 4 == 3)
             {
-                // An update with no current state: it only moves the learner.
+                // An update before any action, for a random state or the
+                // invalid state S: the learner has no current state, so the
+                // update must use the experience's.
+                const state_t es = static_cast<state_t>(draw(S + 1));
                 typename Env::experience_t e;
-                e.state = state;
+                e.state = es;
                 e.action = static_cast<action_t>(draw(A));
-                e.reward = env.reward[state][e.action];
-                e.newState = env.next[state][e.action];
+                e.reward = (es < S) ? env.reward[es][e.action] : V(0);
+                e.newState = env.next[es % S][e.action];
                 q.updateFromExperience(e);
                 h = fnv(h, q.getState());
+                h = hashTable<V, S, A>(h, q);
                 state = e.newState;
             }
             for (int step = 0; step < 25; ++step)
@@ -319,15 +348,22 @@ static void randomEnv(const char* name, const int trials)
                 e.reward = env.reward[state][action];
                 e.newState = env.next[state][action];
                 q.updateFromExperience(e);
-                for (state_t s = 0; s < S; ++s)
-                {
-                    for (action_t a = 0; a < A; ++a)
-                    {
-                        h = fnv(h, static_cast<uint32_t>(static_cast<int32_t>(q.getQValue(s, a).getValue())));
-                    }
-                }
+                h = hashTable<V, S, A>(h, q);
                 ++steps;
                 state = e.newState;
+                if (step % 5 == 4)
+                {
+                    // A replayed experience for a random state, whatever state
+                    // the learner is in; the episode goes on from its new state.
+                    typename Env::experience_t r;
+                    r.state = static_cast<state_t>(draw(S));
+                    r.action = static_cast<action_t>(draw(A));
+                    r.reward = env.reward[r.state][r.action];
+                    r.newState = env.next[r.state][r.action];
+                    q.updateFromExperience(r);
+                    h = hashTable<V, S, A>(h, q);
+                    state = r.newState;
+                }
                 if (state == goal)
                 {
                     break;

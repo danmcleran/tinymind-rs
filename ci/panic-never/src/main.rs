@@ -558,6 +558,7 @@ fn q_learning<V: Scalar>(raw: fn(i32) -> V) {
     q.start_new_episode();
     let action = q.take_action(black_box(0)).unwrap_or(black_box(9));
     q.update_from_experience(&qlearn::Experience {
+        state: black_box(0),
         action,
         reward: raw(black_box(65_536)),
         new_state: black_box(3),

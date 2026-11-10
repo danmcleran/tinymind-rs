@@ -474,6 +474,7 @@ mod qlearn {
         }
         let _ = q.take_action(kani::any());
         q.update_from_experience(&Experience {
+            state: kani::any(),
             action: kani::any(),
             reward: any_q8_8(),
             new_state: kani::any(),

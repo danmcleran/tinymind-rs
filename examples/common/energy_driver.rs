@@ -101,9 +101,8 @@ pub fn run(out_dir: &Path, data_path: &Path, stdout: &mut dyn Write) -> io::Resu
 
         nn.feed_forward(&input);
         let err = nn.calculate_error(&target);
-        if !err.is_within_zero_tolerance() {
-            nn.train(&target);
-        }
+        // Every sample trains, as in the C++ since tinymind (C++) #261.
+        nn.train(&target);
         err_sum += err.to_f64().abs();
 
         if (it + 1) % REPORT_EVERY == 0 {

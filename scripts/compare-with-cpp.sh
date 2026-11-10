@@ -242,13 +242,15 @@ done
 
 echo "== maze"
 mkdir -p "$TMP/maze/cpp" "$TMP/maze/rust"
-# Flags from examples/maze/Makefile's release target.
-g++ -g -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/maze/maze" \
+# Flags from examples/maze/Makefile's release target, plus -ffp-contract=off:
+# the example computes Q* by value iteration in double, and a compiler that
+# fuses multiply-adds (g++ 15 on CI does) changes it.
+g++ -g -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/maze/maze" \
   "$TINYMIND_DIR/examples/maze/maze.cpp" "$TINYMIND_DIR/examples/maze/mazelearner.cpp" \
   -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include"
 (cd "$TMP/maze/cpp" && ../maze > stdout.txt)
 "$ROOT/target/release/examples/maze" "$TMP/maze/rust" > "$TMP/maze/rust/stdout.txt"
-for f in stdout.txt maze_training.csv maze_test.csv; do
+for f in stdout.txt maze_training.csv maze_qtable.csv maze_test.csv; do
   if cmp -s "$TMP/maze/cpp/$f" "$TMP/maze/rust/$f"; then
     same "maze $f"
   else

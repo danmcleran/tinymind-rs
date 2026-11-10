@@ -101,8 +101,9 @@ same way and writes `energy_loss.csv` and `energy_pred.csv`. The `anomaly`
 example trains an 8-4-8 autoencoder on synthetic normal vibration windows and
 flags faults by reconstruction error; the same code runs on the boards in
 `bench/`. It takes an optional output directory and writes `anomaly_scores.csv`
-there. The `maze` example trains a Q-learner to leave a six-room maze over 500
-episodes, then runs 100 test episodes, and writes each episode's path to
+there. The `maze` example trains a Q-learner to leave a six-room maze over 5000
+episodes, compares its Q table with the optimal one (`maze_qtable.csv`), then
+runs 100 greedy test episodes, and writes each episode's path to
 `maze_training.csv` and `maze_test.csv`. The `har_activity` example trains a
 3-16-4 LSTM network on synthesized accelerometer windows (32 samples of three
 axes each) to tell walking, walking upstairs, walking downstairs and sitting apart,
@@ -262,7 +263,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, maze, har_activity, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (73 checks today, including
+  example does, runs both sides, and compares every output file (74 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

@@ -14,17 +14,17 @@
 //! The update is tinymind (C++)'s, operation for operation:
 //!
 //! ```text
-//! Q(s, a) = (1 - lr) * Q(s, a) + lr * (reward + discount * Q(s', a'))
+//! Q(s, a) = (1 - lr) * Q(s, a) + lr * (reward + discount * max_a' Q(s', a'))
 //! ```
 //!
-//! where `a'` is the action the learner would choose in `s'`, exploration
-//! included (so a random `a'` draws from the environment's generator, as in the
-//! C++). Action selection explores with probability
+//! for the experience's own state `s`, where the maximum runs over the actions
+//! valid in the next state `s'` (0 if there are none): the greedy value,
+//! whatever the learner explores, so the table converges to the optimal Q
+//! values. Action selection explores with probability
 //! `random_action_decision_point` percent; otherwise it takes the action with
-//! the largest Q value, as tinymind (C++)'s `ArgMaxPolicy` does: with two valid
-//! actions the first wins only if strictly larger; with three or more the
-//! first of the largest wins, unless every valid action has the same Q value
-//! (an unvisited state), in which case a random valid action is taken.
+//! the largest Q value, as tinymind (C++)'s `ArgMaxPolicy` does (the first of
+//! equal maxima), unless every valid action has the same Q value (an unvisited
+//! state), in which case a random valid action is taken.
 //!
 //! ```
 //! use tinymind::qlearn::{Environment, Experience, QLearner};
@@ -56,7 +56,7 @@
 //!         let action = learner.take_action(state).unwrap();
 //!         let next = if action == 0 { state.saturating_sub(1) } else { state + 1 };
 //!         let reward = if next == 3 { Q16_16::ONE } else { Q16_16::ZERO };
-//!         learner.update_from_experience(&Experience { action, reward, new_state: next });
+//!         learner.update_from_experience(&Experience { state, action, reward, new_state: next });
 //!         state = next;
 //!     }
 //! }
@@ -82,7 +82,7 @@ pub trait Environment<const ACTIONS: usize> {
     fn valid_actions(&self, state: usize, actions: &mut [usize; ACTIONS]) -> usize;
 
     /// A uniformly distributed integer in `min..=max`, for exploration. The
-    /// learner asks for `random_int(0, 100)` to decide whether to explore and
+    /// learner asks for `random_int(0, 99)` to decide whether to explore and
     /// `random_int(0, n - 1)` to pick one of `n` valid actions.
     fn random_int(&mut self, min: usize, max: usize) -> usize;
 }
@@ -92,7 +92,7 @@ pub trait Environment<const ACTIONS: usize> {
 pub trait QValues<V> {
     /// The Q value of taking `action` in `state`.
     fn q_value(&self, state: usize, action: usize) -> V;
-    /// The Q value of the action chosen in the next state, used for the
+    /// The Q value of the best action in the next state, used for the
     /// update's target. A table returns [`q_value`](QValues::q_value).
     fn future_q_value(&mut self, state: usize, action: usize) -> V;
     /// Stores a new Q value for `action` in `state`.
@@ -155,10 +155,12 @@ impl<V: Scalar, const STATES: usize, const ACTIONS: usize> QValues<V>
 }
 
 /// One step's outcome, reported to [`QLearner::update_from_experience`]
-/// (tinymind (C++)'s `experience_t` without its `state`, which the C++ learner
-/// does not read either: the step started in the learner's current state).
+/// (tinymind (C++)'s `experience_t`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Experience<V> {
+    /// The state the step started in; the update changes its Q value. A state
+    /// of `STATES` or more changes nothing (tinymind (C++)'s invalid state).
+    pub state: usize,
     /// The action taken.
     pub action: usize,
     /// The reward it earned.
@@ -185,7 +187,7 @@ impl<V: Scalar, E: Environment<ACTIONS>, const STATES: usize, const ACTIONS: usi
     QLearner<V, E, STATES, ACTIONS>
 {
     /// A learner with a zeroed [`QTable`]. `learning_rate` and
-    /// `discount_factor` must be below 1 and `random_action_decision_point`
+    /// `discount_factor` must be in [0, 1] and `random_action_decision_point`
     /// (the exploration percentage) at most 100; a value outside that range
     /// is ignored, leaving 0, as in the C++.
     pub fn new(
@@ -269,9 +271,9 @@ impl<V: Scalar, E: Environment<ACTIONS>, const STATES: usize, const ACTIONS: usi
         self.learning_rate
     }
 
-    /// Sets the learning rate if it is below 1; otherwise keeps the old one.
+    /// Sets the learning rate if it is in [0, 1]; otherwise keeps the old one.
     pub fn set_learning_rate(&mut self, rate: V) {
-        if rate < V::ONE {
+        if is_in_unit_interval(rate) {
             self.learning_rate = rate;
         }
     }
@@ -281,9 +283,10 @@ impl<V: Scalar, E: Environment<ACTIONS>, const STATES: usize, const ACTIONS: usi
         self.discount_factor
     }
 
-    /// Sets the discount factor if it is below 1; otherwise keeps the old one.
+    /// Sets the discount factor if it is in [0, 1]; otherwise keeps the old
+    /// one.
     pub fn set_discount_factor(&mut self, factor: V) {
-        if factor < V::ONE {
+        if is_in_unit_interval(factor) {
             self.discount_factor = factor;
         }
     }
@@ -313,8 +316,8 @@ impl<V: Scalar, E: Environment<ACTIONS>, const STATES: usize, const ACTIONS: usi
         }
     }
 
-    /// Forgets the current state: the next update only moves the learner to
-    /// its new state and changes no Q value.
+    /// Forgets the current state (the C++ invalid state), as at the start of
+    /// an episode.
     pub fn start_new_episode(&mut self) {
         self.state = None;
     }
@@ -328,33 +331,38 @@ impl<V: Scalar, E: Environment<ACTIONS>, const STATES: usize, const ACTIONS: usi
         action
     }
 
-    /// Learns from the step taken in the current state: updates its Q value
-    /// (unless the learning rate is 0 or there is no current state) and moves
-    /// to `experience.new_state`.
+    /// Learns from a step: updates the Q value of `experience.action` in
+    /// `experience.state` (unless the learning rate is 0 or the state is out of
+    /// range), whatever the learner's current state, and moves to
+    /// `experience.new_state`.
     pub fn update_from_experience(&mut self, experience: &Experience<V>) {
         let learning_rate = self.learning_rate;
-        if learning_rate > V::ZERO {
+        if learning_rate > V::ZERO && experience.state < STATES {
             let one_minus_learning_rate = V::ONE - learning_rate;
             let discount_factor = self.discount_factor;
-            let old_q_value = match self.state {
-                Some(state) => self.q_values.q_value(state, experience.action),
-                None => V::ZERO,
-            };
+            let old_q_value = self.q_values.q_value(experience.state, experience.action);
             let future_q_value = self.future_q_value(experience.new_state);
             let q_value = (one_minus_learning_rate * old_q_value)
                 + (learning_rate * (experience.reward + (discount_factor * future_q_value)));
-            if let Some(state) = self.state {
-                self.q_values.set_q_value(state, experience.action, q_value);
-            }
+            self.q_values
+                .set_q_value(experience.state, experience.action, q_value);
         }
         self.state = Some(experience.new_state);
     }
 
+    /// max over the actions valid in `state` of their Q value, from the action
+    /// [`best_action`](Self::best_action) picks (the first valid one when all
+    /// tie, since each is then the maximum); 0 when none is valid. Never draws
+    /// from the generator.
     fn future_q_value(&mut self, state: usize) -> V {
-        match self.choose_action(state) {
-            Some(action) => self.q_values.future_q_value(state, action),
-            None => V::ZERO,
-        }
+        let mut buffer = [0; ACTIONS];
+        let count = self.environment.valid_actions(state, &mut buffer);
+        let valid = buffer.get(..count).unwrap_or(&buffer);
+        let Some(&first) = valid.first() else {
+            return V::ZERO;
+        };
+        let action = self.best_action(state, valid).unwrap_or(first);
+        self.q_values.future_q_value(state, action)
     }
 
     fn choose_action(&mut self, state: usize) -> Option<usize> {
@@ -375,7 +383,9 @@ impl<V: Scalar, E: Environment<ACTIONS>, const STATES: usize, const ACTIONS: usi
         match self.random_action_decision_point {
             0 => false,
             100 => true,
-            point => self.environment.random_int(0, 100) <= point,
+            // 100 equally likely values, `point` of them below it: a random
+            // action with probability exactly point / 100.
+            point => self.environment.random_int(0, 99) < point,
         }
     }
 
@@ -396,17 +406,25 @@ impl<V: Scalar, E: Environment<ACTIONS>, const STATES: usize, const ACTIONS: usi
             [] => None,
             [action] => Some(*action),
             [a0, a1] => {
-                if self.q_values.q_value(state, *a0) > self.q_values.q_value(state, *a1) {
+                let (q0, q1) = (
+                    self.q_values.q_value(state, *a0),
+                    self.q_values.q_value(state, *a1),
+                );
+                if q0 > q1 {
                     Some(*a0)
-                } else {
+                } else if q1 > q0 {
                     Some(*a1)
+                } else {
+                    // A tie is no preference, as below.
+                    None
                 }
             }
             [first, rest @ ..] => {
                 // The largest Q value, whatever its sign (the first of equal
                 // maxima). Only when every valid action ties, as in an
                 // unvisited state of a zeroed table, is there no preference:
-                // `None` makes the caller take a random action.
+                // `None` makes the caller take a random action (and the
+                // update's bootstrap any of them, since each is the maximum).
                 let mut best_action = *first;
                 let mut best_q_value = self.q_values.q_value(state, best_action);
                 let mut all_tied = true;
@@ -424,4 +442,11 @@ impl<V: Scalar, E: Environment<ACTIONS>, const STATES: usize, const ACTIONS: usi
             }
         }
     }
+}
+
+/// tinymind (C++)'s `isInUnitInterval`: `!(v < 0) && !(1 < v)`, so a float NaN
+/// passes, as in the C++.
+#[allow(clippy::neg_cmp_op_on_partial_ord)]
+fn is_in_unit_interval<V: Scalar>(value: V) -> bool {
+    !(value < V::ZERO) && !(V::ONE < value)
 }
