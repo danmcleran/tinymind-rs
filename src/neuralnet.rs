@@ -297,7 +297,7 @@ where
                     .update_weight(&mut self.hidden[h].connections[o], rates, clip);
             }
             self.optimizer
-                .update_bias(&mut self.hidden_bias.connections[o], rates, clip);
+                .update_weight(&mut self.hidden_bias.connections[o], rates, clip);
         }
         for h in 0..HID {
             for i in 0..IN {
@@ -305,7 +305,7 @@ where
                     .update_weight(&mut self.input[i].connections[h], rates, clip);
             }
             self.optimizer
-                .update_bias(&mut self.input_bias.connections[h], rates, clip);
+                .update_weight(&mut self.input_bias.connections[h], rates, clip);
         }
     }
 }

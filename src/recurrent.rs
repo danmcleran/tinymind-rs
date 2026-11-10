@@ -524,28 +524,23 @@ where
         // reads only itself, so the order does not matter. Bias connections
         // are clipped like the weights; the recurrent layer has no bias.
         self.optimizer.begin_step();
-        for cell in &mut self.hidden {
-            for c in &mut cell.connections {
-                self.optimizer.update_weight(c, rates, clip);
-            }
-        }
-        for c in &mut self.hidden_bias.connections {
-            self.optimizer.update_bias(c, rates, clip);
-        }
-
-        for r in &mut self.recurrent {
-            for c in r.connections.iter_mut().flatten() {
-                self.optimizer.update_weight(c, rates, clip);
-            }
-        }
-
-        for n in &mut self.input {
-            for c in n.connections.iter_mut().flatten() {
-                self.optimizer.update_weight(c, rates, clip);
-            }
-        }
-        for c in self.input_bias.connections.iter_mut().flatten() {
-            self.optimizer.update_bias(c, rates, clip);
+        let output = self
+            .hidden
+            .iter_mut()
+            .flat_map(|cell| cell.connections.iter_mut())
+            .chain(self.hidden_bias.connections.iter_mut());
+        let recurrent = self
+            .recurrent
+            .iter_mut()
+            .flat_map(|r| r.connections.iter_mut().flatten());
+        let input = self
+            .input
+            .iter_mut()
+            .flat_map(|n| n.connections.iter_mut().flatten())
+            .chain(self.input_bias.connections.iter_mut().flatten());
+        // One loop over every connection: one copy of the update code.
+        for c in output.chain(recurrent).chain(input) {
+            self.optimizer.update_weight(c, rates, clip);
         }
     }
 }

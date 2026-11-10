@@ -144,10 +144,10 @@ mod sealed {
         /// C++ `step()`: called once per training step, before any weight
         /// moves (`beginTrainingStep`).
         fn begin_step(&mut self);
-        /// Update one weight from its gradient (clipped by `clip` if set).
+        /// Update one weight or bias weight from its gradient (clipped by
+        /// `clip` if set). Since tinymind (C++) #264 every optimizer updates
+        /// bias weights by the same rule as the other weights.
         fn update_weight(&self, c: &mut Connection<V>, rates: (V, V, V), clip: Option<(V, V)>);
-        /// Update one bias weight from its gradient (clipped by `clip` if set).
-        fn update_bias(&self, c: &mut Connection<V>, rates: (V, V, V), clip: Option<(V, V)>);
     }
 }
 
@@ -161,10 +161,6 @@ impl<V: Scalar> sealed::OptimizerImpl<V> for Sgd {
     fn begin_step(&mut self) {}
 
     fn update_weight(&self, c: &mut Connection<V>, rates: (V, V, V), clip: Option<(V, V)>) {
-        update_connection(c, rates, clip);
-    }
-
-    fn update_bias(&self, c: &mut Connection<V>, rates: (V, V, V), clip: Option<(V, V)>) {
         update_connection(c, rates, clip);
     }
 }
@@ -216,11 +212,6 @@ impl<V: Scalar + Sqrt> sealed::OptimizerImpl<V> for Adam<V> {
         let update = self.compute_update(c, clipped(c.gradient, clip), lr);
         c.weight += update;
     }
-
-    fn update_bias(&self, c: &mut Connection<V>, (lr, _, _): (V, V, V), clip: Option<(V, V)>) {
-        let update = self.compute_update(c, clipped(c.gradient, clip), lr);
-        c.weight += update;
-    }
 }
 
 impl<V: Scalar + Sqrt> RmsProp<V> {
@@ -238,11 +229,6 @@ impl<V: Scalar + Sqrt> sealed::OptimizerImpl<V> for RmsProp<V> {
     fn begin_step(&mut self) {}
 
     fn update_weight(&self, c: &mut Connection<V>, (lr, _, _): (V, V, V), clip: Option<(V, V)>) {
-        let update = self.compute_update(c, clipped(c.gradient, clip), lr);
-        c.weight += update;
-    }
-
-    fn update_bias(&self, c: &mut Connection<V>, (lr, _, _): (V, V, V), clip: Option<(V, V)>) {
         let update = self.compute_update(c, clipped(c.gradient, clip), lr);
         c.weight += update;
     }
@@ -392,16 +378,6 @@ macro_rules! impl_float_optimizers {
                 let update = self.compute_update_float(c, clipped(c.gradient, clip), lr);
                 c.weight += update;
             }
-
-            fn update_bias(
-                &self,
-                c: &mut Connection<$t>,
-                (lr, _, _): ($t, $t, $t),
-                clip: Option<($t, $t)>,
-            ) {
-                let update = self.compute_update_float(c, clipped(c.gradient, clip), lr);
-                c.weight += update;
-            }
         }
 
         impl FloatUpdate<$t> for RmsPropFloat {
@@ -420,16 +396,6 @@ macro_rules! impl_float_optimizers {
             fn begin_step(&mut self) {}
 
             fn update_weight(
-                &self,
-                c: &mut Connection<$t>,
-                (lr, _, _): ($t, $t, $t),
-                clip: Option<($t, $t)>,
-            ) {
-                let update = self.compute_update_float(c, clipped(c.gradient, clip), lr);
-                c.weight += update;
-            }
-
-            fn update_bias(
                 &self,
                 c: &mut Connection<$t>,
                 (lr, _, _): ($t, $t, $t),
