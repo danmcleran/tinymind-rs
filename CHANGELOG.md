@@ -9,6 +9,10 @@ break the API).
 
 ### Added
 
+- `QValue::mul_round_toward_zero` and `Scalar::mul_round_toward_zero` (a
+  provided method: `*` unless overridden, so existing `Scalar` implementations
+  keep compiling): a product rounded toward zero, tinymind (C++)'s
+  `multiplyRoundTowardZero`.
 - `Default` for `Adam<Q16_16>`, `Adam<Q8_8>`, `RmsProp<Q16_16>` and
   `RmsProp<Q8_8>`: tinymind (C++)'s defaults for each format (Adam: beta1 0.9,
   beta2 0.99, epsilon `sqrt(LSB / (1 - beta2))`; RMSprop: decay 0.9, epsilon
@@ -64,6 +68,13 @@ break the API).
     instead of calling `pow`.
   - Gradient clipping (`set_gradient_clip`) applies to the bias weights' gradients
     as well as the weights', with every optimizer.
+- SGD rounds its momentum and acceleration products toward zero in fixed
+  point, as tinymind (C++) does since its #266, so a delta weight that no
+  gradient refreshes decays to 0 instead of moving its weight by an LSB on
+  every step. Training results change for every fixed-point network trained
+  with momentum: the `xor` example in Q8.8 no longer learns XOR (3 of 4
+  cases; the C++ build gives the same), Q16.16 still does, and the anomaly
+  demo flags 39 of 64 stalled-sensor windows (was 30).
 - The `energy_efficiency` example trains on every sample, as tinymind (C++)'s
   does since its #261 (it used to skip samples whose error was within the
   fixed-point zero tolerance): test MAE 1.69 (heating) and 1.95 (cooling), R²

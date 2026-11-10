@@ -62,8 +62,8 @@ samples, so the numbers sit next to the tinymind (C++) ones.
 
 ## Results
 
-F411 2026-11-09, L031 2026-11-07 (MLP, xor, anomaly) and 2026-11-08 (KWS,
-trees). Rust 1.99.1, `opt-level = 3`, LTO, one
+F411 2026-11-09, L031 2026-11-07 (MLP) and 2026-11-08 (KWS, trees); xor and
+anomaly on both boards 2026-11-10. Rust 1.99.1, `opt-level = 3`, LTO, one
 codegen unit. C++ figures are tinymind (C++)'s own (`docs/benchmarks.md`, gcc
 13.2.1 `-O3`), measured on these same boards.
 
@@ -88,7 +88,7 @@ sensitive to placement (see below).
 | int8 MLP output hash = tinymind (C++)'s (`0x85BDD037` / `0x06CE0530`) | match | match |
 | xor Q16.16 training trajectory (20,000 steps) = golden | match | match |
 | xor Q8.8 training trajectory (20,000 steps) = golden | match | match |
-| anomaly demo: report and hash = host run (`0x427BACE2`) | match | match |
+| anomaly demo: report and hash = host run (`0xE57781D0`) | match | match |
 | KWS CNN output hash = tinymind (C++)'s (`0x6B1854D3`) | match | match |
 | MLPerf Tiny DS-CNN (translated from TFLite) output hash = tinymind (C++)'s (`0xF623A166`) | match | - |
 | MLPerf Tiny ResNet-8 (translated from TFLite) output hash = tinymind (C++)'s (`0x8897F6ED`) | match | - |
@@ -130,9 +130,14 @@ image): fc0 28,747, fc1 7,727, fc2 3,508.
 
 | | F411 Q16.16 | F411 Q8.8 | L031 Q16.16 | L031 Q8.8 |
 |---|---:|---:|---:|---:|
-| Cycles per training step | 1,204 | 344 | 5,929 | 2,238 |
-| Time per step | 12.0 us | 3.4 us | 185 us | 70 us |
-| Inference cycles (median) | 1,109 | 191 | 4,119 | 619 |
+| Cycles per training step | 1,217 | 746 | 5,954 | 3,000 |
+| Time per step | 12.2 us | 7.5 us | 186 us | 94 us |
+| Inference cycles (median) | 1,108 | 190 | 4,151 | 599 |
+
+Measured 2026-11-10, after tinymind (C++) #266 made the momentum terms round
+toward zero. The example skips training while the error is within the zero
+tolerance; Q8.8 no longer solves XOR since then, so it trains on every step
+(before: 344 and 2,238 cycles per step, most steps skipped).
 
 Code + weights = image - baseline image - test-set bytes; RAM = (.data + .bss)
 plus peak stack, each minus the baseline's, as tinymind (C++) counts them.
@@ -141,16 +146,23 @@ plus peak stack, each minus the baseline's, as tinymind (C++) counts them.
 
 | | F411 | L031 |
 |---|---:|---:|
-| Training, 3,000 steps, signal generation included | 14,338,215 cycles (0.14 s) | 133,294,247 cycles (4.2 s) |
-| One training step (median) | 4,250 | 35,336 |
-| One detection: forward pass + error (median) | 1,333 | 8,104 |
-| Stack (peak) / over baseline | 3,712 B / +3,200 B | 4,240 B / +3,636 B |
-| Flash (text) / over baseline | 31,796 B / +18,896 B | 32,560 B / +20,512 B |
+| Training, 3,000 steps, signal generation included | 20,970,966 cycles (0.21 s) | 141,504,927 cycles (4.4 s) |
+| One training step (median) | 6,460 | 38,081 |
+| One detection: forward pass + error (median) | 1,333 | 8,105 |
+| Stack (peak) / over baseline | 3,712 B / +3,200 B | 4,232 B / +3,628 B |
+| Flash (text) / over baseline | 30,388 B / +17,488 B | 30,756 B / +18,708 B |
+
+Measured 2026-11-10. A training step costs more than before (F411 4,250, L031
+35,336 cycles): tinymind (C++) #266 rounds the momentum products toward zero
+(F411 +37%), and since #264 every layer's weights and bias weights go through
+one shared, never-inlined update function, which keeps the L031 image inside
+its 32 KB (F411 +10%).
 
 The flash delta includes the demo's signal generator and its formatted report.
-The L031 image is within about 200 bytes of the part's 32 KB; the training step
+The L031 image leaves about 2 KB of the part's 32 KB free; the training step
 and the scorer are `#[inline(never)]` so the training and timing loops share
-one copy (inlined twice at `opt-level = 3` it did not fit).
+one copy (inlined twice at `opt-level = 3` it did not fit), and so is the
+library's per-layer update loop (`optimizer::update_all`).
 
 ### KWS-shaped CNN (int8 convolutions)
 

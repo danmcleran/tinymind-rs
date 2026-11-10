@@ -35,9 +35,9 @@ On the boards, the same code is the `anomaly` workload of the on-board checks (`
 | Wrong frequency | 64 of 64 |
 | Added harmonic | 64 of 64 |
 | Impulse | 64 of 64 |
-| Stalled sensor | 30 of 64 |
+| Stalled sensor | 39 of 64 |
 
-Normal windows reconstruct with errors two to three orders of magnitude below the frequency, harmonic and impulse faults. A stalled sensor is the hard case: when it sticks near zero, its flat window looks like a quiet stretch of normal signal, and about half of those go unflagged. A real deployment would add a rule for it (for example, no change across several windows).
+Normal windows reconstruct with errors two to three orders of magnitude below the frequency, harmonic and impulse faults. A stalled sensor is the hard case: when it sticks near zero, its flat window looks like a quiet stretch of normal signal, and 25 of the 64 go unflagged. A real deployment would add a rule for it (for example, no change across several windows).
 
 ## On the boards
 
@@ -45,12 +45,12 @@ The boards run the same program and print the same report. Its hash covers every
 
 | | NUCLEO-F411RE (Cortex-M4F, 100 MHz) | NUCLEO-L031K6 (Cortex-M0+, 32 MHz) |
 |---|---:|---:|
-| Training, 3,000 steps (signal generation included) | 0.14 s | 4.2 s |
-| One training step | 4,250 cycles (42 µs) | 35,336 cycles (1.1 ms) |
-| One detection (forward pass and error) | 1,333 cycles (13 µs) | 8,104 cycles (253 µs) |
+| Training, 3,000 steps (signal generation included) | 0.21 s | 4.4 s |
+| One training step | 6,460 cycles (65 µs) | 38,081 cycles (1.2 ms) |
+| One detection (forward pass and error) | 1,333 cycles (13 µs) | 8,105 cycles (253 µs) |
 | Stack, over the empty harness | 3.2 KB | 3.6 KB |
-| Flash, over the empty harness | 18.9 KB | 20.5 KB |
+| Flash, over the empty harness | 17.5 KB | 18.7 KB |
 
-The flash figures include the demo's signal generator and its text report, not only the network. The L031 image fills its 32 KB of flash to within about 200 bytes.
+The flash figures include the demo's signal generator and its text report, not only the network. The L031 image leaves about 2 KB of its 32 KB of flash free.
 
 [Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/examples/common/anomaly_demo.rs)

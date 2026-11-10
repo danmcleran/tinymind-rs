@@ -32,6 +32,7 @@ fn arithmetic() {
     );
     let n = black_box(3);
     black_box((a + b, a - b, a * b, a / b, a.div_int(n), a < b, a == b));
+    black_box(a.mul_round_toward_zero(b));
     black_box((
         Q16_16::from_int(n),
         Q16_16::pow2_neg(black_box(40)),
@@ -52,6 +53,7 @@ fn arithmetic() {
 
     let (a, b) = (Q8_8::from_raw(black_box(1)), Q8_8::from_raw(black_box(2)));
     black_box((a + b, a - b, a * b, a / b, a.div_int(n), a < b, a == b));
+    black_box(a.mul_round_toward_zero(b));
     black_box((Q8_8::from_int(n), Q8_8::pow2_neg(black_box(40)), a.raw()));
     black_box((
         a.is_within_zero_tolerance(),

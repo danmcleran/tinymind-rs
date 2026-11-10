@@ -24,15 +24,15 @@ pub struct Expect {
 }
 #[cfg(feature = "xor-q16")]
 pub const Q16_EXPECT: Expect = Expect {
-    len: 2_587_725,
+    len: 2_568_638,
     lines: 20_001,
-    fnv: 0x0f6d_21c3_e3a5_076b,
+    fnv: 0x014b_652a_2248_1540,
 };
 #[cfg(feature = "xor-q8")]
 pub const Q8_EXPECT: Expect = Expect {
-    len: 2_383_566,
+    len: 2_166_574,
     lines: 20_001,
-    fnv: 0x189a_6e57_c8c2_2955,
+    fnv: 0x9b86_0310_bac8_334c,
 };
 
 /// What the example needs from a format (examples/common/xor_driver.rs).

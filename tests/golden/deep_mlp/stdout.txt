@@ -1,55 +1,55 @@
-q16.16 2-4-4-1 step=500 error=505 hash=0xDB3E5993
-q16.16 2-4-4-1 step=1000 error=72 hash=0xCA132C3E
-q16.16 2-4-4-1 step=1500 error=41 hash=0x2E450FB8
-q16.16 2-4-4-1 step=2000 error=10 hash=0x985415C2
-q16.16 2-4-4-1 step=2500 error=8 hash=0x9FA7169F
-q16.16 2-4-4-1 step=3000 error=15 hash=0xEFA7F374
-q16.16 2-4-4-1 step=3500 error=15 hash=0x53DC51FD
-q16.16 2-4-4-1 step=4000 error=4 hash=0x64D36922
-q16.16 2-4-4-1 final0 546
-q16.16 2-4-4-1 final1 546
-q16.16 2-4-4-1 final2 64679
-q16.16 2-4-4-1 final3 889
-q8.8 2-4-4-1 step=500 error=82 hash=0x57873889
-q8.8 2-4-4-1 step=1000 error=72 hash=0xCAB49391
-q8.8 2-4-4-1 step=1500 error=25 hash=0x0B726B47
-q8.8 2-4-4-1 step=2000 error=139 hash=0xFB3F4CB1
-q8.8 2-4-4-1 step=2500 error=160 hash=0x85803061
-q8.8 2-4-4-1 step=3000 error=25 hash=0xC5CB1ADB
-q8.8 2-4-4-1 step=3500 error=133 hash=0xF410F0DF
-q8.8 2-4-4-1 step=4000 error=254 hash=0x7CCE4E72
-q8.8 2-4-4-1 final0 255
-q8.8 2-4-4-1 final1 255
-q8.8 2-4-4-1 final2 255
-q8.8 2-4-4-1 final3 255
-q16.16 4-8-6-5-3 step=500 error=20845 hash=0xA91F898F
-q16.16 4-8-6-5-3 step=1000 error=4169 hash=0x46EE2C9A
-q16.16 4-8-6-5-3 step=1500 error=2 hash=0xEC562AA0
-q16.16 4-8-6-5-3 step=2000 error=0 hash=0x433D4CC5
-q16.16 4-8-6-5-3 step=2500 error=19 hash=0xF44920A2
-q16.16 4-8-6-5-3 step=3000 error=17328 hash=0x3B5F7F34
-q16.16 4-8-6-5-3 final0 65352 412 162
-q16.16 4-8-6-5-3 final1 15953 30435 18855
-q16.16 4-8-6-5-3 final2 15953 30435 18855
-q16.16 4-8-6-5-3 final3 65352 764 162
-q8.8 4-8-6-3 step=500 error=58 hash=0x468751A5
-q8.8 4-8-6-3 step=1000 error=55 hash=0x639C2BF3
-q8.8 4-8-6-3 step=1500 error=55 hash=0x158A4235
-q8.8 4-8-6-3 step=2000 error=54 hash=0x23E21EF5
-q8.8 4-8-6-3 step=2500 error=43 hash=0x67B3C392
-q8.8 4-8-6-3 step=3000 error=170 hash=0x7EE517C9
-q8.8 4-8-6-3 final0 255 255 0
-q8.8 4-8-6-3 final1 255 0 0
-q8.8 4-8-6-3 final2 0 0 255
-q8.8 4-8-6-3 final3 255 0 255
-q16.16 3-6-4-2 linear clip[-1,1] step=500 error=3110 hash=0xD733DE6C
-q16.16 3-6-4-2 linear clip[-1,1] step=1000 error=14 hash=0x9E9FFF19
-q16.16 3-6-4-2 linear clip[-1,1] step=1500 error=37 hash=0x8D522D8D
-q16.16 3-6-4-2 linear clip[-1,1] step=2000 error=5411 hash=0x8D117779
-q16.16 3-6-2 linear clip[-1.5,2.5] step=500 error=50 hash=0xDB7E655F
-q16.16 3-6-2 linear clip[-1.5,2.5] step=1000 error=24 hash=0x2E6A600A
-q16.16 3-6-2 linear clip[-1.5,2.5] step=1500 error=20 hash=0x4743C8BA
-q16.16 3-6-2 linear clip[-1.5,2.5] step=2000 error=23 hash=0x91BA803E
+q16.16 2-4-4-1 step=500 error=511 hash=0xBA197D83
+q16.16 2-4-4-1 step=1000 error=75 hash=0x4930C0D4
+q16.16 2-4-4-1 step=1500 error=43 hash=0xFF21C8D3
+q16.16 2-4-4-1 step=2000 error=11 hash=0xD0A5BCA9
+q16.16 2-4-4-1 step=2500 error=9 hash=0xFCC4A28D
+q16.16 2-4-4-1 step=3000 error=17 hash=0x92BBE70F
+q16.16 2-4-4-1 step=3500 error=15 hash=0x23312BF8
+q16.16 2-4-4-1 step=4000 error=5 hash=0x530A0037
+q16.16 2-4-4-1 final0 605
+q16.16 2-4-4-1 final1 605
+q16.16 2-4-4-1 final2 64608
+q16.16 2-4-4-1 final3 928
+q8.8 2-4-4-1 step=500 error=1 hash=0x559D93A1
+q8.8 2-4-4-1 step=1000 error=1 hash=0xAB9676F9
+q8.8 2-4-4-1 step=1500 error=0 hash=0x62F7FC31
+q8.8 2-4-4-1 step=2000 error=1 hash=0x3163C249
+q8.8 2-4-4-1 step=2500 error=1 hash=0xBBD4C001
+q8.8 2-4-4-1 step=3000 error=0 hash=0xC29098D9
+q8.8 2-4-4-1 step=3500 error=1 hash=0xA6734511
+q8.8 2-4-4-1 step=4000 error=0 hash=0x604187A9
+q8.8 2-4-4-1 final0 239
+q8.8 2-4-4-1 final1 239
+q8.8 2-4-4-1 final2 239
+q8.8 2-4-4-1 final3 1
+q16.16 4-8-6-5-3 step=500 error=16559 hash=0xF81A482B
+q16.16 4-8-6-5-3 step=1000 error=1056 hash=0x821528E5
+q16.16 4-8-6-5-3 step=1500 error=27 hash=0x7AA705BD
+q16.16 4-8-6-5-3 step=2000 error=0 hash=0xE51DB2AA
+q16.16 4-8-6-5-3 step=2500 error=163 hash=0xB63FD43E
+q16.16 4-8-6-5-3 step=3000 error=27020 hash=0x1AB5AEA7
+q16.16 4-8-6-5-3 final0 61215 642 774
+q16.16 4-8-6-5-3 final1 2719 40767 7357
+q16.16 4-8-6-5-3 final2 162 65352 162
+q16.16 4-8-6-5-3 final3 33480 3021 23615
+q8.8 4-8-6-3 step=500 error=53 hash=0x2BD9D590
+q8.8 4-8-6-3 step=1000 error=50 hash=0x6CAE57FE
+q8.8 4-8-6-3 step=1500 error=61 hash=0x452FB7FA
+q8.8 4-8-6-3 step=2000 error=51 hash=0x54E910D2
+q8.8 4-8-6-3 step=2500 error=32 hash=0xCFB179E3
+q8.8 4-8-6-3 step=3000 error=50 hash=0xEAFF932D
+q8.8 4-8-6-3 final0 94 109 25
+q8.8 4-8-6-3 final1 83 104 28
+q8.8 4-8-6-3 final2 90 117 22
+q8.8 4-8-6-3 final3 85 128 19
+q16.16 3-6-4-2 linear clip[-1,1] step=500 error=1636 hash=0x8F5DD26C
+q16.16 3-6-4-2 linear clip[-1,1] step=1000 error=416 hash=0x2EBF8AE4
+q16.16 3-6-4-2 linear clip[-1,1] step=1500 error=124 hash=0x53306474
+q16.16 3-6-4-2 linear clip[-1,1] step=2000 error=3311 hash=0x7FF4B6A2
+q16.16 3-6-2 linear clip[-1.5,2.5] step=500 error=63 hash=0xCE6DC4C0
+q16.16 3-6-2 linear clip[-1.5,2.5] step=1000 error=20 hash=0x5B8D65FB
+q16.16 3-6-2 linear clip[-1.5,2.5] step=1500 error=22 hash=0x25E0376C
+q16.16 3-6-2 linear clip[-1.5,2.5] step=2000 error=14 hash=0xBC4CB40B
 q8.8 2-4-4-1 adam step=500 error=256 hash=0x7429D6E1
 q8.8 2-4-4-1 adam step=1000 error=0 hash=0x383CE59F
 q8.8 2-4-4-1 adam step=1500 error=256 hash=0x34CBCE64

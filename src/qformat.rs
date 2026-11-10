@@ -78,6 +78,14 @@ pub trait Scalar:
     fn pow2_neg(n: u32) -> Self;
     /// Divide by a whole number (C++ `operator/=(int)`).
     fn div_int(self, n: i32) -> Self;
+    /// `self * rhs` rounded toward zero (C++ `multiplyRoundTowardZero`), used
+    /// for SGD's momentum and acceleration terms so that a delta weight no
+    /// gradient refreshes decays to exactly 0. The default is `self * rhs`,
+    /// right for floating point; the Q formats round their product toward
+    /// zero instead of flooring it.
+    fn mul_round_toward_zero(self, rhs: Self) -> Self {
+        self * rhs
+    }
 }
 
 /// The name of [`Scalar`] up to 0.1.5, kept so that bounds written `V: Fixed`
@@ -214,6 +222,21 @@ macro_rules! impl_qvalue {
                 Self::from_raw((x * f64::from(1u32 << FRAC)) as $s)
             }
 
+            /// `self * rhs` with the product rounded toward zero instead of
+            /// floored (C++ `multiplyRoundTowardZero`): the same widening and
+            /// wrap to the storage width as `*`. SGD uses it for the momentum
+            /// and acceleration terms: floored, `0.5 * (-1 LSB)` stays -1 LSB,
+            /// so a delta weight no gradient refreshes would never decay.
+            pub fn mul_round_toward_zero(self, rhs: Self) -> Self {
+                let () = Self::FORMAT_OK;
+                let product = <$wide>::from(self.0) * <$wide>::from(rhs.0);
+                // Toward zero without a branch: a negative product gets
+                // 2^FRAC - 1 added before the flooring shift. |product| <
+                // 2^(2 * storage bits - 2), so the sum cannot overflow.
+                let bias = (product >> (<$wide>::BITS - 1)) & ((1 << FRAC) - 1);
+                Self(((product + bias) >> FRAC) as $s)
+            }
+
             /// Divide by a whole number, truncating toward zero (C++
             /// `QValue::operator/=(int)`). This is *not* the same as dividing by
             /// `QValue::from_int(n)`.
@@ -326,6 +349,9 @@ macro_rules! impl_qvalue {
             }
             fn div_int(self, n: i32) -> Self {
                 self.div_int(n)
+            }
+            fn mul_round_toward_zero(self, rhs: Self) -> Self {
+                self.mul_round_toward_zero(rhs)
             }
         }
     };

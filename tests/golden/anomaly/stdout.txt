@@ -1,9 +1,9 @@
 autoencoder 8-4-8 (tanh, linear), Q16.16, 3000 training steps on normal windows
-training error, mean of the last 500 steps=19 (raw Q16.16)
-threshold=246 (2 x the largest error on 256 normal windows, raw Q16.16)
+training error, mean of the last 500 steps=18 (raw Q16.16)
+threshold=204 (2 x the largest error on 256 normal windows, raw Q16.16)
 normal: flagged 0/256 (false alarms)
 frequency: flagged 64/64
 harmonic: flagged 64/64
 spike: flagged 64/64
-stall: flagged 30/64
-hash=0x427BACE2
+stall: flagged 39/64
+hash=0xE57781D0
