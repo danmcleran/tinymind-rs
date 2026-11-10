@@ -23,8 +23,8 @@
 //! `random_action_decision_point` percent; otherwise it takes the action with
 //! the largest Q value, as tinymind (C++)'s `ArgMaxPolicy` does: with two valid
 //! actions the first wins only if strictly larger; with three or more the
-//! search starts from 0, so an action is chosen only if its Q value is
-//! positive, and if none is, a random valid action is taken instead.
+//! first of the largest wins, unless every valid action has the same Q value
+//! (an unvisited state), in which case a random valid action is taken.
 //!
 //! ```
 //! use tinymind::qlearn::{Environment, Experience, QLearner};
@@ -402,17 +402,25 @@ impl<V: Scalar, E: Environment<ACTIONS>, const STATES: usize, const ACTIONS: usi
                     Some(*a1)
                 }
             }
-            _ => {
-                let mut best_q_value = V::ZERO;
-                let mut best_action = None;
-                for &action in valid {
+            [first, rest @ ..] => {
+                // The largest Q value, whatever its sign (the first of equal
+                // maxima). Only when every valid action ties, as in an
+                // unvisited state of a zeroed table, is there no preference:
+                // `None` makes the caller take a random action.
+                let mut best_action = *first;
+                let mut best_q_value = self.q_values.q_value(state, best_action);
+                let mut all_tied = true;
+                for &action in rest {
                     let q_value = self.q_values.q_value(state, action);
+                    if q_value != best_q_value {
+                        all_tied = false;
+                    }
                     if q_value > best_q_value {
                         best_q_value = q_value;
-                        best_action = Some(action);
+                        best_action = action;
                     }
                 }
-                best_action
+                if all_tied { None } else { Some(best_action) }
             }
         }
     }

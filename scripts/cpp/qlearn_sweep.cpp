@@ -7,7 +7,7 @@
 //   matching this hash shows the two give the same Q values here.
 // - random: signed Q16.16 and Q8.8 environments of several shapes. Each state
 //   has 0 to ACTIONS valid actions (so every ArgMaxPolicy branch runs: none,
-//   one, two, and three or more starting from 0), random next states and
+//   one, two, and three or more, tied or not), random next states and
 //   rewards in [-1.5, 1.5], so Q values go negative. Learning rates,
 //   discount factors and exploration rates are random, including 0 and values
 //   the setters must ignore (>= 1, > 100). Exploration decays during the run.
