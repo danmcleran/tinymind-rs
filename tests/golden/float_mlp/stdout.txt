@@ -24,31 +24,31 @@ f64 3-6-2 relu/linear final0 BFD981AF968B7B68 3FD671D33380DFFE
 f64 3-6-2 relu/linear final1 BFCD8B336EAB6E78 3FE0B644FD524E70
 f64 3-6-2 relu/linear final2 BFD6F9A003B242C8 3FDF43E708D5E58E
 f64 3-6-2 relu/linear final3 3FE5293ED6D82936 3FE54574B19EE4CE
-f64 2-4-1 tanh/sigmoid adam step=500 error= 3FD86CE77ABCE257 hash=0x5CDA3EB4
-f64 2-4-1 tanh/sigmoid adam step=1000 error= 3FB0A8BF96B08914 hash=0xD6083707
-f64 2-4-1 tanh/sigmoid adam step=1500 error= 3F817C447F0974C1 hash=0x0FF07A9C
-f64 2-4-1 tanh/sigmoid adam step=2000 error= 3F906A2E0A02F550 hash=0x3687BC6E
-f64 2-4-1 tanh/sigmoid adam final0 3FD286B4E4C6B16E
-f64 2-4-1 tanh/sigmoid adam final1 3FAA914DD3CBEEF3
-f64 2-4-1 tanh/sigmoid adam final2 3FD286B4E4C6B16E
-f64 2-4-1 tanh/sigmoid adam final3 3FAA914DD3CBEEF3
-f64 3-6-2 relu/linear rmsprop step=500 error= 3F38A1F2F6D6CF03 hash=0x33D660FD
-f64 3-6-2 relu/linear rmsprop step=1000 error= 3F4B178F76A67031 hash=0xDFDFE07F
-f64 3-6-2 relu/linear rmsprop step=1500 error= 3F36452449EB08C7 hash=0x8EEEC60E
-f64 3-6-2 relu/linear rmsprop step=2000 error= 3EF8815038FB61DD hash=0x24799B36
-f64 3-6-2 relu/linear rmsprop final0 BFD8980B79631972 3FE716C1068ED706
-f64 3-6-2 relu/linear rmsprop final1 3F9DB46E0DB6BDB0 3FC2763653B33B6B
-f64 3-6-2 relu/linear rmsprop final2 BFDDA4BDE5B89768 3FE2CD8E2F0F213B
-f64 3-6-2 relu/linear rmsprop final3 BFB63BAC06F8C9E0 3FE1FE1BE140CC84
+f64 2-4-1 tanh/sigmoid adam step=500 error= 3FD2F1B38DB383BF hash=0x0C3616EB
+f64 2-4-1 tanh/sigmoid adam step=1000 error= 3FB7B87393AC7101 hash=0xC141F0C2
+f64 2-4-1 tanh/sigmoid adam step=1500 error= 3F969C4DAFCC8B1E hash=0xD89E90A2
+f64 2-4-1 tanh/sigmoid adam step=2000 error= 3F818A89437D5D63 hash=0xB44818E6
+f64 2-4-1 tanh/sigmoid adam final0 3FAB0A1D129224E8
+f64 2-4-1 tanh/sigmoid adam final1 3FB93213B7635173
+f64 2-4-1 tanh/sigmoid adam final2 3FAB0A1D129224E8
+f64 2-4-1 tanh/sigmoid adam final3 3FB93213B7635173
+f64 3-6-2 relu/linear rmsprop step=500 error= 3F3DEC5AE610615A hash=0x095A105F
+f64 3-6-2 relu/linear rmsprop step=1000 error= 3F6B901A6B006673 hash=0x1F8E51AC
+f64 3-6-2 relu/linear rmsprop step=1500 error= 3EFCA25CA1EB8E7F hash=0xC1D93112
+f64 3-6-2 relu/linear rmsprop step=2000 error= 3F3535CD2473BB7D hash=0x27E733C8
+f64 3-6-2 relu/linear rmsprop final0 BFD541D2E7DD143E 3FE6B003AAD59169
+f64 3-6-2 relu/linear rmsprop final1 3FB429EFC0B62A24 3FC0B64598DC6DA2
+f64 3-6-2 relu/linear rmsprop final2 BFDAB09C81D12737 3FE297729F6CE5A1
+f64 3-6-2 relu/linear rmsprop final3 BFC07FCB7B6F6E5E 3FE206B131EB23B5
 f64 lstm 3-6-2 tanh/sigmoid step=250 error= 3FD2DF19F290B8D1 hash=0xAE5E5A03
 f64 lstm 3-6-2 tanh/sigmoid step=500 error= 3FC7DF217AE180FC hash=0x6C3AE997
 f64 lstm 3-6-2 tanh/sigmoid step=750 error= 3FD018101FEBD225 hash=0xBE1F3951
 f64 lstm 3-6-2 tanh/sigmoid step=1000 error= 3FCA4C416CC62685 hash=0x2AA983F5
 f64 lstm 3-6-2 tanh/sigmoid step=1250 error= 3FBB972FEC1F1EB2 hash=0xDC1D813F
 f64 lstm 3-6-2 tanh/sigmoid step=1500 error= 3FCB31C958DCC282 hash=0xDB44A1FD
-f64 lstm 2-5-1 relu/linear adam step=250 error= 3FB21AE52C147FC8 hash=0x7A56A1A6
-f64 lstm 2-5-1 relu/linear adam step=500 error= 3FC495107ABF8134 hash=0x18113593
-f64 lstm 2-5-1 relu/linear adam step=750 error= 3F34ADECF10211FC hash=0x7B260EF8
-f64 lstm 2-5-1 relu/linear adam step=1000 error= 3FCAF70059018837 hash=0x15DE13EA
-f64 lstm 2-5-1 relu/linear adam step=1250 error= 3FC9EE7CF68DCA70 hash=0x8DA31D44
-f64 lstm 2-5-1 relu/linear adam step=1500 error= 3FBE3B614B35F7D2 hash=0x4B2470D4
+f64 lstm 2-5-1 relu/linear adam step=250 error= 3FB5C03F0FFE193C hash=0x33D2B3CB
+f64 lstm 2-5-1 relu/linear adam step=500 error= 3FB959E316F2F638 hash=0x7C643BB9
+f64 lstm 2-5-1 relu/linear adam step=750 error= 3F84C7A56565F8D5 hash=0xFE75DB08
+f64 lstm 2-5-1 relu/linear adam step=1000 error= 3FD3B3DD346FD51E hash=0x900FE3D6
+f64 lstm 2-5-1 relu/linear adam step=1250 error= 3FC7A1E9411B6020 hash=0x30C07EBA
+f64 lstm 2-5-1 relu/linear adam step=1500 error= 3FDBF7CA654B07E2 hash=0x595A0815

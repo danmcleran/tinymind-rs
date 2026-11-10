@@ -9,12 +9,9 @@
 //! `with_optimizer` on [`NeuralNetwork`](crate::NeuralNetwork) or
 //! [`MultilayerPerceptron`](crate::MultilayerPerceptron).
 //!
-//! Faithful to tinymind (C++), including two details that differ from textbook Adam:
-//!
-//! - The step count `t` used for bias correction advances once per *layer* update,
-//!   starting from the output layer, not once per training step.
-//! - The adaptive optimizers update the weights only. The bias weights keep their
-//!   initial values (tinymind (C++)'s adaptive update path has no bias branch).
+//! Every optimizer updates the bias weights as it updates the other weights,
+//! and the network's gradient clipping applies to both. Adam's step count `t`
+//! advances once per training step, before any weight moves.
 //!
 //! The first and second moments live in the connection's delta-weight slots, as
 //! in tinymind (C++), so an adaptive optimizer needs no extra memory per weight.
@@ -34,25 +31,28 @@ use crate::qformat::{Scalar, Sqrt};
 pub struct Sgd;
 
 /// Adam (C++ `AdamOptimizer`): per-weight first and second moment estimates
-/// with bias correction while its step count (layer updates, see the module
-/// docs) is below 100. Uses the network's learning
-/// rate; the momentum and acceleration rates do not apply.
+/// with bias correction by `1 - beta^t`, `beta^t` kept as a running product
+/// (one multiply per training step). Uses the network's learning rate; the
+/// momentum and acceleration rates do not apply.
 ///
-/// C++ `AdamOptimizer<ValueType, B1I, B1F, B2I, B2F, EI, EF>` takes each
-/// hyperparameter as `QValue(int, frac)`, which is the raw value `(int << FRAC) |
-/// frac`. Its defaults (`frac` 230, 255 and 1 with `int` 0) are 0.898, 0.996 and
-/// 1/256 in Q8.8 but 230 / 65536 and so on in Q16.16, so there is deliberately no
-/// default here: write the values for your format.
+/// `Adam::<Q16_16>::default()` and `Adam::<Q8_8>::default()` are the
+/// defaults of tinymind (C++) for those formats: beta1 0.9, beta2 0.99 and epsilon
+/// `sqrt(LSB / (1 - beta2))`, each rounded to the format. Not the textbook
+/// 0.999 and 1e-8: in fixed point `(1 - beta2) * g * g` rounds to zero for
+/// gradients below that epsilon, and a smaller epsilon then lets steps grow
+/// far beyond the learning rate. Q8.8 has too few fractional bits for Adam
+/// (its default epsilon is 0.625).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Adam<V> {
     /// Decay of the first moment (C++ `beta1`).
     pub beta1: V,
     /// Decay of the second moment (C++ `beta2`).
     pub beta2: V,
-    /// Added to the root of the second moment, and the threshold below which
-    /// bias correction is skipped.
+    /// Added to the root of the second moment.
     pub epsilon: V,
     timestep: usize,
+    /// `(beta1^t, beta2^t)`; `None` at step 0, where both are 1.
+    powers: Option<(V, V)>,
 }
 
 impl<V> Adam<V> {
@@ -63,19 +63,47 @@ impl<V> Adam<V> {
             beta2,
             epsilon,
             timestep: 0,
+            powers: None,
         }
     }
 
-    /// The step count bias correction uses: the number of layer updates so far.
+    /// The step count bias correction uses: the number of training steps so far.
     pub fn timestep(&self) -> usize {
         self.timestep
     }
 }
 
+impl Default for Adam<crate::Q16_16> {
+    /// tinymind (C++)'s Q16.16 defaults: beta1 58982/65536, beta2
+    /// 64881/65536, epsilon 2560/65536 (0.039).
+    fn default() -> Self {
+        use crate::Q16_16;
+        Self::new(
+            Q16_16::from_raw(58_982),
+            Q16_16::from_raw(64_881),
+            Q16_16::from_raw(2_560),
+        )
+    }
+}
+
+impl Default for Adam<crate::Q8_8> {
+    /// tinymind (C++)'s Q8.8 defaults: beta1 230/256, beta2 253/256,
+    /// epsilon 160/256 (0.625).
+    fn default() -> Self {
+        use crate::Q8_8;
+        Self::new(
+            Q8_8::from_raw(230),
+            Q8_8::from_raw(253),
+            Q8_8::from_raw(160),
+        )
+    }
+}
+
 /// RMSprop (C++ `RmsPropOptimizer`): each weight's step is scaled by a running
-/// root mean square of its gradients. Uses the network's learning rate only. As
-/// with [`Adam`], write the hyperparameters for your format (C++ defaults:
-/// `decay` raw 230, `epsilon` raw 1).
+/// root mean square of its gradients. Uses the network's learning rate only.
+/// `RmsProp::<Q16_16>::default()` and `RmsProp::<Q8_8>::default()` are
+/// tinymind (C++)'s defaults: decay 0.9 and epsilon 1e-8, each rounded to the
+/// format and kept above 0 (epsilon is then one LSB).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RmsProp<V> {
     /// Decay of the running mean of squared gradients.
@@ -91,18 +119,35 @@ impl<V> RmsProp<V> {
     }
 }
 
+impl Default for RmsProp<crate::Q16_16> {
+    /// tinymind (C++)'s Q16.16 defaults: decay 58982/65536, epsilon 1/65536.
+    fn default() -> Self {
+        use crate::Q16_16;
+        Self::new(Q16_16::from_raw(58_982), Q16_16::from_raw(1))
+    }
+}
+
+impl Default for RmsProp<crate::Q8_8> {
+    /// tinymind (C++)'s Q8.8 defaults: decay 230/256, epsilon 1/256.
+    fn default() -> Self {
+        use crate::Q8_8;
+        Self::new(Q8_8::from_raw(230), Q8_8::from_raw(1))
+    }
+}
+
 mod sealed {
     use super::*;
 
     /// What a network needs from its optimizer. Sealed: the crate implements it
     /// for [`Sgd`], [`Adam`] and [`RmsProp`], and the floating-point optimizers.
     pub trait OptimizerImpl<V> {
-        /// C++ `step()`: called once at the start of each layer's update.
-        fn begin_layer(&mut self);
+        /// C++ `step()`: called once per training step, before any weight
+        /// moves (`beginTrainingStep`).
+        fn begin_step(&mut self);
         /// Update one weight from its gradient (clipped by `clip` if set).
         fn update_weight(&self, c: &mut Connection<V>, rates: (V, V, V), clip: Option<(V, V)>);
-        /// Update one bias weight (never clipped).
-        fn update_bias(&self, c: &mut Connection<V>, rates: (V, V, V));
+        /// Update one bias weight from its gradient (clipped by `clip` if set).
+        fn update_bias(&self, c: &mut Connection<V>, rates: (V, V, V), clip: Option<(V, V)>);
     }
 }
 
@@ -113,14 +158,14 @@ pub trait Optimizer<V>: sealed::OptimizerImpl<V> {}
 impl<V, T: sealed::OptimizerImpl<V>> Optimizer<V> for T {}
 
 impl<V: Scalar> sealed::OptimizerImpl<V> for Sgd {
-    fn begin_layer(&mut self) {}
+    fn begin_step(&mut self) {}
 
     fn update_weight(&self, c: &mut Connection<V>, rates: (V, V, V), clip: Option<(V, V)>) {
         update_connection(c, rates, clip);
     }
 
-    fn update_bias(&self, c: &mut Connection<V>, rates: (V, V, V)) {
-        update_connection(c, rates, None);
+    fn update_bias(&self, c: &mut Connection<V>, rates: (V, V, V), clip: Option<(V, V)>) {
+        update_connection(c, rates, clip);
     }
 }
 
@@ -131,15 +176,12 @@ fn clipped<V: Scalar>(gradient: V, clip: Option<(V, V)>) -> V {
     }
 }
 
-impl<V: Scalar + Sqrt> sealed::OptimizerImpl<V> for Adam<V> {
-    fn begin_layer(&mut self) {
-        self.timestep = self.timestep.wrapping_add(1);
-    }
-
-    /// C++ `AdamOptimizer::updateWeights`, every expression in its order.
-    fn update_weight(&self, c: &mut Connection<V>, (lr, _, _): (V, V, V), clip: Option<(V, V)>) {
+impl<V: Scalar + Sqrt> Adam<V> {
+    /// C++ `AdamOptimizer::computeUpdate`, every expression in its order:
+    /// updates the moments in the connection's delta-weight slots and returns
+    /// `lr * m_hat / (sqrt(v_hat) + epsilon)`.
+    fn compute_update(&self, c: &mut Connection<V>, gradient: V, lr: V) -> V {
         let one = V::ONE;
-        let gradient = clipped(c.gradient, clip);
         // First moment in the delta-weight slot, second in the previous one.
         let m = self.beta1 * c.delta_weight + (one - self.beta1) * gradient;
         let v = self.beta2 * c.previous_delta_weight + (one - self.beta2) * gradient * gradient;
@@ -148,55 +190,69 @@ impl<V: Scalar + Sqrt> sealed::OptimizerImpl<V> for Adam<V> {
 
         let mut m_hat = m;
         let mut v_hat = v;
-        if self.timestep < 100 {
-            let mut beta1_power = one;
-            let mut beta2_power = one;
-            for _ in 0..self.timestep {
-                beta1_power = beta1_power * self.beta1;
-                beta2_power = beta2_power * self.beta2;
-            }
-            let beta1_correction = one - beta1_power;
-            let beta2_correction = one - beta2_power;
-            if beta1_correction > self.epsilon {
-                m_hat = m / beta1_correction;
-            }
-            if beta2_correction > self.epsilon {
-                v_hat = v / beta2_correction;
-            }
+        // Before the first step both corrections are 1 - 1 = 0 and the moments
+        // are used as they are.
+        let (beta1_power, beta2_power) = self.powers.unwrap_or((one, one));
+        let beta1_correction = one - beta1_power;
+        let beta2_correction = one - beta2_power;
+        if beta1_correction > V::ZERO {
+            m_hat = m / beta1_correction;
         }
+        if beta2_correction > V::ZERO {
+            v_hat = v / beta2_correction;
+        }
+        lr * m_hat / (v_hat.sqrt() + self.epsilon)
+    }
+}
 
-        let update = lr * m_hat / (v_hat.sqrt() + self.epsilon);
+impl<V: Scalar + Sqrt> sealed::OptimizerImpl<V> for Adam<V> {
+    fn begin_step(&mut self) {
+        self.timestep = self.timestep.wrapping_add(1);
+        let (beta1_power, beta2_power) = self.powers.unwrap_or((V::ONE, V::ONE));
+        self.powers = Some((beta1_power * self.beta1, beta2_power * self.beta2));
+    }
+
+    fn update_weight(&self, c: &mut Connection<V>, (lr, _, _): (V, V, V), clip: Option<(V, V)>) {
+        let update = self.compute_update(c, clipped(c.gradient, clip), lr);
         c.weight += update;
     }
 
-    /// tinymind (C++)'s adaptive path does not update bias weights.
-    fn update_bias(&self, _c: &mut Connection<V>, _rates: (V, V, V)) {}
+    fn update_bias(&self, c: &mut Connection<V>, (lr, _, _): (V, V, V), clip: Option<(V, V)>) {
+        let update = self.compute_update(c, clipped(c.gradient, clip), lr);
+        c.weight += update;
+    }
+}
+
+impl<V: Scalar + Sqrt> RmsProp<V> {
+    /// C++ `RmsPropOptimizer::computeUpdate`: the running mean of squared
+    /// gradients in the second-moment slot, and `lr * g / (sqrt(v) + epsilon)`.
+    fn compute_update(&self, c: &mut Connection<V>, gradient: V, lr: V) -> V {
+        let v = self.decay * c.previous_delta_weight + (V::ONE - self.decay) * gradient * gradient;
+        c.previous_delta_weight = v;
+        lr * gradient / (v.sqrt() + self.epsilon)
+    }
 }
 
 impl<V: Scalar + Sqrt> sealed::OptimizerImpl<V> for RmsProp<V> {
     /// C++ counts steps for RMSprop too but never reads the count.
-    fn begin_layer(&mut self) {}
+    fn begin_step(&mut self) {}
 
-    /// C++ `RmsPropOptimizer::updateWeights`, every expression in its order.
     fn update_weight(&self, c: &mut Connection<V>, (lr, _, _): (V, V, V), clip: Option<(V, V)>) {
-        let gradient = clipped(c.gradient, clip);
-        // The running mean of squared gradients lives in the second-moment slot.
-        let v = self.decay * c.previous_delta_weight + (V::ONE - self.decay) * gradient * gradient;
-        c.previous_delta_weight = v;
-        let update = lr * gradient / (v.sqrt() + self.epsilon);
+        let update = self.compute_update(c, clipped(c.gradient, clip), lr);
         c.weight += update;
     }
 
-    /// tinymind (C++)'s adaptive path does not update bias weights.
-    fn update_bias(&self, _c: &mut Connection<V>, _rates: (V, V, V)) {}
+    fn update_bias(&self, c: &mut Connection<V>, (lr, _, _): (V, V, V), clip: Option<(V, V)>) {
+        let update = self.compute_update(c, clipped(c.gradient, clip), lr);
+        c.weight += update;
+    }
 }
 
 /// Adam for floating-point networks (C++ `AdamOptimizerFloat`): the
 /// hyperparameters are `f64`, as in the C++, cast to the network's type where
-/// they are used, and bias correction divides by `1 - beta^t` on every step,
-/// with `beta^t` from `pow` in `f64` (no cut-off at step 100 and no epsilon
-/// threshold, unlike [`Adam`]). The square root is taken in `f64`. As with
-/// [`Adam`], `t` counts layer updates and bias weights are not updated.
+/// they are used, and from the first training step bias correction divides by
+/// `1 - beta^t`, with `beta^t` a running product in `f64`. The square root is
+/// taken in `f64`.
 ///
 /// Implemented for `f32` and `f64` networks; needs the `std` feature (`pow`
 /// and `sqrt` from the platform, bit-identical to the C++ on a glibc host) or
@@ -211,6 +267,8 @@ pub struct AdamFloat {
     /// Added to the root of the second moment (C++ default 1e-8).
     pub epsilon: f64,
     timestep: usize,
+    beta1_power: f64,
+    beta2_power: f64,
 }
 
 #[cfg(any(feature = "std", feature = "libm"))]
@@ -230,10 +288,12 @@ impl AdamFloat {
             beta2,
             epsilon,
             timestep: 0,
+            beta1_power: 1.0,
+            beta2_power: 1.0,
         }
     }
 
-    /// The step count bias correction uses: the number of layer updates so far.
+    /// The step count bias correction uses: the number of training steps so far.
     pub fn timestep(&self) -> usize {
         self.timestep
     }
@@ -241,7 +301,7 @@ impl AdamFloat {
 
 /// RMSprop for floating-point networks (C++ `RmsPropOptimizerFloat`): the
 /// hyperparameters are `f64`, cast to the network's type where they are used,
-/// and the square root is taken in `f64`. Bias weights are not updated.
+/// and the square root is taken in `f64`.
 ///
 /// Implemented for `f32` and `f64` networks; needs the `std` feature or `libm`.
 #[cfg(any(feature = "std", feature = "libm"))]
@@ -269,13 +329,9 @@ impl RmsPropFloat {
     }
 }
 
-/// `x^y` and `sqrt(x)` in `f64`: the platform's with `std`, the `libm`
-/// crate's without.
+/// `sqrt(x)` in `f64`: the platform's with `std`, the `libm` crate's without.
 #[cfg(feature = "std")]
 mod float_math {
-    pub(super) fn pow(x: f64, y: f64) -> f64 {
-        x.powf(y)
-    }
     pub(super) fn sqrt(x: f64) -> f64 {
         x.sqrt()
     }
@@ -283,12 +339,17 @@ mod float_math {
 
 #[cfg(all(feature = "libm", not(feature = "std")))]
 mod float_math {
-    pub(super) fn pow(x: f64, y: f64) -> f64 {
-        libm::pow(x, y)
-    }
     pub(super) fn sqrt(x: f64) -> f64 {
         libm::sqrt(x)
     }
+}
+
+/// The shared part of a floating-point optimizer's weight and bias updates,
+/// per float type (a trait so the `f32` and `f64` versions can coexist).
+#[cfg(any(feature = "std", feature = "libm"))]
+trait FloatUpdate<T> {
+    /// Updates the connection's moments and returns the step to add.
+    fn compute_update_float(&self, c: &mut Connection<T>, gradient: T, lr: T) -> T;
 }
 
 /// The floating-point optimizers for one float type, every expression in the
@@ -296,60 +357,87 @@ mod float_math {
 #[cfg(any(feature = "std", feature = "libm"))]
 macro_rules! impl_float_optimizers {
     ($t:ty) => {
-        impl sealed::OptimizerImpl<$t> for AdamFloat {
-            fn begin_layer(&mut self) {
-                self.timestep = self.timestep.wrapping_add(1);
-            }
-
-            /// C++ `AdamOptimizerFloat::updateWeights`.
-            fn update_weight(
-                &self,
-                c: &mut Connection<$t>,
-                (lr, _, _): ($t, $t, $t),
-                clip: Option<($t, $t)>,
-            ) {
-                let gradient = clipped(c.gradient, clip);
+        impl FloatUpdate<$t> for AdamFloat {
+            /// C++ `AdamOptimizerFloat::computeUpdate`.
+            fn compute_update_float(&self, c: &mut Connection<$t>, gradient: $t, lr: $t) -> $t {
                 let m = (self.beta1 as $t) * c.delta_weight + ((1.0 - self.beta1) as $t) * gradient;
                 let v = (self.beta2 as $t) * c.previous_delta_weight
                     + ((1.0 - self.beta2) as $t) * gradient * gradient;
                 c.delta_weight = m;
                 c.previous_delta_weight = v;
-                let t = self.timestep as f64;
-                let beta1_power = float_math::pow(self.beta1, t);
-                let beta2_power = float_math::pow(self.beta2, t);
-                let m_hat = m / ((1.0 - beta1_power) as $t);
-                let v_hat = v / ((1.0 - beta2_power) as $t);
+                let mut m_hat = m;
+                let mut v_hat = v;
+                if self.timestep > 0 {
+                    m_hat = m / ((1.0 - self.beta1_power) as $t);
+                    v_hat = v / ((1.0 - self.beta2_power) as $t);
+                }
                 let sqrt_v = float_math::sqrt(f64::from(v_hat)) as $t;
-                let update = lr * m_hat / (sqrt_v + self.epsilon as $t);
-                c.weight += update;
+                lr * m_hat / (sqrt_v + self.epsilon as $t)
             }
-
-            /// tinymind (C++)'s adaptive path does not update bias weights.
-            fn update_bias(&self, _c: &mut Connection<$t>, _rates: ($t, $t, $t)) {}
         }
 
-        impl sealed::OptimizerImpl<$t> for RmsPropFloat {
-            /// C++ counts steps for RMSprop too but never reads the count.
-            fn begin_layer(&mut self) {}
+        impl sealed::OptimizerImpl<$t> for AdamFloat {
+            fn begin_step(&mut self) {
+                self.timestep = self.timestep.wrapping_add(1);
+                self.beta1_power *= self.beta1;
+                self.beta2_power *= self.beta2;
+            }
 
-            /// C++ `RmsPropOptimizerFloat::updateWeights`.
             fn update_weight(
                 &self,
                 c: &mut Connection<$t>,
                 (lr, _, _): ($t, $t, $t),
                 clip: Option<($t, $t)>,
             ) {
-                let gradient = clipped(c.gradient, clip);
+                let update = self.compute_update_float(c, clipped(c.gradient, clip), lr);
+                c.weight += update;
+            }
+
+            fn update_bias(
+                &self,
+                c: &mut Connection<$t>,
+                (lr, _, _): ($t, $t, $t),
+                clip: Option<($t, $t)>,
+            ) {
+                let update = self.compute_update_float(c, clipped(c.gradient, clip), lr);
+                c.weight += update;
+            }
+        }
+
+        impl FloatUpdate<$t> for RmsPropFloat {
+            /// C++ `RmsPropOptimizerFloat::computeUpdate`.
+            fn compute_update_float(&self, c: &mut Connection<$t>, gradient: $t, lr: $t) -> $t {
                 let v = (self.decay as $t) * c.previous_delta_weight
                     + ((1.0 - self.decay) as $t) * gradient * gradient;
                 c.previous_delta_weight = v;
                 let sqrt_v = float_math::sqrt(f64::from(v)) as $t;
-                let update = lr * gradient / (sqrt_v + self.epsilon as $t);
+                lr * gradient / (sqrt_v + self.epsilon as $t)
+            }
+        }
+
+        impl sealed::OptimizerImpl<$t> for RmsPropFloat {
+            /// C++ counts steps for RMSprop too but never reads the count.
+            fn begin_step(&mut self) {}
+
+            fn update_weight(
+                &self,
+                c: &mut Connection<$t>,
+                (lr, _, _): ($t, $t, $t),
+                clip: Option<($t, $t)>,
+            ) {
+                let update = self.compute_update_float(c, clipped(c.gradient, clip), lr);
                 c.weight += update;
             }
 
-            /// tinymind (C++)'s adaptive path does not update bias weights.
-            fn update_bias(&self, _c: &mut Connection<$t>, _rates: ($t, $t, $t)) {}
+            fn update_bias(
+                &self,
+                c: &mut Connection<$t>,
+                (lr, _, _): ($t, $t, $t),
+                clip: Option<($t, $t)>,
+            ) {
+                let update = self.compute_update_float(c, clipped(c.gradient, clip), lr);
+                c.weight += update;
+            }
         }
     };
 }
@@ -358,3 +446,32 @@ macro_rules! impl_float_optimizers {
 impl_float_optimizers!(f32);
 #[cfg(any(feature = "std", feature = "libm"))]
 impl_float_optimizers!(f64);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Q8_8, Q16_16};
+
+    /// The defaults are tinymind (C++)'s `QFractionLsbs<Q, 9, 10>`,
+    /// `QFractionLsbs<Q, 99, 100>`, `QAdamEpsilonLsbs<Q, 100>` and
+    /// `QFractionLsbs<Q, 1, 100000000>`, printed by a C++ program at
+    /// tinymind (C++) a40979f. The Q8.8 ones are also checked by `tests/deep_mlp.rs`, whose
+    /// C++ runs use `AdamOptimizer<Q8>` and `RmsPropOptimizer<Q8>`.
+    #[test]
+    fn defaults_are_tinymind_cpp_constants() {
+        let a = Adam::<Q16_16>::default();
+        assert_eq!(
+            (a.beta1.raw(), a.beta2.raw(), a.epsilon.raw()),
+            (58_982, 64_881, 2_560)
+        );
+        let a = Adam::<Q8_8>::default();
+        assert_eq!(
+            (a.beta1.raw(), a.beta2.raw(), a.epsilon.raw()),
+            (230, 253, 160)
+        );
+        let r = RmsProp::<Q16_16>::default();
+        assert_eq!((r.decay.raw(), r.epsilon.raw()), (58_982, 1));
+        let r = RmsProp::<Q8_8>::default();
+        assert_eq!((r.decay.raw(), r.epsilon.raw()), (230, 1));
+    }
+}

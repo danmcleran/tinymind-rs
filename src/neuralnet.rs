@@ -180,11 +180,11 @@ where
         self.acceleration_rate = rate;
     }
 
-    /// Clip each weight's gradient to `[min, max]` before the update, or
-    /// `None` (the default) to leave gradients alone. C++
-    /// `GradientClipByValue<ValueType, I, F>` is `Some((QValue(-I, F), QValue(I,
-    /// F)))`, so the default `GradientClipByValue<ValueType>` is `Some((-1.0,
-    /// 1.0))`. As in the C++, bias weights are never clipped.
+    /// Clip each weight's and bias weight's gradient to `[min, max]` before
+    /// the update, or `None` (the default) to leave gradients alone. C++
+    /// `GradientClipByValue<ValueType, I, F>` is `Some((-b, b))` with `b =
+    /// QValue(I, F)`, so the default `GradientClipByValue<ValueType>` is
+    /// `Some((-1.0, 1.0))`.
     pub fn set_gradient_clip(&mut self, range: Option<(V, V)>) {
         self.gradient_clip = range;
     }
@@ -287,27 +287,25 @@ where
 
         let clip = self.gradient_clip;
 
-        // Output layer first, then the hidden layer, each neuron's incoming
-        // connections followed by its bias connection (never clipped). The
-        // optimizer's step count advances at the start of each layer, as the C++
-        // calls `step()` there.
-        self.optimizer.begin_layer();
+        // One optimizer step (C++ `beginTrainingStep`), then the output layer
+        // and the hidden layer, each neuron's incoming connections followed by
+        // its bias connection, all clipped alike.
+        self.optimizer.begin_step();
         for o in 0..OUT {
             for h in 0..HID {
                 self.optimizer
                     .update_weight(&mut self.hidden[h].connections[o], rates, clip);
             }
             self.optimizer
-                .update_bias(&mut self.hidden_bias.connections[o], rates);
+                .update_bias(&mut self.hidden_bias.connections[o], rates, clip);
         }
-        self.optimizer.begin_layer();
         for h in 0..HID {
             for i in 0..IN {
                 self.optimizer
                     .update_weight(&mut self.input[i].connections[h], rates, clip);
             }
             self.optimizer
-                .update_bias(&mut self.input_bias.connections[h], rates);
+                .update_bias(&mut self.input_bias.connections[h], rates, clip);
         }
     }
 }
@@ -578,9 +576,7 @@ fn weighted_sum<V: Scalar, const N: usize, const C: usize>(
 /// `dw = lr * g + momentum * dw[t-1] + acceleration * dw[t-2]`, `w += dw`.
 ///
 /// `clip` is the gradient clipping range, `(min, max)` (C++
-/// `GradientClipByValue`). The C++ applies it to the weights only: bias
-/// connections are updated by `BiasNeuronConnectionWeightUpdater`, which uses the
-/// raw gradient, so callers pass `None` for them.
+/// `GradientClipByValue`), applied to weights and bias weights alike.
 pub(crate) fn update_connection<V: Scalar>(
     c: &mut Connection<V>,
     (lr, momentum, acceleration): (V, V, V),

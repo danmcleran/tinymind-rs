@@ -309,10 +309,9 @@ where
         self.acceleration_rate = rate;
     }
 
-    /// Clip each weight's gradient to `[min, max]` before the update, or
-    /// `None` (the default) to leave gradients alone. C++
-    /// `GradientClipByValue<ValueType>` is `Some((-1.0, 1.0))`. As in the C++,
-    /// bias weights are never clipped.
+    /// Clip each weight's and bias weight's gradient to `[min, max]` before
+    /// the update, or `None` (the default) to leave gradients alone. C++
+    /// `GradientClipByValue<ValueType>` is `Some((-1.0, 1.0))`.
     pub fn set_gradient_clip(&mut self, range: Option<(V, V)>) {
         self.gradient_clip = range;
     }
@@ -520,36 +519,33 @@ where
         );
         let clip = self.gradient_clip;
 
-        // Layer by layer as the C++ does (output, recurrent, input), so an
-        // adaptive optimizer's step count advances three times per step. Each
-        // connection's update reads only itself, so the order within a layer
-        // does not matter. Bias connections are never clipped; the recurrent
-        // layer has no bias.
-        self.optimizer.begin_layer();
+        // One optimizer step (C++ `beginTrainingStep`), then layer by layer
+        // as the C++ does (output, recurrent, input). Each connection's update
+        // reads only itself, so the order does not matter. Bias connections
+        // are clipped like the weights; the recurrent layer has no bias.
+        self.optimizer.begin_step();
         for cell in &mut self.hidden {
             for c in &mut cell.connections {
                 self.optimizer.update_weight(c, rates, clip);
             }
         }
         for c in &mut self.hidden_bias.connections {
-            self.optimizer.update_bias(c, rates);
+            self.optimizer.update_bias(c, rates, clip);
         }
 
-        self.optimizer.begin_layer();
         for r in &mut self.recurrent {
             for c in r.connections.iter_mut().flatten() {
                 self.optimizer.update_weight(c, rates, clip);
             }
         }
 
-        self.optimizer.begin_layer();
         for n in &mut self.input {
             for c in n.connections.iter_mut().flatten() {
                 self.optimizer.update_weight(c, rates, clip);
             }
         }
         for c in self.input_bias.connections.iter_mut().flatten() {
-            self.optimizer.update_bias(c, rates);
+            self.optimizer.update_bias(c, rates, clip);
         }
     }
 }

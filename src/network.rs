@@ -213,24 +213,22 @@ impl<V: Scalar, A: Activation<V>, const IN: usize, const OUT: usize> Dense<V, A,
     }
 
     /// One optimizer step on every connection (C++ `updateConnectionWeights`
-    /// for this layer): the optimizer's step count advances first, then each
-    /// connection is updated. Each update reads only its own connection, so the
-    /// order within the layer does not matter. `clip` applies to the weights
-    /// only; the bias weights use the raw gradient, as in the C++.
+    /// for this layer). Each update reads only its own connection, so the
+    /// order does not matter. `clip` applies to the weights and the bias
+    /// weights alike, as in the C++.
     fn update<Opt: Optimizer<V>>(
         &mut self,
         rates: (V, V, V),
         clip: Option<(V, V)>,
         optimizer: &mut Opt,
     ) {
-        optimizer.begin_layer();
         for row in self.weights.iter_mut() {
             for c in row.iter_mut() {
                 optimizer.update_weight(c, rates, clip);
             }
         }
         for c in self.bias.iter_mut() {
-            optimizer.update_bias(c, rates);
+            optimizer.update_bias(c, rates, clip);
         }
     }
 }
@@ -425,11 +423,12 @@ macro_rules! impl_layers {
                     let signal = self.$hi.back_signal();
                     self.$lo.hidden_deltas(&signal);
                 )*
-                // Gradients (ChainNetworkGradientsCalculator), then updates from
-                // the output layer back (ChainBackPropConnectionWeightUpdater):
-                // the order sets each layer's step count for Adam.
+                // Gradients (ChainNetworkGradientsCalculator), then one
+                // optimizer step (beginTrainingStep) and the updates from the
+                // output layer back (ChainBackPropConnectionWeightUpdater).
                 self.$first.gradients(inputs);
                 $(self.$next.gradients(&self.$prev.outputs);)*
+                optimizer.begin_step();
                 self.$last.update(rates, clip, optimizer);
                 $(self.$lo.update(rates, clip, optimizer);)*
             }
@@ -557,11 +556,10 @@ impl<V: Scalar, L: Layers<Value = V>, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
         self.acceleration_rate = rate;
     }
 
-    /// Clip each weight's gradient to `[min, max]` before the update, or
-    /// `None` (the default). C++ `GradientClipByValue<ValueType, I, F>` is
-    /// `Some((QValue(-I, F), QValue(I, F)))`; the default
-    /// `GradientClipByValue<ValueType>` is `Some((-1.0, 1.0))`. Bias weights are
-    /// never clipped, as in the C++.
+    /// Clip each weight's and bias weight's gradient to `[min, max]` before
+    /// the update, or `None` (the default). C++ `GradientClipByValue<ValueType,
+    /// I, F>` is `Some((-b, b))` with `b = QValue(I, F)`; the default
+    /// `GradientClipByValue<ValueType>` is `Some((-1.0, 1.0))`.
     pub fn set_gradient_clip(&mut self, range: Option<(V, V)>) {
         self.gradient_clip = range;
     }

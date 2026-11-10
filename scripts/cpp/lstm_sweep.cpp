@@ -31,6 +31,29 @@ static uint32_t nextU32()
     return gState;
 }
 
+// An asymmetric clip range [MinRaw, MaxRaw] (raw values), tested in
+// GradientClipByValue's order. Since tinymind #264 GradientClipByValue is
+// symmetric ([-b, b]); the Rust API takes any (min, max), so the asymmetric
+// case is kept with this policy.
+template<typename ValueType, long long MinRaw, long long MaxRaw>
+struct AsymmetricClip
+{
+    static ValueType clip(const ValueType& gradient)
+    {
+        static const ValueType maxValue(static_cast<typename ValueType::FullWidthValueType>(MaxRaw));
+        static const ValueType minValue(static_cast<typename ValueType::FullWidthValueType>(MinRaw));
+        if (gradient > maxValue)
+        {
+            return maxValue;
+        }
+        else if (gradient < minValue)
+        {
+            return minValue;
+        }
+        return gradient;
+    }
+};
+
 template<typename ValueType>
 struct QuarterWeights
 {
@@ -173,7 +196,7 @@ int main()
     run<Q8, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 2, 4, 2,
         tinymind::GradientClipByValue<Q8> >("q8.8 2-4-2 tanh/sigmoid clip[-1,1]", 4, 2000, 0, 1);
     run<Q8, tinymind::ReluActivationPolicy, tinymind::SigmoidActivationPolicy, 3, 6, 3,
-        tinymind::GradientClipByValue<Q8, 2, 0x80> >("q8.8 3-6-3 relu/sigmoid clip[-1.5,2.5]", 5, 2000, 0, 1);
+        AsymmetricClip<Q8, -384, 640> >("q8.8 3-6-3 relu/sigmoid clip[-1.5,2.5]", 5, 2000, 0, 1);
     run<Q16, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 1, 1, 1,
         tinymind::NullGradientClippingPolicy<Q16> >("q16.16 1-1-1 tanh/sigmoid", 6, 1000, 0, 1);
     run<Q16, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 2, 4, 2,
