@@ -108,7 +108,7 @@ done
 
 # 11. The C++ library is "tinymind (C++)" in user-facing prose, never a bare
 #     "tinymind", which readers confuse with this crate (see scripts/cpp-name.py).
-python3 -I scripts/cpp-name.py --check README.md CHANGELOG.md docs/*.md tools/*/README.md \
+python3 -I scripts/cpp-name.py --check README.md CHANGELOG.md docs/*.md docs/_config.yml tools/*/README.md \
   bench/README.md src/*.rs src/*/*.rs examples/*.rs examples/common/*.rs >&2 \
   || fail "bare 'tinymind' in prose: run python3 -I scripts/cpp-name.py --fix on those files"
 
