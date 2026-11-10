@@ -165,6 +165,25 @@ impl<V: Scalar> sealed::OptimizerImpl<V> for Sgd {
     }
 }
 
+/// One optimizer step on every connection of `connections` (weights or bias
+/// weights: since tinymind (C++) #264 both follow the same rule). Never
+/// inlined, so a network has one copy of the update code per optimizer
+/// however many layers call it: with the code inlined at every weight and
+/// bias loop the Cortex-M0+ anomaly image no longer fit its 32 KB of flash,
+/// and a single chained-iterator loop instead cost the Cortex-M4 32% more
+/// cycles per training step.
+#[inline(never)]
+pub(crate) fn update_all<V: Copy, Opt: Optimizer<V>>(
+    optimizer: &Opt,
+    connections: &mut [Connection<V>],
+    rates: (V, V, V),
+    clip: Option<(V, V)>,
+) {
+    for c in connections {
+        optimizer.update_weight(c, rates, clip);
+    }
+}
+
 fn clipped<V: Scalar>(gradient: V, clip: Option<(V, V)>) -> V {
     match clip {
         Some(range) => clip_gradient(gradient, range),

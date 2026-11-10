@@ -222,15 +222,8 @@ impl<V: Scalar, A: Activation<V>, const IN: usize, const OUT: usize> Dense<V, A,
         clip: Option<(V, V)>,
         optimizer: &mut Opt,
     ) {
-        // Weights and bias weights in one loop: one copy of the update code.
-        for c in self
-            .weights
-            .iter_mut()
-            .flatten()
-            .chain(self.bias.iter_mut())
-        {
-            optimizer.update_weight(c, rates, clip);
-        }
+        crate::optimizer::update_all(optimizer, self.weights.as_flattened_mut(), rates, clip);
+        crate::optimizer::update_all(optimizer, &mut self.bias, rates, clip);
     }
 }
 

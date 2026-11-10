@@ -79,7 +79,7 @@ use core::marker::PhantomData;
 
 use crate::activation::{Activation, Sigmoid, Tanh};
 use crate::neuralnet::{Connection, Neuron};
-use crate::optimizer::{Optimizer, Sgd};
+use crate::optimizer::{Optimizer, Sgd, update_all};
 use crate::qformat::Scalar;
 
 /// The number of gates of an LSTM cell.
@@ -524,24 +524,23 @@ where
         // reads only itself, so the order does not matter. Bias connections
         // are clipped like the weights; the recurrent layer has no bias.
         self.optimizer.begin_step();
-        let output = self
-            .hidden
-            .iter_mut()
-            .flat_map(|cell| cell.connections.iter_mut())
-            .chain(self.hidden_bias.connections.iter_mut());
-        let recurrent = self
-            .recurrent
-            .iter_mut()
-            .flat_map(|r| r.connections.iter_mut().flatten());
-        let input = self
-            .input
-            .iter_mut()
-            .flat_map(|n| n.connections.iter_mut().flatten())
-            .chain(self.input_bias.connections.iter_mut().flatten());
-        // One loop over every connection: one copy of the update code.
-        for c in output.chain(recurrent).chain(input) {
-            self.optimizer.update_weight(c, rates, clip);
+        let opt = &self.optimizer;
+        for cell in &mut self.hidden {
+            update_all(opt, &mut cell.connections, rates, clip);
         }
+        update_all(opt, &mut self.hidden_bias.connections, rates, clip);
+        for r in &mut self.recurrent {
+            update_all(opt, r.connections.as_flattened_mut(), rates, clip);
+        }
+        for n in &mut self.input {
+            update_all(opt, n.connections.as_flattened_mut(), rates, clip);
+        }
+        update_all(
+            opt,
+            self.input_bias.connections.as_flattened_mut(),
+            rates,
+            clip,
+        );
     }
 }
 
