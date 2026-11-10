@@ -30,7 +30,7 @@ The int8 MLP is tinymind (C++)'s 64-32-16-10 digits classifier with per-channel 
 
 ## int8 MLP
 
-Cycles are the median of 33 warm inferences; code + weights excludes the harness and the test data; RAM is static data plus peak stack above the harness's own.
+Cycles are the median of 33 warm inferences; code + weights excludes the harness and the test data; RAM is static data plus peak stack above the harness's own. Every tinymind (C++) and TFLM figure on this page is from tinymind (C++)'s `-O3` builds; its summary reports list RAM as the larger of its `-O2` and `-O3` builds, so the RAM figures here are recomputed from the `-O3` raw results.
 
 **Cortex-M4F (F411, 360 test samples, 96.11% accuracy)**
 
@@ -40,16 +40,16 @@ Cycles are the median of 33 warm inferences; code + weights excludes the harness
 | tinymind (C++), scalar | 20,486 | 205 µs | 5,464 B | 152 B |
 | tinymind (C++), +SMLAD | 10,241 | 102 µs | 5,548 B | 124 B |
 | TFLM int8 (CMSIS-NN) | 14,030 | 140 µs | 40,624 B | 2,600 B |
-| TFLM int8 (reference kernels) | 31,411 | 314 µs | 29,552 B | 2,152 B |
+| TFLM int8 (reference kernels) | 31,411 | 314 µs | 29,552 B | 2,132 B |
 
 **Cortex-M0+ (L031, first 32 test samples, 96.88% accuracy)**
 
 | | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
 | **tinymind-rs** | **42,514** | **1.33 ms** | **5,412 B** | **472 B** |
-| tinymind (C++) | 35,963 | 1.12 ms | 5.5–5.8 KB | 200 B |
-| TFLM (any build) | does not fit in 32 KB | – | 33.9–50.0 KB | – |
-| emlearn float32 (software float) | 707,113 | 22.1 ms | 18.7–19.0 KB | 972 B |
+| tinymind (C++) | 35,963 | 1.12 ms | 5,784 B | 200 B |
+| TFLM (any build) | does not fit in 32 KB | – | 38.3–50.0 KB | – |
+| emlearn float32 (software float) | 707,113 | 22.1 ms | 18,988 B | 972 B |
 
 The same Rust code measured 38,456 cycles in a second image whose extra code moves it in flash; with one flash wait state the M0+ is sensitive to code placement, which tinymind (C++) also observed.
 
@@ -64,7 +64,7 @@ tinymind (C++)'s keyword-spotting shaped benchmark network: a 20x20x1 input, a 3
 | tinymind (C++) +SMLAD, `-O3` | 181,568 | – (no SMLAD on the M0+) |
 | TFLM int8 (CMSIS-NN), `-O3` | 576,368 | does not fit in 32 KB |
 | **tinymind-rs**, code + weights / RAM | **8,152 B / 4,668 B** | **8,320 B / 4,848 B** |
-| tinymind (C++) scalar `-O3`, flash / RAM | 6,848 B / 5,332 B | 8,452 B / 5,488 B |
+| tinymind (C++) scalar `-O3`, flash / RAM | 6,848 B / 5,292 B | 8,452 B / 5,476 B |
 | tinymind-rs at `opt-level = "s"`, cycles / code + weights | 546,503 / 4,308 B | 1,171,259 / 4,120 B |
 
 Per layer (cycles, each layer timed separately; C++ scalar `-O3` in brackets):
@@ -89,8 +89,8 @@ The MLPerf Tiny keyword-spotting reference model (49x10 MFCC input, a 10x4 convo
 | **tinymind-rs** | **13,225,965** | **132.3 ms** | **46,416 B** | **16,680 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
-| TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,432 B |
-| TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,828 B |
+| TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,288 B |
+| TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,764 B |
 
 The Rust model takes 16% fewer cycles than tinymind (C++)'s portable build, in less flash and RAM; tinymind (C++)'s SMLAD build and TFLM with CMSIS-NN are faster. Most of its time is the four 64-channel pointwise layers (2.17M cycles each), which run in 8-bit and do not reach `SMLAD`.
 
@@ -103,9 +103,9 @@ The MLPerf Tiny image-classification reference model (32x32x3 CIFAR-10 input, a 
 | **tinymind-rs** | **64,407,536** | **644.1 ms** | **130,184 B** | **57,692 B** |
 | tinymind-rs, `-C llvm-args=-arm-parallel-dsp-load-limit=512` | 41,401,469 | 414.0 ms | 125,384 B | 57,700 B |
 | tinymind (C++), scalar | 85,467,754 | 854.7 ms | 120,836 B | 54,380 B |
-| tinymind (C++), +SMLAD | 26,753,191 | 267.5 ms | 108,324 B | 54,424 B |
-| TFLM int8 (CMSIS-NN) | 37,372,049 | 373.7 ms | 191,212 B | 56,608 B |
-| TFLM int8 (reference kernels) | 191,555,451 | 1,915.6 ms | 155,412 B | 55,396 B |
+| tinymind (C++), +SMLAD | 26,753,191 | 267.5 ms | 108,324 B | 54,416 B |
+| TFLM int8 (CMSIS-NN) | 37,372,049 | 373.7 ms | 191,212 B | 56,464 B |
+| TFLM int8 (reference kernels) | 191,555,451 | 1,915.6 ms | 155,412 B | 55,372 B |
 
 The Rust model takes 25% fewer cycles than tinymind (C++)'s portable build, in 8% more flash and 6% more RAM. Its convolutions over several input channels widen the input rows and each filter's weights to 16 bits and add products in pairs, and its residual additions look each input's rescaling up in a 256-entry table. The translator plans one byte arena for the feature maps, as tinymind (C++) does (49,152 B), and views it as typed tensors without `unsafe`.
 
