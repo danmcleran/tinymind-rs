@@ -215,10 +215,24 @@ tail -n +4 "$F" | grep -oiE 'https?://[^ ]+|\b[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.(
 grep -cE 'TinyMind|Tinymind' "$F"           # must print 0
 ```
 
+### 9b. Offer to post (never post unasked)
+
+In the report, offer to post the LinkedIn announcement through Dan's Chrome.
+If he says yes, follow the user-level `/linkedin-post` skill's Step 8 exactly
+(it needs the Claude in Chrome tools in this session): HTML clipboard
+(`html_clipboard.py`), paste into a new post, check the paragraph and blank-line
+counts, screenshot, show it to Dan, and click **Post** only on his explicit yes
+for this post; an earlier yes does not carry over. One difference from the C++
+releases: the link card must be **tinymind-rs's** Pages banner
+(`docs/assets/tinymind-rs_og.png`, from `danmcleran.github.io/tinymind-rs`), not
+tinymind (C++)'s and not a GitHub card. If anything is off, clear the editor
+(ctrl+a, Delete) and stop. After posting, confirm the post on the profile's
+recent activity and report its URL.
+
 ### 10. Report
 
 The audit result (what Step 3 found and the PR that fixed it, or nothing), the
 release PR, crates.io / docs.rs / Pages verification, the release URL with
 Step 7's checks, any deferred upstream changes, and the LinkedIn file with its
-length. Do not report success unless Step 3, Step 4's `--release` check and
+length and the offer to post it (Step 9b). Do not report success unless Step 3, Step 4's `--release` check and
 Step 7 all passed.
