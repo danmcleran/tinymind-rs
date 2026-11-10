@@ -319,6 +319,20 @@ for f in stdout.txt har_samples.csv har_loss.csv har_confusion.csv; do
     status=1
   fi
 done
+# --readout-only (only the hidden-to-output weights train): compared live, no
+# golden. Only stdout and the files training changes.
+mkdir -p "$TMP/har/cpp_ro" "$TMP/har/rust_ro"
+(cd "$TMP/har/cpp_ro" && ../har_activity --readout-only > stdout.txt) &
+(cd "$TMP/har/rust_ro" && "$ROOT/target/release/examples/har_activity" --readout-only . > stdout.txt) &
+wait
+for f in stdout.txt har_loss.csv har_confusion.csv; do
+  if cmp -s "$TMP/har/cpp_ro/$f" "$TMP/har/rust_ro/$f"; then
+    same "har_activity --readout-only $f"
+  else
+    echo "DIFFERENT  har_activity --readout-only $f"
+    status=1
+  fi
+done
 
 echo "== tree"
 # tinymind's QDecisionTree and QGBDT over random ensembles; tests/tree_sweep.rs

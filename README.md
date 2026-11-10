@@ -105,10 +105,12 @@ there. The `maze` example trains a Q-learner to leave a six-room maze over 500
 episodes, then runs 100 test episodes, and writes each episode's path to
 `maze_training.csv` and `maze_test.csv`. The `har_activity` example trains a
 3-16-4 LSTM network on synthesized accelerometer windows (32 samples of three
-axes each) to tell walking, walking upstairs, sitting and standing apart,
-reading each window one sample at a time; it writes `har_samples.csv`,
-`har_loss.csv` and `har_confusion.csv`, and reads `har.csv` instead of
-synthesizing when the second argument names one in the C++ example's format. The `int8_xor` example (feature
+axes each) to tell walking, walking upstairs, walking downstairs and sitting apart,
+reading each window one sample at a time (upstairs and downstairs differ only
+in the order of their samples); it writes `har_samples.csv`,
+`har_loss.csv` and `har_confusion.csv`, reads `har.csv` instead of
+synthesizing when the second argument names one in the C++ example's format,
+and with `--readout-only` first trains only the output weights. The `int8_xor` example (feature
 `std`) runs a PyTorch-trained, int8-quantized 2-4-1 network and writes
 `xor_decision_surface.csv`. The `gbdt_tabular_int8` example (feature `std`)
 quantizes a five-tree ensemble onto an int8 feature grid, compares it with the
@@ -260,7 +262,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, maze, har_activity, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (70 checks today, including
+  example does, runs both sides, and compares every output file (73 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

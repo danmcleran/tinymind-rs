@@ -36,8 +36,11 @@ break the API).
   ported.
 - The `har_activity` example, a port of tinymind (C++)'s
   `examples/har_activity`: a 3-16-4 LSTM network classifies windows of
-  accelerometer samples into four activities, and its output is
-  byte-identical to the C++ example's.
+  accelerometer samples into four activities (walking, upstairs, downstairs,
+  sitting; upstairs and downstairs differ only in sample order), and its
+  output is byte-identical to the C++ example's. It also prints a
+  nearest-centroid baseline, and `--readout-only` trains only the output
+  weights.
 
 ## [0.2.0] - 2026-11-09
 
