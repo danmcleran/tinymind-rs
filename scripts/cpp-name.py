@@ -4,8 +4,10 @@
 Three names collide here: tinymind (the C++ library), tinymind-rs (this
 project) and `tinymind` (the crate, the title of every docs.rs page). So prose
 never says a bare "tinymind": the C++ library is "tinymind (C++)", the project
-is "tinymind-rs", the crate is `tinymind` in backticks. Code spans, fenced
-code, URLs, paths and identifiers are left alone.
+is "tinymind-rs", the crate is `tinymind` in backticks. One exception:
+"tinymind for Rust", the site's home-page title and so its link-preview title
+(Dan's wording, 2026-11-10), names this project. Code spans, fenced code,
+URLs, paths and identifiers are left alone.
 
   python3 -I scripts/cpp-name.py --check FILE...   list bare mentions, exit 1 if any
   python3 -I scripts/cpp-name.py --fix FILE...     rewrite them in place
@@ -15,7 +17,7 @@ Markdown files are checked as a whole; Rust files only in their doc comments
 """
 import re, sys
 
-BARE = re.compile(r"(?<![\w/`.\-])tinymind(?![\w`/\-]|::| \(C\+\+\))")
+BARE = re.compile(r"(?<![\w/`.\-])tinymind(?![\w`/\-]|::| \(C\+\+\)| for Rust\b)")
 
 def prose(seg):
     seg = re.sub(r"tinymind's C\+\+ (and|bit)\b", r"tinymind (C++) \1", seg)

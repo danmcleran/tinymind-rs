@@ -537,7 +537,10 @@ release. That is why the audit gates the release, not just each PR.
   crate `tinymind` in backticks. Covers README.md, CHANGELOG.md, docs/, the tool
   and bench READMEs, doc comments in src/ and examples/, and what the importers
   generate. `scripts/cpp-name.py` checks it in CI (`check-docs.sh`) and `--fix`
-  rewrites bare mentions. CLAUDE.md, code comments, commit messages and PRs are
+  rewrites bare mentions. One exception: "tinymind for Rust" names this project; it is the
+  site's home-page title, which link previews (LinkedIn's card) show (Dan, 2026-11-10;
+  the home page is `nav_exclude`d because just-the-docs uses the same title as its
+  sidebar label). CLAUDE.md, code comments, commit messages and PRs are
   internal and may say "tinymind".
 - Copyright: `Copyright (c) 2026 Dan McLeran` (LICENSE). Code translated from tinymind
   also carries tinymind's MIT notice (Intel 2020 + Dan McLeran 2023) via `NOTICE`.
