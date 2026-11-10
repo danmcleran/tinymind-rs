@@ -24,7 +24,7 @@ fn har_matches_cpp_golden() {
     let root = env!("CARGO_MANIFEST_DIR");
     let mut stdout = Vec::new();
     // No har.csv here, so the example synthesizes its windows.
-    har_driver::run(&dir, &dir.join("har.csv"), &mut stdout).expect("har_activity failed");
+    har_driver::run(&dir, &dir.join("har.csv"), false, &mut stdout).expect("har_activity failed");
 
     let golden = |f: &str| fs::read(format!("{root}/tests/golden/har/{f}")).unwrap();
     let actual = |f: &str| fs::read(dir.join(f)).unwrap();
