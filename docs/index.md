@@ -1,7 +1,10 @@
 ---
-title: Home
+title: "tinymind for Rust: neural networks for microcontrollers"
 layout: default
 nav_order: 1
+# The title is what link previews (og:title) show; the site name in the
+# header links here, so the page needs no sidebar entry of its own.
+nav_exclude: true
 ---
 
 <img src="{{ site.baseurl }}/assets/tinymind_logo.png" alt="tinymind logo" width="160" style="display:block;margin:0 auto 1rem;">
