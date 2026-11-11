@@ -36,7 +36,8 @@ tag `v0.3.0`: tabular Q-learning and the maze, the LSTM and `har_activity`,
 the syncs to tinymind #261-#267: optimizers train biases with one step per
 update, SGD momentum rounds toward zero and its step to nearest; `Default`
 Adam/RmsProp constants, `mul_round_toward_zero`, `mul_round_nearest`; minor bump because results change and `Scalar` gained
-a method). Agents run the
+a method), and 0.3.1 (2026-11-11, tag `v0.3.1`: the int8 LSTM and GRU cells,
+`int8::QLstmCell` and `int8::QGruCell`, with their calibration). Agents run the
 whole release in a session, including `cargo publish` (Dan's preference,
 2026-11-07), but only after Dan's explicit go-ahead for that release: a version
 cannot be deleted, only yanked. Semver applies: before 1.0 a minor bump may break
@@ -351,7 +352,7 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   `#![forbid(unsafe_code)]` and single-threaded; safe Rust cannot have the UB they
   detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
   sanitizer for that code.
-- **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, about
+- **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, 17 to
   21 minutes on CI, 16 before the recurrent cells): 86 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
   and Q1.31: add/sub wrap, multiply floors then wraps, the SGD products
   (`mul_round_toward_zero`, `mul_round_nearest`) round then wrap, division never panics,

@@ -12,7 +12,7 @@ The port has one rule that shapes everything else: **every ported path produces 
 
 ## What is in the crate
 
-As of 0.3.0:
+As of 0.3.1:
 
 - Q16.16 and Q8.8 fixed-point arithmetic (`QValue<i32, 16>`, `QValue<i16, 8>`), with ReLU, linear, and lookup-table tanh and sigmoid activations; the same networks also run on `f32` and `f64`.
 - Networks that train on the device with SGD and momentum, Adam or RMSprop (optionally with gradient clipping; for `f32`/`f64` also tinymind (C++)'s floating-point Adam and RMSprop, `AdamFloat` and `RmsPropFloat`): up to seven hidden layers (`NeuralNetwork` over `Dense` layers), and a one-hidden-layer perceptron (`MultilayerPerceptron`), each with an inference-only version that holds nothing but its weights (`InferenceNetwork`, `InferencePerceptron`).
@@ -129,7 +129,7 @@ CI imports the same example models with both importers, runs them on the C++ and
 
 ## What it is not
 
-It is a port of slices of tinymind (C++), not all of it. Not yet ported: GRU and Elman networks and recurrent networks with more than one hidden layer, the deep Q-network, the rest of the int8 layers (recurrent cells, attention), and the SIMD backends. A full port in stable Rust is harder than it looks: tinymind (C++) picks storage types and layer shapes with compile-time arithmetic on template parameters, which stable Rust's const generics cannot express yet (`generic_const_exprs`).
+It is a port of slices of tinymind (C++), not all of it. Not yet ported: trainable GRU and Elman networks and recurrent networks with more than one hidden layer, the deep Q-network, the rest of the int8 layers (attention, state-space cells), and the SIMD backends. A full port in stable Rust is harder than it looks: tinymind (C++) picks storage types and layer shapes with compile-time arithmetic on template parameters, which stable Rust's const generics cannot express yet (`generic_const_exprs`).
 
 The C++ library remains the full product. The Rust port grows one checked slice at a time, and I would like to hear which slice would make it useful to you.
 

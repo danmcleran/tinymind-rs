@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-11
+
 ### Added
 
 - Int8 recurrent cells, ported from tinymind (C++)'s `qlstm.hpp` and
@@ -333,7 +335,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/danmcleran/tinymind-rs/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.4...v0.1.5
