@@ -157,7 +157,7 @@ plus peak stack, each minus the baseline's, as tinymind (C++) counts them.
 
 Measured 2026-11-10. A training step costs more than before (F411 4,250, L031
 35,336 cycles): tinymind (C++) #266 and #267 round the momentum products toward
-zero and the step to nearest instead of flooring them (F411 +38%), and since #264 every layer's weights and bias weights go through
+zero and the step to nearest instead of flooring them (F411 +36%), and since #264 every layer's weights and bias weights go through
 one shared, never-inlined update function, which keeps the L031 image inside
 its 32 KB (F411 +10%).
 
