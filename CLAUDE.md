@@ -352,7 +352,7 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
   sanitizer for that code.
 - **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, about
-  eleven minutes): 86 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
+  21 minutes on CI, 16 before the recurrent cells): 86 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
   and Q1.31: add/sub wrap, multiply floors then wraps, the SGD products
   (`mul_round_toward_zero`, `mul_round_nearest`) round then wrap, division never panics,
   `from_int`, `pow2_neg`, zero tolerance and comparisons match their definitions.
