@@ -4,7 +4,8 @@
 //! `buildQSoftmaxFixedPointParams`, `computeAffineParamsAsymmetric`,
 //! `computeAffineParamsSymmetric`, `computePerChannelSymmetricScales`, the
 //! `RangeObserver`, `buildQAddParams`, `buildRescaler`,
-//! `buildQMulRequantizer`).
+//! `buildQMulRequantizer`, `buildQLSTMParams`, `buildQGRUParams`,
+//! `quantizeQLSTMBiases`, `quantizeQGRUBiases`).
 //!
 //! Needs the `std` feature, for `f32::exp` and `f32::tanh`; tinymind (C++) gates the
 //! same functions on `TINYMIND_ENABLE_FLOAT && TINYMIND_ENABLE_STD`. On a device,
@@ -14,6 +15,8 @@
 //! library in both.
 
 use super::{LUT_SIZE, QAdd, QSoftmax, Requantizer};
+#[cfg(doc)]
+use super::{QGruCell, QLstmCell};
 
 /// C `frexp`: `x = mantissa * 2^exponent` with `|mantissa|` in `[0.5, 1)`.
 /// Zero, infinities and NaN come back unchanged with exponent 0.
@@ -375,6 +378,276 @@ pub fn build_softmax(input_scale: f64, beta: f64) -> QSoftmax {
         input_left_shift,
         diff_min: (max_input_rescaled.floor() as i32).saturating_neg(),
     }
+}
+
+/// Output scale of the sigmoid LUTs the recurrent cells read: 1/256, with zero
+/// point -128 (C++ `kQLstmSigmoidOutputScale`). Build them with
+/// `build_sigmoid_lut(lut_input_scale, 0, SIGMOID_LUT_OUTPUT_SCALE, -128)`.
+pub const SIGMOID_LUT_OUTPUT_SCALE: f32 = 1.0 / 256.0;
+
+/// Output scale of the tanh LUTs the recurrent cells read: 1/128, with zero
+/// point 0 (C++ `kQLstmTanhOutputScale`). Build them with
+/// `build_tanh_lut(lut_input_scale, 0, TANH_LUT_OUTPUT_SCALE, 0)`.
+pub const TANH_LUT_OUTPUT_SCALE: f32 = 1.0 / 128.0;
+
+/// The float scales a [`QLstmCell`] is calibrated from (C++ `QLSTMScales`).
+/// Gates are in the order i, f, g, o.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LstmScales {
+    /// Scale of the input tensor.
+    pub input_scale: f32,
+    /// Scale of the hidden state.
+    pub hidden_scale: f32,
+    /// Scale of the cell state.
+    pub cell_scale: f32,
+    /// Scale of the LUTs' input grid, shared by every gate and the cell's tanh.
+    pub lut_input_scale: f32,
+    /// Per gate, the scale of the symmetric input weights.
+    pub input_weight_scales: [f32; 4],
+    /// Per gate, the scale of the symmetric recurrent weights.
+    pub recurrent_weight_scales: [f32; 4],
+}
+
+/// The multipliers and shifts of a [`QLstmCell`] (C++ `QLSTMParams`), with the
+/// same field names as the cell. `output_multiplier` and `output_shift` go in
+/// the cell's `output_requantizer`, with the hidden zero point and bounds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LstmParams {
+    /// Per gate, the cell's `input_to_lut_multiplier`.
+    pub input_to_lut_multiplier: [i32; 4],
+    /// Per gate, the cell's `input_to_lut_shift`.
+    pub input_to_lut_shift: [i32; 4],
+    /// Per gate, the cell's `recurrent_to_lut_multiplier`.
+    pub recurrent_to_lut_multiplier: [i32; 4],
+    /// Per gate, the cell's `recurrent_to_lut_shift`.
+    pub recurrent_to_lut_shift: [i32; 4],
+    /// The cell's `f_times_c_multiplier`.
+    pub f_times_c_multiplier: i32,
+    /// The cell's `f_times_c_shift`.
+    pub f_times_c_shift: i32,
+    /// The cell's `i_times_g_multiplier`.
+    pub i_times_g_multiplier: i32,
+    /// The cell's `i_times_g_shift`.
+    pub i_times_g_shift: i32,
+    /// The cell's `cell_to_tanh_multiplier`.
+    pub cell_to_tanh_multiplier: i32,
+    /// The cell's `cell_to_tanh_shift`.
+    pub cell_to_tanh_shift: i32,
+    /// The `multiplier` of the cell's `output_requantizer`.
+    pub output_multiplier: i32,
+    /// The `shift` of the cell's `output_requantizer`.
+    pub output_shift: i32,
+}
+
+/// Per gate, the multipliers rescaling the input and recurrent sums to the LUT
+/// input grid: `input_scale * weight_scale / lut_input_scale`, in `f64`.
+#[allow(clippy::type_complexity)]
+fn gate_rescales<const G: usize>(
+    input_scale: f32,
+    hidden_scale: f32,
+    lut_input_scale: f32,
+    input_weight_scales: &[f32; G],
+    recurrent_weight_scales: &[f32; G],
+) -> ([i32; G], [i32; G], [i32; G], [i32; G]) {
+    let mut out = ([0; G], [0; G], [0; G], [0; G]);
+    let lut = f64::from(lut_input_scale);
+    for g in 0..G {
+        let r_in = f64::from(input_scale) * f64::from(input_weight_scales[g]) / lut;
+        (out.0[g], out.1[g]) = quantize_multiplier(r_in);
+        let r_rec = f64::from(hidden_scale) * f64::from(recurrent_weight_scales[g]) / lut;
+        (out.2[g], out.3[g]) = quantize_multiplier(r_rec);
+    }
+    out
+}
+
+/// Build a [`QLstmCell`]'s multipliers and shifts from its float scales (C++
+/// `buildQLSTMParams`). The ratios are formed in `f64` from the `f32` scales,
+/// as the C++ does.
+///
+/// ```
+/// use tinymind::int8::calibration::{
+///     LstmScales, SIGMOID_LUT_OUTPUT_SCALE, TANH_LUT_OUTPUT_SCALE, build_lstm_params,
+///     build_sigmoid_lut, build_tanh_lut, quantize, quantize_gate_biases,
+/// };
+/// use tinymind::int8::{QLstmCell, Requantizer};
+///
+/// // A float LSTM with 1 input and 2 hidden units.
+/// let w_in = [[[0.5f32], [-0.25]], [[0.3], [0.1]], [[-0.4], [0.2]], [[0.25], [0.5]]];
+/// let w_rec = [[[0.1f32, 0.2], [0.0, -0.1]]; 4];
+/// let bias = [[0.0f32, 0.1], [1.0, 1.0], [0.0, 0.0], [0.0, 0.0]];
+///
+/// let scales = LstmScales {
+///     input_scale: 1.0 / 127.0,
+///     hidden_scale: 1.0 / 127.0,
+///     cell_scale: 4.0 / 127.0,
+///     lut_input_scale: 8.0 / 127.0,
+///     input_weight_scales: [0.5 / 127.0, 0.3 / 127.0, 0.4 / 127.0, 0.5 / 127.0],
+///     recurrent_weight_scales: [0.2 / 127.0; 4],
+/// };
+/// let p = build_lstm_params(&scales);
+/// let q = |w: f32, s: f32| quantize(w, s, 0, -127, 127);
+/// let input_weights: [[[i8; 1]; 2]; 4] =
+///     core::array::from_fn(|g| w_in[g].map(|row| row.map(|w| q(w, scales.input_weight_scales[g]))));
+/// let recurrent_weights: [[[i8; 2]; 2]; 4] = core::array::from_fn(|g| {
+///     w_rec[g].map(|row| row.map(|w| q(w, scales.recurrent_weight_scales[g])))
+/// });
+/// let biases = quantize_gate_biases(&bias, scales.lut_input_scale);
+/// let sigmoid = build_sigmoid_lut(scales.lut_input_scale, 0, SIGMOID_LUT_OUTPUT_SCALE, -128);
+/// let tanh = build_tanh_lut(scales.lut_input_scale, 0, TANH_LUT_OUTPUT_SCALE, 0);
+///
+/// let cell: QLstmCell<'_, 1, 2> = QLstmCell {
+///     input_weights: &input_weights,
+///     recurrent_weights: &recurrent_weights,
+///     biases: &biases,
+///     input_zero_point: 0,
+///     hidden_zero_point: 0,
+///     cell_zero_point: 0,
+///     input_to_lut_multiplier: p.input_to_lut_multiplier,
+///     input_to_lut_shift: p.input_to_lut_shift,
+///     recurrent_to_lut_multiplier: p.recurrent_to_lut_multiplier,
+///     recurrent_to_lut_shift: p.recurrent_to_lut_shift,
+///     sigmoid_lut: &sigmoid,
+///     tanh_lut: &tanh,
+///     f_times_c_multiplier: p.f_times_c_multiplier,
+///     f_times_c_shift: p.f_times_c_shift,
+///     i_times_g_multiplier: p.i_times_g_multiplier,
+///     i_times_g_shift: p.i_times_g_shift,
+///     cell_qmin: -127,
+///     cell_qmax: 127,
+///     cell_to_tanh_multiplier: p.cell_to_tanh_multiplier,
+///     cell_to_tanh_shift: p.cell_to_tanh_shift,
+///     tanh_cell_lut: &tanh,
+///     output_requantizer: Requantizer {
+///         multiplier: p.output_multiplier,
+///         shift: p.output_shift,
+///         zero_point: 0,
+///         qmin: -128,
+///         qmax: 127,
+///     },
+/// };
+/// let (mut h, mut c) = ([0i8; 2], [0i8; 2]);
+/// for x in [0.5f32, -0.3, 0.7] {
+///     cell.forward(&[quantize(x, scales.input_scale, 0, -128, 127)], &mut h, &mut c);
+/// }
+/// println!("h = {:?}", h.map(|v| f32::from(v) * scales.hidden_scale));
+/// ```
+pub fn build_lstm_params(scales: &LstmScales) -> LstmParams {
+    let (in_m, in_s, rec_m, rec_s) = gate_rescales(
+        scales.input_scale,
+        scales.hidden_scale,
+        scales.lut_input_scale,
+        &scales.input_weight_scales,
+        &scales.recurrent_weight_scales,
+    );
+    let sig = f64::from(SIGMOID_LUT_OUTPUT_SCALE);
+    let tanh = f64::from(TANH_LUT_OUTPUT_SCALE);
+    let c = f64::from(scales.cell_scale);
+    let h = f64::from(scales.hidden_scale);
+    let (f_times_c_multiplier, f_times_c_shift) = quantize_multiplier(sig * c / c);
+    let (i_times_g_multiplier, i_times_g_shift) = quantize_multiplier(sig * tanh / c);
+    let (cell_to_tanh_multiplier, cell_to_tanh_shift) =
+        quantize_multiplier(c / f64::from(scales.lut_input_scale));
+    let (output_multiplier, output_shift) = quantize_multiplier(sig * tanh / h);
+    LstmParams {
+        input_to_lut_multiplier: in_m,
+        input_to_lut_shift: in_s,
+        recurrent_to_lut_multiplier: rec_m,
+        recurrent_to_lut_shift: rec_s,
+        f_times_c_multiplier,
+        f_times_c_shift,
+        i_times_g_multiplier,
+        i_times_g_shift,
+        cell_to_tanh_multiplier,
+        cell_to_tanh_shift,
+        output_multiplier,
+        output_shift,
+    }
+}
+
+/// The float scales a [`QGruCell`] is calibrated from (C++ `QGRUScales`).
+/// Gates are in the order r, z, n.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GruScales {
+    /// Scale of the input tensor.
+    pub input_scale: f32,
+    /// Scale of the hidden state.
+    pub hidden_scale: f32,
+    /// Scale of the LUTs' input grid, shared by every gate.
+    pub lut_input_scale: f32,
+    /// Per gate, the scale of the symmetric input weights.
+    pub input_weight_scales: [f32; 3],
+    /// Per gate, the scale of the symmetric recurrent weights.
+    pub recurrent_weight_scales: [f32; 3],
+}
+
+/// The multipliers and shifts of a [`QGruCell`] (C++ `QGRUParams`), with the
+/// same field names as the cell.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GruParams {
+    /// Per gate, the cell's `input_to_lut_multiplier`.
+    pub input_to_lut_multiplier: [i32; 3],
+    /// Per gate, the cell's `input_to_lut_shift`.
+    pub input_to_lut_shift: [i32; 3],
+    /// Per gate, the cell's `recurrent_to_lut_multiplier`.
+    pub recurrent_to_lut_multiplier: [i32; 3],
+    /// Per gate, the cell's `recurrent_to_lut_shift`.
+    pub recurrent_to_lut_shift: [i32; 3],
+    /// The cell's `r_times_h_multiplier`.
+    pub r_times_h_multiplier: i32,
+    /// The cell's `r_times_h_shift`.
+    pub r_times_h_shift: i32,
+    /// The cell's `one_minus_z_times_n_multiplier`.
+    pub one_minus_z_times_n_multiplier: i32,
+    /// The cell's `one_minus_z_times_n_shift`.
+    pub one_minus_z_times_n_shift: i32,
+    /// The cell's `z_times_h_multiplier`.
+    pub z_times_h_multiplier: i32,
+    /// The cell's `z_times_h_shift`.
+    pub z_times_h_shift: i32,
+}
+
+/// Build a [`QGruCell`]'s multipliers and shifts from its float scales (C++
+/// `buildQGRUParams`). Use the LUTs and biases as for [`build_lstm_params`].
+pub fn build_gru_params(scales: &GruScales) -> GruParams {
+    let (in_m, in_s, rec_m, rec_s) = gate_rescales(
+        scales.input_scale,
+        scales.hidden_scale,
+        scales.lut_input_scale,
+        &scales.input_weight_scales,
+        &scales.recurrent_weight_scales,
+    );
+    let sig = f64::from(SIGMOID_LUT_OUTPUT_SCALE);
+    let tanh = f64::from(TANH_LUT_OUTPUT_SCALE);
+    let h = f64::from(scales.hidden_scale);
+    let (r_times_h_multiplier, r_times_h_shift) = quantize_multiplier(sig);
+    let (one_minus_z_times_n_multiplier, one_minus_z_times_n_shift) =
+        quantize_multiplier(sig * tanh / h);
+    let (z_times_h_multiplier, z_times_h_shift) = quantize_multiplier(sig);
+    GruParams {
+        input_to_lut_multiplier: in_m,
+        input_to_lut_shift: in_s,
+        recurrent_to_lut_multiplier: rec_m,
+        recurrent_to_lut_shift: rec_s,
+        r_times_h_multiplier,
+        r_times_h_shift,
+        one_minus_z_times_n_multiplier,
+        one_minus_z_times_n_shift,
+        z_times_h_multiplier,
+        z_times_h_shift,
+    }
+}
+
+/// Quantize a recurrent cell's float biases, `biases[gate][unit]`, into the LUT
+/// input grid: `round(b / lut_input_scale)` in `f64`, ties away from zero
+/// (C++ `quantizeQLSTMBiases` with `G` = 4, `quantizeQGRUBiases` with `G` = 3).
+/// A value beyond the `i32` range wraps, as the C++ conversion from `long`
+/// does.
+pub fn quantize_gate_biases<const G: usize, const HID: usize>(
+    biases: &[[f32; HID]; G],
+    lut_input_scale: f32,
+) -> [[i32; HID]; G] {
+    biases
+        .map(|gate| gate.map(|b| (f64::from(b) / f64::from(lut_input_scale)).round() as i64 as i32))
 }
 
 #[cfg(test)]

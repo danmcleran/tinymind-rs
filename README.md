@@ -25,7 +25,8 @@ networks of the same depths that are just their weights, int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
 (for residual connections) and multiplication, padding, concatenation, quantized
-ReLU, activation tables, and a softmax that is bit-exact with TFLite's), quantized decision trees and gradient-boosted ensembles, tabular Q-learning, and LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`). It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
+ReLU, activation tables, a softmax that is bit-exact with TFLite's, and LSTM and
+GRU cells), quantized decision trees and gradient-boosted ensembles, tabular Q-learning, and LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`). It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -158,6 +159,7 @@ set.
 | `src/int8/pool.rs` | `cpp/qpool2d.hpp`: int8 max, average and global average pooling |
 | `src/int8/add.rs` | `cpp/qadd.hpp`: int8 elementwise addition (TFLite ADD), for residual connections |
 | `src/int8/compose.rs` | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`: int8 elementwise multiplication (TFLite MUL), explicit padding (PAD) and channel concatenation (CONCATENATION) |
+| `src/int8/recurrent.rs` | `cpp/qlstm.hpp`, `cpp/qgru.hpp`: int8 LSTM cell (int8 or int16 cell state) and GRU cell, one time step at a time |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
 | `src/tree.rs` | `cpp/qtree.hpp`: quantized decision tree (`QDecisionTree`) and gradient-boosted ensemble (`QGbdt`) over a shared node pool; not the compile-time `QStatic*` forms |
 | `examples/gbdt_tabular_int8.rs` | `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp` |
@@ -171,8 +173,8 @@ set.
 | `examples/imported_mlp.rs` | two models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 
 Everything else in tinymind (C++) is not ported: other Q
-formats, unsigned and 8/64-bit storage, the other activations, the GRU and Elman
-recurrent networks and recurrent networks with more than one hidden layer,
+formats, unsigned and 8/64-bit storage, the other activations, the trainable GRU
+and Elman networks and recurrent networks with more than one hidden layer,
 the deep Q-network (`QValueNeuralNetworkPolicy`),
 the int8 quantization tiers, SIMD backends, and so on.
 
@@ -235,6 +237,12 @@ the int8 quantization tiers, SIMD backends, and so on.
   checks multiplication, concatenation and padding (`QMul`, `QConcat`, `QPad2D`)
   and their calibration against tinymind (C++)'s `QMul`, `QConcat2_2D`,
   `QPad2D`, `buildQMulRequantizer` and `buildRescaler`.
+- `tests/recurrent_int8_sweep.rs` checks the int8 LSTM and GRU cells and their
+  calibration (`calibration::build_lstm_params`, `build_gru_params`,
+  `quantize_gate_biases`) against tinymind (C++)'s `QLSTMCell` (int8 and int16
+  cell state), `QGRUCell`, `buildQLSTMParams` and `buildQGRUParams`: seven
+  LSTM and six GRU shapes, each with calibrated and random integer parameters,
+  hashing the state after every step of 32-step sequences.
 - `tests/gbdt_golden.rs` checks the GBDT example's three outputs against
   `tests/golden/gbdt/`, and `tests/tree_sweep.rs` checks the trees against
   tinymind (C++)'s `QDecisionTree` and `QGBDT` over 72 random ensembles (int8, uint8
@@ -263,7 +271,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, maze, har_activity, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (74 checks today, including
+  example does, runs both sides, and compares every output file (76 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
@@ -279,7 +287,8 @@ the int8 quantization tiers, SIMD backends, and so on.
   requantizer's fast path equals gemmlowp's two-step rounding, and that the
   requantizer, the int8 dense layers, convolutions, pooling, addition,
   multiplication, padding and concatenation, the
-  tables, the softmax, the trees, the Q-learner and the LSTM network never panic, and that pooling's divide rounds half away
+  tables, the softmax, the int8 LSTM and GRU cells, the trees, the Q-learner
+  and the LSTM network never panic, and that pooling's divide rounds half away
   from zero.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
   and whose panic handler is an undefined symbol, so CI fails to link it if any

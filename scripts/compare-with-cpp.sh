@@ -428,6 +428,26 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test compose_s
   && same "compose Rust vs tests/golden/compose" \
   || { echo "DIFFERENT  compose Rust vs tests/golden/compose"; status=1; }
 
+echo "== recurrent_int8"
+# tinymind's int8 QLSTMCell (int8 and int16 cell state) and QGRUCell with
+# their calibration; tests/recurrent_int8_sweep.rs checks the Rust cells
+# against the committed golden.
+mkdir -p "$TMP/recurrent_int8"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/recurrent_int8/recurrent_sweep" \
+  "$ROOT/scripts/cpp/recurrent_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+"$TMP/recurrent_int8/recurrent_sweep" > "$TMP/recurrent_int8/stdout.txt"
+if cmp -s "$TMP/recurrent_int8/stdout.txt" "$ROOT/tests/golden/recurrent_int8/stdout.txt"; then
+  same "recurrent_int8 stdout.txt (C++ vs tests/golden/recurrent_int8)"
+else
+  echo "DIFFERENT  recurrent_int8 stdout.txt (C++ vs tests/golden/recurrent_int8)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test recurrent_int8_sweep >/dev/null 2>&1 \
+  && same "recurrent_int8 Rust vs tests/golden/recurrent_int8" \
+  || { echo "DIFFERENT  recurrent_int8 Rust vs tests/golden/recurrent_int8"; status=1; }
+
 echo "== kws_int8"
 # tinymind's examples/kws_cortex_m_int8, compiled unchanged inside
 # scripts/cpp/kws_int8_dump.cpp, which prints every tensor (its own stdout
@@ -654,6 +674,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/compose/stdout.txt" "$KEEP_CPP_OUTPUT/compose/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/add"
   cp "$TMP/add/stdout.txt" "$KEEP_CPP_OUTPUT/add/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/recurrent_int8"
+  cp "$TMP/recurrent_int8/stdout.txt" "$KEEP_CPP_OUTPUT/recurrent_int8/stdout.txt"
   echo "C++ outputs copied to $KEEP_CPP_OUTPUT"
 fi
 # Every comparison passed: the count the docs quote must be this one.

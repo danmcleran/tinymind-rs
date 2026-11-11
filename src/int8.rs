@@ -1,8 +1,8 @@
 //! Int8 affine-quantized inference, ported from tinymind (C++) `cpp/qaffine.hpp`,
 //! `cpp/qdense.hpp`, `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`,
 //! `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp`, `cpp/qadd.hpp`, `cpp/qmul.hpp`,
-//! `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `cpp/qactivations.hpp` and
-//! `cpp/qsoftmax_fixedpoint.hpp`.
+//! `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `cpp/qactivations.hpp`,
+//! `cpp/qsoftmax_fixedpoint.hpp`, `cpp/qlstm.hpp` and `cpp/qgru.hpp`.
 //!
 //! This is the TFLite / CMSIS-NN quantization model, separate from the Q-format
 //! [`QValue`](crate::QValue) pipeline: a real value is `scale * (q - zero_point)`,
@@ -35,6 +35,20 @@
 //! points (TFLite ADD), for residual connections, and [`QMul`] multiplies them
 //! (TFLite MUL, squeeze-and-excite gating). [`QPad2D`] pads a tensor with a
 //! constant and [`QConcat`] joins two along the channel axis.
+//!
+//! # Recurrent cells
+//!
+//! [`QLstmCell`] and [`QGruCell`] run one time step of an int8 LSTM or GRU
+//! cell, updating the caller's hidden state (and the LSTM's cell state, `i8`
+//! or `i16`) in place; the caller runs the time loop over a sequence. Weights
+//! are gate-major, `[gate][unit][input]`: PyTorch's `nn.LSTM` stacks its gates
+//! in the same order (i, f, g, o), so its weight matrices map onto them
+//! directly. The GRU applies its reset gate before the recurrent multiply, as
+//! Keras does with `reset_after=False`; PyTorch's `nn.GRU` and Keras' default
+//! apply it after, which is a different function. The gate
+//! activations come from 256-entry sigmoid and tanh tables with fixed output
+//! grids; `calibration` builds the tables and the rescaling parameters from
+//! float scales.
 //!
 //! A convolution over two or more input channels widens its input rows and
 //! each filter's weights to 16 bits and adds the products in pairs. On cores
@@ -87,6 +101,7 @@ pub mod calibration;
 pub(crate) mod compose;
 pub(crate) mod conv;
 pub(crate) mod pool;
+pub(crate) mod recurrent;
 
 pub use add::{QAdd, Tensor};
 pub use compose::{QConcat, QMul, QPad2D};
@@ -94,6 +109,7 @@ pub use conv::{
     QConv2D, QConv2DPerChannel, QDepthwiseConv2D, QPointwiseConv2D, QPointwiseConv2DPerChannel,
 };
 pub use pool::{QAvgPool2D, QGlobalAvgPool2D, QMaxPool2D};
+pub use recurrent::{CellStorage, QGruCell, QLstmCell};
 
 /// Saturating rounding doubling high multiply: `(a * b + 2^30) >> 31`, the
 /// Q0.31 multiply of gemmlowp and TFLite, with `i32::MIN * i32::MIN` saturated

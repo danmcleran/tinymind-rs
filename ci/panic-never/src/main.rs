@@ -10,8 +10,8 @@ use core::hint::black_box;
 use core::mem::size_of;
 use tinymind::int8::{
     self, QAdd, QAvgPool2D, QConcat, QConv2D, QConv2DPerChannel, QDense, QDensePerChannel,
-    QDepthwiseConv2D, QGlobalAvgPool2D, QMaxPool2D, QMul, QPad2D, QPointwiseConv2D,
-    QPointwiseConv2DPerChannel, QSoftmax, Requantizer,
+    QDepthwiseConv2D, QGlobalAvgPool2D, QGruCell, QLstmCell, QMaxPool2D, QMul, QPad2D,
+    QPointwiseConv2D, QPointwiseConv2DPerChannel, QSoftmax, Requantizer,
 };
 use tinymind::qlearn;
 use tinymind::rand::GlibcRand;
@@ -508,6 +508,77 @@ fn int8_conv() {
     black_box(&big_sum);
 }
 
+/// The int8 recurrent cells with every field, input and state opaque.
+fn int8_recurrent<C: int8::CellStorage, const IN: usize, const HID: usize>(cell_value: C) {
+    let rq = black_box(Requantizer {
+        multiplier: 1 << 30,
+        shift: 8,
+        zero_point: 0,
+        qmin: -128,
+        qmax: 127,
+    });
+    let lut = black_box([1i8; 256]);
+    let w_in = black_box([[[1i8; IN]; HID]; 4]);
+    let w_rec = black_box([[[1i8; HID]; HID]; 4]);
+    let biases = black_box([[1i32; HID]; 4]);
+    let lstm: QLstmCell<'_, IN, HID, C> = QLstmCell {
+        input_weights: &w_in,
+        recurrent_weights: &w_rec,
+        biases: &biases,
+        input_zero_point: black_box(1),
+        hidden_zero_point: black_box(-1),
+        cell_zero_point: black_box(cell_value),
+        input_to_lut_multiplier: black_box([1 << 30; 4]),
+        input_to_lut_shift: black_box([8; 4]),
+        recurrent_to_lut_multiplier: black_box([1 << 30; 4]),
+        recurrent_to_lut_shift: black_box([8; 4]),
+        sigmoid_lut: &lut,
+        tanh_lut: &lut,
+        f_times_c_multiplier: black_box(1 << 30),
+        f_times_c_shift: black_box(7),
+        i_times_g_multiplier: black_box(1 << 30),
+        i_times_g_shift: black_box(7),
+        cell_qmin: black_box(cell_value),
+        cell_qmax: black_box(cell_value),
+        cell_to_tanh_multiplier: black_box(1 << 30),
+        cell_to_tanh_shift: black_box(0),
+        tanh_cell_lut: &lut,
+        output_requantizer: rq,
+    };
+    let x = black_box([2i8; IN]);
+    let mut h = black_box([3i8; HID]);
+    let mut c = black_box([cell_value; HID]);
+    lstm.forward(&x, &mut h, &mut c);
+    black_box((&h, &c));
+
+    let g_in = black_box([[[1i8; IN]; HID]; 3]);
+    let g_rec = black_box([[[1i8; HID]; HID]; 3]);
+    let g_biases = black_box([[1i32; HID]; 3]);
+    let gru: QGruCell<'_, IN, HID> = QGruCell {
+        input_weights: &g_in,
+        recurrent_weights: &g_rec,
+        biases: &g_biases,
+        input_zero_point: black_box(1),
+        hidden_zero_point: black_box(-1),
+        input_to_lut_multiplier: black_box([1 << 30; 3]),
+        input_to_lut_shift: black_box([8; 3]),
+        recurrent_to_lut_multiplier: black_box([1 << 30; 3]),
+        recurrent_to_lut_shift: black_box([8; 3]),
+        sigmoid_lut: &lut,
+        tanh_lut: &lut,
+        r_times_h_multiplier: black_box(1 << 30),
+        r_times_h_shift: black_box(7),
+        one_minus_z_times_n_multiplier: black_box(1 << 30),
+        one_minus_z_times_n_shift: black_box(7),
+        z_times_h_multiplier: black_box(1 << 30),
+        z_times_h_shift: black_box(7),
+        output_qmin: black_box(-128),
+        output_qmax: black_box(127),
+    };
+    gru.forward(&x, &mut h);
+    black_box(&h);
+}
+
 /// Trees and ensembles with every field opaque, so any index may be out of
 /// range: the walk, the ensemble and the validity checks must stay total.
 fn trees<T: Copy + Into<i32>>(threshold: T, input: T) {
@@ -583,6 +654,11 @@ pub extern "C" fn _start() -> ! {
     activations();
     int8_inference();
     int8_conv();
+    // The int8 recurrent cells: both cell-state types, an odd shape and a
+    // larger one.
+    int8_recurrent::<i8, 3, 16>(black_box(0));
+    int8_recurrent::<i16, 3, 16>(black_box(0));
+    int8_recurrent::<i8, 5, 7>(black_box(0));
     trees::<i8>(black_box(1), black_box(2));
     trees::<u8>(black_box(1), black_box(2));
     trees::<i16>(black_box(1), black_box(2));

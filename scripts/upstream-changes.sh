@@ -51,6 +51,8 @@ PORTED=(
   cpp/qadd.hpp
   cpp/qmul.hpp
   cpp/qpad.hpp
+  cpp/qlstm.hpp
+  cpp/qgru.hpp
   cpp/qconcat.hpp
   benchmarks/framework_comparison_f411/gen/out/mlp_tinymind.hpp
   cpp/qactivations.hpp
