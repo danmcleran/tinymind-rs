@@ -1,0 +1,69 @@
+# Roadmap and history
+
+Moved out of CLAUDE.md (2026-11-11). Not loaded automatically: read it when choosing
+what to port next, and update it when a step is done.
+
+## Next steps
+
+Next steps follow `reports/Embedded Rust ML priorities.md` (local, not committed):
+Dan chose to port what matters most to embedded Rust developers, not the smallest
+piece. Done: int8 dense + softmax, the PyTorch importer, multiple hidden layers
+(2A), linear output + gradient clipping (2B, `examples/energy_efficiency`),
+Adam/RMSprop (2C), the on-device anomaly-detection demo on both boards (2D).
+Priority 2 is complete; head-only fine-tuning (train only the last layer) is the
+one idea from the report not done. Trees: the runtime (`src/tree.rs`, 3A) and
+the importer (`tools/import_trees`, 3B) are done; tinymind's packed
+`QTreeCompactEval` form is not. Int8 conv (priority 4): the layers are done
+(4A, 2026-11-08: output sizes spelled out by the caller and checked at compile
+time). 4B, `examples/kws_cortex_m_int8`, is done (every tensor and the logits
+report, including tinymind #255's per-layer calibration). 4C, the
+framework-comparison KWS CNN on both boards, is done and tuned (13-27% fewer
+cycles than the C++ scalar build). 4D, convolutions in the PyTorch importer, is
+done, including BatchNorm folding (tinymind #256 ported). The TFLite translator (4E) runs the MLPerf DS-CNN with tinymind's hash on the
+F411, and ResNet-8 too (`QAdd` ported, ADD in the translator), with RAM and cycles tuned (arena, 16-bit band path, ADD tables). Possible next: the same 16-bit pairing for pointwise/depthwise/dense (the DS-CNN's pointwise layers), and 2x2 register blocking that LLVM does not spill. The int8 LSTM and GRU cells (`src/int8/recurrent.rs`) are done (2026-11-10); next for them: emitting them from the PyTorch importer (`nn.LSTM`/`nn.GRU`). The inference-only
+multi-layer network is done (`InferenceNetwork`, 2026-11-09). Report rank 6:
+tabular Q-learning and the maze are done (2026-11-09); the DQN can be ported
+now that tinymind #258 fixed `getQValue`. Rank 7 (LSTM/GRU/Elman from
+`neuralnet.hpp`) waited for Dan's C++ fixes, which landed in tinymind #257
+(2026-11-09, `68ddd9c`; the recurrent probe then showed every LSTM/GRU weight
+changing). The LSTM and `har_activity` are ported (2026-11-09, see the layout
+row); GRU and Elman are next. Found here, verified in the source and by a probe at 02bea40: (R1) `computeGateDeltas()` is never
+called (dropped in 681b804), so LSTM/GRU gate weights (input, input bias,
+recurrent) never change, only hidden->output trains, and the hidden->output
+bias of LSTM/GRU is never trained (`NumberOfBiasNeuronsInLayer = 0`); (R2) the
+forward pass writes each neuron's h_t into the recurrent layer inside the
+loop, so later neurons mix h_t and h_{t-1}; (R3) the fixed-point GRU's
+`ValueType(1)` is raw 1 = 2^-16; (R4) Elman's recurrent gradient uses h_t, not
+the h_{t-1} fed in; (R5) LSTM `resetState` clears only the cell state.
+Lower priority, from a read only: Adam `step()` 3x per recurrent train step,
+`RecurrentConnectionDepth > 1` a no-op, batch bookkeeping ignores recurrent
+gradients, `setWeights` copies only H of G*H input connections; #257 fixed
+R1-R5 (plus the LSTM gate deltas' raw 1 and the GRU candidate's missing
+reset-gate factor), and #263/#264 (2026-11-10) fixed these too: stacked
+recurrent layers now train (single-layer outputs bit-identical, so porting the
+multi-layer recurrent chain is now possible), `RecurrentConnectionDepth != 1`
+is a static_assert, BatchSize > 1 averages per batch, setWeights copies every
+weight, and the optimizer steps once per training step. Write-ups and probes for Dan:
+`~/Documents/tinymind/tinymind-rs-findings-2026-11-09/`. Port against the
+fixed code: `har_activity` (LSTM, default truncating Q16.16) is done; `gru_xor`,
+`lstm_sinusoid` and `elman_temporal_xor` also need `RoundUpPolicy`, which is
+not ported (a policy parameter on `QValue` is an API change).
+
+## Release history (as CLAUDE.md recorded it; CHANGELOG.md is the full record)
+
+Releases, each with a tag and a GitHub release: 0.1.0 (2026-11-07, `601098f`),
+0.1.1 (2026-11-07, `ab43794`: int8 softmax), 0.1.2 (2026-11-07, `7dd0423`:
+`InferencePerceptron`), 0.1.3 (2026-11-07, tag `v0.1.3`: `NeuralNetwork` with any
+number of hidden layers, `Linear`, gradient clipping, `energy_efficiency`), 0.1.4
+(2026-11-07, tag `v0.1.4`: Adam/RMSprop, `Sqrt`, the `anomaly` example, panic fixes), 0.1.5
+(2026-11-08, tag `v0.1.5`: `tinymind::tree`, the tree importer, `gbdt_tabular_int8` and
+`imported_trees`) and 0.2.0 (2026-11-09, tag `v0.2.0`: int8 conv/pool, `QAdd`,
+`QMul`, `QPad2D`, `QConcat`, `InferenceNetwork`, `f32`/`f64` networks with
+`AdamFloat`/`RmsPropFloat`, the optional `libm` feature, and the breaking rename
+`Fixed` -> `Scalar` with `Fixed` kept as a deprecated alias) and 0.3.0 (2026-11-10,
+tag `v0.3.0`: tabular Q-learning and the maze, the LSTM and `har_activity`,
+the syncs to tinymind #261-#267: optimizers train biases with one step per
+update, SGD momentum rounds toward zero and its step to nearest; `Default`
+Adam/RmsProp constants, `mul_round_toward_zero`, `mul_round_nearest`; minor bump because results change and `Scalar` gained
+a method), and 0.3.1 (2026-11-11, tag `v0.3.1`: the int8 LSTM and GRU cells,
+`int8::QLstmCell` and `int8::QGruCell`, with their calibration).
