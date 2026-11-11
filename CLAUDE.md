@@ -22,22 +22,8 @@ Commits before 2026-11-07 use the project's old name, rustymind; it was dropped
 because that name is taken on crates.io.
 
 **Publishing:** `tinymind` is on crates.io (owner `danmcleran`; docs on docs.rs).
-Releases, each with a tag and a GitHub release: 0.1.0 (2026-11-07, `601098f`),
-0.1.1 (2026-11-07, `ab43794`: int8 softmax), 0.1.2 (2026-11-07, `7dd0423`:
-`InferencePerceptron`), 0.1.3 (2026-11-07, tag `v0.1.3`: `NeuralNetwork` with any
-number of hidden layers, `Linear`, gradient clipping, `energy_efficiency`), 0.1.4
-(2026-11-07, tag `v0.1.4`: Adam/RMSprop, `Sqrt`, the `anomaly` example, panic fixes), 0.1.5
-(2026-11-08, tag `v0.1.5`: `tinymind::tree`, the tree importer, `gbdt_tabular_int8` and
-`imported_trees`) and 0.2.0 (2026-11-09, tag `v0.2.0`: int8 conv/pool, `QAdd`,
-`QMul`, `QPad2D`, `QConcat`, `InferenceNetwork`, `f32`/`f64` networks with
-`AdamFloat`/`RmsPropFloat`, the optional `libm` feature, and the breaking rename
-`Fixed` -> `Scalar` with `Fixed` kept as a deprecated alias) and 0.3.0 (2026-11-10,
-tag `v0.3.0`: tabular Q-learning and the maze, the LSTM and `har_activity`,
-the syncs to tinymind #261-#267: optimizers train biases with one step per
-update, SGD momentum rounds toward zero and its step to nearest; `Default`
-Adam/RmsProp constants, `mul_round_toward_zero`, `mul_round_nearest`; minor bump because results change and `Scalar` gained
-a method), and 0.3.1 (2026-11-11, tag `v0.3.1`: the int8 LSTM and GRU cells,
-`int8::QLstmCell` and `int8::QGruCell`, with their calibration). Agents run the
+Releases, each with a tag `vX.Y.Z` and a GitHub release (contents in `CHANGELOG.md`):
+0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.2.0, 0.3.0, 0.3.1 (2026-11-11). Agents run the
 whole release in a session, including `cargo publish` (Dan's preference,
 2026-11-07), but only after Dan's explicit go-ahead for that release: a version
 cannot be deleted, only yanked. Semver applies: before 1.0 a minor bump may break
@@ -59,24 +45,29 @@ alternative if Dan wants one.
 
 Code comments should serve future users and maintainers.
 
-## Current state (2026-11-07)
+## How this file is organised
 
-- tinymind's `examples/xor` (2-4-1 MLP, Q16.16, tanh hidden + sigmoid output, SGD with
-  momentum, 20000 steps) is ported and runs **bit-for-bit identically** to the C++
-  build: the per-step weight trajectory (`nn_fixed_xor.txt`), learning curve,
-  decision surface and stdout are byte-identical.
-- tinymind's `examples/pytorch_quant/xor` (a PyTorch-trained 2-4-1 network
-  quantized to int8: QDense, qrelu, QDense, sigmoid LUT) is ported as
-  `examples/int8_xor.rs` (feature `std`) and bit-exact: stdout and the decision
-  surface. Its requantizers and sigmoid table are built from float scales on the
-  host; Rust's `f32::exp` reaches the same glibc `expf` as the C++.
-- tinymind's `examples/iris` (4-8-3, ReLU hidden, sigmoid outputs, 30000 steps) is
-  ported and bit-exact too: stdout and all three CSVs.
-- The same xor example in **Q8.8** (`xor --format q8.8`, `i16` storage) is also
-  bit-exact. tinymind ships xor only in Q16.16, so the Q8.8 reference is the C++
-  example built with both bit counts in `xornet.h` set to 8; the compare script does
-  that edit in its temp copy.
-- Ported against the tinymind commit in `TINYMIND_REF` (verified byte-identical there).
+This file is loaded in full every session, so it holds only what every session
+needs: the rules, the gates and the map. The rest loads on demand:
+
+- `.claude/rules/*.md`: per-module porting notes (what was ported from where, how
+  it is checked, which planted defects fail, what was measured and dropped).
+  Each has a `paths:` list and loads when a matching file is read. **Before
+  changing a module, make sure its notes file is in context; read it if not.**
+  Files: `core.md` (Q formats, MLPs, optimizers, floats, their examples),
+  `qlearn.md`, `recurrent.md`, `int8.md`, `trees.md`, `importers.md`,
+  `bench.md`, `verification.md`, `docs-site.md`.
+- `.claude/notes/roadmap.md`: what is done, what is next and why, the history
+  of the C++ recurrent fixes, the release history. Read it when choosing work.
+
+New detail goes in those files, not here. Keep this file short.
+
+## Status
+
+Every ported example and layer is checked bit for bit against the C++ build at
+the tinymind commit in `TINYMIND_REF`. What is ported: the layout table below
+(README.md's "What is ported" is the public statement). Latest release: see
+Publishing above.
 
 ## Pull model: how work arrives here
 
@@ -106,7 +97,8 @@ sessions.
   tinymind commit you verified against (`git -C ../tinymind rev-parse HEAD`) in the
   same commit.
 - **When porting a new tinymind file,** add it to `PORTED` in
-  `scripts/upstream-changes.sh` and to the layout table below.
+  `scripts/upstream-changes.sh`, to the layout table below, and its notes to the
+  matching `.claude/rules/` file (with its path in that file's `paths:`).
 - **Goldens always come from the C++ build** (copy them out of the compare script's
   C++ run), never from the Rust output, or the golden test proves nothing.
 
@@ -118,7 +110,7 @@ cargo run --release --example xor       # writes output/ (gitignored); args: [--
 cargo run --release --example iris      # args: [out_dir] [data file, default data/iris.data]
 cargo run --release --features std --example int8_xor   # args: [out_dir]
 cargo test --all-features           # unit tests + golden tests against the C++ outputs (int8 needs std)
-cargo clippy --all-targets -- -D warnings
+cargo clippy --all-targets --all-features -- -D warnings
 cargo fmt --check
 PYTHON=<python with numpy> scripts/compare-with-cpp.sh   # all C++ comparisons; the importer checks need numpy, scikit-learn, xgboost, lightgbm (CI pins them; here: a venv)
 python3 -I scripts/extract-luts.py  # regenerates src/lut.rs from ../tinymind's lookupTables.cpp
@@ -141,43 +133,45 @@ code follows rustfmt; do not fight the formatter.
 
 ## Layout (Rust module <- C++ source)
 
+The third column is the notes file in `.claude/rules/`.
+
 | Rust | C++ (tinymind) | Notes |
 |------|----------------|-------|
-| `src/qformat.rs` | `cpp/qformat.hpp`, `cpp/typeChooser.hpp`, `cpp/include/tinymind_rounding.hpp` | SGD's rounded products: `mul_round_toward_zero` (#266, momentum terms) and `mul_round_nearest` (#267, `lr*g`; C++ `ShiftNearest`: ties away from zero), both branchless, provided `Scalar` methods (`*` for floats), Kani-proved for six formats; a ties-up plant fails Kani and the goldens. tinymind #265 (`d4f4514`) only constrained the C++ free operator templates to QValue operands (IsQValue; no arithmetic change) and fixed activations/layers not ported here (softmax classifier output, GELU, capped ReLU, Xavier normal, BatchNorm1D, BinaryDense): all comparisons identical, pin bump only (2026-11-10). `QValue<S, const FRAC: u32>` over `S` = `i32` (wide `i64`) or `i16` (wide `i32`); methods generated per storage type by `impl_qvalue!`, because stable Rust cannot pick a type from const-generic arithmetic (`QTypeChooser`); Truncate + Wrap policies only; `Scalar` trait (was `Fixed`, now a deprecated alias) = the implicit C++ "ValueType concept", implemented for the Q formats, `f32` and `f64` |
-| `src/activation.rs` | `cpp/activationFunctions.hpp`, `cpp/lookupTable.hpp`, `cpp/interpolate.hpp`, `cpp/tanh.hpp`, `cpp/sigmoid.hpp` | `Activation<V>` trait; `Relu` for every `Scalar` type; `Tanh`/`Sigmoid` for `Q16_16` and `Q8_8` |
-| `src/lut.rs` | `cpp/lookupTables.cpp` | Q16.16 and Q8.8 tanh + sigmoid tables (96 entries each), generated by `scripts/extract-luts.py`, never hand-typed; CI checks they match `TINYMIND_REF` |
-| `src/neuralnet.rs` | `cpp/neuralnet.hpp` | One-hidden-layer MLP, batch 1, default policies; plain arrays, no placement-new buffers. `InferencePerceptron` = C++ `IsTrainable = false`: a separate type holding only weights (no per-neuron state, `const fn new`, `feed_forward(&self)`), same sum order as the trainable one; checked by `tests/inference_mlp.rs` (golden from `scripts/cpp/inference_mlp.cpp`: tinymind's untrainable net loaded through its setters, 4 configs) and unit tests vs `MultilayerPerceptron`. Whole-matrix weight setters, not per-index (no panics) |
-| `src/network.rs` | `cpp/neuralnet.hpp` (`NeuralNetwork`, chain path: `InnerLayerChainBuilder`, `ChainNetworkDeltasCalculator`, `ChainNetworkGradientsCalculator`, `ChainBackPropConnectionWeightUpdater`) | Any number of hidden layers: `NeuralNetwork<L>` over a flat tuple of 1-8 `Dense<V, A, IN, OUT>` (impls generated by `impl_layers!`; sealed `Layers` trait; sizes chained by the impl's const params). Rust has no variadic generics, so no `HiddenLayers<...>`. Per-layer activation (C++ uses one for all hidden layers). Init order = C++ by source layer (inputs then bias), then one draw per output neuron. Deltas all computed before any update; update order irrelevant (each connection reads only itself). Checked by `tests/deep_mlp.rs` (golden from `scripts/cpp/deep_mlp.cpp`: tinymind's `NeuralNetwork` with `HiddenLayers<4,4>`, `<8,6,5>`, `<8,6>`, both formats, every weight hashed after every step) and unit tests vs `MultilayerPerceptron` **Inference-only form** (2026-11-09): `InferenceDense<V, A, IN, OUT>` (pub `weights`/`bias_weights`, `const fn new`, `forward` in the C++ sum order like `Dense`) and `InferenceNetwork<L>` (pub `layers`, `const fn new`, `feed_forward(&self)`) over tuples of 1-8, sealed `InferenceLayers` generated by the same `impl_layers!`; `LayersImpl::Inference` (bound to the same Inputs/Outputs) with `to_inference`/`set_from`, exposed as `NeuralNetwork::to_inference`/`set_weights`. Checked by `tests/inference_deep.rs` (golden from `scripts/cpp/inference_deep.cpp`: tinymind's `NeuralNetwork<..., HiddenLayers<...>, ..., false>` loaded through its setters, 5 configs x 8 weight sets x 16 inputs, plus the trainable C++ net agreeing); plants (no activation, bias of neuron 0, set_from skipping biases, first input only) fail it |
-| `src/optimizer.rs` | `cpp/adam.hpp`, `cpp/rmsprop.hpp` (`SquareRootApproximation` -> `qformat::Sqrt`; `AdamOptimizerFloat`/`RmsPropOptimizerFloat` -> `AdamFloat`/`RmsPropFloat`, see Floating point below) | Optimizer = type parameter (`Opt = Sgd`, zero-sized, so no size cost; `new` exists for `Sgd` only, `with_optimizer` for any). Sealed `OptimizerImpl` (allow `private_interfaces`: it takes the crate-private `Connection`). Since tinymind #264 (`a40979f`, ported 2026-11-10): `begin_step` once per `train` before any update (C++ `beginTrainingStep`; was `step()` per layer), Adam/RMSprop/AdamFloat/RmsPropFloat update biases through the optimizer (`update_bias` takes `clip`), SGD clips bias gradients too, fixed Adam keeps `powers: Option<(b1^t, b2^t)>` (None = t 0, so `const fn new` needs no `V::ONE`) and corrects when `1 - b^t > 0` (no t<100 cut-off, no epsilon threshold), AdamFloat keeps f64 products (`pow` gone from `float_math`). Weight decay under Adam is C++-only (weight decay is not ported). `Default` for `Adam`/`RmsProp` on `Q16_16`/`Q8_8` = C++ `QFractionLsbs`/`QAdamEpsilonLsbs` (Q16.16 Adam 58982/64881/2560, Q8.8 230/253/160; RMSprop 58982/1, 230/1; printed by a C++ program and pinned by a unit test; deep_mlp's Q8.8 runs use C++ `AdamOptimizer<Q8>`/`RmsPropOptimizer<Q8>` defaults and Rust `Default`). `GradientClipByValue<V, I, F>` is now `[-b, b]` with b = QValue(I, F), so the harnesses' asymmetric `[-1.5, 2.5]` runs use their own `AsymmetricClip` policy. Moments live in the delta-weight slots. `(1 - beta2) * g * g` is left-associative. Checked by the adaptive runs in `tests/deep_mlp.rs`, `tests/lstm_sweep.rs`, `tests/float_mlp.rs`; plants that fail (2026-11-10): t per layer, Adam/RMSprop/AdamFloat bias not updated, SGD bias not clipped, t<100 cut-off, epsilon threshold, AdamFloat via pow |
-| `src/qlearn.rs`, `examples/maze.rs`, `examples/common/maze_driver.rs` | `cpp/qlearn.hpp` (`QLearner`, `QValueTablePolicy`, `ArgMaxPolicy`, `DefaultLearningPolicy`, `QLearningEnvironment`), `examples/maze` | 2026-11-09. `QLearner<V, E, STATES, ACTIONS, Q = QTable>` owns its `Environment<ACTIONS>` (user trait: `valid_actions` fills a buffer, `random_int(min, max)` = the C++ RandomNumberPolicy's `randInt`) and its `QValues<V>` (open trait; `QTable { pub values: [[V; A]; S] }`, out-of-range get 0 / set ignored). States and actions are `usize`, invalid = `None` (C++ uses the type's max). Learning rate, discount (`< ONE`) and exploration percent (`<= 100`, the C++ example policy's check) live in the learner; initial 0 (the C++ example policy leaves the percent uninitialized). The C++ `environment.takeAction(experience)` hook is dropped (the maze only stores it). Since tinymind #261 (`1b310c0`, ported 2026-11-10): the update is for `experience.state` (Experience gained `state`; >= STATES updates nothing, whatever the learner's own state), the future Q is `Q(s', a*)` with a* = ArgMax over s''s valid actions (first valid action when all tie, 0 when none; never draws RNG), exploration draws `random_int(0, 99) < point` (exactly p/100), ArgMax with 2 actions treats a tie as no preference (random), rates are accepted in [0, 1] (`isInUnitInterval` = `!(v < 0) && !(1 < v)`, so NaN passes; negatives now rejected, 1 accepted); nothing computed when lr = 0. ArgMax with 3+ (since #258): first of the largest Q whatever its sign, random only when every valid action ties. The C++ maze uses unsigned Q16.16 (`QValue<16,16,false>`); the port uses signed `Q16_16` (all values non-negative, -1 reward only compared), proved by the sweep hashing the unsigned C++ table. C++ `Constants` has no float specialization, so its QLearner needs a Q format; ours also runs on f32/f64. maze since #261: 5000 episodes (decay over the last 100), Q* by value iteration in f64 (`maze_qtable.csv`, max |err| 0.00069), greedy test runs at lr 0; C++ built with -ffp-contract=off; stdout (571 KB) and training CSV pinned by FNV-1a in `tests/maze_golden.rs`. Checked by `tests/maze_golden.rs` and `tests/qlearn_sweep.rs` (golden from `scripts/cpp/qlearn_sweep.cpp`, UBSan clean: maze in UQ16.16 on the example's schedule + 60 random envs in Q16.16/Q8.8 with 0/1/2/3+ valid actions, negative rewards, lr/df 0, exactly 1, > 1, < 0, exploration 0/100/150/random with decay, every 4th episode starting with an update for a random or invalid (S) state, every 5th step followed by a replayed experience for a random state). Plants that fail it (2026-11-10): exploring bootstrap, learner's state instead of experience.state, (p+1)/101 draw, 2-action tie to a1, rate 1 rejected, negative rate accepted, all-tied bootstrap drawing a random action. Equivalent mutant: dropping the `state < STATES` guard (the table ignores out-of-range writes and the bootstrap draws nothing). Kani `qlearner_never_panics` (304 checks, ~4 s; planted `valid[index]` fails it and panic-never). **Not ported yet: `QValueNeuralNetworkPolicy` (DQN)**. Until tinymind #258 its `getQValue(state, action)` ignored `state` and returned the online net's last outputs (shown by a probe: identical values for all six states); #258 feeds the state forward (cached until `setQValue` trains) and changed `examples/dqn_maze` to a one-hot state and a linear output. `QValues::q_value` takes `&self`; the DQN's needs a forward pass, so porting it changes that trait: 0.3.0 shipped it, so that is a breaking change (0.4.0), or a new trait beside it |
-| `src/recurrent.rs`, `examples/har_activity.rs`, `examples/common/har_driver.rs` | `cpp/neuralnet.hpp` (`LstmNeuralNetwork`, `LstmHiddenLayer`, `TrainableLstmHiddenLayerNeuron`, `ChainBackPropagationThruTimePolicy` and the recurrent chain calculators), `examples/har_activity` | 2026-11-09, against tinymind #257 (`TINYMIND_REF` 0425b66). `LstmNetwork<V, H, O, IN, HID, OUT, Opt = Sgd>`, one hidden layer (the C++ multi-layer recurrent chain is not ported; it trains since tinymind #263, so it can be). Stable Rust cannot write `[_; 4 * HID]`, so gate connections are `[[Connection; 4]; HID]` (`GatedNeuron`); nesting order = the C++ flat index `n * 4 + g`, so init draws line up. Gate order candidate (H = TF hidden activation), input, forget, output (Sigmoid), cell output `Tanh(c) * o`; `c = (f * c_prev) + (cand * i)`. Init order: inputs, input bias, cells (OUT each), hidden bias, outputs (1 unused each), recurrent (last). Forward latches h[t-1] into the recurrent layer first (#257's `latchPreviousOutputs`), sums are bias + inputs + recurrent, accumulated source-outer (same per-target order). Train: output deltas, raw dL/dh (`calculateAndSetRawNodeDeltas`), `computeGateDeltas` with each activation's derivative (left-assoc products as written), gradients output/hidden-bias, recurrent (`h[t-1] * gate delta`, LSTM recurrent delta = gate delta), input and input bias; recurrent-layer and input node deltas skipped (nothing reads them). Updates layer by layer (output, recurrent, input) with one optimizer step first (since #264); bias clipped like the weights (since #264); recurrent layer has no bias. `reset_state` zeroes c, h and the latched h. Checked by `tests/lstm_sweep.rs` (golden from `scripts/cpp/lstm_sweep.cpp`, UBSan clean: 7 configs incl. har's 3-16-4, Q8.8, ReLU/linear, asymmetric clip, Adam; sequences 1-12 with resets, every 7th step untrained, outputs + all weights hashed per step), 4 float LSTM runs in `tests/float_mlp.rs` (f64 golden, f32 live), and `tests/har_golden.rs` (stdout + 3 CSVs, byte-identical first run; 31 s debug). Plants that fail the sweep: in-place h write (R2), reset keeping h (R5), hidden bias untrained, forget delta with c[t], dL/dc regrouped, recurrent gradient with h[t] (R4), Adam stepping twice, recurrent sum dropped, cell init reversed. har's C++ is built with `-ffp-contract=off` (double sin/cos data). tinymind #262 (`965f00f`) rewrote har: classes walking/upstairs/downstairs/sitting (stairs are time reversals: sawtooth, only sample order separates them), lr 0.05 with no momentum (`HarNetworkInitializer`), trains every step (the zero-tolerance skip is gone), 60 epochs, nearest-centroid + chance baselines, `--readout-only` (input, input-bias and recurrent weights restored after every step; compared live by compare-with-cpp.sh, no golden). Ported byte-identical first run, 91.5% (readout-only 50%); 92.5% (185/200) since #264's bias-gradient clipping; #267 (SGD step rounded to nearest) raised the learning rate 0.05 -> 0.1 (at 0.05 the unbiased steps left 8 of 10 C++ seeds at chance): 76.5% (153/200, a weak data seed; the C++ README reports 89.6% over 10). C++ `SAWTOOTH_RMS` literal is 0x1.279a74590331cp-1, one ulp below 1/sqrt(3) rounded: copy literals, don't recompute (an ulp there is an equivalent mutant at this output resolution anyway). Host timing (best of 5, at 965f00f): Rust release 4.16 s vs C++ -O3 5.37 s. Kani `lstm_never_panics` (Q8.8 1-1-1, unwind 6, ~80 s; a reachable planted assert fails it; an unreachable one, `h != 1`, passed, so plants must be reachable). panic-never covers Q16.16 3-16-4, Q8.8 ReLU/linear, Adam, f32, f64 AdamFloat. Not ported: GRU, Elman, inference-only LSTM, `setWeights` |
-| `src/rand.rs` | (glibc) | Bit-exact glibc `srand`/`rand` (TYPE_3 additive feedback) |
-| `examples/xor.rs`, `examples/common/xor_driver.rs` | `examples/xor/xor.cpp`, `xornet.h` | Example `main` (arguments) + driver (the program, generic over the format, `--format q16.16\|q8.8`); the golden test includes the driver and runs it in-process |
-| `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`, `cpp/include/simd/simd_dispatch.hpp` (scalar dot) | Int8 affine inference: gemmlowp primitives, `Requantizer` (i8 output only; both C++ paths, fused and saturating), `QDense<'a, IN, OUT>` borrowing `&[[i8; IN]; OUT]` weights (flash-friendly), `qrelu`/`qrelu6`, 256-entry LUT. Integer only, no_std |
-| (same, `QSoftmax`) | `cpp/qsoftmax_fixedpoint.hpp` | TFLite-exact int8 softmax (`QSoftmaxFixedPoint1D`), one row per `forward::<N>` (the C++ `Rows` loop is the caller's); `N` in `1..512` checked at compile time. tinymind's other softmax, `QSoftmax1D` (exp LUT + int64 divide, TFLite to within rounding), is deliberately not ported. Checked by `tests/softmax_tflite.rs` (TFLite Micro goldens and sweep hashes, extracted by script from tinymind's unit test) and `tests/softmax_sweep.rs` (golden from `scripts/cpp/softmax_sweep.cpp`: tinymind's kernel + `buildQSoftmaxFixedPointParams`, 504 calibrations, rows of 1 to 511) |
-| `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp` | Feature `std`: `quantize_multiplier` (with a ported `frexp`), `build_requantizer`, `quantize`/`dequantize`, sigmoid/tanh LUT builders, `build_softmax` (`buildQSoftmaxFixedPointParams`) |
-| (same, `QDensePerChannel`) | `cpp/qpointwiseconv2d.hpp` (1x1, per channel) | Dense with one requantizer per output, as TFLite quantizes dense layers; verified on the boards against tinymind's benchmark hash |
-| `src/int8/conv.rs`, `src/int8/pool.rs` (re-exported from `int8`) | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp` | `QConv2D`/`QConv2DPerChannel`, `QDepthwiseConv2D`, `QPointwiseConv2D`/`...PerChannel`, `QMaxPool2D`, `QAvgPool2D`, `QGlobalAvgPool2D`. NHWC nested arrays (`[[[i8; C]; W]; H]`, conv weights OHWI); kernel, strides and padding are layer const params (defaults: stride 1 / pool stride = window, no padding); `forward(&self, input, &mut output)` takes H, W, OH, OW from the arrays and checks `OH == (H+PT+PB-KH)/SH+1` etc. in an inline `const { assert!() }` (stable since 1.79), so a wrong size or invalid layer is a compile error: this is how stable Rust gets around `OutputHeight` arithmetic. Loops tuned on the boards (4C, then 2026-11-09): conv is pixel-outer (window read once for all filters; filter-outer measured 20% slower for the Cin=1 stem), now as `conv2d_gather` (C=1) or `conv2d_band` (C>=2); the original per-tap `conv2d` was removed; depthwise and pointwise run filter-outer with the zero point folded into the bias (`bias - zp*sum w`, equal mod 2^32), weights held across pixels, interior windows read as slices (padded ones take the general per-tap path), and the requantizer prepared once per filter: `int8::FastRequantizer` (crate-private) is the C++ FastRequantizer extended to any qmin/qmax (fused ReLU), proved equal to `Requantizer::apply` by Kani (`fast_requantizer_matches_apply`); filters without a fast form run a `#[cold]` out-of-line loop (one loop branching per output cost depthwise 27%). Pointwise on one pixel keeps the per-output form. Same `i32` sums as the C++ modulo 2^32. Checked by `tests/conv_sweep.rs` (golden from `scripts/cpp/conv_sweep.cpp`: 57 configurations x 3 trials, every C++ path incl. patch/row/tiles/odd filters/all-padding windows, both requantizer paths and the C++ FastRequantizer vs general form, pool ranges with qmin > qmax); ten planted defects each fail it. **16-bit band path** (2026-11-09, for ResNet-8): `QConv2D`/`QConv2DPerChannel` with `C >= BAND_MIN_CHANNELS` (2) run `conv2d_band`: per output row the KH input rows widen to an i16 band (`x - zp`), per (row, filter) the weights to i16, interior windows are KH `dot16` calls over contiguous KW*C, edges tap by tap, cold general-requantizer rows tap by tap (small code). Scratch on stack ~2*KH*(W+KW)*C B; not size-limited. LLVM's ARMParallelDSP pass makes `SMLAD` from `acc + x[i]*w[i] + x[i+1]*w[i+1]` over i16 loads (plain safe Rust, opt 3), but it analyses at most 16 loads (`-arm-parallel-dsp-load-limit`, default 16), and fully unrolled constant-length sums exceed it, so by default the code is ldrsh/ldrsh/smlabb (~4.7 c/MAC); `-C llvm-args=-arm-parallel-dsp-load-limit=512` gives pure ldr/ldr/smlad (opt-in, documented; not in bench config). Tried and dropped: packed u32 words (needs `[u32; W*C/2]`, inexpressible; assembling words from i16 folds back to ldrsh), `black_box` length + multi-exit loop (SMLAD but loop overhead ~2.75 c/MAC), unsigned byte lanes (UXTB16 trick: LLVM splits to per-byte uxtb, worse), 2 filters x 2 pixels (68.0M default, 48.1M with flag vs 45.9M, +68 KB flash). Stable Rust exposes no Arm target features in cfg, so no DSP gate: measured on the L031 a 10x10x8 3x3 conv 675,064 vs 835,734 cycles on the old path (F411 303,574 vs 451,012), so the band path is used everywhere; C=3 stem also faster (2.75M vs 3.88M). Kani `conv_band_never_panics` (C=2, unwind 6, 69 s); conv_sweep plants (odd tail, zp not subtracted, band rows off by one) fail. Not ported: `QPad2D` (tinymind's translator inserts it only when a padded band exceeds its buffer limit; these layers pad internally without one) |
-| `src/int8/add.rs` (re-exported from `int8`) | `cpp/qadd.hpp`, `buildQAddParams` in `cpp/include/qcalibration.hpp` | `QAdd` (TFLite ADD): not size-parameterized; `forward<T: Tensor>(&a, &b, &mut out)` over the sealed `int8::Tensor` (`[i8; N]`, `[[i8; C]; W]`, `[[[i8; C]; W]; H]`), one `T` so shapes must match at compile time (compile_fail doctest). The C++ `(a - zp) * (1 << left_shift)` is UB outside `0..=23`; here a negative left shift is 0 and a larger one saturates (`saturating_shl`, the same shift as in `multiply_by_quantized_multiplier`, Kani `saturating_shl_saturates` vs an i128 spec); the sum wraps. `multiply_by_quantized_multiplier` keeps its own copy: calling `saturating_shl` from it moved code by 10 bytes and the F411 DS-CNN took 11% more cycles (17.88M vs 16.12M; with `-C llvm-args=-align-loops=16` both builds take 16.197M: F411 timings depended on hot-loop alignment against flash lines; the bench now aligns loops, see On-board checks). A Kani proof that the two shifts agree took 566 s (symbolic 32x32 multiply), too slow for CI. From 256 elements `forward` tabulates `scaled_a`/`scaled_b` for all 256 int8 values (2 KB stack) and uses `FastRequantizer`: ResNet-8 adds 185 -> 22 cycles/element; `add_sweep` checks the element-wise path (chunks of 8) equals the table path; plants (table b from a, table off by one) fail; panic-never covers both paths. `calibration::build_add((scale, zp), (scale, zp), (scale, zp), qmin, qmax)` = `buildQAddParams` (f64 from f32 scales, left shift 20). Note make_mlperf.py computes the ADD parameters differently (TFLM's float32 `twice_max` and denominator), so the translator must follow it, not `build_add`. Checked by `tests/add_sweep.rs` (golden from `scripts/cpp/add_sweep.cpp`, built with UBSan clean: 48 calibrated layers x all 65,536 input pairs, 64 direct random-parameter layers, 16 saturating the requantizer's left shift); plants (b with a's multiplier or zero point, left shift 0 as 1, min for max scale, real_out off by 1e-7, real_a in f32, wrapping instead of saturating left shift) each fail it. Before this sweep nothing exercised the left-shift saturation of `multiply_by_quantized_multiplier` (a wrapping plant passed every suite) |
-| `src/int8/compose.rs` (re-exported from `int8`) | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `buildQMulRequantizer`/`buildRescaler` | `QMul` (`forward<T: Tensor>`, FastRequantizer prepared once; product fits i32), `QPad2D<PT, PB, PL, PR> { pad_value }` (const assert OH = H+PT+PB, OW = W+PL+PR with checked adds), `QConcat` (C++ `QConcat2_2D`; const assert CA, CB > 0 and C = CA + CB). `calibration::build_mul_requantizer` and `build_rescaler` are thin wrappers over `build_requantizer` (same f64 ratio as the C++). Checked by `tests/compose_sweep.rs` (golden from `scripts/cpp/compose_sweep.cpp`, UBSan clean: 32 calibrated QMul on all 65,536 pairs, 48 direct, 5 concat shapes x 4, 6 pad shapes x 3); plants (b with a's zp, pad rows offset by PL, pad with 0, concat b with a's requantizer, rescaler scale nudged, both compile_fail doctests made valid) fail; Kani `compose_never_panics` (22 s); panic-never covers all three. Translator support: PAD (H/W only, pad value = output zp, input/output quantization equal) -> QPad2D, MUL (same shapes; ratio via `rq`) -> QMul, CONCATENATION (2 maps on channels, all quantized as the output: TFLite int8 copies then, else rescales in float) -> QConcat with identity requantizers; checked end to end by `tools/import_tflite/test_ops.py` against LiteRT's reference kernels (ai-edge-litert 2.3.0, `OpResolverType.BUILTIN_REF`) on three models built by `tflite_build.py` (flatbuffers via the `tflite` package's builders, no TensorFlow); plants (MUL ratio +0.1%, MUL ReLU dropped (visible only because fused-ReLU outputs are calibrated before the ReLU), pad 0, pad L/R swapped, concat order swapped) fail it |
-| `src/int8/recurrent.rs` (re-exported from `int8`) | `cpp/qlstm.hpp`, `cpp/qgru.hpp`, `buildQLSTMParams`/`buildQGRUParams`/`quantizeQLSTMBiases`/`quantizeQGRUBiases` in `cpp/include/qcalibration.hpp` | 2026-11-10, against `TINYMIND_REF` 7e83cb4. `QLstmCell<'a, IN, HID, C = i8>` (C++ `QLSTMCell`; cell state `C` through the sealed `CellStorage`, `i8` or `i16`) and `QGruCell<'a, IN, HID>` (`QGRUCell`, reset before the R_n multiply): one step, state updated in place, caller runs the time loop. Gate-major weights as nested arrays (`[[[i8; IN]; HID]; 4]`, gates i f g o / r z n), so no `4 * HID` const arithmetic. Field names = the C++ ones (as `QAdd`); C++ storage template params other than the cell state are fixed (int8 in/weights/hidden, i32 acc), the only instantiations tinymind uses. LUT output grids fixed (sigmoid 1/256 zp -128, tanh 1/128 zp 0). Both share `gate_preactivations` (`dot_with_zero_point` + two `multiply_by_quantized_multiplier` + bias, saturated to i8); all gates computed before any unit is written (as the C++). Sums the C++ leaves to UB wrap; clamps are two `if`s (qmin > qmax gives qmax). Calibration: `LstmScales`/`LstmParams`/`build_lstm_params`, `GruScales`/`GruParams`/`build_gru_params`, `quantize_gate_biases` (generic over G; f64 divide, round half away, `as i64 as i32` = lround + int32 cast), `SIGMOID_LUT_OUTPUT_SCALE`/`TANH_LUT_OUTPUT_SCALE`. Checked by `tests/recurrent_int8_sweep.rs` (golden from `scripts/cpp/recurrent_sweep.cpp`, UBSan+ASan clean: LSTM 3x4 i8/i16, 1x1 i8, 2x3 i16, 8x16 i8, 16x8 i16, 5x7 i8; GRU 3x4, 1x1, 2x3, 8x16, 16x8, 5x7; 2 calibrated + 2 direct trials each, 32 steps, state hashed per step; shifts >= -3 so no C++ sum overflows); matched the C++ on the first run. Plants that fail it: g gate on the cell tanh LUT, cell zp not added, LSTM clamp order swapped, GRU 1-z off by one, n gate reading h not r*h, r*h without zp, LSTM output rescale with cell scale, biases truncated. Kani `lstm_int8_cell_never_panics`, `lstm_int16_cell_never_panics`, `gru_cell_never_panics` (1 input, 2 units, every field symbolic incl. LUTs; also state within [qmin, qmax] when qmin <= qmax; ~70-105 s each); panic-never covers i8/i16 LSTM and GRU at 3x16 and 5x7 (planted reachable index panics in each fail the link). Not yet: the importers do not emit these cells. PyTorch `nn.LSTM` gate order (i f g o) matches; `nn.GRU` is reset-after (`r * (R_n h + b_hn)`), tinymind's is reset-before, so a PyTorch GRU does not map. TFLite's integer LSTM kernel was not compared with QLSTMCell here; translating one needs a check against TFLite |
-| `examples/kws_cortex_m_int8.rs`, `examples/common/kws_int8_driver.rs`, `examples/common/std_random.rs`, `scripts/cpp/kws_int8_dump.cpp` | `examples/kws_cortex_m_int8/kws_cortex_m_int8.cpp` | Feature `std`. Draws from `std::mt19937(42)` + libstdc++'s `uniform_real_distribution<float>` (`std_random.rs`: GCC 13's `generate_canonical<float,24>` is one draw, `float(u) / 2^32`, then `u * (b - a) + a` in f32; x86-64 has no FMA by default, but g++ 15 on CI's Ubuntu 26.04 targets FMA and contracts it, moving three depthwise scales by an ulp: the dump is built with `-ffp-contract=off`). Since tinymind #255 (ported, `TINYMIND_REF` 1389e8f) each layer's activation scale is fitted from a float reference forward pass over 32 calibration inputs (`RangeObserver`, `affine_params_symmetric`); the float sums follow the C++ loop order exactly. The C++ stdout starts with host-ns timings, so the check is a dump: `kws_int8_dump.cpp` `#define main`s and `#include`s the example source unchanged, captures its cout, prints input, weights, requantizers and every layer output, then the stdout from "Logits (int8" on; `tests/kws_int8_golden.rs` compares the driver's `dump()` plus that report. Two plants (31 calibration inputs; observer starting at 0) do not change this model's output, so `RangeObserver` has unit tests. Rust weight_bytes differ only for max pool (ZST 0 vs C++ 1). Planted defects (f64 distribution, per-channel scale off, transposed dw kernel, per-tensor dw requantizer) each fail it |
-| `examples/int8_xor.rs`, `examples/common/int8_xor_driver.rs` | `examples/pytorch_quant/xor/xor_quant.cpp`, `weights.hpp` | Weights and scales copied from `weights.hpp` (the goldens catch any mistake) |
-| `tools/import_pytorch/tinymind_import.py` | `apps/import_pytorch/tinymind_import.py` | PyTorch importer emitting Rust. Calibration/quantization/observers copied unchanged (Dense/ReLU/Sigmoid/Tanh/Softmax subset); new: integer requantizers (`buildRequantizer` on float32 scales), LUTs via libm `expf`/`tanhf` over ctypes, softmax params (`buildQSoftmaxFixedPointParams` on the float32 scale; tinymind's importer leaves softmax to the hand-written C++), `forward`, `from_torch`, rustfmt'd output. `test_parity.py` vs tinymind's module; `example_mlp.py` (no torch) and `torch_xor.py` (torch) |
-| `tools/import_tflite/tinymind_import_tflite.py`, `mlperf.py`, `test_translator.py`, `bench/src/mlperf.rs` | `benchmarks/framework_comparison_f411/gen/make_mlperf.py` | int8 .tflite -> Rust module (4E). tinymind's helpers copied unchanged (`quantize_multiplier` with Python `round`, `act_range`, `rq`, `same_pads`, softmax params); reads the flatbuffer with the `tflite` package (pinned 2.18.0 + flatbuffers 25.12.19; no TensorFlow). Ops: CONV_2D, DEPTHWISE_CONV_2D, global AVERAGE_POOL_2D, per-tensor FULLY_CONNECTED, one-row SOFTMAX, RESHAPE, ADD (same shapes; `add_params` copied from make_mlperf.py's add(), TFLM's float32 `twice_max`, emitted by `add_literal`). The graph may branch: steps record input/output tensor indices (RESHAPE without a copy is an alias), and `forward` keeps feature maps in buffers per shape, a buffer reused once no later step reads its tensor (liveness), so a chain ping-pongs between two and a residual block keeps its skip tensor: nesting each layer in a block peaked at 3 tensors (the returned value got its own slot), 24.5 KB vs 16.3 KB for the DS-CNN. Since 2026-11-09 the maps share one byte arena planned first-fit by liveness (as make_mlperf.py's planner; ResNet-8 49,152 B = the C++'s); each step does `split_at_mut` around its output and views slots with generated `view`/`view_mut` (`as_chunks` + `first_chunk`, safe; the generated module needs Rust 1.88, the crate stays 1.85). Per-shape typed buffers had needed 86.5 KB. `mlperf.py kws` fetches the pinned DS-CNN (sha256; cached in target/tflite-models; Apache-2.0, never committed), runs make_mlperf.py's seeded inputs through cargo and compares with `TM_MLPERF_KWS_HASH` (0xF623A166) from tinymind's `fw/backend.hpp`; `--out/--data` write the bench files. `test_ops.py` (needs ai-edge-litert) checks PAD/MUL/CONCATENATION against TFLite's reference kernels on generated models; `mlperf.run_module(output_map=True)` flattens map outputs. `mlperf.py ic` does the same for ResNet-8 (`TM_MLPERF_IC_HASH` 0x8897F6ED; matched on the first run). Four planted translator bugs change the DS-CNN hash; on ResNet-8, ADD with b's multiplier for a, a's zero point for b, left shift 19, and the old ping-pong buffer rule (overwrites the skip tensor) each change it. Fused ReLU (also on ADD), the softmax radius and nudges to `twice_max` do not show on these models (every activation zero point is -128), so `test_translator.py` checks them (softmax params vs the 504-calibration golden, `add_params` vs the 48 calibrated `buildQAddParams` lines of tests/golden/add: the scaling by 2 and 2^20 is exact, so TFLM's float32 and the C++'s double agree). F411 DS-CNN: 13,225,965 cycles (C++ scalar 15,736,026, +SMLAD 8,193,064, TFLM CMSIS-NN 9,583,099), 46,416 B flash, 16,680 B RAM. F411 ResNet-8 (`mlperf-ic`): 64,407,536 cycles (C++ scalar 85,467,754, +SMLAD 26,753,191, TFLM CMSIS-NN 37,372,049), 130,184 B flash, 57,692 B RAM; with `-arm-parallel-dsp-load-limit=512` 41,401,469 cycles. Before the band path, ADD tables and arena: 91,085,417 / 101,076 B / 86,520 B. Per layer (default, before ADD tables): conv1/2 11.1M each, conv5 13.3M, conv9 11.4M, conv4 5.7M, conv8 6.6M, conv0 2.7M, adds 3.0/1.5/0.76M |
-| `tools/import_pytorch` conv support (4D), `examples/imported_cnn.rs`, `examples/common/imported_cnn{,_flat}_model.rs`, `examples/common/imported_cnn_driver.rs`, `scripts/cpp/imported_cnn.cpp`, `tools/import_pytorch/{example_cnn,torch_cnn}.py` | (tinymind importer's Conv2D descriptor + C++ runtime) | `Conv2D` gains `stride`/`padding` (t,b,l,r)/`depthwise` (tinymind's leaves layer types to hand-written C++); new `MaxPool2D`, `AvgPool2D`, `GlobalAvgPool2D`, `Flatten` (pass-through: range = input's). `_plan` follows ("vec", n)/("map", h, w, c); conv emits `QConv2D`/`QDepthwiseConv2D` (per-channel rq array, all equal)/`QPointwiseConv2D` (1x1, stride 1, no pad) with the output size spelled out; a ReLU after a conv is folded into the requantizer's qmin (= qrelu after it). `from_torch(model, input_shape=(C,H,W))`: OIHW->OHWI, NCHW->NHWC, Linear-after-Flatten columns reordered, "same" padding; `torch_cnn.py` checks it against PyTorch (needs torch, local only; four planted layout bugs fail it). Parity: tinymind's importer has no pools/flatten, so `example_cnn.py --cpp` folds each into the next layer's forward (same ranges). The C++ check prints a hash of every intermediate tensor (the models' outputs vary little). A ReLU's range starts at 0, so its zero point is -128 unless a KL observer gives a symmetric range: `cnn`'s relu3 uses KL so the qmin fold is exercised. The float references (`conv2d_nhwc`, `dense_ref`, the average pools) accumulate in float64 without BLAS (`einsum(optimize=False)`) and round to float32: with float32 einsum/`@` the calibrated ranges depended on the CI runner's CPU (BLAS summation order), moved by an ulp, changed requantizer multipliers, and the regenerated `cnn` module differed on CI (2026-11-09; #50 had passed on another runner). `BatchNorm2D` after a `Conv2D` is folded by tinymind's `fold_conv_bn`/`fuse_layers` (copied, with the fused layer also keeping stride/padding/depthwise), including tinymind #256 (2026-11-09, `TINYMIND_REF` 02bea40): before it the fused layer kept `forward=conv.forward` and calibration fitted the pre-BN range (found here, reported). `import_pytorch_model` and `run_float` fuse first; `cnn` folds two BNs (one depthwise); `torch_cnn.py` also runs each conv from its folded weights. |
-| `examples/imported_mlp.rs`, `examples/common/imported_{mlp,classifier}_model.rs`, `examples/common/imported_mlp_driver.rs`, `scripts/cpp/imported_mlp.cpp` | (tinymind importer + C++ runtime) | The importer's two example models (sigmoid MLP, softmax classifier); the C++ program runs tinymind's headers for the same models, with `QSoftmaxFixedPoint1D`. The `*_model.rs` files are generated: regenerate with `example_mlp.py [--model classifier] --rust`, never edit |
-| `tools/import_trees/tinymind_import_trees.py` | `apps/import_trees/tinymind_import_trees.py` | Tree importer emitting Rust. Everything up to `export_trees` (FeatureQuant, readers, plan, threshold/leaf/base rules) copied unchanged from tinymind (only `namespace` -> `name`, docstrings); new: `_render` (Rust: `quantize_features`, pool form via `QGbdt` or one `QDecisionTree` per voting tree, nested-`if` `tree_k` fns, `const _: () = assert!(..is_valid())`), rustfmt, `verify` via cargo (temp crate, path dep, optional shared `target_dir`). `test_parity.py`: 18 models, integer model identical to tinymind's + tinymind's g++ verify + our cargo verify. `FeatureQuant.from_data` used to clip the zero point to `[qmin, qmax]` (found here 2026-11-08: features far from 0 saturated; iris sepal length all at 127); tinymind #254 stopped clipping it (bounded by `_ZP_LIMIT` so `quantize_features`' `i32` sum cannot overflow, else the feature's range is widened to include 0), ported here with the example modules regenerated; `test_parity.py` has an offset case and a far-offset (fallback) case |
-| `examples/imported_trees.rs`, `examples/common/imported_trees_{driver,gbdt_model,forest_model,data}.rs`, `scripts/cpp/imported_trees.cpp` | (tinymind tree importer + C++ runtime) | Wine (sklearn `load_wine`, CC BY 4.0, `NOTICE`), 70/30 split: GradientBoosting (int8) and RandomForest (int16). `*_model.rs` and `imported_trees_data.rs` are generated by `tools/import_trees/example_trees.py`, never edit; CI retrains with pinned numpy/scipy/scikit-learn and checks they are current |
-| `examples/energy_efficiency.rs`, `examples/common/energy_driver.rs`, `data/ENB2012_data.csv` | `examples/energy_efficiency/energy_efficiency.cpp`, `ENB2012_data.csv` | 8-16-2 regression: ReLU hidden, `Linear` output, `set_gradient_clip((-1, 1))`, lr 0.02, momentum and acceleration 0. Data is CRLF in tinymind's working tree (`eol=crlf`), so `.gitattributes` here pins the same; CC BY 4.0 (`NOTICE`). Gradient clipping (`cpp/gradientClipping.hpp`) applies to weights and, since tinymind #264, bias weights (no weight decay on biases). This example never pushes a bias gradient past 1, so `scripts/cpp/deep_mlp.cpp` adds two clipped regressions that do (a planted unclipped bias fails them) |
-| `examples/anomaly.rs`, `examples/common/anomaly_demo.rs`, `bench/src/anomaly.rs` | (none) | On-device anomaly detection: 8-4-8 tanh/linear Q16.16 autoencoder, SGD + clip, trained on synthetic normal windows (integer sine table + glibc rand), threshold = 2x max normal error. `no_std`, shared by host and board; hash pinned by `tests/anomaly_golden.rs` (Rust golden, documented exception). Results on `docs/anomaly.md` and `bench/README.md` |
-| `src/tree.rs` | `cpp/qtree.hpp` (`QTreeNode`, `walkQTree`, `QDecisionTree`, `QGBDT`) | Runtime trees over a borrowed pool (`&[QTreeNode<T>; N]`), generic over threshold and input types (`Copy + Into<i32>`, compared in `i32` as the C++ casts). `QGBDT` -> `QGbdt` (Rust acronym style). Out-of-contract indices (child/root/feature/class), UB in the C++, are total here: the walk stops with 0, a bad class is skipped; `is_valid` is the `const fn` form of `qtreePoolIsValid` plus root/class checks. Sums wrap. `predict` carries the running best by value (indexing `scores[best]` kept a bounds check at opt s/z, found by the panic gate). Not ported: `QStatic*` and the Inline/Compact/Walk policies (C++ template expansion; Rust equivalent is importer codegen). Checked by `tests/tree_sweep.rs` (golden from `scripts/cpp/tree_sweep.cpp`: 72 random ensembles, i8/u8/i16, base scores, ties, inputs at thresholds); planted defects (`<` for `<=`, ties to the highest class, base score 1) each fail it |
-| `examples/gbdt_tabular_int8.rs`, `examples/common/gbdt_driver.rs` | `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp` | Feature `std` (`affine_params_asymmetric`, `quantize`). stdout, CSV and `--golden` report byte-identical. The C++ README says feature 1 "nudges the boundaries"; it never changes the winner (bands are pure vertical; 48 cells flip at f0 = -0.149) |
-| `examples/iris.rs`, `examples/common/iris_driver.rs`, `data/iris.data` | `examples/iris/iris.cpp`, `iris.data` | 4-8-3 MLP, ReLU hidden + sigmoid output, 3 outputs (exercises the MSE `/ OUT` path). Data is the UCI file, CC BY 4.0 (attribution in `NOTICE`), checked against tinymind's copy |
-| `examples/common/cppfmt.rs` | (C++ iostreams) | `fmt_g` (`ostream << double`) and `fmt_fixed` (`std::fixed`), `#[path]`-included by each driver |
-| `tests/qformat_oracle.rs` | `unit_test/qformat_oracle/qformat_oracle_unit_test.cpp` | Differential oracle: every `QValue` op vs an exact i64 reference; C++ edge values, splitmix64 sample, chains; ported formats only (signed, full width, Truncate + Wrap). Plus an exhaustive Q8.8 sweep (`#[ignore]`, CI runs it) |
-| `tests/glibc_rand.rs` | (glibc) | `GlibcRand` vs the real `srand`/`rand` via FFI, 212 seeds incl. >= 2^31 (Linux/glibc only) |
-| `tests/xor_golden.rs`, `tests/iris_golden.rs`, `tests/golden/` | | Goldens from the C++ runs (`q16_16/`, `q8_8/`, `iris/`); xor trajectory checked by FNV-1a hash; shared helper in `tests/common/mod.rs` |
+| `src/qformat.rs` | `cpp/qformat.hpp`, `cpp/typeChooser.hpp`, `cpp/include/tinymind_rounding.hpp` | `core.md` |
+| `src/activation.rs` | `cpp/activationFunctions.hpp`, `cpp/lookupTable.hpp`, `cpp/interpolate.hpp`, `cpp/tanh.hpp`, `cpp/sigmoid.hpp` | `core.md` |
+| `src/lut.rs` | `cpp/lookupTables.cpp` | `core.md` |
+| `src/neuralnet.rs` | `cpp/neuralnet.hpp` | `core.md` |
+| `src/network.rs` | `cpp/neuralnet.hpp` (`NeuralNetwork`, chain path: `InnerLayerChainBuilder`, `ChainNetworkDeltasCalculator`, `ChainNetworkGradientsCalculator`, `ChainBackPropConnectionWeightUpdater`) | `core.md` |
+| `src/optimizer.rs` | `cpp/adam.hpp`, `cpp/rmsprop.hpp` (`SquareRootApproximation` -> `qformat::Sqrt`; `AdamOptimizerFloat`/`RmsPropOptimizerFloat` -> `AdamFloat`/`RmsPropFloat`, see Floating point below) | `core.md` |
+| `src/qlearn.rs`, `examples/maze.rs`, `examples/common/maze_driver.rs` | `cpp/qlearn.hpp` (`QLearner`, `QValueTablePolicy`, `ArgMaxPolicy`, `DefaultLearningPolicy`, `QLearningEnvironment`), `examples/maze` | `qlearn.md` |
+| `src/recurrent.rs`, `examples/har_activity.rs`, `examples/common/har_driver.rs` | `cpp/neuralnet.hpp` (`LstmNeuralNetwork`, `LstmHiddenLayer`, `TrainableLstmHiddenLayerNeuron`, `ChainBackPropagationThruTimePolicy` and the recurrent chain calculators), `examples/har_activity` | `recurrent.md` |
+| `src/rand.rs` | (glibc) | `core.md` |
+| `examples/xor.rs`, `examples/common/xor_driver.rs` | `examples/xor/xor.cpp`, `xornet.h` | `core.md` |
+| `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`, `cpp/include/simd/simd_dispatch.hpp` (scalar dot) | `int8.md` |
+| (same, `QSoftmax`) | `cpp/qsoftmax_fixedpoint.hpp` | `int8.md` |
+| `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp` | `int8.md` |
+| (same, `QDensePerChannel`) | `cpp/qpointwiseconv2d.hpp` (1x1, per channel) | `int8.md` |
+| `src/int8/conv.rs`, `src/int8/pool.rs` (re-exported from `int8`) | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp` | `int8.md` |
+| `src/int8/add.rs` (re-exported from `int8`) | `cpp/qadd.hpp`, `buildQAddParams` in `cpp/include/qcalibration.hpp` | `int8.md` |
+| `src/int8/compose.rs` (re-exported from `int8`) | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `buildQMulRequantizer`/`buildRescaler` | `int8.md` |
+| `src/int8/recurrent.rs` (re-exported from `int8`) | `cpp/qlstm.hpp`, `cpp/qgru.hpp`, `buildQLSTMParams`/`buildQGRUParams`/`quantizeQLSTMBiases`/`quantizeQGRUBiases` in `cpp/include/qcalibration.hpp` | `int8.md` |
+| `examples/kws_cortex_m_int8.rs`, `examples/common/kws_int8_driver.rs`, `examples/common/std_random.rs`, `scripts/cpp/kws_int8_dump.cpp` | `examples/kws_cortex_m_int8/kws_cortex_m_int8.cpp` | `int8.md` |
+| `examples/int8_xor.rs`, `examples/common/int8_xor_driver.rs` | `examples/pytorch_quant/xor/xor_quant.cpp`, `weights.hpp` | `int8.md` |
+| `tools/import_pytorch/tinymind_import.py` | `apps/import_pytorch/tinymind_import.py` | `importers.md` |
+| `tools/import_tflite/tinymind_import_tflite.py`, `mlperf.py`, `test_translator.py`, `bench/src/mlperf.rs` | `benchmarks/framework_comparison_f411/gen/make_mlperf.py` | `importers.md` |
+| `tools/import_pytorch` conv support (4D), `examples/imported_cnn.rs`, `examples/common/imported_cnn{,_flat}_model.rs`, `examples/common/imported_cnn_driver.rs`, `scripts/cpp/imported_cnn.cpp`, `tools/import_pytorch/{example_cnn,torch_cnn}.py` | (tinymind importer's Conv2D descriptor + C++ runtime) | `importers.md` |
+| `examples/imported_mlp.rs`, `examples/common/imported_{mlp,classifier}_model.rs`, `examples/common/imported_mlp_driver.rs`, `scripts/cpp/imported_mlp.cpp` | (tinymind importer + C++ runtime) | `importers.md` |
+| `tools/import_trees/tinymind_import_trees.py` | `apps/import_trees/tinymind_import_trees.py` | `importers.md` |
+| `examples/imported_trees.rs`, `examples/common/imported_trees_{driver,gbdt_model,forest_model,data}.rs`, `scripts/cpp/imported_trees.cpp` | (tinymind tree importer + C++ runtime) | `importers.md` |
+| `examples/energy_efficiency.rs`, `examples/common/energy_driver.rs`, `data/ENB2012_data.csv` | `examples/energy_efficiency/energy_efficiency.cpp`, `ENB2012_data.csv` | `core.md` |
+| `examples/anomaly.rs`, `examples/common/anomaly_demo.rs`, `bench/src/anomaly.rs` | (none) | `core.md` |
+| `src/tree.rs` | `cpp/qtree.hpp` (`QTreeNode`, `walkQTree`, `QDecisionTree`, `QGBDT`) | `trees.md` |
+| `examples/gbdt_tabular_int8.rs`, `examples/common/gbdt_driver.rs` | `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp` | `trees.md` |
+| `examples/iris.rs`, `examples/common/iris_driver.rs`, `data/iris.data` | `examples/iris/iris.cpp`, `iris.data` | `core.md` |
+| `examples/common/cppfmt.rs` | (C++ iostreams) | `core.md` |
+| `tests/qformat_oracle.rs` | `unit_test/qformat_oracle/qformat_oracle_unit_test.cpp` | `core.md` |
+| `tests/glibc_rand.rs` | (glibc) | `core.md` |
+| `tests/xor_golden.rs`, `tests/iris_golden.rs`, `tests/golden/` |  | `core.md` |
 
 The library (`src/lib.rs`) is `#![no_std]` and allocation-free, mirroring tinymind's
 freestanding build. Only the examples, the tests and the opt-in `std` feature
@@ -242,153 +236,31 @@ fixed the docs that produced them).
 
 ## On-board checks (`bench/`)
 
-`bench/` is a separate firmware crate (not published; CI only builds it) that runs
-on Dan's NUCLEO-F411RE (Cortex-M4F, ST-LINK serial `0667FF3833584B3043112826`) and
-NUCLEO-L031K6 (Cortex-M0+, `066DFF485652867187112939`), both on USB. `bench/run.sh`
-builds, flashes (OpenOCD, probe by serial) and reads the VCP. It mirrors tinymind's
-`benchmarks/framework_comparison_f411` (same clocks, timing, weights, samples):
-the int8 digits MLP must hash-match tinymind's expected hash, and xor training on
-the board must reproduce the golden trajectory hash. The `anomaly` workload (2D)
-runs `examples/common/anomaly_demo.rs`, shared with `examples/anomaly.rs`: its
-hash must equal `EXPECT_HASH` in `bench/src/anomaly.rs`, which
-`tests/anomaly_golden.rs` pins to the host run. That golden is the one exception
-to "goldens come from the C++": the demo has no tinymind counterpart, so it is a
-regression pin, said so in the test. The L031 anomaly image is tight on its 32 KB
-flash (2026-11-10: 30,000 B, ~2.7 KB free): library growth can overflow it, and CI's
-bench build will say so (`train_step` and `score` are `#[inline(never)]` for this
-reason, and so is `optimizer::update_all`: the #264 sync's separate bias path
-overflowed it by 952 B; inlined weight + bias loops by 928 B; a single chained
-iterator fit but cost the F411 32% per step; the never-inlined slice helper costs
-10%). #266's round-toward-zero momentum costs the F411 anomaly step +37%
-(4,730 -> 6,460 cycles); its hash changed to 0xE57781D0 (stall 39/64, was 30)
-and the xor trajectories too, all reproduced on both boards 2026-11-10.
-#267's round-to-nearest SGD step: anomaly hash 0x7C074DAD (threshold 128,
-stall 46/64), F411 step 6,437, L031 39,763 cycles; Q8.8 xor solves XOR again;
-all reproduced on both boards 2026-11-10.
-The `kws` workload (4C) is tinymind's framework-comparison KWS-shaped CNN
-(`gen/out/kws_tinymind.hpp`, generated into `bench/src/gen/kws.rs` by `gen.py`;
-hash `TM_KWS_HASH`), with per-layer cycles in `kws-profile`. After tuning, Rust
-takes 13-27% fewer cycles than the C++ scalar build (F411 186,257 vs 254,900,
-2.6% behind +SMLAD's 181,568; L031 649,286 vs 746,112), in less RAM, 19% more
-flash on the F411 and 2% less on the L031 (at `OPT=s bench/run.sh` 4.1-4.3 KB but
-1.8-2.9x slower). 2026-11-09: one-channel stems gather each window once
-(`conv2d_gather`: zp-filled padding, folded biases, filter pairs, `Requantizer::apply`
-per output: an array of 64 prepared FastRequantizers cost the DS-CNN 3.1 KB of
-stack for 0.4% speed) and pointwise runs two pixels per pass (`dot2_pixels`;
-four spill on the M4; on the M0+ pointwise is 1% slower). DS-CNN 16.15M ->
-13.23M; per layer stem 3.09M -> 1.77M, pointwise 2.60M -> 2.17M, depthwise 0.65M
-(82 cycles/output: LLVM unrolls the 25x5 pixel loop and keeps the 9 weights on
-the stack; a range-based edge path was slower, 0.70M). Tried and dropped: band
-path for C=1 (KWS 286K), word loads + sign-extended lanes (LLVM narrows back to
-ldrsb). Also measured worse (2026-11-09), so not adopted: depthwise two
-adjacent pixels per pass (DS-CNN 13.23M -> 13.94M; KWS dw 22,807 -> 23,009);
-depthwise pixel-outer with every channel's window gathered once (14.68M: the
-channel-outer loop with weights and a prepared requantizer per channel wins
-despite its per-tap edge checks); dense with the input widened to i16 once and
-outputs in pairs (F411 MLP 21,517 vs 21,502, fc1/fc2 slower; L031 43,650 vs
-42,514; +244 B stack); 16-bit blocked pointwise (only pays with the opt-in
-parallel-DSP flag; by estimate 5-10% slower by default from re-widening the
-weights per pixel block). Typed tensors cannot
-share a ping-pong buffer, so `infer` scopes them (LLVM overlaps the slots); the
-profile runs in its own `#[inline(never)]` frame, or the L031 overflows 8 KB.
-The `mlperf-kws` and `mlperf-ic` workloads (F411 only) run the MLPerf DS-CNN
-and ResNet-8 translated by `tools/import_tflite`: generate
-`bench/src/gen/mlperf_{kws,ic}*.rs` with `tools/import_tflite/mlperf.py kws|ic
---out ... --data ...` first (needs a Python with `tflite`), so they are not in
-run.sh's default workloads; CI generates them.
-**F411 loop alignment** (2026-11-09): F411 timings depended on where hot loops
-fall against the ART accelerator's 16-byte flash lines: a 10-byte code shift
-moved the DS-CNN by 11%, and shifting all code by 4/8/12 bytes (cortex-m-rt's
-`_stext` in memory.x) moved workloads by up to 1.9%. `bench/.cargo/config.toml`
-now builds thumbv7em with `-C llvm-args=-align-loops=16` (Cargo joins it with
-the cfg table's `-Tlink.x`; an env `CARGO_TARGET_..._RUSTFLAGS` also joins, so
-repeating `-Tlink.x` there fails with "region 'FLASH' already defined"). With
-it every timing was identical at offsets 0/4/8/12. Cost: 0-2% on most
-workloads at opt 3, trees 2% (flash) / 7.8% (SRAM pool: short loops entered
-per tree run the padding), 12% for KWS at opt s (744,585 vs 664,196), up to
-1.7 KB flash. All F411 figures were re-measured with it. Not on the L031: 32-bit
-flash fetches and 4-byte function alignment mean `_stext` cannot shift code by
-2, so there is no sweep to show a gain, and its flash is nearly full.
-**C++ figures are `-O3` only** (Dan, 2026-11-09): every tinymind (C++) or TFLM number compared with this crate must come from an `-O3` build (host timings too: the examples' Makefile release flags, never `-O2`). tinymind's `results/REPORT*.md` print RAM as max(O2, O3) (`report.py`), so take RAM from `results/raw_*_O3.txt` as (static_ram - baseline) + (stack_bytes - baseline); cycles and flash there are per level. An audit on 2026-11-09 found every cycle figure at `-O3` and fixed eight RAM cells and three L031 flash ranges that had come from the summary. `WORKLOADS="anomaly" bench/run.sh f411 l031` runs one workload. Results and method are in
-`bench/README.md`; rerun after changing arithmetic and update the tables.
-`bench/gen.py` generates the MLP from tinymind's headers (never hand-copied).
-probe-rs is not installed; OpenOCD and arm-none-eabi binutils are.
+`bench/` is a separate firmware crate (not published; CI only builds it) for Dan's
+NUCLEO-F411RE (Cortex-M4F) and NUCLEO-L031K6 (Cortex-M0+), both on USB;
+`bench/run.sh` builds, flashes and reads the results, which must hash-match
+tinymind's. Rerun it after changing arithmetic and update the tables in
+`bench/README.md`. Two things bite without touching `bench/`: the L031 anomaly
+image is tight on its 32 KB flash, so library growth can overflow it (CI's bench
+build will say so), and every C++ figure compared with this crate must come from
+an `-O3` build. Probe serials, workloads, loop alignment and everything measured:
+`.claude/rules/bench.md`.
 
 ## Verification beyond the goldens
 
-The goldens only prove the paths the examples execute. For the arithmetic:
+The goldens only prove the paths the examples execute. Details, setup and the
+planted defects each check was shown to catch: `.claude/rules/verification.md`.
+What every change must respect:
 
-- **Oracle** (`tests/qformat_oracle.rs`): a port of tinymind's qformat oracle. Its
-  known-defect list is empty at `TINYMIND_REF`, so any mismatch is a port bug. If
-  tinymind adds a known defect affecting a ported format, port its model too (the
-  C++ oracle is in `PORTED`). CI runs the sampled oracle in `cargo test`, the
-  exhaustive Q8.8 sweep on every PR, and a nightly soak with a fresh seed
-  (`oracle-soak.yml`); a soak failure prints the seed and scale to reproduce with.
-- **Overflow checks on in release** for the exhaustive run. Rust overflow is not
-  UB, but release builds wrap silently, so a plain `+` that should have been
-  `wrapping_add` gives the right answer and passes; with checks on it panics. (A
-  planted plain `+` passed with checks off and failed with them on.) Debug-built
-  tests (`cargo test`) always have them on.
-- **No reachable panics.** `ci/panic-never` is a `no_std` Cortex-M image that calls
-  every public function with `black_box` inputs and whose panic handler is an
-  undefined symbol: if any panic path survives optimisation, linking fails. CI
-  builds it for M0+ and M4F at opt-level 3, s and z. It covers the instantiated
-  configurations (both formats, the xor and iris shapes, the int8 path); add new public API and
-  new configurations to it. Planted panics (an assert, a dropped index clamp in
-  the table lookup) fail it. To keep it passing, total functions over panicking
-  ones: `pow2_neg(n > FRAC)` returns `ZERO` (the truncated value) and the weight
-  getters return whole matrices instead of taking indices. Only the caller's
-  weight-init closure can panic. Panic-freedom must not depend on inlining: a
-  helper that takes an index or divisor from its caller keeps its check when it
-  is not inlined. 2C found two (the MLP's `weighted_sum` index at opt-level s/z
-  once a new network shape was instantiated, and `Sqrt`'s Newton division at every
-  level); both now use total lookups (`get(..).map_or`, `checked_div`). Find the
-  site by emitting the object (`cargo rustc --release --target .. -- --emit=obj=..`)
-  and listing which functions relocate to `core::panicking::*`. An invalid format (`FRAC` 0 or >= the storage
-  width) is a compile error wherever its arithmetic is used. Debug builds still
-  have overflow-check panics; the oracle and the debug-built golden runs have
-  never triggered one.
-- **Sanitizers / Miri / MSan / TSan: not needed** while the library is
-  `#![forbid(unsafe_code)]` and single-threaded; safe Rust cannot have the UB they
-  detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
-  sanitizer for that code.
-- **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, 17 to
-  21 minutes on CI, 16 before the recurrent cells): 86 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
-  and Q1.31: add/sub wrap, multiply floors then wraps, the SGD products
-  (`mul_round_toward_zero`, `mul_round_nearest`) round then wrap, division never panics,
-  `from_int`, `pow2_neg`, zero tolerance and comparisons match their definitions.
-  Tanh and sigmoid (both formats) stay within their tables' range and never index
-  out of bounds; ReLU is max(0, x). Int8: the requantizer's fused path equals
-  gemmlowp's two-step rounding (written as tinymind's unit test writes it) for
-  every input in its domain; the requantizer, the dense layer, the LUT and the
-  softmax (its exp and reciprocal on every `i32`, and the layer for any
-  parameters and logits, about 90 s) never panic for any field values; so do
-  every convolution and pooling layer on small shapes with taps in the padding
-  and the elementwise addition (any parameters),
-  and the pooling divide rounds half away from zero (spec in i64; a planted
-  round-toward-zero fails it). The conv harnesses need `#[kani::unwind(4)]`:
-  without a bound, CBMC unwound the pointwise layer's `flatten`/`zip` loops for
-  30+ minutes; with it each harness takes under 90 s. Trees:
-  the walk, the ensemble and `is_valid` never panic for any 3-4 node pool
-  (indices in or out of range, cycles), root, class, base score and input.
-  The Q-learner never panics for any Q values, rates, exploration percent,
-  states, actions, valid-action count (above `ACTIONS` too) or random integer. Specs
-  avoid the operations they check
-  (congruences, remainder inequalities, i128 where the spec could overflow).
-  Planted defects (rounding multiply, `pow2_neg` off by one, no table-index
-  clamp, interpolation from the upper entry, an unchecked `<<` in the softmax)
-  each fail their proof.
-  **Not proved: functional division** (truncation towards zero). A symbolic
-  64-bit division timed out (> 5 min, MiniSat and Kissat); it is covered by the
-  oracle instead, exhaustively for Q8.8. Kani also checks the specs: two of mine
-  overflowed (`p - scaled`, `q.abs()` on `i64::MIN`) before they were right.
-  Local setup: `cargo install --locked kani-verifier --version 0.68.0`, then
-  `cargo kani setup`, which needs `curl` (not on Dan's machine: download the
-  release bundle with `gh release download`, check its sha256 against the asset
-  `digest` from the GitHub API, then `cargo kani setup --use-local-bundle <file>`).
-  Bump `KANI_VERSION` in `ci.yml` and here together.
-- **Not done yet:** a coverage report, and running the goldens on Cortex-M under
-  QEMU.
+- **Oracle** (`tests/qformat_oracle.rs`): every `QValue` op against an exact
+  reference; the exhaustive Q8.8 sweep runs in release with overflow checks on.
+- **No reachable panics** (`ci/panic-never`): add new public API and new
+  configurations to it. Prefer total functions (`get(..).map_or`, `checked_div`)
+  over panicking ones; panic-freedom must not depend on inlining.
+- **Kani proofs** (`src/kani_proofs.rs`, CI job `kani`): new arithmetic and new
+  int8 layers get a harness; loops usually need `#[kani::unwind(n)]`.
+- Sanitizers and Miri are not needed while the library is `#![forbid(unsafe_code)]`.
+- A new test or gate is trusted only after it fails on a planted, reachable defect.
 
 ## Porting the next example
 
@@ -405,115 +277,15 @@ The goldens only prove the paths the examples execute. For the arithmetic:
    with `KEEP_CPP_OUTPUT=<dir> scripts/compare-with-cpp.sh`, which copies the C++
    outputs out.
 
-Next steps follow `reports/Embedded Rust ML priorities.md` (local, not committed):
-Dan chose to port what matters most to embedded Rust developers, not the smallest
-piece. Done: int8 dense + softmax, the PyTorch importer, multiple hidden layers
-(2A), linear output + gradient clipping (2B, `examples/energy_efficiency`),
-Adam/RMSprop (2C), the on-device anomaly-detection demo on both boards (2D).
-Priority 2 is complete; head-only fine-tuning (train only the last layer) is the
-one idea from the report not done. Trees: the runtime (`src/tree.rs`, 3A) and
-the importer (`tools/import_trees`, 3B) are done; tinymind's packed
-`QTreeCompactEval` form is not. Int8 conv (priority 4): the layers are done
-(4A, 2026-11-08: output sizes spelled out by the caller and checked at compile
-time). 4B, `examples/kws_cortex_m_int8`, is done (every tensor and the logits
-report, including tinymind #255's per-layer calibration). 4C, the
-framework-comparison KWS CNN on both boards, is done and tuned (13-27% fewer
-cycles than the C++ scalar build). 4D, convolutions in the PyTorch importer, is
-done, including BatchNorm folding (tinymind #256 ported). The TFLite translator (4E) runs the MLPerf DS-CNN with tinymind's hash on the
-F411, and ResNet-8 too (`QAdd` ported, ADD in the translator), with RAM and cycles tuned (arena, 16-bit band path, ADD tables). Possible next: the same 16-bit pairing for pointwise/depthwise/dense (the DS-CNN's pointwise layers), and 2x2 register blocking that LLVM does not spill. The int8 LSTM and GRU cells (`src/int8/recurrent.rs`) are done (2026-11-10); next for them: emitting them from the PyTorch importer (`nn.LSTM`/`nn.GRU`). The inference-only
-multi-layer network is done (`InferenceNetwork`, 2026-11-09). Report rank 6:
-tabular Q-learning and the maze are done (2026-11-09); the DQN can be ported
-now that tinymind #258 fixed `getQValue`. Rank 7 (LSTM/GRU/Elman from
-`neuralnet.hpp`) waited for Dan's C++ fixes, which landed in tinymind #257
-(2026-11-09, `68ddd9c`; the recurrent probe then showed every LSTM/GRU weight
-changing). The LSTM and `har_activity` are ported (2026-11-09, see the layout
-row); GRU and Elman are next. Found here, verified in the source and by a probe at 02bea40: (R1) `computeGateDeltas()` is never
-called (dropped in 681b804), so LSTM/GRU gate weights (input, input bias,
-recurrent) never change, only hidden->output trains, and the hidden->output
-bias of LSTM/GRU is never trained (`NumberOfBiasNeuronsInLayer = 0`); (R2) the
-forward pass writes each neuron's h_t into the recurrent layer inside the
-loop, so later neurons mix h_t and h_{t-1}; (R3) the fixed-point GRU's
-`ValueType(1)` is raw 1 = 2^-16; (R4) Elman's recurrent gradient uses h_t, not
-the h_{t-1} fed in; (R5) LSTM `resetState` clears only the cell state.
-Lower priority, from a read only: Adam `step()` 3x per recurrent train step,
-`RecurrentConnectionDepth > 1` a no-op, batch bookkeeping ignores recurrent
-gradients, `setWeights` copies only H of G*H input connections; #257 fixed
-R1-R5 (plus the LSTM gate deltas' raw 1 and the GRU candidate's missing
-reset-gate factor), and #263/#264 (2026-11-10) fixed these too: stacked
-recurrent layers now train (single-layer outputs bit-identical, so porting the
-multi-layer recurrent chain is now possible), `RecurrentConnectionDepth != 1`
-is a static_assert, BatchSize > 1 averages per batch, setWeights copies every
-weight, and the optimizer steps once per training step. Write-ups and probes for Dan:
-`~/Documents/tinymind/tinymind-rs-findings-2026-11-09/`. Port against the
-fixed code: `har_activity` (LSTM, default truncating Q16.16) is done; `gru_xor`,
-`lstm_sinusoid` and `elman_temporal_xor` also need `RoundUpPolicy`, which is
-not ported (a policy parameter on `QValue` is an API change).
-
-Floating point (2026-11-09): `Scalar` (was `Fixed`) is implemented for `f32`/`f64` (`pow2_neg`
-by exact halving, `div_int` = `self / n as $t`, as the C++ `value /= n`), so every
-network type is generic over them; `Tanh`/`Sigmoid` for floats come from
-`impl_float_activations!` (tanh, `1/(1+exp(-x))`, derivatives `1-y*y`,
-`y*(1-y)`, as tinymind's float example and `nn_unit_test.cpp` write them) with
-feature `std` (system libm: bit-exact with the C++ on glibc) or the optional
-`libm` feature/dependency (`no_std`, not bit-exact; `all(libm, not(std))`, so
-`--all-features` uses std). tinymind ships no float transfer-function bundle:
-the library templates plus user specializations are its float path, copied
-unchanged into `scripts/cpp/float_mlp.cpp` (needs `<new>` and
-`fixedPointTransferFunctions.hpp` for `ZeroToleranceCalculator`; built with
-`-ffp-contract=off`). The bundle's rates are 0.15/0.5/0.1; the Rust default rates
-stay 1/4, 1/2, 1/16 for every type, so tests set them. `tests/float_mlp.rs`
-(feature std) matches every step of five configs (f64/f32; 1-2 hidden layers;
-tanh/ReLU; sigmoid/linear) on the first run. The f32 runs differ between glibc
-2.39 (here) and CI's newer glibc (2.41 made tanhf/expf correctly rounded; f64
-matched): so the committed golden holds only the f64 lines, and
-compare-with-cpp.sh runs the test with `TINYMIND_FLOAT_MLP_CPP` = that host's C++
-output to compare every line live (KEEP_CPP_OUTPUT copies only f64 lines); plants (tanh derivative as
-(1-y)(1+y), div_int via reciprocal, sigmoid +eps/4) fail it. panic-never runs
-float networks with `libm` (M0+ soft float and M4F). tinymind's
-`AdamOptimizerFloat`/`RmsPropOptimizerFloat` are ported as `AdamFloat` /
-`RmsPropFloat` (src/optimizer.rs, `impl_float_optimizers!` for f32 and f64;
-pub f64 hyperparameters with the C++ values as `Default`; casts exactly as the
-C++: `(beta as T) * m`, `((1 - beta2) as T) * g * g`, `m / ((1 - pow(beta, t)) as
-T)`, `sqrt` in f64 then cast; pow/sqrt from std or libm via `float_math`). The C++
-program attaches them as nn_unit_test.cpp does (bundle + `OptimizerPolicyType`
-typedef), needs `-DTINYMIND_ENABLE_FLOAT=1`, and gives those runs learning rate
-0.01 (0.15 saturated the f32 tanh run and killed a ReLU one). Four more configs,
-all bit-identical live; plants (Q-style t<100 cut-off, beta1*m in f64, epsilon
-outside the division, decay swapped) fail. The
-value-type trait was renamed `Fixed` -> `Scalar` at Dan's request (2026-11-09):
-`Fixed` stays as a `#[deprecated(since = "0.2.0")]` subtrait with a blanket
-impl for every `Scalar`, so `V: Fixed` bounds compile with a warning (doctest on
-`Fixed`; checked from an outside crate). Implementors of `Fixed` break, so the
-next release is 0.2.0, not 0.1.6.
+What to port next, and why: `.claude/notes/roadmap.md`.
 
 ## Docs site (GitHub Pages)
 
-`docs/` is a Jekyll site with the just-the-docs theme, the same setup as tinymind's
-site, published at <https://danmcleran.github.io/tinymind-rs/> by
-`.github/workflows/pages.yml`. That workflow builds on every PR (deploys only from
-`master`) and adds the crate's rustdoc under `/api/`. Its `build site` job is not a
-required check.
-
-- Pages: Home, XOR example, Iris example, Energy example, Anomaly detection, Decision trees, Int8 inference, Q-format in Rust, On-board
-  results, Equivalence with tinymind, API reference, and "Bit for bit" (the launch write-up:
-  how the port is checked and what Rust bought; its numbers must be kept current or the
-  page dated). Keep them about what is ported; link to tinymind's site for concepts
-  rather than copying its pages.
-- Do not document tinymind bugs on the site (no "findings" sections, no links to
-  tinymind fix PRs, no "before #N fixed it" asides). Dan's call, 2026-11-07. They
-  belong in CLAUDE.md, commit messages and write-ups to Dan.
-- Code examples live in rustdoc (the crate-level XOR doctest runs in `cargo test`),
-  not in the site's Markdown, where nothing would compile them.
-- Numbers on the pages (settling step, predictions, surface shares) come from the
-  golden outputs. When outputs change, recheck them and rerun
-  `scripts/plot-examples.py` (needs matplotlib in a venv; see its docstring).
-- `docs/assets/tinymind_logo.png` is copied from tinymind; the OG banner
-  `tinymind-rs_og.png` was drawn with Pillow in tinymind's OG layout.
-- Not yet: a Releases page (tinymind's `render_releases_page.py` exits when a repo
-  has no releases; add it, and `pages-on-release.yml`, with the first release) and
-  the knowledge graph (not worth it at this size).
-- No local Ruby is needed: the PR build checks the site. To preview locally:
-  `cd docs && bundle install && bundle exec jekyll serve`.
+`docs/` is a Jekyll site (just-the-docs) published at
+<https://danmcleran.github.io/tinymind-rs/> by `.github/workflows/pages.yml`, with
+the crate's rustdoc under `/api/`. Do not document tinymind bugs on the site (Dan's
+call, 2026-11-07); code examples live in rustdoc, not in the site's Markdown;
+numbers on the pages come from the golden outputs. More: `.claude/rules/docs-site.md`.
 
 ## Keeping the docs current
 
@@ -579,14 +351,14 @@ release. That is why the audit gates the release, not just each PR.
 - **"Commit and push" means the PR flow, the same as tinymind:** branch -> PR -> green
   CI -> squash-merge -> delete the branch (GitHub deletes the remote branch on merge;
   delete the local one). Never push straight to `master`.
-- CI (`.github/workflows/ci.yml`) runs two jobs on every PR and on pushes to `master`:
+- CI (`.github/workflows/ci.yml`) runs three jobs on every PR and on pushes to `master`:
   `rust` (fmt, clippy, test, rustdoc with `-D warnings`, library builds for
-  `thumbv7em-none-eabihf` and `thumbv6m-none-eabi`, and the tests again on the MSRV) and
-  `cpp-equivalence` (checks out tinymind at
+  `thumbv7em-none-eabihf` and `thumbv6m-none-eabi`, and the tests again on the MSRV), `kani`
+  (the proofs) and `cpp-equivalence` (checks out tinymind at
   `TINYMIND_REF` inside the workspace and runs `scripts/compare-with-cpp.sh`). Branch
-  protection is meant to require both by job name, so do not rename them, and do not
+  protection is meant to require `rust` and `cpp-equivalence` by job name, so do not rename them, and do not
   skip them with `paths-ignore` or a job-level `if:`: a required check that never
-  reports blocks the PR forever. Both jobs were shown to fail on planted defects
+  reports blocks the PR forever. Those two jobs were shown to fail on planted defects
   (a fmt error; multiply rounding instead of flooring) before the workflow landed.
 - CI uses floating `stable` Rust, so a new clippy lint can turn `master` red without a
   code change. Fix the lint in its own PR.
