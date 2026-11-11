@@ -86,13 +86,13 @@ The MLPerf Tiny keyword-spotting reference model (49x10 MFCC input, a 10x4 convo
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **11,850,835** | **118.5 ms** | **45,872 B** | **16,680 B** |
+| **tinymind-rs** | **10,790,589** | **107.9 ms** | **49,712 B** | **16,812 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,288 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,764 B |
 
-The Rust model takes 25% fewer cycles than tinymind (C++)'s portable build, in less flash and RAM; tinymind (C++)'s SMLAD build and TFLM with CMSIS-NN are faster. Most of its time is the four 64-channel pointwise layers, which run in 8-bit and do not reach `SMLAD`, so the parallel-DSP option below does not change this model.
+The Rust model takes 31% fewer cycles than tinymind (C++)'s portable build, in less flash and RAM; tinymind (C++)'s SMLAD build and TFLM with CMSIS-NN are faster. Most of its time is the four 64-channel pointwise layers, which run two filters at two pixels at a time, so each loaded value serves two products; they run in 8-bit and do not reach `SMLAD`, so the parallel-DSP option below does not change this model.
 
 ## MLPerf Tiny image classification (ResNet-8)
 
@@ -165,7 +165,7 @@ The SMLAD rows are the exception, on both sides: tinymind (C++)'s +SMLAD build a
 ## What these show
 
 - Exactness holds on both cores: int8 inference and every training step match the C++ (and, for the anomaly demo, the host run) bit for bit on the chips themselves, not only on a desktop.
-- Against tinymind (C++)'s portable C++ the Rust MLP is level on the Cortex-M4F (0.2% fewer cycles) and 7–18% slower on the Cortex-M0+, at about the same code size; the KWS-shaped network takes 13-26% fewer cycles, the MLPerf DS-CNN 25% and ResNet-8 31% fewer on the M4F. It has no SMLAD backend of its own: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee; only the 16-bit pairs of multi-channel convolutions reach `SMLAD`, through LLVM, with the opt-in option above.
+- Against tinymind (C++)'s portable C++ the Rust MLP is level on the Cortex-M4F (0.2% fewer cycles) and 7–18% slower on the Cortex-M0+, at about the same code size; the KWS-shaped network takes 13-26% fewer cycles, the MLPerf DS-CNN 31% and ResNet-8 31% fewer on the M4F. It has no SMLAD backend of its own: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee; only the 16-bit pairs of multi-channel convolutions reach `SMLAD`, through LLVM, with the opt-in option above.
 - These are two boards, one model per task and one compiler version. Tuning for the core moves workloads both ways: on the F411, `target-cpu=cortex-m4` took 9-10% off the MLPerf models and 5% off the MLP, and made the anomaly demo's training step 37% slower (6,437 cycles without it).
 - F411 timings are taken with every loop aligned to 16 bytes, so they do not move when unrelated code changes shift the hot loops in flash (without it, a 10-byte shift once made the MLPerf DS-CNN 11% slower). The alignment padding costs 0-2% on most workloads, up to 7.8% on the tree walks and 12% at `opt-level = "s"`. The L031 figures, without it, stay sensitive to placement.
 

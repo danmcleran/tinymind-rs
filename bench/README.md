@@ -277,15 +277,22 @@ includes its tensor arena).
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **11,850,835** | **118.5 ms** | **45,872 B** | **16,680 B** |
+| **tinymind-rs** | **10,790,589** | **107.9 ms** | **49,712 B** | **16,812 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,288 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,764 B |
 
-- The Rust model takes 25% fewer cycles than tinymind (C++)'s portable build, in
-  13% less flash and 3% less RAM; tinymind (C++)'s SMLAD build and TFLM with
-  CMSIS-NN are faster. The parallel-DSP flag does not change it. Per layer
+- The Rust model takes 31% fewer cycles than tinymind (C++)'s portable build, in
+  6% less flash and 3% less RAM; tinymind (C++)'s SMLAD build and TFLM with
+  CMSIS-NN are faster. The parallel-DSP flag does not change it. Its four
+  64-channel pointwise layers run two filters at two pixels at a time (2x2,
+  from 32 input channels), as tinymind (C++)'s SMLAD kernel blocks them: each
+  loaded input serves two filters and each weight two pixels. That took the
+  model from 11,850,835 to 10,790,589 cycles (-9%) for 3,840 B more flash. With
+  8 channels (the KWS-shaped network) pairs made the pointwise layer 28%
+  slower on the F411 and 9% on the L031, so shorter rows keep one filter at a
+  time. Per layer
   (measured before the build settings were matched, 13.23M cycles in all): the 10x4 stem 1.77M cycles (3.09M before its
   window was gathered once per pixel), each pointwise layer 2.17M (2.60M before
   two pixels per pass), each depthwise layer 0.65M. The depthwise layers spend

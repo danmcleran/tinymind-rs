@@ -17,6 +17,14 @@ break the API).
   25%), and the int8 MLP is level with it; the anomaly demo's training step is
   37% slower. The L031 timings did not change. No library change.
 
+### Performance
+
+- Int8 pointwise convolutions (`QPointwiseConv2D`, `QPointwiseConv2DPerChannel`)
+  with 32 or more input channels run two filters at two pixels at a time, so
+  each loaded input serves two filters and each weight two pixels: the MLPerf
+  DS-CNN takes 9% fewer cycles on the F411 (10,790,589). Shorter rows, where
+  pairs measured slower, run as before. Results are unchanged.
+
 ## [0.3.1] - 2026-11-11
 
 ### Added

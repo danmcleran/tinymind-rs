@@ -763,16 +763,137 @@ fn pointwise<'r, const H: usize, const W: usize, const C: usize, const F: usize>
         }
         return;
     }
-    for (f, (row, rq)) in weights.iter().zip(rqs).enumerate() {
-        let w = *row;
-        let bias = folded_bias(bias_of(biases, f), zero_point, w);
-        // The pixel loop once per requantizer form, so neither tests the form
-        // per output.
-        match FastRequantizer::new(rq) {
-            Some(fast) => pointwise_filter(input, output, f, &w, bias, |acc| fast.apply(acc)),
-            None => pointwise_filter_general(input, output, f, &w, bias, *rq),
+    if C < PAIR_MIN_CHANNELS {
+        // Short rows: one filter at a time. `C` is a constant, so this is
+        // the only loop such a layer compiles.
+        for (f, (row, rq)) in weights.iter().zip(rqs).enumerate() {
+            let w = *row;
+            let bias = folded_bias(bias_of(biases, f), zero_point, w);
+            pointwise_one_filter(input, output, f, &w, bias, rq);
+        }
+        return;
+    }
+    // Filters in pairs, two pixels at a time (2x2): each input value loaded
+    // serves both filters and each weight both pixels. A pair needs both
+    // requantizers in their prepared form; otherwise, and for an odd last
+    // filter, filters run one at a time.
+    let mut filters = weights.iter().zip(rqs).enumerate();
+    while let Some((f0, (row0, rq0))) = filters.next() {
+        let w0 = *row0;
+        let bias0 = folded_bias(bias_of(biases, f0), zero_point, w0);
+        let second = filters.next();
+        let fast = FastRequantizer::new(rq0)
+            .zip(second.and_then(|(_, (_, rq1))| FastRequantizer::new(rq1)));
+        match (second, fast) {
+            (Some((f1, (row1, _))), Some((fast0, fast1))) => {
+                let w1 = *row1;
+                let bias1 = folded_bias(bias_of(biases, f1), zero_point, w1);
+                pointwise_filter_pair(
+                    input,
+                    output,
+                    (f0, f1),
+                    (&w0, &w1),
+                    (bias0, bias1),
+                    |acc| fast0.apply(acc),
+                    |acc| fast1.apply(acc),
+                );
+            }
+            (second, _) => {
+                pointwise_one_filter(input, output, f0, &w0, bias0, rq0);
+                if let Some((f1, (row1, rq1))) = second {
+                    let w1 = *row1;
+                    let bias1 = folded_bias(bias_of(biases, f1), zero_point, w1);
+                    pointwise_one_filter(input, output, f1, &w1, bias1, rq1);
+                }
+            }
         }
     }
+}
+
+/// Shortest input row for which [`pointwise`] runs filters in pairs. Measured
+/// on the F411 (2026-11-11): with 8 channels pairs made the KWS-shaped
+/// network's pointwise layer 28% slower (L031 9%); with 64 they made the
+/// MLPerf DS-CNN 9% faster. Rows of 16 to 32 were not measured, nor 64 on the
+/// M0+.
+const PAIR_MIN_CHANNELS: usize = 32;
+
+/// One pointwise filter, with the pixel loop once per requantizer form, so
+/// neither tests the form per output.
+#[inline(always)]
+fn pointwise_one_filter<const H: usize, const W: usize, const C: usize, const F: usize>(
+    input: &[[[i8; C]; W]; H],
+    output: &mut [[[i8; F]; W]; H],
+    f: usize,
+    w: &[i8; C],
+    bias: i32,
+    rq: &Requantizer,
+) {
+    match FastRequantizer::new(rq) {
+        Some(fast) => pointwise_filter(input, output, f, w, bias, |acc| fast.apply(acc)),
+        None => pointwise_filter_general(input, output, f, w, bias, *rq),
+    }
+}
+
+/// Two pointwise filters over every pixel, two pixels at a time; an odd last
+/// pixel runs against both filters alone.
+#[inline(always)]
+fn pointwise_filter_pair<const H: usize, const W: usize, const C: usize, const F: usize>(
+    input: &[[[i8; C]; W]; H],
+    output: &mut [[[i8; F]; W]; H],
+    (f0, f1): (usize, usize),
+    (w0, w1): (&[i8; C], &[i8; C]),
+    (bias0, bias1): (i32, i32),
+    requantize0: impl Fn(i32) -> i8,
+    requantize1: impl Fn(i32) -> i8,
+) {
+    let inputs = input.as_flattened();
+    let outputs = output.as_flattened_mut();
+    let mut ins = inputs.chunks_exact(2);
+    let mut outs = outputs.chunks_exact_mut(2);
+    for (out_pair, in_pair) in (&mut outs).zip(&mut ins) {
+        if let ([o0, o1], [x0, x1]) = (out_pair, in_pair) {
+            let [a00, a01, a10, a11] = dot2x2(x0, x1, w0, w1);
+            if let Some(out) = o0.get_mut(f0) {
+                *out = requantize0(bias0.wrapping_add(a00));
+            }
+            if let Some(out) = o1.get_mut(f0) {
+                *out = requantize0(bias0.wrapping_add(a01));
+            }
+            if let Some(out) = o0.get_mut(f1) {
+                *out = requantize1(bias1.wrapping_add(a10));
+            }
+            if let Some(out) = o1.get_mut(f1) {
+                *out = requantize1(bias1.wrapping_add(a11));
+            }
+        }
+    }
+    for (out_pixel, in_pixel) in outs.into_remainder().iter_mut().zip(ins.remainder()) {
+        let (a0, a1) = dot2(in_pixel, w0, w1);
+        if let Some(out) = out_pixel.get_mut(f0) {
+            *out = requantize0(bias0.wrapping_add(a0));
+        }
+        if let Some(out) = out_pixel.get_mut(f1) {
+            *out = requantize1(bias1.wrapping_add(a1));
+        }
+    }
+}
+
+/// `[sum w0 * x0, sum w0 * x1, sum w1 * x0, sum w1 * x1]`, wrapping: two
+/// pixels against two filters.
+#[inline(always)]
+fn dot2x2<const N: usize>(x0: &[i8; N], x1: &[i8; N], w0: &[i8; N], w1: &[i8; N]) -> [i32; 4] {
+    x0.iter().zip(x1).zip(w0.iter().zip(w1)).fold(
+        [0i32; 4],
+        |[a00, a01, a10, a11], ((&x0, &x1), (&w0, &w1))| {
+            let (x0, x1, w0, w1) = (i32::from(x0), i32::from(x1), i32::from(w0), i32::from(w1));
+            [
+                a00.wrapping_add(w0 * x0),
+                a01.wrapping_add(w0 * x1),
+                a10.wrapping_add(w1 * x0),
+                a11.wrapping_add(w1 * x1),
+            ]
+        },
+    )
 }
 
 /// [`pointwise_filter`] for a requantizer without a prepared form: rare, so
