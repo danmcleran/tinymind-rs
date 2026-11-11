@@ -101,6 +101,18 @@ anomaly demo's training step 6,437 -> 8,811 (+37%) and detection 1,332 ->
 1,611. xor was within 1%. On the L031 the code changed (a few hundred bytes
 more flash) but no timing moved by a cycle.
 
+The anomaly slowdown comes from LLVM's machine scheduler, which
+`target-cpu=cortex-m4` turns on. The demo's layers are small enough that LLVM
+unrolls each neuron's weighted sum completely (8 inputs, 4 neurons), and the
+scheduler then starts all eight 64-bit Q16.16 products before narrowing any
+of them; the products no longer fit in the core's registers and go to the
+stack (training-step stack frame 164 -> 580 bytes, stack loads 47 -> 226).
+Adding `-C llvm-args=-enable-misched=false` brings the step back to 6,415
+cycles and detection to 1,350, but costs the int8 MLP 9.7% (20,437 -> 22,428)
+and the KWS-shaped network 4.0% (189,097 -> 196,624), so the images keep the
+scheduler on, as the C++ build's settings do. A project dominated by small
+Q16.16 layers can measure both settings.
+
 F411 images are built with every loop aligned to 16 bytes (`-C
 llvm-args=-align-loops=16`, in `bench/.cargo/config.toml`), so a timing does not
 depend on where unrelated code changes move the hot loops. Without it, the same
@@ -190,7 +202,8 @@ plus peak stack, each minus the baseline's, as tinymind (C++) counts them.
 | Flash (text) / over baseline | 31,984 B / +18,668 B | 30,392 B / +17,956 B |
 
 On the F411 the step is 37% slower with `target-cpu=cortex-m4` (6,437 cycles
-without it, see Build settings); the cause is not yet known. Measured
+without it): LLVM's scheduler spills the unrolled Q16.16 products to the stack,
+see Build settings. Measured
 2026-11-10, a training step already cost more than before (F411 4,250, L031
 35,336 cycles): tinymind (C++) #266 and #267 round the momentum products toward
 zero and the step to nearest instead of flooring them (F411 +36%), and since #264 every layer's weights and bias weights go through
