@@ -78,15 +78,11 @@ fn main() -> ! {
     let _ = writeln!(out, "static_ram={}", board::static_ram());
     let _ = writeln!(out, "# end bench");
     board::flush();
-    loop {
-        cortex_m::asm::nop();
-    }
+    board::finish(true)
 }
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
     let _ = writeln!(Uart, "\n# PANIC");
-    loop {
-        cortex_m::asm::nop();
-    }
+    board::finish(false)
 }

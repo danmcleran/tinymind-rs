@@ -6,21 +6,25 @@
 use core::fmt;
 use core::ptr::{read_volatile, write_volatile};
 
+#[cfg_attr(any(feature = "qemu-m4", feature = "qemu-m0"), allow(dead_code))]
 fn reg(address: u32) -> *mut u32 {
     address as *mut u32
 }
 
+#[cfg_attr(any(feature = "qemu-m4", feature = "qemu-m0"), allow(dead_code))]
 fn read(address: u32) -> u32 {
     // SAFETY: a fixed, aligned peripheral register address from the reference
     // manual; volatile access is how memory-mapped registers are used.
     unsafe { read_volatile(reg(address)) }
 }
 
+#[cfg_attr(any(feature = "qemu-m4", feature = "qemu-m0"), allow(dead_code))]
 fn write(address: u32, value: u32) {
     // SAFETY: as in `read`.
     unsafe { write_volatile(reg(address), value) }
 }
 
+#[cfg_attr(any(feature = "qemu-m4", feature = "qemu-m0"), allow(dead_code))]
 fn modify(address: u32, f: impl FnOnce(u32) -> u32) {
     write(address, f(read(address)));
 }
@@ -187,6 +191,43 @@ mod chip {
     }
 }
 
+#[cfg(any(feature = "qemu-m4", feature = "qemu-m0"))]
+mod chip {
+    #[cfg(feature = "qemu-m4")]
+    pub const NAME: &str = "QEMU mps2-an386 (Cortex-M4)";
+    #[cfg(feature = "qemu-m0")]
+    pub const NAME: &str = "QEMU microbit (Cortex-M0)";
+    /// QEMU does not model cycles: every timing reads 0.
+    pub const MHZ: u32 = 0;
+
+    pub fn init() {}
+
+    pub fn cycles() -> u32 {
+        0
+    }
+
+    pub fn put_byte(b: u8) {
+        cortex_m_semihosting::hprint!("{}", char::from(b));
+    }
+
+    pub fn flush() {}
+}
+
+/// End the QEMU run with the given status (semihosting exit); on a board,
+/// stay in the idle loop.
+pub fn finish(ok: bool) -> ! {
+    #[cfg(any(feature = "qemu-m4", feature = "qemu-m0"))]
+    cortex_m_semihosting::debug::exit(if ok {
+        cortex_m_semihosting::debug::EXIT_SUCCESS
+    } else {
+        cortex_m_semihosting::debug::EXIT_FAILURE
+    });
+    let _ = ok;
+    loop {
+        cortex_m::asm::nop();
+    }
+}
+
 pub use chip::{MHZ, NAME, cycles, flush, init};
 
 /// The ST-LINK virtual COM port, as a `core::fmt` sink (`\n` becomes `\r\n`).
@@ -195,7 +236,7 @@ pub struct Uart;
 impl fmt::Write for Uart {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for b in s.bytes() {
-            if b == b'\n' {
+            if b == b'\n' && cfg!(not(any(feature = "qemu-m4", feature = "qemu-m0"))) {
                 chip::put_byte(b'\r');
             }
             chip::put_byte(b);

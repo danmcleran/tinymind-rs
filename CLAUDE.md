@@ -116,6 +116,8 @@ PYTHON=<python with numpy> scripts/compare-with-cpp.sh   # all C++ comparisons; 
 python3 -I scripts/extract-luts.py  # regenerates src/lut.rs from ../tinymind's lookupTables.cpp
 CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true cargo test --release --test qformat_oracle -- --ignored  # every Q8.8 pair (~15 s)
 scripts/upstream-changes.sh         # tinymind commits since TINYMIND_REF touching ported sources
+scripts/emit-intermediates.sh [host|arm|all]  # MIR, LLVM IR, asm (+ Arm .lst) into target/intermediates/
+scripts/qemu-bench.sh               # bench/ workloads under QEMU (Cortex-M4 + M0, opt 3/s/z): hashes only
 ```
 
 `cargo` comes from a user-level rustup install that `~/.profile`/`~/.bashrc` put on
@@ -246,7 +248,9 @@ build will say so), and every C++ figure compared with this crate must come from
 an `-O3` build. The Rust bench build settings mirror the C++ benchmark
 Makefile's (`-O3` = opt-level 3, `-mcpu` = `-C target-cpu`; table in
 `bench/README.md`, "Build settings"): when one side changes a setting, match it
-and re-measure both boards. Probe serials, workloads, loop alignment and
+and re-measure both boards. CI runs the same images under QEMU
+(`scripts/qemu-bench.sh`, Cortex-M4 and M0): hashes only, so the boards are
+still needed for timings. Probe serials, workloads, loop alignment and
 everything measured: `.claude/rules/bench.md`.
 
 ## Verification beyond the goldens
