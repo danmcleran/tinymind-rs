@@ -13,6 +13,11 @@ break the API).
   two boards' instruction sets) at three optimisation levels
   (`scripts/qemu-bench.sh`): every workload's output hash must match, as on
   the boards. No library change.
+- The convolution and pooling, LSTM, decision-tree and Q-learning sweeps and
+  the qformat oracle now also run on Cortex-M (bench workload `sweeps`, under
+  QEMU in CI): each report must equal tinymind (C++)'s golden byte for byte,
+  and every oracle check must pass. The sweeps moved into `tests/sweeps/`,
+  shared by the host tests and the device. No library change.
 
 ### Changed
 

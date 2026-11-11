@@ -43,6 +43,9 @@ kws-profile = ["kws"]
 # bench/src/gen/mlperf_{kws,ic}*.rs with tools/import_tflite/mlperf.py first).
 mlperf-kws = []
 mlperf-ic = []
+# The host test sweeps (tests/sweeps/) against their committed goldens:
+# correctness only, for QEMU (scripts/qemu-bench.sh) or a board.
+sweeps = []
 
 [profile.release]
 opt-level = 3
