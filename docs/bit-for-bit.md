@@ -12,11 +12,13 @@ The port has one rule that shapes everything else: **every ported path produces 
 
 ## What is in the crate
 
-As of 0.2.0:
+As of 0.3.0:
 
 - Q16.16 and Q8.8 fixed-point arithmetic (`QValue<i32, 16>`, `QValue<i16, 8>`), with ReLU, linear, and lookup-table tanh and sigmoid activations; the same networks also run on `f32` and `f64`.
 - Networks that train on the device with SGD and momentum, Adam or RMSprop (optionally with gradient clipping; for `f32`/`f64` also tinymind (C++)'s floating-point Adam and RMSprop, `AdamFloat` and `RmsPropFloat`): up to seven hidden layers (`NeuralNetwork` over `Dense` layers), and a one-hidden-layer perceptron (`MultilayerPerceptron`), each with an inference-only version that holds nothing but its weights (`InferenceNetwork`, `InferencePerceptron`).
 - int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), 2D convolutions (standard, depthwise and pointwise), pooling, residual addition, multiplication, padding, concatenation, quantized ReLU, activation tables, and a softmax that is bit-exact with TFLite's.
+- Tabular Q-learning (`QLearner` over a `QTable`, module `qlearn`), with tinymind (C++)'s maze example.
+- LSTM networks with one hidden layer (`LstmNetwork`, module `recurrent`), trained one step back in time, in fixed or floating point, with tinymind (C++)'s activity-recognition example.
 - Quantized decision trees and gradient-boosted ensembles (`QDecisionTree`, `QGbdt`) over a node pool that can live in flash, with int8, uint8 or int16 thresholds.
 - Three tools (in the repository, not the crate) that write `no_std` Rust modules: an importer for a trained PyTorch `nn.Sequential` (dense and convolutional), one for scikit-learn, XGBoost and LightGBM tree models, and a translator for int8 TensorFlow Lite models.
 
@@ -28,7 +30,7 @@ Fixed-point arithmetic is deterministic, so two implementations of the same netw
 
 It is also more demanding than it sounds. A few of the things it took:
 
-**Operation order.** A fixed-point multiply truncates, so `(a * b) * c` and `a * (b * c)` can differ in the last bit. Every expression in the port keeps the C++ shape: the weight update is `(lr * g + momentum * dw) + accel * prev_dw`, not any algebraically equal rearrangement. Additions, on the other hand, wrap at the storage width, and wrapping addition is associative, so the order of a sum does not matter. Knowing which operations are order-sensitive tells you where to be careful.
+**Operation order.** A fixed-point multiply truncates, so `(a * b) * c` and `a * (b * c)` can differ in the last bit. Every expression in the port keeps the C++ shape: the weight update is `(lr * g + momentum * dw) + accel * prev_dw`, with `lr * g` rounded to nearest and the two momentum products rounded toward zero as tinymind (C++) rounds them, not any algebraically equal rearrangement. Additions, on the other hand, wrap at the storage width, and wrapping addition is associative, so the order of a sum does not matter. Knowing which operations are order-sensitive tells you where to be careful.
 
 **The random number generator.** The C++ examples initialise weights and draw training samples with `rand()`. The port carries a bit-exact reimplementation of glibc's `srand`/`rand`, checked against the real one over FFI for 212 seeds. It also has to make the same number of draws in the same order: the C++ output neurons carry one outgoing connection that is never used, and initialising it consumes a draw, so the Rust output neurons keep that connection too.
 
@@ -44,7 +46,7 @@ The examples only exercise the paths they use, so the arithmetic gets more:
 
 - **A differential oracle**, ported from tinymind (C++)'s, checks every Q-format operation against an exact 64-bit reference. For Q8.8 it is exhaustive: every pair of values, about four billion, in roughly fifteen seconds.
 - **Overflow checks on, in release.** Rust overflow is not undefined behaviour, but release builds wrap silently, so a plain `+` that should have been `wrapping_add` gives the right answer and passes. The exhaustive run is built with `overflow-checks = true`, which turns that mistake into a panic. I planted one to make sure: it passed with checks off and failed with them on.
-- **Kani proofs** (83 harnesses) for every input rather than a sample: add and subtract wrap, multiply floors then wraps, for six Q formats; the int8 requantizer's single-rounding fast path equals gemmlowp's two-step rounding wherever it is used; and the requantizer, dense layers, convolutions, pooling, addition, multiplication, padding, concatenation, tables and softmax never panic, whatever their parameters, and the decision trees never panic for any field values of small node pools.
+- **Kani proofs** (83 harnesses) for every input rather than a sample: add and subtract wrap, multiply floors then wraps, and the round-toward-zero and round-to-nearest multiplies SGD uses, for six Q formats; the int8 requantizer's single-rounding fast path equals gemmlowp's two-step rounding wherever it is used; and the requantizer, dense layers, convolutions, pooling, addition, multiplication, padding, concatenation, tables and softmax never panic, whatever their parameters, the decision trees never panic for any field values of small node pools, and the Q-learner and the LSTM network never panic for any parameters.
 
 One thing Kani could not do: prove that 64-bit fixed-point division truncates toward zero. The symbolic division timed out after five minutes with two different SAT solvers. That property is covered by the oracle instead, exhaustively for Q8.8.
 
@@ -76,7 +78,7 @@ int8 MLP, one inference:
 | STM32F411 | 21,502 cycles | 20,486 cycles | 5,548 B |
 | STM32L031 | 42,514 cycles | 35,963 cycles | 5,412 B |
 
-TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,204 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction. Arm DSP intrinsics are not available in stable Rust, so the port has no SMLAD path of its own; only its multi-channel convolutions reach SMLAD, through LLVM, when built with an opt-in LLVM option. Convolutional networks are faster than the C++'s portable build even without it: the KWS-shaped CNN by 13-27%, the MLPerf Tiny DS-CNN by 16% and ResNet-8 by 25% (full tables on [On-board results]({{ site.baseurl }}/benchmarks)).
+TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,221 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction. Arm DSP intrinsics are not available in stable Rust, so the port has no SMLAD path of its own; only its multi-channel convolutions reach SMLAD, through LLVM, when built with an opt-in LLVM option. Convolutional networks are faster than the C++'s portable build even without it: the KWS-shaped CNN by 13-27%, the MLPerf Tiny DS-CNN by 16% and ResNet-8 by 25% (full tables on [On-board results]({{ site.baseurl }}/benchmarks)).
 
 ## Shipping a trained network
 
@@ -127,7 +129,7 @@ CI imports the same example models with both importers, runs them on the C++ and
 
 ## What it is not
 
-It is a port of slices of tinymind (C++), not all of it. Not yet ported: recurrent networks, the rest of the int8 layers (recurrent cells, attention), and the SIMD backends. A full port in stable Rust is harder than it looks: tinymind (C++) picks storage types and layer shapes with compile-time arithmetic on template parameters, which stable Rust's const generics cannot express yet (`generic_const_exprs`).
+It is a port of slices of tinymind (C++), not all of it. Not yet ported: GRU and Elman networks and recurrent networks with more than one hidden layer, the deep Q-network, the rest of the int8 layers (recurrent cells, attention), and the SIMD backends. A full port in stable Rust is harder than it looks: tinymind (C++) picks storage types and layer shapes with compile-time arithmetic on template parameters, which stable Rust's const generics cannot express yet (`generic_const_exprs`).
 
 The C++ library remains the full product. The Rust port grows one checked slice at a time, and I would like to hear which slice would make it useful to you.
 

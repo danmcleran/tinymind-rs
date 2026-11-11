@@ -240,7 +240,7 @@ macro_rules! impl_qvalue {
                 let () = Self::FORMAT_OK;
                 let product = <$wide>::from(self.0) * <$wide>::from(rhs.0);
                 // Toward zero without a branch: a negative product gets
-                // 2^FRAC - 1 added before the flooring shift. |product| <
+                // 2^FRAC - 1 added before the flooring shift. |product| <=
                 // 2^(2 * storage bits - 2), so the sum cannot overflow.
                 let bias = (product >> (<$wide>::BITS - 1)) & ((1 << FRAC) - 1);
                 Self(((product + bias) >> FRAC) as $s)
@@ -257,7 +257,7 @@ macro_rules! impl_qvalue {
                 let product = <$wide>::from(self.0) * <$wide>::from(rhs.0);
                 // Round |product| half up, then restore the sign, without a
                 // branch: sign is 0 or -1, and (x ^ sign) - sign negates x
-                // when sign is -1. |product| < 2^(2 * storage bits - 2), so
+                // when sign is -1. |product| <= 2^(2 * storage bits - 2), so
                 // neither the negation nor adding half can overflow.
                 let sign = product >> (<$wide>::BITS - 1);
                 let magnitude = (product ^ sign) - sign;

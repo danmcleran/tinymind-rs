@@ -20,6 +20,8 @@ nav_exclude: true
 [Energy example]({{ site.baseurl }}/energy){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Anomaly detection]({{ site.baseurl }}/anomaly){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Decision trees]({{ site.baseurl }}/trees){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Q-learning maze]({{ site.baseurl }}/maze){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Activity recognition]({{ site.baseurl }}/har){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Int8 inference]({{ site.baseurl }}/int8){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [API reference]({{ site.baseurl }}/api/tinymind/){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View on GitHub](https://github.com/danmcleran/tinymind-rs){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -76,11 +78,11 @@ To use the library from another project:
 
 ```toml
 [dependencies]
-tinymind = "0.2.0"
+tinymind = "0.3.0"
 # Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat:
-# tinymind = { version = "0.2.0", features = ["std"] }
+# tinymind = { version = "0.3.0", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
-# tinymind = { version = "0.2.0", features = ["libm"] }
+# tinymind = { version = "0.3.0", features = ["libm"] }
 ```
 
 The [API reference]({{ site.baseurl }}/api/tinymind/) starts with a complete example that trains XOR; it runs as a test on every build.

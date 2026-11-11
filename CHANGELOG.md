@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-10
+
 ### Added
 
 - `QValue::mul_round_toward_zero` and `Scalar::mul_round_toward_zero` (a
@@ -19,7 +21,7 @@ break the API).
 - `Default` for `Adam<Q16_16>`, `Adam<Q8_8>`, `RmsProp<Q16_16>` and
   `RmsProp<Q8_8>`: tinymind (C++)'s defaults for each format (Adam: beta1 0.9,
   beta2 0.99, epsilon `sqrt(LSB / (1 - beta2))`; RMSprop: decay 0.9, epsilon
-  one LSB), as its #264 computes them.
+  one LSB), computed as tinymind (C++) computes them.
 - Tabular Q-learning, ported from tinymind (C++)'s `qlearn.hpp`: the
   `qlearn` module's `QLearner` (tinymind (C++)'s `QLearner` with its default
   learning and arg-max policies), `QTable` (`QValueTablePolicy`), the
@@ -28,7 +30,7 @@ break the API).
   reward and new state) and the `QValues` trait for other Q-value stores. The
   update bootstraps from the best action in the next state, so the table
   converges to the optimal Q values whatever the learner explores, as in
-  tinymind (C++) since its #261. It is generic over the value type (`Q16_16`, `Q8_8`, `f32`, `f64`),
+  tinymind (C++). It is generic over the value type (`Q16_16`, `Q8_8`, `f32`, `f64`),
   `no_std` and allocation-free. `tests/qlearn_sweep.rs` checks the Q table
   after every update against tinymind (C++)'s `QLearner` on the maze and on 60
   random environments in Q16.16 and Q8.8; a Kani proof shows it never panics.
@@ -55,12 +57,12 @@ break the API).
   sitting; upstairs and downstairs differ only in sample order), and its
   output is byte-identical to the C++ example's. It also prints a
   nearest-centroid baseline, and `--readout-only` trains only the output
-  weights. It trains at learning rate 0.1 without momentum, as the C++
-  example does.
+  weights. It trains at learning rate 0.1 without momentum, as
+  tinymind (C++)'s example does.
 
 ### Changed
 
-- The optimizers follow tinymind (C++) since its #264, so training results
+- The optimizers follow the current tinymind (C++), so training results
   change wherever these apply:
   - `Adam` and `RmsProp` (and `AdamFloat` and `RmsPropFloat`) update the bias
     weights too; they used to keep their initial values.
@@ -82,7 +84,7 @@ break the API).
   learns XOR in both Q16.16 and Q8.8, and the anomaly demo flags 46 of 64
   stalled-sensor windows (was 30).
 - The `energy_efficiency` example trains on every sample, as tinymind (C++)'s
-  does since its #261 (it used to skip samples whose error was within the
+  now does (it used to skip samples whose error was within the
   fixed-point zero tolerance): test MAE 1.74 (heating) and 1.84 (cooling), R²
   0.954 and 0.926, up from 0.903 and 0.883. Its output is still byte-identical
   to the C++ example's.
@@ -311,7 +313,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/danmcleran/tinymind-rs/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.3...v0.1.4

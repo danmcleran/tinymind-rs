@@ -12,7 +12,7 @@ The `energy_efficiency` example is a port of tinymind (C++)'s [energy efficiency
 
 - A multilayer perceptron with 8 inputs, 16 ReLU hidden neurons and 2 **linear** outputs: this is regression, so the outputs are the predicted loads themselves rather than class scores.
 - The 768 samples are shuffled with a fixed seed and split 80/20 into training and test sets. The inputs are z-score normalised with training-set statistics and divided by 3; the targets are z-scored too and divided by 6, so a linear output's errors stay well inside Q16.16. Predictions are converted back to load units for the report.
-- 40,000 training steps, each one training (however small its error), with a learning rate of 0.02, no momentum, and gradients **clipped** to [-1, 1]. A linear output's gradient is unbounded; without clipping it saturates the fixed-point multiply. As in tinymind (C++), the clip applies to the weights and not to the bias weights.
+- 40,000 training steps, each one training (however small its error), with a learning rate of 0.02, no momentum, and gradients **clipped** to [-1, 1]. A linear output's gradient is unbounded; without clipping it saturates the fixed-point multiply. As in tinymind (C++), the clip applies to the weights and the bias weights alike.
 
 The linear activation is `tinymind::Linear`, and the clip is `set_gradient_clip`, available on both `MultilayerPerceptron` and the multi-layer `NeuralNetwork`.
 

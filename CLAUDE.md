@@ -31,7 +31,12 @@ number of hidden layers, `Linear`, gradient clipping, `energy_efficiency`), 0.1.
 `imported_trees`) and 0.2.0 (2026-11-09, tag `v0.2.0`: int8 conv/pool, `QAdd`,
 `QMul`, `QPad2D`, `QConcat`, `InferenceNetwork`, `f32`/`f64` networks with
 `AdamFloat`/`RmsPropFloat`, the optional `libm` feature, and the breaking rename
-`Fixed` -> `Scalar` with `Fixed` kept as a deprecated alias). Agents run the
+`Fixed` -> `Scalar` with `Fixed` kept as a deprecated alias) and 0.3.0 (2026-11-10,
+tag `v0.3.0`: tabular Q-learning and the maze, the LSTM and `har_activity`,
+the syncs to tinymind #261-#267: optimizers train biases with one step per
+update, SGD momentum rounds toward zero and its step to nearest; `Default`
+Adam/RmsProp constants, `mul_round_toward_zero`, `mul_round_nearest`; minor bump because results change and `Scalar` gained
+a method). Agents run the
 whole release in a session, including `cargo publish` (Dan's preference,
 2026-11-07), but only after Dan's explicit go-ahead for that release: a version
 cannot be deleted, only yanked. Semver applies: before 1.0 a minor bump may break
