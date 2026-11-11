@@ -66,7 +66,8 @@
 //! }
 //! ```
 #![no_std]
-#![forbid(unsafe_code)]
+#![cfg_attr(not(feature = "arm-dsp-asm"), forbid(unsafe_code))]
+#![cfg_attr(feature = "arm-dsp-asm", deny(unsafe_code))]
 #![warn(missing_docs)]
 
 // Host-side calibration (`int8::calibration`) needs f32::exp and f32::tanh.

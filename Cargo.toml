@@ -30,6 +30,8 @@ std = []
 # few ulps of glibc's, so not bit-identical to the C++ on a Linux host; with
 # `std` the platform's math library is used instead).
 libm = ["dep:libm"]
+# EXPERIMENT (branch exp-smlad-asm): SMLAD dot products via asm!, DSP cores only.
+arm-dsp-asm = []
 
 [package.metadata.docs.rs]
 all-features = true

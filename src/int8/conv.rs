@@ -716,6 +716,9 @@ impl<const KH: usize, const KW: usize> DepthwiseChannel<'_, KH, KW> {
 /// (see [`folded_bias`]) this is the whole per-output dot product.
 #[inline]
 fn dot<const N: usize>(x: &[i8; N], w: &[i8; N]) -> i32 {
+    #[cfg(all(feature = "arm-dsp-asm", target_arch = "arm"))]
+    return super::dsp::dot(x, w);
+    #[allow(unreachable_code)]
     x.iter().zip(w).fold(0i32, |acc, (&x, &w)| {
         acc.wrapping_add(i32::from(w) * i32::from(x))
     })
@@ -827,6 +830,9 @@ fn pointwise_filter<const H: usize, const W: usize, const C: usize, const F: usi
 /// `(sum x0 * w, sum x1 * w)`, wrapping: two pixels against one filter.
 #[inline(always)]
 fn dot2_pixels<const N: usize>(x0: &[i8; N], x1: &[i8; N], w: &[i8; N]) -> (i32, i32) {
+    #[cfg(all(feature = "arm-dsp-asm", target_arch = "arm"))]
+    return super::dsp::dot2_pixels(x0, x1, w);
+    #[allow(unreachable_code)]
     x0.iter()
         .zip(x1)
         .zip(w)
@@ -843,6 +849,11 @@ fn dot2_pixels<const N: usize>(x0: &[i8; N], x1: &[i8; N], w: &[i8; N]) -> (i32,
 /// window against two filters (an odd last filter passes itself twice).
 #[inline(always)]
 fn dot2(x: &[i8], w0: &[i8], w1: &[i8]) -> (i32, i32) {
+    // EXPERIMENT: short windows (a 3x3 stem's 9 taps) lose to the scalar loop.
+    #[cfg(all(feature = "arm-dsp-asm", target_arch = "arm"))]
+    if x.len() >= 16 {
+        return super::dsp::dot2(x, w0, w1);
+    }
     x.iter()
         .zip(w0)
         .zip(w1)

@@ -103,6 +103,8 @@ pub(crate) mod add;
 pub mod calibration;
 pub(crate) mod compose;
 pub(crate) mod conv;
+#[cfg(all(feature = "arm-dsp-asm", target_arch = "arm"))]
+pub(crate) mod dsp;
 pub(crate) mod pool;
 pub(crate) mod recurrent;
 
@@ -336,6 +338,9 @@ impl FastRequantizer {
 /// `dotProductWithZeroPoint`, scalar path). The sum wraps on overflow, which
 /// needs vectors far longer than any layer here.
 fn dot_with_zero_point<const N: usize>(x: &[i8; N], w: &[i8; N], zero_point: i8) -> i32 {
+    #[cfg(all(feature = "arm-dsp-asm", target_arch = "arm"))]
+    return dsp::dot_with_zero_point(x, w, zero_point);
+    #[allow(unreachable_code)]
     x.iter().zip(w).fold(0i32, |acc, (&x, &w)| {
         acc.wrapping_add(i32::from(w) * (i32::from(x) - i32::from(zero_point)))
     })
