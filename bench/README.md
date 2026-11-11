@@ -355,7 +355,19 @@ WORKLOADS="kws kws-profile" bench/run.sh f411 l031   # only some workloads
 `run.sh` builds each image, records its size, flashes it with OpenOCD (ST-LINK
 picked by serial number; override with `F411_STLINK` / `L031_STLINK`) and reads
 the report from the ST-LINK's virtual COM port. Raw reports and images land in
-`bench/results/` (not committed). CI builds every image but does not run them.
+`bench/results/` (not committed). CI builds every image, and runs them under
+QEMU (below), not on the boards.
+
+### Under QEMU
+
+`scripts/qemu-bench.sh` runs the same images on QEMU's `mps2-an386` (Cortex-M4,
+the F411's instruction set) and `microbit` (Cortex-M0, the same ARMv6-M
+instructions as the L031's M0+), at opt-level 3, s and z, with the boards
+`qemu-m4` and `qemu-m0` (`src/board.rs`: output and exit through semihosting).
+A run fails on a panic, a missing end marker or any `*match=0`. QEMU does not
+model cycles, so every timing reads 0: this checks correctness, on Arm code,
+on every pull request (CI's `cpp-equivalence` job); timings need the boards.
+`CORES=m4 OPTS=3 WORKLOADS="mlp kws" scripts/qemu-bench.sh` runs a subset.
 
 ## Read the generated code
 

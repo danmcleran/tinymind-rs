@@ -302,6 +302,12 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
   and whose panic handler is an undefined symbol, so CI fails to link it if any
   panic path survives optimisation (M0+ and M4F, three optimisation levels).
+- `scripts/qemu-bench.sh` runs the on-board checks in `bench/` under QEMU, on a
+  Cortex-M4 and a Cortex-M0 (the boards' instruction sets), at three
+  optimisation levels: every workload's output hash (the int8 MLP and CNNs,
+  the MLPerf models, xor training, the anomaly demo, the trees) must match, as
+  on the boards. CI runs it on every pull request; the boards themselves are
+  still needed for timings.
 - `scripts/extract-luts.py` generates `src/lut.rs` from tinymind (C++)'s
   `cpp/lookupTables.cpp`; CI regenerates it and fails if the tables differ.
 - CI runs all of these on every pull request (the `cpp-equivalence` job checks out

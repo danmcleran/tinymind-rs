@@ -117,6 +117,7 @@ python3 -I scripts/extract-luts.py  # regenerates src/lut.rs from ../tinymind's 
 CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true cargo test --release --test qformat_oracle -- --ignored  # every Q8.8 pair (~15 s)
 scripts/upstream-changes.sh         # tinymind commits since TINYMIND_REF touching ported sources
 scripts/emit-intermediates.sh [host|arm|all]  # MIR, LLVM IR, asm (+ Arm .lst) into target/intermediates/
+scripts/qemu-bench.sh               # bench/ workloads under QEMU (Cortex-M4 + M0, opt 3/s/z): hashes only
 ```
 
 `cargo` comes from a user-level rustup install that `~/.profile`/`~/.bashrc` put on
@@ -244,7 +245,9 @@ tinymind's. Rerun it after changing arithmetic and update the tables in
 `bench/README.md`. Two things bite without touching `bench/`: the L031 anomaly
 image is tight on its 32 KB flash, so library growth can overflow it (CI's bench
 build will say so), and every C++ figure compared with this crate must come from
-an `-O3` build. Probe serials, workloads, loop alignment and everything measured:
+an `-O3` build. CI runs the same images under QEMU (`scripts/qemu-bench.sh`,
+Cortex-M4 and M0): hashes only, so the boards are still needed for timings.
+Probe serials, workloads, loop alignment and everything measured:
 `.claude/rules/bench.md`.
 
 ## Verification beyond the goldens

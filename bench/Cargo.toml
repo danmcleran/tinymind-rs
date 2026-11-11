@@ -12,11 +12,19 @@ publish = false
 tinymind = { path = ".." }
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
+# Output and exit under QEMU (features qemu-m4, qemu-m0).
+cortex-m-semihosting = { version = "0.5", optional = true }
 
 [features]
 # Board (exactly one).
 f411 = []
 l031 = []
+# QEMU instead of a board: correctness only, timings are meaningless. qemu-m4
+# is the mps2-an386 machine (Cortex-M4, for thumbv7em-none-eabihf), qemu-m0 the
+# microbit (Cortex-M0, the M0+'s instruction set, for thumbv6m-none-eabi). See
+# scripts/qemu-bench.sh.
+qemu-m4 = ["dep:cortex-m-semihosting"]
+qemu-m0 = ["dep:cortex-m-semihosting"]
 # Workload (at most one; none builds the empty baseline image for size deltas).
 mlp = []
 xor-q16 = []
