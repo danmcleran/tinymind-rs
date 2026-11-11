@@ -3,6 +3,8 @@ paths:
   - "src/kani_proofs.rs"
   - "ci/**"
   - "tests/qformat_oracle.rs"
+  - "tests/sweeps/**"
+  - "bench/src/sweeps.rs"
   - ".github/workflows/*.yml"
   - "scripts/check-counts.sh"
 ---
@@ -88,9 +90,30 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   QEMU `mps2-an386` (Cortex-M4) and `microbit` (Cortex-M0 = the M0+'s ARMv6-M),
   opt 3/s/z, boards `qemu-m4`/`qemu-m0` in bench/src/board.rs (semihosting
   output and exit; `cycles()` is 0), in CI's `cpp-equivalence` job after the
-  bench build. It covers only the shapes in the bench models.
-- **Not done yet:** a coverage report, and the sweeps (conv/add/compose/
-  recurrent goldens, the oracle) on Cortex-M: they run on x86 only. Porting
-  them to no_std with embedded golden hashes is the prerequisite for any
-  Arm-only code (an opt-in `unsafe` DSP feature; the `exp-smlad-asm`
-  experiment, 2026-11-11, is a local branch only).
+  bench build. Workload `sweeps` (bench/src/sweeps.rs, 2026-11-11) runs the
+  conv, lstm, tree and qlearn sweeps and the oracle on the device: their bodies
+  moved to `tests/sweeps/*.rs` (no_std, no alloc; `#[path]`-included by the
+  host tests and bench), output streamed into an `Expect` sink compared with
+  `include_str!` goldens (first differing golden line reported). conv's big
+  tensors are `Box` on the host, an `OnStack` newtype under `target_os =
+  "none"`. qlearn's maze line stays host-only (maze_driver is std); the device
+  skips the golden's first line. Oracle: `run_format(seed, scale)`; Vecs became
+  fixed `Values` (<= 31) and a 20-failure `Tally`; the random single values
+  are replayed from a cloned splitmix64 instead of buffered, so the sample is
+  unchanged (fingerprint of every checked (inputs, expected) identical to the
+  old code, fcb3714dd9b56b5f on Q8.8/Q16.16/Q31.1; counts equal at seed
+  12345 scale 3 too). Default sample pinned: `CHECKS_16BIT` 105,792,
+  `CHECKS_32BIT` 134,485 (host asserts at seed 0 scale 1; device requires them).
+  Sizes: M0 O3 image > 256K (conv alone overflowed by 4.3 KB) and LSTM stack
+  73 KB, so QEMU's nRF51 gets flash-size 1M, sram-size 256K. Real F411: all
+  match, 679,290,763 cycles, 477 KB. qemu-bench.sh's match regex was
+  `^[a-z_]*match`, blind to `oracle_16bit_match=0`; now `[a-z0-9_]`, shown by
+  an oracle-only plant (positive / 0 -> MAX-1). Other plants: tree `<`,
+  rounding multiply. 60 QEMU runs ~2 min locally.
+- **Not done yet:** a coverage report, and the add/compose/softmax/
+  recurrent_int8 sweeps on Cortex-M: they calibrate with `int8::calibration`
+  (std). Options: read the calibrated params from the golden lines (they print
+  every field) and check only the layer outputs on the device, or run only the
+  direct-parameter trials (softmax has none). Sweeps on Cortex-M are the
+  prerequisite for any Arm-only code (an opt-in `unsafe` DSP feature; the
+  `exp-smlad-asm` experiment, 2026-11-11, is a local branch only).
