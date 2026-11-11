@@ -69,7 +69,7 @@ Keeping that gate green changed the API in small ways:
 
 ## On real hardware
 
-The port runs on an STM32F411 (Cortex-M4F at 100 MHz) and an STM32L031 (Cortex-M0+ at 32 MHz, 32 KB of flash). On both, tinymind (C++)'s int8 digits classifier (64-32-16-10) produces the same output hash as the C++, and XOR trained on the board reproduces the desktop weight trajectory bit for bit, in both formats. An autoencoder trained on the board for anomaly detection (8-4-8, Q16.16) makes every decision bit for bit as on the desktop, even on the 32 KB L031 ([Anomaly detection]({{ site.baseurl }}/anomaly)).
+The port runs on an STM32F411 (Cortex-M4F at 100 MHz) and an STM32L031 (Cortex-M0+ at 32 MHz, 32 KB of flash). On both, the Rust port of tinymind (C++)'s int8 digits classifier (64-32-16-10) produces the same output hash as the C++ build, and XOR trained on the board reproduces the desktop weight trajectory bit for bit, in both formats. An autoencoder trained on the board for anomaly detection (8-4-8, Q16.16) makes every decision bit for bit as on the desktop, even on the 32 KB L031 ([Anomaly detection]({{ site.baseurl }}/anomaly)).
 
 int8 MLP, one inference:
 
