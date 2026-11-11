@@ -356,3 +356,14 @@ WORKLOADS="kws kws-profile" bench/run.sh f411 l031   # only some workloads
 picked by serial number; override with `F411_STLINK` / `L031_STLINK`) and reads
 the report from the ST-LINK's virtual COM port. Raw reports and images land in
 `bench/results/` (not committed). CI builds every image but does not run them.
+
+## Read the generated code
+
+`scripts/emit-intermediates.sh arm` builds each board image with the flags
+`run.sh` uses and keeps what the compiler produced on the way, under
+`target/intermediates/arm/<board>/`: per workload the MIR (`.mir`), the
+optimised LLVM IR (`.ll`), the assembly (`.s`) and a disassembly of the linked
+image (`.lst`, with final addresses and loop alignment). No board is needed.
+`BOARDS`, `WORKLOADS` and `OPT` select what is built, as for `run.sh`;
+`scripts/emit-intermediates.sh host` does the same for the programs in
+`examples/` on this machine. The script's header has the details.
