@@ -14,6 +14,18 @@ break the API).
   (`scripts/qemu-bench.sh`): every workload's output hash must match, as on
   the boards. No library change.
 
+### Changed
+
+- On-board results: the benchmark images are now built with the same compiler
+  settings as tinymind (C++)'s benchmark images, including tuning for the core
+  (`-C target-cpu=cortex-m4` / `cortex-m0plus`, as its `-mcpu`), and every
+  figure was re-measured. On the F411 the MLPerf DS-CNN and ResNet-8 now take
+  25% and 31% fewer cycles than tinymind (C++)'s portable build (were 16% and
+  25%), and the int8 MLP is level with it; the anomaly demo's training step is
+  37% slower (LLVM's instruction scheduler, which that setting enables,
+  spills its small unrolled Q16.16 layers to the stack; see "Build settings"
+  in `bench/README.md`). The L031 timings did not change. No library change.
+
 ## [0.3.1] - 2026-11-11
 
 ### Added

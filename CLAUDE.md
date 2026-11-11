@@ -245,10 +245,13 @@ tinymind's. Rerun it after changing arithmetic and update the tables in
 `bench/README.md`. Two things bite without touching `bench/`: the L031 anomaly
 image is tight on its 32 KB flash, so library growth can overflow it (CI's bench
 build will say so), and every C++ figure compared with this crate must come from
-an `-O3` build. CI runs the same images under QEMU (`scripts/qemu-bench.sh`,
-Cortex-M4 and M0): hashes only, so the boards are still needed for timings.
-Probe serials, workloads, loop alignment and everything measured:
-`.claude/rules/bench.md`.
+an `-O3` build. The Rust bench build settings mirror the C++ benchmark
+Makefile's (`-O3` = opt-level 3, `-mcpu` = `-C target-cpu`; table in
+`bench/README.md`, "Build settings"): when one side changes a setting, match it
+and re-measure both boards. CI runs the same images under QEMU
+(`scripts/qemu-bench.sh`, Cortex-M4 and M0): hashes only, so the boards are
+still needed for timings. Probe serials, workloads, loop alignment and
+everything measured: `.claude/rules/bench.md`.
 
 ## Verification beyond the goldens
 

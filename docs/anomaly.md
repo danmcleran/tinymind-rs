@@ -45,12 +45,12 @@ The boards run the same program and print the same report. Its hash covers every
 
 | | NUCLEO-F411RE (Cortex-M4F, 100 MHz) | NUCLEO-L031K6 (Cortex-M0+, 32 MHz) |
 |---|---:|---:|
-| Training, 3,000 steps (signal generation included) | 0.21 s | 4.6 s |
-| One training step | 6,437 cycles (64 µs) | 39,763 cycles (1.2 ms) |
-| One detection (forward pass and error) | 1,332 cycles (13 µs) | 8,096 cycles (253 µs) |
-| Stack, over the empty harness | 3.2 KB | 3.7 KB |
-| Flash, over the empty harness | 17.2 KB | 18.0 KB |
+| Training, 3,000 steps (signal generation included) | 0.28 s | 4.6 s |
+| One training step | 8,811 cycles (88 µs) | 39,763 cycles (1.2 ms) |
+| One detection (forward pass and error) | 1,611 cycles (16 µs) | 8,096 cycles (253 µs) |
+| Stack, over the empty harness | 3.8 KB | 3.7 KB |
+| Flash, over the empty harness | 18.7 KB | 18.0 KB |
 
-The flash figures include the demo's signal generator and its text report, not only the network. The L031 image leaves about 2.7 KB of its 32 KB of flash free.
+The flash figures include the demo's signal generator and its text report, not only the network. The L031 image leaves about 2.3 KB of its 32 KB of flash free.
 
 [Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/examples/common/anomaly_demo.rs)
