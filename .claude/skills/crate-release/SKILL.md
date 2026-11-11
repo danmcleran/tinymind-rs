@@ -95,7 +95,8 @@ b. **Judgment checklist.** For each change in Step 1, confirm README.md,
      changed), `docs/bit-for-bit.md` ("What is in the crate" list).
    - **"Not ported" / "Not yet" lists** everywhere: grep README.md and docs/
      for anything this release ports (`grep -rn "not ported\|Not yet" README.md docs`).
-   - **CLAUDE.md:** layout rows, current state, next steps.
+   - **CLAUDE.md and its satellites:** the layout table in CLAUDE.md, the
+     per-module notes in `.claude/rules/`, next steps in `.claude/notes/roadmap.md`.
 
 c. **Fresh eyes.** Spawn one read-only subagent with the facts of this release
    (what was added, what changed) and ask it to verify every claim in

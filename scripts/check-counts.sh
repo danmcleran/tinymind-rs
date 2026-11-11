@@ -24,7 +24,7 @@ while IFS=: read -r file line text; do
     echo "check-counts: $file:$line says '$text', but there are $n" >&2
     status=1
   fi
-done < <(grep -noE "$pattern" README.md CLAUDE.md docs/*.md)
+done < <(grep -noE "$pattern" README.md CLAUDE.md .claude/rules/*.md docs/*.md)
 [ "$found" = 1 ] || { echo "check-counts: no doc quotes the $kind count" >&2; status=1; }
 [ "$status" -eq 0 ] && echo "check-counts: $kind = $n everywhere the docs quote it"
 exit "$status"
