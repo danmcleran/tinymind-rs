@@ -110,10 +110,23 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   `^[a-z_]*match`, blind to `oracle_16bit_match=0`; now `[a-z0-9_]`, shown by
   an oracle-only plant (positive / 0 -> MAX-1). Other plants: tree `<`,
   rounding multiply. 60 QEMU runs ~2 min locally.
-- **Not done yet:** a coverage report, and the add/compose/softmax/
-  recurrent_int8 sweeps on Cortex-M: they calibrate with `int8::calibration`
-  (std). Options: read the calibrated params from the golden lines (they print
-  every field) and check only the layer outputs on the device, or run only the
-  direct-parameter trials (softmax has none). Sweeps on Cortex-M are the
+  Then (same day) add, compose, softmax and recurrent_int8 too: each shared
+  module has a `Calibrate` trait (host = `int8::calibration`, device = bench).
+  Device reads the C++'s params from the golden (`GoldenLines` by prefix,
+  `ints::<N>(line, "key=", occurrence)`; add `calibrated `, compose `mul
+  calibrated ` + 2 rq per `concat ` line, softmax every `e=` line) and asserts
+  the drawn zero points/range equal the line's (out-of-step guard). recurrent's
+  calibrated weights/biases/LUTs are only hashes in the golden (and need
+  round/exp/tanh): device `Calibrate` returns None, trial runs zeroed for RNG
+  sync, `Expect::keeping(!contains(" calibrated "))` compares the 26 direct
+  lines. `powi` (std) replaced by exact `pow2_neg`/`pow2` via from_bits; goldens
+  unchanged. `Expect` is line-based now (1 KB line buffer, keep-filter on both
+  sides; reports `<sweep>_lines=`). Plants (each fails only its sweep): add b
+  minus a's zp (line 2), pad 0 (line 101), softmax `>` for `>=` diff_min (line
+  402), GRU 1-z +1 (line 39). Full image: F411 767 KB at O3 (> 512 KB), 321 KB
+  at s; `OPT=s WORKLOADS=sweeps bench/run.sh f411` all match, 293,084,567
+  cycles, 72 KB stack. QEMU 6 sweep runs ~2 min.
+- **Not done yet:** a coverage report. Sweeps on Cortex-M were the
   prerequisite for any Arm-only code (an opt-in `unsafe` DSP feature; the
-  `exp-smlad-asm` experiment, 2026-11-11, is a local branch only).
+  `exp-smlad-asm` experiment, 2026-11-11, is a local branch only); they are
+  in place now.

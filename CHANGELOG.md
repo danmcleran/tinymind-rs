@@ -16,7 +16,10 @@ break the API).
 - The convolution and pooling, LSTM, decision-tree and Q-learning sweeps and
   the qformat oracle now also run on Cortex-M (bench workload `sweeps`, under
   QEMU in CI): each report must equal tinymind (C++)'s golden byte for byte,
-  and every oracle check must pass. The sweeps moved into `tests/sweeps/`,
+  and every oracle check must pass. So do the addition, composition, softmax
+  and int8 LSTM/GRU sweeps, whose calibrated layers take the C++'s parameters
+  from the golden there (calibration needs `std`); the int8 recurrent cells'
+  calibrated trials are compared on the host only. The sweeps moved into `tests/sweeps/`,
   shared by the host tests and the device. No library change.
 
 ### Changed

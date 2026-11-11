@@ -307,7 +307,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   optimisation levels: every workload's output hash (the int8 MLP and CNNs,
   the MLPerf models, xor training, the anomaly demo, the trees) must match, as
   on the boards. It also runs the convolution and pooling, LSTM, decision-tree
-  and Q-learning sweeps on Cortex-M, whose reports must equal tinymind (C++)'s
+  and Q-learning sweeps on Cortex-M, along with the addition, composition,
+  softmax and int8 LSTM/GRU sweeps (with the C++'s calibrated parameters,
+  since calibration needs `std`), whose reports must equal tinymind (C++)'s
   goldens byte for byte, and the qformat oracle's default sample (240,277
   checks). CI runs it on every pull request; the boards themselves are still
   needed for timings.
