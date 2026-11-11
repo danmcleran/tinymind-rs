@@ -26,7 +26,12 @@ use crate::qformat::{Scalar, Sqrt};
 
 /// Stochastic gradient descent with momentum and acceleration (the default;
 /// C++ `NullOptimizerPolicy`). The rates are the network's
-/// `set_learning_rate`, `set_momentum_rate` and `set_acceleration_rate`.
+/// `set_learning_rate`, `set_momentum_rate` and `set_acceleration_rate`. In
+/// fixed point the step `learning rate * gradient` rounds to nearest
+/// ([`Scalar::mul_round_nearest`]), so steps below one LSB do not drift one
+/// way, and the momentum and acceleration products round toward zero
+/// ([`Scalar::mul_round_toward_zero`]), so a delta weight no gradient
+/// refreshes decays to 0.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Sgd;
 

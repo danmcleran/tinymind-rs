@@ -574,7 +574,7 @@ fn weighted_sum<V: Scalar, const N: usize, const C: usize>(
 
 /// SGD with momentum and "acceleration" (C++ `updateConnectionWeightsImpl`, SGD path):
 /// `dw = lr * g + momentum * dw[t-1] + acceleration * dw[t-2]`, `w += dw`, the
-/// two momentum products rounded toward zero.
+/// step `lr * g` rounded to nearest and the two momentum products toward zero.
 ///
 /// `clip` is the gradient clipping range, `(min, max)` (C++
 /// `GradientClipByValue`), applied to weights and bias weights alike.
@@ -587,9 +587,11 @@ pub(crate) fn update_connection<V: Scalar>(
         Some(range) => clip_gradient(c.gradient, range),
         None => c.gradient,
     };
-    // The momentum terms round toward zero (C++ `multiplyRoundTowardZero`,
-    // since tinymind (C++) #266), so an undriven delta weight decays to 0.
-    let new_delta_weight = (lr * gradient)
+    // The step rounds to nearest (C++ `multiplyRoundNearest`, since tinymind
+    // (C++) #267), so steps below one LSB do not drift one way; the momentum
+    // terms round toward zero (C++ `multiplyRoundTowardZero`, since #266), so
+    // an undriven delta weight decays to 0.
+    let new_delta_weight = lr.mul_round_nearest(gradient)
         + momentum.mul_round_toward_zero(c.delta_weight)
         + acceleration.mul_round_toward_zero(c.previous_delta_weight);
     let current_weight = c.weight;

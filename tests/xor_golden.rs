@@ -5,7 +5,7 @@
 // 4e74539, output unchanged through TINYMIND_REF); Q8.8 is the same example with
 // both bit counts in xornet.h set to 8, as `scripts/compare-with-cpp.sh` builds it
 // (regenerated at tinymind e78dd7a: #239 changed the Q8.8 weight initialisation).
-// The 2.4-2.6 MB nn_fixed_xor.txt is not stored; it is checked by byte length,
+// The 1.7-2.6 MB nn_fixed_xor.txt is not stored; it is checked by byte length,
 // newline count and 64-bit FNV-1a hash instead.
 // `scripts/compare-with-cpp.sh` rebuilds the C++ example and does the full
 // byte-for-byte diff of all four files in both formats.
@@ -84,9 +84,9 @@ fn xor_q16_16_matches_cpp_golden() {
         "q16.16",
         "q16_16",
         NnFile {
-            len: 2_568_638,
+            len: 2_587_746,
             lines: 20_001,
-            fnv1a: 0x014b_652a_2248_1540,
+            fnv1a: 0x8a50_d6f1_cf71_9974,
         },
     );
 }
@@ -97,9 +97,9 @@ fn xor_q8_8_matches_cpp_golden() {
         "q8.8",
         "q8_8",
         NnFile {
-            len: 2_166_574,
+            len: 1_703_057,
             lines: 20_001,
-            fnv1a: 0x9b86_0310_bac8_334c,
+            fnv1a: 0xffc4_9f9d_ce58_fb3f,
         },
     );
 }

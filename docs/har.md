@@ -12,7 +12,7 @@ The `har_activity` example is a port of tinymind (C++)'s [human activity recogni
 
 - `tinymind::recurrent::LstmNetwork` is tinymind (C++)'s `LstmNeuralNetwork` with one hidden layer. Each cell has four gates (cell candidate, input, forget, output), each with its own weights from the inputs, a bias and the previous step's 16 cell outputs: 1,348 trainable weights in all, 1,024 of them recurrent.
 - Each `feed_forward` takes one sample and updates every cell from it and from the previous step's outputs. `reset_state` clears the cells before each window, so windows do not leak into each other.
-- The example trains toward the window's activity at every sample, not only the last. Training goes one step back in time, as in the C++, with plain SGD (learning rate 0.05, no momentum) and gradients clipped to [-1, 1].
+- The example trains toward the window's activity at every sample, not only the last. Training goes one step back in time, as in the C++, with plain SGD (learning rate 0.1, no momentum) and gradients clipped to [-1, 1].
 - The windows are synthesized. The three gait classes share a step rate, a sideways sway and gravity on the x axis, and differ only in the vertical waveform, scaled to the same mean and spread: a sine for walking, a sawtooth for the stairs (a sharp rise then a slow decline going up, the reverse going down). Sitting is constant gravity on the y axis. Every window has noise from the crate's re-implementation of glibc's `rand()`, seeded with 7 as in the C++, so the 800 training and 200 test windows are the C++ example's, bit for bit. A `har.csv` file in the C++ example's format (`window,t,ax,ay,az,label`) can be given instead.
 
 ## Run it
@@ -37,7 +37,7 @@ The program writes the same files the C++ example writes, byte for byte:
 
 ![Training loss, test confusion matrix and one window per activity]({{ site.baseurl }}/assets/plots/har_activity.png)
 
-Over 60 epochs the mean error at a window's last sample falls from 0.108 to 0.039. The network classifies 185 of the 200 test windows correctly (92.5%); its mistakes are all between walking and the stairs. With `--readout-only` it gets 50.0%, the nearest-centroid baseline 52.5% and chance 25%: what separates the stairs classes is learned by the recurrent weights.
+The mean error at a window's last sample stays near 0.09 for 30 epochs, then falls within about seven epochs and stays between about 0.001 and 0.006. The network classifies 153 of the 200 test windows correctly (76.5%): every upstairs, downstairs and sitting window, but only 3 of the 50 walking windows, 45 of which it takes for upstairs. Recurrent training in Q16.16 is noisy on this task and this data seed (7) is a weak one: with the data seed set to 1 through 10 (initial weights unchanged), the network scores 89.6% on average, from 73.5% to 100%, never at chance, while `--readout-only` stays at 50.0% on every seed. The nearest-centroid baseline gets 52.5% at the default seed and chance is 25%: what separates the stairs classes is learned by the recurrent weights.
 
 The figure is drawn from this port's output with tinymind (C++)'s plotting style (`scripts/plot-examples.py`).
 

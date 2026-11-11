@@ -12,6 +12,7 @@ REF="$(tr -d '[:space:]' < "$ROOT/TINYMIND_REF")"
 
 PORTED=(
   cpp/qformat.hpp
+  cpp/include/tinymind_rounding.hpp
   cpp/typeChooser.hpp
   cpp/tanh.hpp
   cpp/sigmoid.hpp

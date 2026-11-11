@@ -10,16 +10,16 @@ iter  14000   avg|err| = 0.0024
 iter  16000   avg|err| = 0.0023
 iter  18000   avg|err| = 0.0023
 iter  20000   avg|err| = 0.0023
-iter  22000   avg|err| = 0.0023
+iter  22000   avg|err| = 0.0024
 iter  24000   avg|err| = 0.0022
-iter  26000   avg|err| = 0.0020
+iter  26000   avg|err| = 0.0021
 iter  28000   avg|err| = 0.0021
-iter  30000   avg|err| = 0.0021
-iter  32000   avg|err| = 0.0020
-iter  34000   avg|err| = 0.0019
+iter  30000   avg|err| = 0.0022
+iter  32000   avg|err| = 0.0021
+iter  34000   avg|err| = 0.0020
 iter  36000   avg|err| = 0.0021
 iter  38000   avg|err| = 0.0020
-iter  40000   avg|err| = 0.0019
+iter  40000   avg|err| = 0.0020
 
-Heating load (Y1):  MAE=1.6943  R2=0.9576
-Cooling load (Y2):  MAE=1.9467  R2=0.9244
+Heating load (Y1):  MAE=1.7431  R2=0.9541
+Cooling load (Y2):  MAE=1.8393  R2=0.9263

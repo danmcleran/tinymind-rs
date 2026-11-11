@@ -86,6 +86,15 @@ pub trait Scalar:
     fn mul_round_toward_zero(self, rhs: Self) -> Self {
         self * rhs
     }
+    /// `self * rhs` rounded to nearest, ties away from zero (C++
+    /// `multiplyRoundNearest`), used for SGD's step `learning rate *
+    /// gradient`, so that steps smaller than the format's resolution do not
+    /// all drift one way. The default is `self * rhs`, right for floating
+    /// point; the Q formats round their product to nearest instead of
+    /// flooring it.
+    fn mul_round_nearest(self, rhs: Self) -> Self {
+        self * rhs
+    }
 }
 
 /// The name of [`Scalar`] up to 0.1.5, kept so that bounds written `V: Fixed`
@@ -237,6 +246,25 @@ macro_rules! impl_qvalue {
                 Self(((product + bias) >> FRAC) as $s)
             }
 
+            /// `self * rhs` with the product rounded to nearest, ties away
+            /// from zero, instead of floored (C++ `multiplyRoundNearest`): the
+            /// same widening and wrap to the storage width as `*`. SGD uses it
+            /// for the step `learning rate * gradient`: floored, a step smaller
+            /// than one LSB is 0 when positive but a whole -1 LSB when
+            /// negative, so weights with small gradients drift down.
+            pub fn mul_round_nearest(self, rhs: Self) -> Self {
+                let () = Self::FORMAT_OK;
+                let product = <$wide>::from(self.0) * <$wide>::from(rhs.0);
+                // Round |product| half up, then restore the sign, without a
+                // branch: sign is 0 or -1, and (x ^ sign) - sign negates x
+                // when sign is -1. |product| < 2^(2 * storage bits - 2), so
+                // neither the negation nor adding half can overflow.
+                let sign = product >> (<$wide>::BITS - 1);
+                let magnitude = (product ^ sign) - sign;
+                let rounded = (magnitude + (1 << (FRAC - 1))) >> FRAC;
+                Self(((rounded ^ sign) - sign) as $s)
+            }
+
             /// Divide by a whole number, truncating toward zero (C++
             /// `QValue::operator/=(int)`). This is *not* the same as dividing by
             /// `QValue::from_int(n)`.
@@ -352,6 +380,9 @@ macro_rules! impl_qvalue {
             }
             fn mul_round_toward_zero(self, rhs: Self) -> Self {
                 self.mul_round_toward_zero(rhs)
+            }
+            fn mul_round_nearest(self, rhs: Self) -> Self {
+                self.mul_round_nearest(rhs)
             }
         }
     };
