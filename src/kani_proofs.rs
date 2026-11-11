@@ -326,6 +326,115 @@ mod int8 {
         concat.forward(&x, &xb, &mut joined);
     }
 
+    fn any_requantizer() -> Requantizer {
+        Requantizer {
+            multiplier: kani::any(),
+            shift: kani::any(),
+            zero_point: kani::any(),
+            qmin: kani::any(),
+            qmax: kani::any(),
+        }
+    }
+
+    /// One step of a 1-input, 2-unit int8 LSTM cell with cell state `C`, for
+    /// any weights, biases, LUTs, multipliers, shifts, zero points, bounds,
+    /// input and state: it never panics, and with `cell_qmin <= cell_qmax` the
+    /// new cell state lies within them.
+    fn lstm_step<C: crate::int8::CellStorage + kani::Arbitrary + PartialOrd>() {
+        let (w_in, w_rec, biases): ([[[i8; 1]; 2]; 4], [[[i8; 2]; 2]; 4], [[i32; 2]; 4]) =
+            (kani::any(), kani::any(), kani::any());
+        let (sigmoid, tanh, tanh_cell): ([i8; 256], [i8; 256], [i8; 256]) =
+            (kani::any(), kani::any(), kani::any());
+        let cell = crate::int8::QLstmCell::<'_, 1, 2, C> {
+            input_weights: &w_in,
+            recurrent_weights: &w_rec,
+            biases: &biases,
+            input_zero_point: kani::any(),
+            hidden_zero_point: kani::any(),
+            cell_zero_point: kani::any(),
+            input_to_lut_multiplier: kani::any(),
+            input_to_lut_shift: kani::any(),
+            recurrent_to_lut_multiplier: kani::any(),
+            recurrent_to_lut_shift: kani::any(),
+            sigmoid_lut: &sigmoid,
+            tanh_lut: &tanh,
+            f_times_c_multiplier: kani::any(),
+            f_times_c_shift: kani::any(),
+            i_times_g_multiplier: kani::any(),
+            i_times_g_shift: kani::any(),
+            cell_qmin: kani::any(),
+            cell_qmax: kani::any(),
+            cell_to_tanh_multiplier: kani::any(),
+            cell_to_tanh_shift: kani::any(),
+            tanh_cell_lut: &tanh_cell,
+            output_requantizer: any_requantizer(),
+        };
+        let x: [i8; 1] = kani::any();
+        let mut h: [i8; 2] = kani::any();
+        let mut c: [C; 2] = kani::any();
+        cell.forward(&x, &mut h, &mut c);
+        if cell.cell_qmin <= cell.cell_qmax {
+            assert!(
+                c.iter()
+                    .all(|v| cell.cell_qmin <= *v && *v <= cell.cell_qmax)
+            );
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(5)]
+    fn lstm_int8_cell_never_panics() {
+        lstm_step::<i8>();
+    }
+
+    #[kani::proof]
+    #[kani::unwind(5)]
+    fn lstm_int16_cell_never_panics() {
+        lstm_step::<i16>();
+    }
+
+    /// One step of a 1-input, 2-unit int8 GRU cell, for any weights, biases,
+    /// LUTs, multipliers, shifts, zero points, bounds, input and state: it
+    /// never panics, and with `output_qmin <= output_qmax` the new hidden state
+    /// lies within them.
+    #[kani::proof]
+    #[kani::unwind(5)]
+    fn gru_cell_never_panics() {
+        let (w_in, w_rec, biases): ([[[i8; 1]; 2]; 3], [[[i8; 2]; 2]; 3], [[i32; 2]; 3]) =
+            (kani::any(), kani::any(), kani::any());
+        let (sigmoid, tanh): ([i8; 256], [i8; 256]) = (kani::any(), kani::any());
+        let cell = crate::int8::QGruCell::<'_, 1, 2> {
+            input_weights: &w_in,
+            recurrent_weights: &w_rec,
+            biases: &biases,
+            input_zero_point: kani::any(),
+            hidden_zero_point: kani::any(),
+            input_to_lut_multiplier: kani::any(),
+            input_to_lut_shift: kani::any(),
+            recurrent_to_lut_multiplier: kani::any(),
+            recurrent_to_lut_shift: kani::any(),
+            sigmoid_lut: &sigmoid,
+            tanh_lut: &tanh,
+            r_times_h_multiplier: kani::any(),
+            r_times_h_shift: kani::any(),
+            one_minus_z_times_n_multiplier: kani::any(),
+            one_minus_z_times_n_shift: kani::any(),
+            z_times_h_multiplier: kani::any(),
+            z_times_h_shift: kani::any(),
+            output_qmin: kani::any(),
+            output_qmax: kani::any(),
+        };
+        let x: [i8; 1] = kani::any();
+        let mut h: [i8; 2] = kani::any();
+        cell.forward(&x, &mut h);
+        if cell.output_qmin <= cell.output_qmax {
+            assert!(
+                h.iter()
+                    .all(|v| cell.output_qmin <= *v && *v <= cell.output_qmax)
+            );
+        }
+    }
+
     /// The elementwise addition never panics, for any parameters and inputs,
     /// shifts far outside the documented range included.
     #[kani::proof]

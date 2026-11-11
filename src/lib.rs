@@ -15,8 +15,8 @@
 //! ([`InferencePerceptron`], tinymind (C++)'s `IsTrainable = false`), int8
 //! affine-quantized inference ([`int8`]: dense layers, 2D convolutions (standard,
 //! depthwise and pointwise), pooling, elementwise addition and multiplication,
-//! padding, concatenation, quantized activations
-//! and a TFLite-exact softmax), quantized decision trees and gradient-boosted
+//! padding, concatenation, quantized activations,
+//! a TFLite-exact softmax, and LSTM and GRU cells), quantized decision trees and gradient-boosted
 //! ensembles ([`tree`]), tabular Q-learning ([`qlearn`]), and LSTM recurrent
 //! networks ([`recurrent::LstmNetwork`]). Every part produces the same bits as
 //! tinymind (C++) (floating point: with `std` on a glibc host). [`rand`] re-implements glibc's `rand()`, which tinymind (C++)'s

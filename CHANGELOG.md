@@ -7,6 +7,26 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- Int8 recurrent cells, ported from tinymind (C++)'s `qlstm.hpp` and
+  `qgru.hpp`: `int8::QLstmCell` (tinymind (C++)'s `QLSTMCell`; gates in
+  TFLite's order, cell state `i8` or `i16` through the sealed
+  `int8::CellStorage` trait) and `int8::QGruCell` (`QGRUCell`, the
+  reset-before-multiply GRU). Each runs one time step, updating the caller's
+  state in place; weights, biases and lookup tables are borrowed, so they can
+  live in flash. Integer only, `no_std` and allocation-free. Where the C++
+  sums would overflow (outside its contract) they wrap.
+- Their calibration, in `int8::calibration` (feature `std`):
+  `build_lstm_params` with `LstmScales` and `LstmParams`
+  (`buildQLSTMParams`), `build_gru_params` with `GruScales` and `GruParams`
+  (`buildQGRUParams`), `quantize_gate_biases` (`quantizeQLSTMBiases`,
+  `quantizeQGRUBiases`), and the tables' fixed output scales
+  `SIGMOID_LUT_OUTPUT_SCALE` and `TANH_LUT_OUTPUT_SCALE`.
+  `tests/recurrent_int8_sweep.rs` checks the cells and their calibration
+  against tinymind (C++) over seven LSTM and six GRU shapes; Kani proofs show
+  the cells never panic.
+
 ## [0.3.0] - 2026-11-10
 
 ### Added
