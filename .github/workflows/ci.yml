@@ -210,14 +210,17 @@ jobs:
       # The same images on QEMU's Cortex-M4 and Cortex-M0 (the boards'
       # instruction sets), at opt-level 3, s and z: every workload's hash must
       # match, as on the boards. Correctness only; QEMU does not model cycles.
+      # apt retries each download (a runner once failed to resolve Ubuntu's
+      # mirrors for 13 minutes); the cap makes such an outage fail fast.
       - name: Run the benchmark images under QEMU (Cortex-M4 and M0)
         if: success() || failure()
+        timeout-minutes: 15
         working-directory: tinymind-rs
         env:
           TINYMIND_DIR: ${{ github.workspace }}/tinymind
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends qemu-system-arm
+          sudo apt-get update -q -o Acquire::Retries=3
+          sudo apt-get install -y -q --no-install-recommends -o Acquire::Retries=3 qemu-system-arm
           scripts/qemu-bench.sh
       - name: Check src/lut.rs matches the tables at TINYMIND_REF
         if: success() || failure()
