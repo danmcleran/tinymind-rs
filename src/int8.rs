@@ -43,8 +43,10 @@
 //! or `i16`) in place; the caller runs the time loop over a sequence. Weights
 //! are gate-major, `[gate][unit][input]`: PyTorch's `nn.LSTM` stacks its gates
 //! in the same order (i, f, g, o), so its weight matrices map onto them
-//! directly. The GRU applies its reset gate before the recurrent multiply, as
-//! Keras does with `reset_after=False`; PyTorch's `nn.GRU` and Keras' default
+//! directly (add its two bias vectors, `bias_ih` and `bias_hh`, before
+//! quantizing them). The GRU applies its reset gate before the recurrent
+//! multiply, as Keras does with `reset_after=False` (whose kernels store the
+//! gates as update, reset, new, so reorder them); PyTorch's `nn.GRU` and Keras' default
 //! apply it after, which is a different function. The gate
 //! activations come from 256-entry sigmoid and tanh tables with fixed output
 //! grids; `calibration` builds the tables and the rescaling parameters from
@@ -90,8 +92,9 @@
 //! conv.forward(&input, &mut features);
 //! ```
 //!
-//! Results match tinymind (C++), and therefore TFLite's reference kernels, which
-//! it matches, bit for bit. Where the C++ would hit undefined behaviour
+//! Results match tinymind (C++) bit for bit, and through it TFLite's reference
+//! kernels for the layers TFLite has (the recurrent cells' table-based gates
+//! are tinymind (C++)'s own, not TFLite's integer LSTM kernel). Where the C++ would hit undefined behaviour
 //! (an `i32` accumulator overflow, a shift out of its documented range), this
 //! port wraps or clamps instead, so every function is total and none panics.
 
