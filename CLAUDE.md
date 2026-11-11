@@ -116,6 +116,7 @@ PYTHON=<python with numpy> scripts/compare-with-cpp.sh   # all C++ comparisons; 
 python3 -I scripts/extract-luts.py  # regenerates src/lut.rs from ../tinymind's lookupTables.cpp
 CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true cargo test --release --test qformat_oracle -- --ignored  # every Q8.8 pair (~15 s)
 scripts/upstream-changes.sh         # tinymind commits since TINYMIND_REF touching ported sources
+scripts/emit-intermediates.sh [host|arm|all]  # MIR, LLVM IR, asm (+ Arm .lst) into target/intermediates/
 ```
 
 `cargo` comes from a user-level rustup install that `~/.profile`/`~/.bashrc` put on
