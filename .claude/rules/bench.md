@@ -83,8 +83,18 @@ triples tuned for a generic core. Same-day A/B on the F411 (hashes all matched):
 DS-CNN 13,225,965 -> 11,850,835, ResNet-8 64,407,536 -> 58,807,476 (parallel-DSP
 41,401,469 -> 38,273,811), MLP 21,502 -> 20,437, trees inline 1,841 -> 1,680, pool
 9,276 -> 8,828 (flash +5.4 KB); worse: KWS 186,257 -> 189,097 (pointwise 37,789 ->
-43,652), 36-tree subset 3,549 -> 3,793, **anomaly step 6,437 -> 8,811 (+37%), detect
-1,332 -> 1,611: cause not investigated yet**. L031: code differs (KWS +416 B, 224 of
+43,652), 36-tree subset 3,549 -> 3,793, anomaly step 6,437 -> 8,811 (+37%), detect
+1,332 -> 1,611. **Anomaly cause (2026-11-11): LLVM's pre-RA machine scheduler**,
+which `cortex-m4` enables (generic thumbv7em does not). Same unrolling (76
+`smull` in `score` both ways), but it issues a neuron's 8 i64 products before
+narrowing any: `score` frame 36 -> 260 B, sp loads 32 -> 131; `train_step` frame
+164 -> 580 B, sp loads 47 -> 226. `-enable-post-misched=false` changes nothing;
+`-enable-misched=false` (target-cpu kept) on the board: step 6,415, detect 1,350,
+train/step 6,994, but MLP 20,437 -> 22,428 (+9.7%), KWS 189,097 -> 196,624 (+4.0%),
+xor/trees within 1.3%, all hashes matched. So the bench keeps the scheduler on;
+documented as a trade-off. Not tried: a library code shape that survives the
+scheduler (no stable Rust control over it; would need a measured win on both
+boards). Results (local, gitignored): bench/results/misched-off-2026-11-11/. L031: code differs (KWS +416 B, 224 of
 9,406 instructions) but every timing identical to the cycle; anomaly image 30,392 B
 (2.3 KB free). `CARGO_TARGET_<TRIPLE>_RUSTFLAGS` joins the config's flags, so to
 measure without `target-cpu` edit the config, do not override by env. The

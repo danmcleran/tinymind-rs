@@ -84,5 +84,13 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   release bundle with `gh release download`, check its sha256 against the asset
   `digest` from the GitHub API, then `cargo kani setup --use-local-bundle <file>`).
   Bump `KANI_VERSION` in `ci.yml` and here together.
-- **Not done yet:** a coverage report, and running the goldens on Cortex-M under
-  QEMU.
+- **QEMU** (2026-11-11): `scripts/qemu-bench.sh` runs the bench/ workloads on
+  QEMU `mps2-an386` (Cortex-M4) and `microbit` (Cortex-M0 = the M0+'s ARMv6-M),
+  opt 3/s/z, boards `qemu-m4`/`qemu-m0` in bench/src/board.rs (semihosting
+  output and exit; `cycles()` is 0), in CI's `cpp-equivalence` job after the
+  bench build. It covers only the shapes in the bench models.
+- **Not done yet:** a coverage report, and the sweeps (conv/add/compose/
+  recurrent goldens, the oracle) on Cortex-M: they run on x86 only. Porting
+  them to no_std with embedded golden hashes is the prerequisite for any
+  Arm-only code (an opt-in `unsafe` DSP feature; the `exp-smlad-asm`
+  experiment, 2026-11-11, is a local branch only).

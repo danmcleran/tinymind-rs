@@ -101,6 +101,18 @@ anomaly demo's training step 6,437 -> 8,811 (+37%) and detection 1,332 ->
 1,611. xor was within 1%. On the L031 the code changed (a few hundred bytes
 more flash) but no timing moved by a cycle.
 
+The anomaly slowdown comes from LLVM's machine scheduler, which
+`target-cpu=cortex-m4` turns on. The demo's layers are small enough that LLVM
+unrolls each neuron's weighted sum completely (8 inputs, 4 neurons), and the
+scheduler then starts all eight 64-bit Q16.16 products before narrowing any
+of them; the products no longer fit in the core's registers and go to the
+stack (training-step stack frame 164 -> 580 bytes, stack loads 47 -> 226).
+Adding `-C llvm-args=-enable-misched=false` brings the step back to 6,415
+cycles and detection to 1,350, but costs the int8 MLP 9.7% (20,437 -> 22,428)
+and the KWS-shaped network 4.0% (189,097 -> 196,624), so the images keep the
+scheduler on, as the C++ build's settings do. A project dominated by small
+Q16.16 layers can measure both settings.
+
 F411 images are built with every loop aligned to 16 bytes (`-C
 llvm-args=-align-loops=16`, in `bench/.cargo/config.toml`), so a timing does not
 depend on where unrelated code changes move the hot loops. Without it, the same
@@ -190,7 +202,8 @@ plus peak stack, each minus the baseline's, as tinymind (C++) counts them.
 | Flash (text) / over baseline | 31,984 B / +18,668 B | 30,392 B / +17,956 B |
 
 On the F411 the step is 37% slower with `target-cpu=cortex-m4` (6,437 cycles
-without it, see Build settings); the cause is not yet known. Measured
+without it): LLVM's scheduler spills the unrolled Q16.16 products to the stack,
+see Build settings. Measured
 2026-11-10, a training step already cost more than before (F411 4,250, L031
 35,336 cycles): tinymind (C++) #266 and #267 round the momentum products toward
 zero and the step to nearest instead of flooring them (F411 +36%), and since #264 every layer's weights and bias weights go through
@@ -401,4 +414,27 @@ WORKLOADS="kws kws-profile" bench/run.sh f411 l031   # only some workloads
 `run.sh` builds each image, records its size, flashes it with OpenOCD (ST-LINK
 picked by serial number; override with `F411_STLINK` / `L031_STLINK`) and reads
 the report from the ST-LINK's virtual COM port. Raw reports and images land in
-`bench/results/` (not committed). CI builds every image but does not run them.
+`bench/results/` (not committed). CI builds every image, and runs them under
+QEMU (below), not on the boards.
+
+### Under QEMU
+
+`scripts/qemu-bench.sh` runs the same images on QEMU's `mps2-an386` (Cortex-M4,
+the F411's instruction set) and `microbit` (Cortex-M0, the same ARMv6-M
+instructions as the L031's M0+), at opt-level 3, s and z, with the boards
+`qemu-m4` and `qemu-m0` (`src/board.rs`: output and exit through semihosting).
+A run fails on a panic, a missing end marker or any `*match=0`. QEMU does not
+model cycles, so every timing reads 0: this checks correctness, on Arm code,
+on every pull request (CI's `cpp-equivalence` job); timings need the boards.
+`CORES=m4 OPTS=3 WORKLOADS="mlp kws" scripts/qemu-bench.sh` runs a subset.
+
+## Read the generated code
+
+`scripts/emit-intermediates.sh arm` builds each board image with the flags
+`run.sh` uses and keeps what the compiler produced on the way, under
+`target/intermediates/arm/<board>/`: per workload the MIR (`.mir`), the
+optimised LLVM IR (`.ll`), the assembly (`.s`) and a disassembly of the linked
+image (`.lst`, with final addresses and loop alignment). No board is needed.
+`BOARDS`, `WORKLOADS` and `OPT` select what is built, as for `run.sh`;
+`scripts/emit-intermediates.sh host` does the same for the programs in
+`examples/` on this machine. The script's header has the details.
