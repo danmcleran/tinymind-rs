@@ -36,7 +36,8 @@ The `kws` workload (4C) is tinymind's framework-comparison KWS-shaped CNN
 (`gen/out/kws_tinymind.hpp`, generated into `bench/src/gen/kws.rs` by `gen.py`;
 hash `TM_KWS_HASH`), with per-layer cycles in `kws-profile`. After tuning, Rust
 takes 13-27% fewer cycles than the C++ scalar build (F411 186,257 vs 254,900,
-2.6% behind +SMLAD's 181,568; L031 649,286 vs 746,112), in less RAM, 19% more
+2.6% behind +SMLAD's 181,568; L031 649,286 vs 746,112; these are generic-core
+figures, with target-cpu since 2026-11-11 F411 189,097: 26% fewer, 4.1% behind), in less RAM, 19% more
 flash on the F411 and 2% less on the L031 (at `OPT=s bench/run.sh` 4.1-4.3 KB but
 1.8-2.9x slower). 2026-11-09: one-channel stems gather each window once
 (`conv2d_gather`: zp-filled padding, folded biases, filter pairs, `Requantizer::apply`
@@ -76,6 +77,18 @@ per tree run the padding), 12% for KWS at opt s (744,585 vs 664,196), up to
 1.7 KB flash. All F411 figures were re-measured with it. Not on the L031: 32-bit
 flash fetches and 4-byte function alignment mean `_stext` cannot shift code by
 2, so there is no sweep to show a gain, and its flash is nearly full.
+**Build settings match the C++ Makefile** (Dan, 2026-11-11): `bench/.cargo/config.toml`
+sets `-C target-cpu=cortex-m4` / `cortex-m0plus` (the C++ `-mcpu`); before that the
+triples tuned for a generic core. Same-day A/B on the F411 (hashes all matched):
+DS-CNN 13,225,965 -> 11,850,835, ResNet-8 64,407,536 -> 58,807,476 (parallel-DSP
+41,401,469 -> 38,273,811), MLP 21,502 -> 20,437, trees inline 1,841 -> 1,680, pool
+9,276 -> 8,828 (flash +5.4 KB); worse: KWS 186,257 -> 189,097 (pointwise 37,789 ->
+43,652), 36-tree subset 3,549 -> 3,793, **anomaly step 6,437 -> 8,811 (+37%), detect
+1,332 -> 1,611: cause not investigated yet**. L031: code differs (KWS +416 B, 224 of
+9,406 instructions) but every timing identical to the cycle; anomaly image 30,392 B
+(2.3 KB free). `CARGO_TARGET_<TRIPLE>_RUSTFLAGS` joins the config's flags, so to
+measure without `target-cpu` edit the config, do not override by env. The
+parallel-DSP flag changes only ResNet-8 (KWS and DS-CNN identical with it).
 **C++ figures are `-O3` only** (Dan, 2026-11-09): every tinymind (C++) or TFLM number compared with this crate must come from an `-O3` build (host timings too: the examples' Makefile release flags, never `-O2`). tinymind's `results/REPORT*.md` print RAM as max(O2, O3) (`report.py`), so take RAM from `results/raw_*_O3.txt` as (static_ram - baseline) + (stack_bytes - baseline); cycles and flash there are per level. An audit on 2026-11-09 found every cycle figure at `-O3` and fixed eight RAM cells and three L031 flash ranges that had come from the summary. `WORKLOADS="anomaly" bench/run.sh f411 l031` runs one workload. Results and method are in
 `bench/README.md`; rerun after changing arithmetic and update the tables.
 `bench/gen.py` generates the MLP from tinymind's headers (never hand-copied).

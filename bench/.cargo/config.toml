@@ -1,10 +1,22 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
 rustflags = ["-C", "link-arg=-Tlink.x"]
 
-# F411 (Cortex-M4F) timings depend on where hot loops fall against the flash
-# accelerator's 16-byte lines: without this, an unrelated 10-byte code change
-# moved the MLPerf DS-CNN by 11%, and shifting all code by 4, 8 or 12 bytes moved
-# other workloads by up to 2%. With every loop aligned to 16 bytes, timings are
-# the same at every offset. Cargo joins these flags with the ones above.
+# The compiler settings mirror tinymind (C++)'s benchmark Makefile
+# (benchmarks/framework_comparison_f411), so the two are compared on equal
+# terms: `-mcpu=cortex-m4` / `-mcpu=cortex-m0plus` there is `target-cpu` here
+# (the target triples alone tune for a generic core; on the F411 matching it
+# took 9-10% off the MLPerf models), and `-O3` is the release profile's
+# opt-level 3. See "Build settings" in bench/README.md before changing any of
+# them. Cargo joins these flags with the ones above.
+#
+# F411 (Cortex-M4F) timings also depend on where hot loops fall against the
+# flash accelerator's 16-byte lines: without loop alignment, an unrelated
+# 10-byte code change moved the MLPerf DS-CNN by 11%, and shifting all code by
+# 4, 8 or 12 bytes moved other workloads by up to 2%. With every loop aligned to
+# 16 bytes, timings are the same at every offset. The C++ build does not align
+# loops; this costs the Rust 0-2% on most workloads.
 [target.thumbv7em-none-eabihf]
-rustflags = ["-C", "llvm-args=-align-loops=16"]
+rustflags = ["-C", "target-cpu=cortex-m4", "-C", "llvm-args=-align-loops=16"]
+
+[target.thumbv6m-none-eabi]
+rustflags = ["-C", "target-cpu=cortex-m0plus"]

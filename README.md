@@ -39,19 +39,19 @@ The minimum supported Rust version is 1.85. CI builds the library for Cortex-M4F
 
 It has also run on two boards, an STM32F411 (Cortex-M4F, 100 MHz) and an
 STM32L031 (Cortex-M0+, 32 MHz, 32 KB flash, 8 KB RAM), next to tinymind (C++)
-built for the same boards with the same models and inputs:
+built for the same boards with the same models, inputs and compiler settings:
 
 - tinymind (C++)'s int8 digits classifier: the Rust build gives the same output
-  hash as the C++ build, in 215 µs per inference on the M4F (C++: 205 µs) and
+  hash as the C++ build, in 204 µs per inference on the M4F (C++: 205 µs) and
   1.33 ms on the M0+ (C++: 1.12 ms).
 - tinymind (C++)'s KWS-shaped convolutional network: the same output hash, in
-  1.86 ms on the M4F and 20.3 ms on the M0+, 27% and 13% fewer cycles than the
+  1.89 ms on the M4F and 20.3 ms on the M0+, 26% and 13% fewer cycles than the
   C++'s portable build.
 - On the F411, the MLPerf Tiny keyword-spotting and image-classification
-  (ResNet-8) models, translated from TFLite: the C++'s output hashes, in 132 ms
-  and 644 ms, 16% and 25% fewer cycles than the C++'s portable build.
+  (ResNet-8) models, translated from TFLite: the C++'s output hashes, in 119 ms
+  and 588 ms, 25% and 31% fewer cycles than the C++'s portable build.
 - XOR trained on the board reproduces the desktop weight trajectory bit for bit.
-- The anomaly example trains on the chip in 0.21 s on the M4F and 4.6 s on the
+- The anomaly example trains on the chip in 0.28 s on the M4F and 4.6 s on the
   M0+.
 
 On the M4F, tinymind (C++)'s build with the Cortex-M4's DSP instructions (SMLAD)

@@ -62,10 +62,44 @@ samples, so the numbers sit next to the tinymind (C++) ones.
 
 ## Results
 
-F411 2026-11-09, L031 2026-11-07 (MLP) and 2026-11-08 (KWS, trees); xor and
-anomaly on both boards 2026-11-10. Rust 1.99.1, `opt-level = 3`, LTO, one
-codegen unit. C++ figures are tinymind (C++)'s own (`docs/benchmarks.md`, gcc
-13.2.1 `-O3`), measured on these same boards.
+Every Rust figure was measured 2026-11-11 on both boards, with the build
+settings below. Rust 1.99.1. C++ figures are tinymind (C++)'s own
+(`docs/benchmarks.md`, gcc 13.2.1 `-O3`), measured on these same boards.
+
+### Build settings
+
+The Rust images are built with the settings of tinymind (C++)'s benchmark
+Makefile (`benchmarks/framework_comparison_f411/Makefile`), so a difference in
+cycles comes from the code, not from the compiler options. Keep them matched:
+when the C++ build changes a setting, change it here and re-run both boards.
+
+| | tinymind (C++), gcc | tinymind-rs, rustc | Where |
+|---|---|---|---|
+| Optimisation | `-O3` | `opt-level = 3` | `Cargo.toml` |
+| Core | `-mcpu=cortex-m4` / `-mcpu=cortex-m0plus` | `-C target-cpu=cortex-m4` / `cortex-m0plus` | `.cargo/config.toml` |
+| Floating point | `-mfloat-abi=hard -mfpu=fpv4-sp-d16` / soft | the target triple | `run.sh` |
+| Whole program | header-only templates: the model is one translation unit | `lto = true`, `codegen-units = 1` | `Cargo.toml` |
+| Unused code | `-ffunction-sections -fdata-sections -Wl,--gc-sections` | the linker's default | |
+| Exceptions / panics | `-fno-exceptions -fno-rtti` | `panic = "abort"` | `Cargo.toml` |
+| Loop alignment (F411) | none | `-C llvm-args=-align-loops=16` | `.cargo/config.toml` |
+
+Two exceptions. Loop alignment is Rust only, for stable timings (next
+paragraph). The SMLAD rows add a setting on each side: tinymind (C++)'s +SMLAD
+build `-DTINYMIND_ENABLE_SIMD_ARM_DSP=1`, the Rust parallel-DSP row `-C
+llvm-args=-arm-parallel-dsp-load-limit=512`. The L031 trees image is built at
+`opt-level = "s"` to fit, and the `opt-level = "s"` rows say so.
+
+Before 2026-11-11 the Rust images were built without `target-cpu` (the target
+triples alone tune for a generic core). Matching `-mcpu` changed the F411
+figures both ways, measured the same day with each setting: MLPerf DS-CNN
+13,225,965 -> 11,850,835 cycles (-10.4%), ResNet-8 64,407,536 -> 58,807,476
+(-8.7%; with the parallel-DSP flag 41,401,469 -> 38,273,811), the MLP 21,502
+-> 20,437 (-5.0%), gradient-boosting trees 1,841 -> 1,680 inline and 9,276 ->
+8,828 as a pool walk; the KWS-shaped network 186,257 -> 189,097 (+1.5%, its
+pointwise layer 37,789 -> 43,652), the 36-tree subset 3,549 -> 3,793 and the
+anomaly demo's training step 6,437 -> 8,811 (+37%) and detection 1,332 ->
+1,611. xor was within 1%. On the L031 the code changed (a few hundred bytes
+more flash) but no timing moved by a cycle.
 
 F411 images are built with every loop aligned to 16 bytes (`-C
 llvm-args=-align-loops=16`, in `bench/.cargo/config.toml`), so a timing does not
@@ -103,13 +137,13 @@ here are recomputed from the `-O3` raw results.
 
 | Framework | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **21,502** | **215 us** | **5,548 B** | **44 B** |
+| **tinymind-rs** | **20,437** | **204 us** | **5,452 B** | **76 B** |
 | tinymind (C++), scalar | 20,486 | 205 us | 5,464 B | 152 B |
 | tinymind (C++), +SMLAD | 10,241 | 102 us | 5,548 B | 124 B |
 | TFLM int8 (CMSIS-NN) | 14,030 | 140 us | 40,624 B | 2,600 B |
 | TFLM int8 (reference) | 31,411 | 314 us | 29,552 B | 2,132 B |
 
-Per layer (profile image): fc0 15,777, fc1 3,938, fc2 1,635 cycles; tinymind (C++)
+Per layer (profile image): fc0 14,051, fc1 3,973, fc2 1,689 cycles; tinymind (C++)
 scalar `-O3`: 15,097, 4,151, 1,280.
 
 ### int8 MLP, NUCLEO-L031K6
@@ -130,11 +164,11 @@ image): fc0 28,747, fc1 7,727, fc2 3,508.
 
 | | F411 Q16.16 | F411 Q8.8 | L031 Q16.16 | L031 Q8.8 |
 |---|---:|---:|---:|---:|
-| Cycles per training step | 1,221 | 483 | 5,974 | 3,054 |
-| Time per step | 12.2 us | 4.8 us | 187 us | 95 us |
-| Inference cycles (median) | 1,110 | 371 | 4,149 | 1,572 |
+| Cycles per training step | 1,226 | 475 | 5,974 | 3,054 |
+| Time per step | 12.3 us | 4.8 us | 187 us | 95 us |
+| Inference cycles (median) | 1,104 | 368 | 4,149 | 1,572 |
 
-Measured 2026-11-10, after tinymind (C++) #267 made the SGD step round to
+First measured 2026-11-10, after tinymind (C++) #267 made the SGD step round to
 nearest (and #266 the momentum terms toward zero). Cycles per step are
 averages over all 20,000 steps; the example skips training while the error is
 within the zero tolerance, and both formats solve XOR within about 2,000 steps
@@ -149,20 +183,22 @@ plus peak stack, each minus the baseline's, as tinymind (C++) counts them.
 
 | | F411 | L031 |
 |---|---:|---:|
-| Training, 3,000 steps, signal generation included | 20,904,970 cycles (0.21 s) | 146,801,293 cycles (4.6 s) |
-| One training step (median) | 6,437 | 39,763 |
-| One detection: forward pass + error (median) | 1,332 | 8,096 |
-| Stack (peak) / over baseline | 3,712 B / +3,200 B | 4,272 B / +3,668 B |
-| Flash (text) / over baseline | 30,116 B / +17,216 B | 30,000 B / +17,952 B |
+| Training, 3,000 steps, signal generation included | 28,158,032 cycles (0.28 s) | 146,801,293 cycles (4.6 s) |
+| One training step (median) | 8,811 | 39,763 |
+| One detection: forward pass + error (median) | 1,611 | 8,096 |
+| Stack (peak) / over baseline | 4,304 B / +3,792 B | 4,272 B / +3,668 B |
+| Flash (text) / over baseline | 31,984 B / +18,668 B | 30,392 B / +17,956 B |
 
-Measured 2026-11-10. A training step costs more than before (F411 4,250, L031
+On the F411 the step is 37% slower with `target-cpu=cortex-m4` (6,437 cycles
+without it, see Build settings); the cause is not yet known. Measured
+2026-11-10, a training step already cost more than before (F411 4,250, L031
 35,336 cycles): tinymind (C++) #266 and #267 round the momentum products toward
 zero and the step to nearest instead of flooring them (F411 +36%), and since #264 every layer's weights and bias weights go through
 one shared, never-inlined update function, which keeps the L031 image inside
 its 32 KB (F411 +10%).
 
 The flash delta includes the demo's signal generator and its formatted report.
-The L031 image leaves about 2.7 KB of the part's 32 KB free; the training step
+The L031 image leaves about 2.3 KB of the part's 32 KB free; the training step
 and the scorer are `#[inline(never)]` so the training and timing loops share
 one copy (inlined twice at `opt-level = 3` it did not fit), and so is the
 library's per-layer update loop (`optimizer::update_all`).
@@ -175,31 +211,32 @@ data plus peak stack, each above the baseline's.
 
 | | F411 (100 MHz) | L031 (32 MHz) |
 |---|---:|---:|
-| **tinymind-rs**, cycles | **186,257** (1.86 ms) | **649,286** (20.3 ms) |
+| **tinymind-rs**, cycles | **189,097** (1.89 ms) | **649,286** (20.3 ms) |
 | tinymind (C++) scalar, `-O3` | 254,900 | 746,112 |
 | tinymind (C++) +SMLAD, `-O3` | 181,568 | – (no SMLAD on the M0+) |
 | TFLM int8 (CMSIS-NN), `-O3` | 576,368 | does not fit in 32 KB |
-| **tinymind-rs**, code + weights / RAM | **8,152 B / 4,668 B** | **8,320 B / 4,848 B** |
+| **tinymind-rs**, code + weights / RAM | **8,056 B / 4,420 B** | **8,352 B / 4,848 B** |
 | tinymind (C++) scalar `-O3`, flash / RAM | 6,848 B / 5,292 B | 8,452 B / 5,476 B |
-| tinymind-rs at `opt-level = "s"`, cycles / code + weights | 546,503 / 4,308 B | 1,171,259 / 4,120 B |
+| tinymind-rs at `opt-level = "s"`, cycles / code + weights | 537,118 / 4,372 B | 1,171,205 / 4,120 B |
 
 Per layer (cycles, each layer timed separately; C++ scalar `-O3` in brackets):
 
 | Layer | F411 | L031 |
 |---|---:|---:|
-| conv 3x3, 8 filters | 101,984 (173,164) | 400,956 (516,155) |
-| max pool 2x2 | 10,578 (10,156) | 20,192 (24,921) |
-| depthwise 3x3 | 22,807 (21,054) | 69,218 (73,079) |
-| pointwise 8 -> 16 | 37,788 (44,258) | 138,649 (137,483) |
-| global average pool | 2,507 (2,282) | 4,704 (5,756) |
-| dense 16 -> 10 | 1,604 (1,281) | 3,347 (2,830) |
+| conv 3x3, 8 filters | 98,406 (173,164) | 400,956 (516,155) |
+| max pool 2x2 | 9,527 (10,156) | 20,192 (24,921) |
+| depthwise 3x3 | 22,061 (21,054) | 69,218 (73,079) |
+| pointwise 8 -> 16 | 43,652 (44,258) | 138,649 (137,483) |
+| global average pool | 2,583 (2,282) | 4,704 (5,756) |
+| dense 16 -> 10 | 1,601 (1,281) | 3,347 (2,830) |
 
-- **Faster than the portable C++.** The Rust model takes 27% fewer cycles than
+- **Faster than the portable C++.** The Rust model takes 26% fewer cycles than
   tinymind (C++)'s portable build on the M4F and 13% fewer on the M0+, and is
-  2.6% behind its SMLAD build on the M4F, without SIMD. It uses less RAM, 19%
-  more flash on the M4F and 2% less on the M0+ than the C++ at `-O3`. At
-  `opt-level = "s"` the network's code and weights take 4.1-4.3 KB, and it
-  runs 1.8-2.9x slower.
+  4.1% behind its SMLAD build on the M4F, without SIMD. It uses less RAM, 18%
+  more flash on the M4F and 1% less on the M0+ than the C++ at `-O3`. At
+  `opt-level = "s"` the network's code and weights take 4.1-4.4 KB, and it
+  runs 1.8-2.8x slower. The figures in the next two points were measured
+  before the build settings were matched to the C++ (2026-11-11).
 - **Where it comes from.** The stem convolution (one input channel) gathers
   each window once, padding filled with the zero point, folds the zero point
   into each filter's bias and runs the filters in pairs, so each window value
@@ -240,15 +277,16 @@ includes its tensor arena).
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **13,225,965** | **132.3 ms** | **46,416 B** | **16,680 B** |
+| **tinymind-rs** | **11,850,835** | **118.5 ms** | **45,872 B** | **16,680 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,288 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,764 B |
 
-- The Rust model takes 16% fewer cycles than tinymind (C++)'s portable build, in
-  12% less flash and 3% less RAM; tinymind (C++)'s SMLAD build and TFLM with
-  CMSIS-NN are faster. Per layer: the 10x4 stem 1.77M cycles (3.09M before its
+- The Rust model takes 25% fewer cycles than tinymind (C++)'s portable build, in
+  13% less flash and 3% less RAM; tinymind (C++)'s SMLAD build and TFLM with
+  CMSIS-NN are faster. The parallel-DSP flag does not change it. Per layer
+  (measured before the build settings were matched, 13.23M cycles in all): the 10x4 stem 1.77M cycles (3.09M before its
   window was gathered once per pixel), each pointwise layer 2.17M (2.60M before
   two pixels per pass), each depthwise layer 0.65M. The depthwise layers spend
   about 82 cycles per output: LLVM unrolls the 25x5 pixel loop and keeps the
@@ -264,15 +302,16 @@ Same method and caveats. Test inputs are 24,576 B.
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **64,407,536** | **644.1 ms** | **130,184 B** | **57,692 B** |
-| tinymind-rs, `-C llvm-args=-arm-parallel-dsp-load-limit=512` | 41,401,469 | 414.0 ms | 125,384 B | 57,700 B |
+| **tinymind-rs** | **58,807,476** | **588.1 ms** | **130,504 B** | **57,428 B** |
+| tinymind-rs, `-C llvm-args=-arm-parallel-dsp-load-limit=512` | 38,273,811 | 382.7 ms | 125,496 B | 57,428 B |
 | tinymind (C++), scalar | 85,467,754 | 854.7 ms | 120,836 B | 54,380 B |
 | tinymind (C++), +SMLAD | 26,753,191 | 267.5 ms | 108,324 B | 54,416 B |
 | TFLM int8 (CMSIS-NN) | 37,372,049 | 373.7 ms | 191,212 B | 56,464 B |
 | TFLM int8 (reference kernels) | 191,555,451 | 1,915.6 ms | 155,412 B | 55,372 B |
 
-- 25% fewer cycles than tinymind (C++)'s portable build, in 8% more flash and
-  6% more RAM. Before this tuning: 91,085,417 cycles, 101,076 B, 86,520 B.
+- 31% fewer cycles than tinymind (C++)'s portable build, in 8% more flash and
+  6% more RAM. Before the tuning below: 91,085,417 cycles, 101,076 B, 86,520 B
+  (and the figures in these points, before the build settings were matched).
 - Convolutions over several input channels (`conv2d_band` in
   `src/int8/conv.rs`) widen the `KH` input rows of each output row to `i16` as
   `x - zero_point`, and each filter's weights to `i16`, then add each window
@@ -294,8 +333,8 @@ Same method and caveats. Test inputs are 24,576 B.
   `i16` products added to one sum into `SMLAD`, on M4/M7/M33, with no
   intrinsics. It analyses at most 16 loads by default and gives up on the
   fully unrolled sums here; with `-C
-  llvm-args=-arm-parallel-dsp-load-limit=512` it pairs them: 41,401,469 cycles,
-  1.55 times tinymind (C++)'s +SMLAD build (which reads four int8 values per
+  llvm-args=-arm-parallel-dsp-load-limit=512` it pairs them: 38,273,811 cycles,
+  1.43 times tinymind (C++)'s +SMLAD build (which reads four int8 values per
   load with `SXTB16`, an intrinsic). The flag changes no other workload here.
   It is an LLVM internal option, so it is opt-in, not in this bench's config.
 - The 16-bit path on the M0+ (no DSP): a 10x10x8 3x3 convolution measured
@@ -309,24 +348,24 @@ Cycles for one prediction (median of 33), first held-out sample.
 | | F411 | L031 |
 |---|---:|---:|
 | Correct on 54 held-out samples (gbdt / forest), hash matches host | 53 / 53, yes | 53 / 53, yes |
-| Gradient boosting, pool walk (pool in flash) | 9,276 (93 µs) | 17,780 (556 µs) |
-| Gradient boosting, pool walk (pool copied to SRAM) | 8,656 | does not fit |
-| Gradient boosting, nested `if`s | 1,841 (18 µs) | 2,627 (82 µs) |
-| Random forest, pool walk / nested `if`s | 2,050 / 450 | 3,936 / 820 |
-| First 36 trees (256 nodes, 3 KB): flash / SRAM copy | 3,549 / 3,094 | 6,586 / 6,170 |
-| `quantize_features` (13 float divisions) | 614 | 11,292 |
-| Flash (text), whole image | 50,948 B | 32,520 B (opt-level s) |
+| Gradient boosting, pool walk (pool in flash) | 8,828 (88 µs) | 17,780 (556 µs) |
+| Gradient boosting, pool walk (pool copied to SRAM) | 7,751 | does not fit |
+| Gradient boosting, nested `if`s | 1,680 (17 µs) | 2,627 (82 µs) |
+| Random forest, pool walk / nested `if`s | 2,054 / 461 | 3,936 / 820 |
+| First 36 trees (256 nodes, 3 KB): flash / SRAM copy | 3,793 / 3,345 | 6,586 / 6,170 |
+| `quantize_features` (13 float divisions) | 637 | 11,292 |
+| Flash (text), whole image | 56,388 B | 32,520 B (opt-level s) |
 
 - **Where the model is.** The node pools are immutable `static`s, so
   cortex-m-rt's linker script puts them in `.rodata`, in flash (the
   image reports the pool's address, in the 0x0800_0000 flash range); `.data` is empty and
   nothing is copied to SRAM at start-up. The CPU reads the pool from flash, as
   it reads every instruction.
-- **Flash versus SRAM.** Reading the pool from flash costs 7-15% on the F411
+- **Flash versus SRAM.** Reading the pool from flash costs 13-14% on the F411
   (three wait states at 100 MHz, mostly hidden by the ART accelerator's prefetch
   and caches) and 7% on the L031 (one wait state at 32 MHz). The 7.5 KB pool
   would not fit beside the stack in the L031's 8 KB of SRAM anyway.
-- **The form matters far more.** The nested-`if` form is 4.6-6.8 times faster
+- **The form matters far more.** The nested-`if` form is 4.5-6.8 times faster
   than walking the pool: it compares against constants in the instruction
   stream and has no loop or index arithmetic. The pool is the smaller form.
 - **Placement.** The same gradient-boosting walk measured 14,044 cycles on the
@@ -337,8 +376,8 @@ Cycles for one prediction (median of 33), first held-out sample.
 
 - Exactness holds on both cores: the integer arithmetic and every training step
   match the C++ and the host bit for bit.
-- Against tinymind (C++)'s scalar C++ the Rust port is 5% slower on the M4F and 7-18%
-  slower on the M0+, at about the same size. It has no SMLAD path of its own:
+- Against tinymind (C++)'s scalar C++ the Rust MLP is level on the M4F (0.2%
+  fewer cycles) and 7-18% slower on the M0+, at about the same size. It has no SMLAD path of its own:
   the Arm DSP intrinsics are nightly-only and `asm!` would break
   `forbid(unsafe_code)`. Only the multi-channel convolutions' 16-bit pairs reach
   SMLAD, through LLVM, with the opt-in option above.
