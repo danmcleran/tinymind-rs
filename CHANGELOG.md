@@ -7,6 +7,13 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- CI runs the on-board checks under QEMU on a Cortex-M4 and a Cortex-M0 (the
+  two boards' instruction sets) at three optimisation levels
+  (`scripts/qemu-bench.sh`): every workload's output hash must match, as on
+  the boards. No library change.
+
 ## [0.3.1] - 2026-11-11
 
 ### Added

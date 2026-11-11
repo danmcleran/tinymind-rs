@@ -207,6 +207,18 @@ jobs:
               if grep -q '^warning' build.log; then exit 1; fi
             done
           done
+      # The same images on QEMU's Cortex-M4 and Cortex-M0 (the boards'
+      # instruction sets), at opt-level 3, s and z: every workload's hash must
+      # match, as on the boards. Correctness only; QEMU does not model cycles.
+      - name: Run the benchmark images under QEMU (Cortex-M4 and M0)
+        if: success() || failure()
+        working-directory: tinymind-rs
+        env:
+          TINYMIND_DIR: ${{ github.workspace }}/tinymind
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends qemu-system-arm
+          scripts/qemu-bench.sh
       - name: Check src/lut.rs matches the tables at TINYMIND_REF
         if: success() || failure()
         env:
