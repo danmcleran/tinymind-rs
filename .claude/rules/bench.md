@@ -115,8 +115,12 @@ mlp 42,216, kws 24,668. Full A/B the same day (bench/results/topdown-2026-11-12/
 local): DS-CNN 10,790,589 -> 11,875,413 (+10.1%), ResNet-8 58,807,476 ->
 59,614,538 (+1.4%), MLP profile +1.7%, KWS profile 182,002 -> 180,069, trees
 -2.4%..+0.5% (subset flash 3,793 -> 3,807), xor within 0.3%; anomaly stack
-4,304 -> 3,680 B, xor-q16 flash -960 B. L031: every ELF byte-identical (the flag
-changes nothing for cortex-m0plus; why was not checked). Not adopted: the DS-CNN loss outweighs the KWS gain, and the
+4,304 -> 3,680 B, xor-q16 flash -960 B. L031: every ELF byte-identical: cortex-m0plus
+lacks `use-misched`, so the pre-RA machine scheduler skips every function and the
+direction flag has nothing to steer (llc 18 on repro.ll: default output ==
+`-enable-misched=false`, byte for byte). Forced on (`-enable-misched=true`), it
+reorders code but spills the same: ARMv6-M has no SMULL, so every 64-bit
+product is a `bl __aeabi_lmul` call, and calls end scheduling regions. Not adopted: the DS-CNN loss outweighs the KWS gain, and the
 C++ Makefile has no counterpart. Filed by Dan as
 llvm/llvm-project#241851 (2026-11-12; LLVM's AI Tool Use Policy: agents draft,
 the human reviews and submits, with a disclosure line). Reproducer and
