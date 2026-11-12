@@ -49,6 +49,24 @@ fixed code: `har_activity` (LSTM, default truncating Q16.16) is done; `gru_xor`,
 `lstm_sinusoid` and `elman_temporal_xor` also need `RoundUpPolicy`, which is
 not ported (a policy parameter on `QValue` is an API change).
 
+### Performance without `unsafe` (2026-11-11)
+
+Dan ruled out `unsafe` in any form, including an opt-in feature (see
+CLAUDE.md). The `asm!` SMLAD experiment (F411: MLP 15,419, KWS 176,194,
+DS-CNN 9.93M, ResNet-8 38.9M cycles) is therefore closed; Dan kept it for
+reference as the branch `archive/exp-smlad-asm` on GitHub (never to be
+merged). Its numbers only show the gap to the C++ +SMLAD build. Safe routes
+left, roughly by expected gain:
+
+- 16-bit pairs that LLVM's ARMParallelDSP pass turns into `SMLAD` (already the
+  conv band path: ResNet-8 with `-arm-parallel-dsp-load-limit=512`), extended to
+  dense and pointwise layers (the int8 MLP is 20,437 vs C++ +SMLAD 10,241).
+- 2x2 register blocking where LLVM does not spill (pointwise done: #91).
+- The two smaller regressions from `target-cpu=cortex-m4` (#89): KWS pointwise
+  (C = 8) +15% for that layer, the 36-tree subset +7%. Not investigated.
+- The small-Q16.16-layer spills (anomaly +37% under cortex-m4) are LLVM's
+  CortexM4Model scheduler; no safe code shape fixed them (`.claude/rules/bench.md`).
+
 ## Release history (as CLAUDE.md recorded it; CHANGELOG.md is the full record)
 
 Releases, each with a tag and a GitHub release: 0.1.0 (2026-11-07, `601098f`),

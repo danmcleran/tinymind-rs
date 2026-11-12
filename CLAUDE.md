@@ -181,7 +181,10 @@ freestanding build. Only the examples, the tests and the opt-in `std` feature
 way: new library code must not need `alloc`, and anything needing `std` goes behind
 the feature. CI runs tests with `--all-features` and also clippy on the plain
 no_std library. It is also `#![forbid(unsafe_code)]`, and
-SECURITY.md's scope depends on that: do not remove it.
+SECURITY.md's scope depends on that: do not remove it. No `unsafe`, not even
+behind an opt-in feature (Dan, 2026-11-11: it would defeat the purpose of the
+crate). So no `asm!` and no Arm intrinsics (nightly's are `unsafe` too); speed
+comes from safe code shapes LLVM compiles well.
 
 ## Equivalence rules (hard-won; read before changing arithmetic)
 
