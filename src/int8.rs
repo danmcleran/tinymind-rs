@@ -268,7 +268,7 @@ pub struct Requantizer {
 impl Requantizer {
     /// Rescale `acc`, add the zero point and saturate to `[qmin, qmax]`.
     pub fn apply(&self, acc: i32) -> i8 {
-        let scaled = if self.multiplier >= 0 && (2..=31).contains(&self.shift) {
+        let scaled = if self.one_rounding() {
             // The common case (a scale ratio below 0.25): one rounding, equal to
             // the two-step form below bit for bit.
             rounding_high_mul_divide_by_pot(acc, self.multiplier, self.shift)
@@ -279,6 +279,35 @@ impl Requantizer {
             let rail = 1 << 30;
             multiply_by_quantized_multiplier(acc, self.multiplier, self.shift).clamp(-rail, rail)
         };
+        self.add_zero_point_and_clamp(scaled)
+    }
+
+    /// True when [`apply`](Self::apply) takes its one-rounding path: a
+    /// non-negative multiplier and a shift in `2..=31` (a scale ratio below
+    /// 0.25), as in nearly every imported layer (C++ `oneRounding`).
+    #[inline]
+    pub(crate) fn one_rounding(&self) -> bool {
+        self.multiplier >= 0 && (2..=31).contains(&self.shift)
+    }
+
+    /// [`apply`](Self::apply) for a requantizer with [`one_rounding`] true:
+    /// the same result without the general path's code (C++
+    /// `applyOneRounding`). Dense layers check every requantizer once and then
+    /// run a loop that calls only this, so the general path does not hold
+    /// registers in their output loop (on the Cortex-M0+, whose instructions
+    /// mostly reach eight registers, it made the dot product spill). The shift
+    /// is masked so that a call outside that contract stays total.
+    ///
+    /// [`one_rounding`]: Self::one_rounding
+    #[inline]
+    pub(crate) fn apply_one_rounding(&self, acc: i32) -> i8 {
+        let shift = 2 + (self.shift.wrapping_sub(2) & 31).min(29);
+        self.add_zero_point_and_clamp(rounding_high_mul_divide_by_pot(acc, self.multiplier, shift))
+    }
+
+    /// Add the zero point to a rescaled accumulator and saturate.
+    #[inline]
+    fn add_zero_point_and_clamp(&self, scaled: i32) -> i8 {
         let mut with_zp = scaled + i32::from(self.zero_point);
         // Two separate tests, as in the C++: with qmin > qmax the result is
         // qmax (and `clamp` would panic).
@@ -381,11 +410,22 @@ pub struct QDense<'a, const IN: usize, const OUT: usize> {
 impl<const IN: usize, const OUT: usize> QDense<'_, IN, OUT> {
     /// One forward pass.
     pub fn forward(&self, input: &[i8; IN]) -> [i8; OUT] {
+        let rq = &self.requantizer;
+        if rq.one_rounding() {
+            self.forward_with(input, |acc| rq.apply_one_rounding(acc))
+        } else {
+            self.forward_with(input, |acc| rq.apply(acc))
+        }
+    }
+
+    /// The output loop, with the requantizer's form chosen once by `forward`.
+    #[inline(always)]
+    fn forward_with(&self, input: &[i8; IN], requantize: impl Fn(i32) -> i8) -> [i8; OUT] {
         let mut output = [0i8; OUT];
         for (o, (out, row)) in output.iter_mut().zip(self.weights).enumerate() {
             let bias = self.biases.map_or(0, |b| b.get(o).copied().unwrap_or(0));
             let acc = bias.wrapping_add(dot_with_zero_point(input, row, self.input_zero_point));
-            *out = self.requantizer.apply(acc);
+            *out = requantize(acc);
         }
         output
     }
@@ -410,12 +450,26 @@ pub struct QDensePerChannel<'a, const IN: usize, const OUT: usize> {
 impl<const IN: usize, const OUT: usize> QDensePerChannel<'_, IN, OUT> {
     /// One forward pass.
     pub fn forward(&self, input: &[i8; IN]) -> [i8; OUT] {
+        if self.requantizers.iter().all(Requantizer::one_rounding) {
+            self.forward_with(input, Requantizer::apply_one_rounding)
+        } else {
+            self.forward_with(input, Requantizer::apply)
+        }
+    }
+
+    /// The output loop, with the requantizers' form chosen once by `forward`.
+    #[inline(always)]
+    fn forward_with(
+        &self,
+        input: &[i8; IN],
+        requantize: impl Fn(&Requantizer, i32) -> i8,
+    ) -> [i8; OUT] {
         let mut output = [0i8; OUT];
         let rows = self.weights.iter().zip(self.requantizers);
         for (o, (out, (row, rq))) in output.iter_mut().zip(rows).enumerate() {
             let bias = self.biases.map_or(0, |b| b.get(o).copied().unwrap_or(0));
             let acc = bias.wrapping_add(dot_with_zero_point(input, row, self.input_zero_point));
-            *out = rq.apply(acc);
+            *out = requantize(rq, acc);
         }
         output
     }
@@ -629,6 +683,58 @@ impl QSoftmax {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The dense layers take the one-rounding loop only when every
+    /// requantizer allows it; a layer with one general-path requantizer must
+    /// still give `apply`'s results on every output.
+    #[test]
+    fn dense_requantizer_forms() {
+        const IN: usize = 5;
+        const OUT: usize = 4;
+        let weights: [[i8; IN]; OUT] =
+            core::array::from_fn(|o| core::array::from_fn(|i| (o as i8 * 37 - i as i8 * 29) | 1));
+        let biases: [i32; OUT] = [1000, -2000, 300, -40];
+        let input: [i8; IN] = [-128, -3, 0, 77, 127];
+        let fast = Requantizer {
+            multiplier: 1_518_500_250,
+            shift: 9,
+            zero_point: -5,
+            qmin: -128,
+            qmax: 127,
+        };
+        // A ratio of 2 (shift -1): the general, saturating path.
+        let general = Requantizer {
+            multiplier: 1 << 30,
+            shift: -1,
+            zero_point: 3,
+            qmin: -100,
+            qmax: 90,
+        };
+        let expect = |rqs: &[Requantizer; OUT]| -> [i8; OUT] {
+            core::array::from_fn(|o| {
+                rqs[o].apply(biases[o].wrapping_add(dot_with_zero_point(&input, &weights[o], -7)))
+            })
+        };
+        for rqs in [[fast; OUT], [fast, fast, general, fast], [general; OUT]] {
+            let layer = QDensePerChannel {
+                weights: &weights,
+                biases: Some(&biases),
+                input_zero_point: -7,
+                requantizers: &rqs,
+            };
+            assert_eq!(layer.forward(&input), expect(&rqs), "{rqs:?}");
+        }
+        for rq in [fast, general] {
+            let layer = QDense {
+                weights: &weights,
+                biases: Some(&biases),
+                input_zero_point: -7,
+                requantizer: rq,
+            };
+            assert_eq!(layer.forward(&input), expect(&[rq; OUT]), "{rq:?}");
+        }
+        assert!(fast.one_rounding() && !general.one_rounding());
+    }
 
     /// About 1.0 in Q0.31.
     const Q31_ONE: i32 = i32::MAX;

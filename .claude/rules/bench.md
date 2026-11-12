@@ -32,6 +32,9 @@ and the xor trajectories too, all reproduced on both boards 2026-11-10.
 #267's round-to-nearest SGD step: anomaly hash 0x7C074DAD (threshold 128,
 stall 46/64), F411 step 6,437, L031 39,763 cycles; Q8.8 xor solves XOR again;
 all reproduced on both boards 2026-11-10.
+MLP after the dense one-rounding loop (2026-11-12): F411 19,149 (generic
+20,073, misched off 20,358, top-down 18,930), L031 35,710 (profile image
+36,811), RAM 232 B; raw in the session scratchpad only.
 C++ figures refreshed to tinymind v18.2's re-measured `raw_*_O3.txt` (#274,
 2026-11-12; RAM recomputed as above). Changes that moved a conclusion: L031
 MLP C++ 35,963 -> 32,644 (#275 restored its -O2/-O3 speed), so Rust's 42,514 is

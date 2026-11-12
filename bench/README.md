@@ -126,7 +126,9 @@ the anomaly step took 6,518 cycles and detection 1,326, the KWS-shaped network
 175,319 (-7.3%) and the trees 0.3-2.4% less, while the MLPerf DS-CNN took
 11,875,413 (+10.1%), ResNet-8 59,614,538 (+1.4%) and the int8 MLP 20,835
 (+1.9%). The L031 images were identical with and without it. The images keep
-the default.
+the default. After the dense layers' one-rounding loop (later that day) the
+int8 MLP takes 19,149 cycles, 20,073 without `target-cpu` (+4.8%), 20,358
+with the scheduler off (+6.3%) and 18,930 top-down (-1.1%).
 
 F411 images are built with every loop aligned to 16 bytes (`-C
 llvm-args=-align-loops=16`, in `bench/.cargo/config.toml`), so a timing does not
@@ -166,28 +168,37 @@ here are recomputed from the `-O3` raw results.
 
 | Framework | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **20,437** | **204 us** | **5,452 B** | **76 B** |
+| **tinymind-rs** | **19,149** | **191 us** | **6,236 B** | **76 B** |
 | tinymind (C++), scalar | 21,002 | 210 us | 5,848 B | 152 B |
 | tinymind (C++), +SMLAD | 10,227 | 102 us | 5,896 B | 124 B |
 | TFLM int8 (CMSIS-NN) | 14,030 | 140 us | 40,624 B | 2,600 B |
 | TFLM int8 (reference) | 31,411 | 314 us | 29,552 B | 2,132 B |
 
-Per layer (profile image): fc0 14,051, fc1 3,973, fc2 1,689 cycles; tinymind (C++)
+Per layer (profile image): fc0 14,240, fc1 3,389, fc2 1,344 cycles; tinymind (C++)
 scalar `-O3`: 15,591, 4,169, 1,288.
 
 ### int8 MLP, NUCLEO-L031K6
 
 | Framework | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **42,514** | **1.33 ms** | **5,412 B** | **472 B** |
+| **tinymind-rs** | **35,710** | **1.12 ms** | **5,948 B** | **232 B** |
 | tinymind (C++) | 32,644 | 1.02 ms | 6,136 B | 224 B |
 | TFLM (any build) | does not fit 32 KB | - | 38.3-50.0 KB | - |
 | emlearn float32 (software float) | 707,113 | 22.1 ms | 18,988 B | 972 B |
 
-The same code measured 38,456 cycles in the profile image, whose extra code
+The same code measured 36,811 cycles in the profile image, whose extra code
 moves it in flash: with one wait state and a prefetch buffer the M0+ is
 sensitive to code placement (tinymind (C++) saw the same, #192). Per layer (profile
-image): fc0 28,747, fc1 7,727, fc2 3,508.
+image): fc0 26,611, fc1 6,761, fc2 3,054; tinymind (C++) scalar `-O3`: 23,185,
+6,956, 2,696.
+
+The dense layers check their requantizers once per call: when every one
+takes the one-rounding path (a scale ratio below 0.25, nearly every imported
+layer), the output loop calls only that path, as tinymind (C++) #275 does on
+Thumb-1. With the general path inlined in the loop, LLVM spilled the dot
+product's index constants on the M0+ (2026-11-12, before: L031 42,514 cycles,
+472 B RAM; F411 20,437; same day, same hash). It costs 536 B of flash on the
+L031 and 784 B on the F411 (a second copy of each loop).
 
 ### On-device training, xor 2-4-1
 
@@ -429,12 +440,13 @@ Cycles for one prediction (median of 33), first held-out sample.
 
 - Exactness holds on both cores: the integer arithmetic and every training step
   match the C++ and the host bit for bit.
-- Against tinymind (C++)'s scalar C++ the Rust MLP takes 2.7% fewer cycles on
-  the M4F and is 18-30% slower on the M0+, in less code. It has no SMLAD path of its own:
+- Against tinymind (C++)'s scalar C++ the Rust MLP takes 9% fewer cycles on
+  the M4F and is 9-13% slower on the M0+ (the two figures are its two flash
+  placements). It has no SMLAD path of its own:
   the Arm DSP intrinsics are nightly-only and `asm!` would break
   `forbid(unsafe_code)`. Only the multi-channel convolutions' 16-bit pairs reach
   SMLAD, through LLVM, with the opt-in option above.
-- On the M0+ the stack use is higher than the C++'s (472 B against 224 B).
+- On the M0+ its RAM is about the C++'s (232 B against 224 B).
 
 ## Run
 
