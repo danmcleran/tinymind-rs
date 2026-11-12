@@ -111,8 +111,13 @@ hoists the products. F411 with `-C llvm-args=-misched-prera-direction=topdown`
 (2026-11-12, target-cpu kept, hashes matched): anomaly step 6,518, detect
 1,326; MLP 20,437 -> 20,835 (+1.9%); KWS
 189,097 -> 175,319 (-7.3%, below the C++ +SMLAD 181,568); text anomaly 30,848,
-mlp 42,216, kws 24,668. Not adopted (the C++ Makefile has no counterpart; Dan's
-call); DS-CNN, ResNet-8, trees, xor and the L031 not measured. Filed by Dan as
+mlp 42,216, kws 24,668. Full A/B the same day (bench/results/topdown-2026-11-12/,
+local): DS-CNN 10,790,589 -> 11,875,413 (+10.1%), ResNet-8 58,807,476 ->
+59,614,538 (+1.4%), MLP profile +1.7%, KWS profile 182,002 -> 180,069, trees
+-2.4%..+0.5% (subset flash 3,793 -> 3,807), xor within 0.3%; anomaly stack
+4,304 -> 3,680 B, xor-q16 flash -960 B. L031: every ELF byte-identical (the flag
+changes nothing for cortex-m0plus; why was not checked). Not adopted: the DS-CNN loss outweighs the KWS gain, and the
+C++ Makefile has no counterpart. Filed by Dan as
 llvm/llvm-project#241851 (2026-11-12; LLVM's AI Tool Use Policy: agents draft,
 the human reviews and submits, with a disclosure line). Reproducer and
 run.sh: ~/code/llvm-m4-misched/ (local, outside the repo). Re-measured
