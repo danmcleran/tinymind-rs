@@ -306,8 +306,11 @@ the int8 quantization tiers, SIMD backends, and so on.
   Cortex-M4 and a Cortex-M0 (the boards' instruction sets), at three
   optimisation levels: every workload's output hash (the int8 MLP and CNNs,
   the MLPerf models, xor training, the anomaly demo, the trees) must match, as
-  on the boards. CI runs it on every pull request; the boards themselves are
-  still needed for timings.
+  on the boards. It also runs the convolution and pooling, LSTM, decision-tree
+  and Q-learning sweeps on Cortex-M, whose reports must equal tinymind (C++)'s
+  goldens byte for byte, and the qformat oracle's default sample (240,277
+  checks). CI runs it on every pull request; the boards themselves are still
+  needed for timings.
 - `scripts/extract-luts.py` generates `src/lut.rs` from tinymind (C++)'s
   `cpp/lookupTables.cpp`; CI regenerates it and fails if the tables differ.
 - CI runs all of these on every pull request (the `cpp-equivalence` job checks out

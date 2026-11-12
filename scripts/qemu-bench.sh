@@ -9,9 +9,11 @@
 #
 # Cores: m4 = QEMU mps2-an386 (Cortex-M4, thumbv7em-none-eabihf, the F411's
 # instruction set), m0 = QEMU microbit (Cortex-M0, thumbv6m-none-eabi: the
-# L031's Cortex-M0+ runs the same ARMv6-M instructions). The MLPerf workloads
-# run on m4 only, and only when their generated sources exist (see
-# bench/README.md). Needs qemu-system-arm, the two Rust targets and a tinymind
+# L031's Cortex-M0+ runs the same ARMv6-M instructions), given 1M of flash and
+# 256K of RAM for the sweeps image (the chip has 256K and 16K). The `sweeps`
+# workload runs the host test sweeps (tests/sweeps/) against their goldens.
+# The MLPerf workloads run on m4 only, and only when their generated sources
+# exist (see bench/README.md). Needs qemu-system-arm, the two Rust targets and a tinymind
 # (C++) checkout (TINYMIND_DIR, default ../tinymind) for bench/gen.py.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,10 +28,10 @@ runs=0
 for core in ${CORES:-m4 m0}; do
   case "$core" in
     m4) target=thumbv7em-none-eabihf machine=(-machine mps2-an386 -cpu cortex-m4) ;;
-    m0) target=thumbv6m-none-eabi machine=(-machine microbit) ;;
+    m0) target=thumbv6m-none-eabi machine=(-machine microbit -global nrf51-soc.flash-size=1048576 -global nrf51-soc.sram-size=262144) ;;
     *) echo "qemu-bench: unknown core '$core'" >&2; exit 2 ;;
   esac
-  default="mlp profile xor-q16 xor-q8 anomaly trees kws kws-profile"
+  default="mlp profile xor-q16 xor-q8 anomaly trees kws kws-profile sweeps"
   if [ "$core" = m4 ]; then
     for wl in mlperf-kws mlperf-ic; do
       [ -f "src/gen/${wl//-/_}.rs" ] && default="$default $wl"
@@ -51,8 +53,8 @@ for core in ${CORES:-m4 m0}; do
       [ "$status" -eq 0 ] || problem="qemu exit $status"
       grep -q '^# PANIC' "$log" && problem="panic"
       grep -q '^# end bench' "$log" || problem="${problem:-no end marker}"
-      grep -qE '^[a-z_]*match(es)?=0' "$log" && problem="mismatch: $(grep -E '^[a-z_]*match(es)?=0' "$log" | tr '\n' ' ')"
-      grep -qE '^[a-z_]*match(es)?=1' "$log" || problem="${problem:-no hash check in the report}"
+      grep -qE '^[a-z0-9_]*match(es)?=0' "$log" && problem="mismatch: $(grep -E '^[a-z0-9_]*match(es)?=0' "$log" | tr '\n' ' ')"
+      grep -qE '^[a-z0-9_]*match(es)?=1' "$log" || problem="${problem:-no hash check in the report}"
       if [ -n "$problem" ]; then
         echo "FAIL  $name: $problem (report: $log)"
         fail=1

@@ -20,11 +20,14 @@ mod kws;
     feature = "trees",
     feature = "kws",
     feature = "mlperf-kws",
-    feature = "mlperf-ic"
+    feature = "mlperf-ic",
+    feature = "sweeps"
 )))]
 mod mlp;
 #[cfg(any(feature = "mlperf-kws", feature = "mlperf-ic"))]
 mod mlperf;
+#[cfg(feature = "sweeps")]
+mod sweeps;
 #[cfg(feature = "trees")]
 mod trees;
 #[cfg(any(feature = "xor-q16", feature = "xor-q8"))]
@@ -59,7 +62,8 @@ fn main() -> ! {
         feature = "trees",
         feature = "kws",
         feature = "mlperf-kws",
-        feature = "mlperf-ic"
+        feature = "mlperf-ic",
+        feature = "sweeps"
     )))]
     mlp::run(&mut out);
     #[cfg(feature = "kws")]
@@ -68,6 +72,8 @@ fn main() -> ! {
     mlperf::run(&mut out);
     #[cfg(feature = "trees")]
     trees::run(&mut out);
+    #[cfg(feature = "sweeps")]
+    sweeps::run(&mut out);
     #[cfg(feature = "anomaly")]
     anomaly::run(&mut out);
     #[cfg(feature = "xor-q16")]

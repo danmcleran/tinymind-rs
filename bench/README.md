@@ -428,6 +428,29 @@ model cycles, so every timing reads 0: this checks correctness, on Arm code,
 on every pull request (CI's `cpp-equivalence` job); timings need the boards.
 `CORES=m4 OPTS=3 WORKLOADS="mlp kws" scripts/qemu-bench.sh` runs a subset.
 
+The `sweeps` workload (`src/sweeps.rs`) runs the host test sweeps on the
+device: the convolution and pooling, LSTM, decision-tree and Q-learning sweeps
+and the qformat oracle, from `tests/sweeps/`, which the host tests include
+too. Each sweep writes its report into a sink that compares it, as it is
+written, with the committed golden from tinymind (C++)'s program (no buffer:
+the goldens are in flash), and prints `<sweep>_match=1`, or the first golden
+line that differs. The oracle checks itself against exact arithmetic and must
+also run all of its default sample (105,792 checks on 16-bit storage, 134,485
+on 32-bit). The Q-learning sweep's maze line stays on the host (the maze
+driver uses `std`). The add, compose, softmax and int8 recurrent sweeps are not
+on the device: they calibrate their layers with `int8::calibration`, which
+needs `std`.
+
+The image is large (477 KB on the F411 at opt-level 3; it does not fit the
+L031), and the LSTM sweep needs 73 KB of stack, so `qemu-bench.sh` gives the
+microbit 1 MB of flash and 256 KB of RAM (`-global nrf51-soc.flash-size`,
+`sram-size`; `memory-qemu-m0.x`); only the instruction set is under test
+there. On the F411 itself (`WORKLOADS=sweeps bench/run.sh f411`) every sweep
+matches; the run takes 679,290,763 cycles (6.8 s). Planted defects that fail
+it: the trees' `<=` as `<` (`tree_match=0`), a rounding Q-format multiply (the
+oracle, the LSTM and Q-learning sweeps), and a positive number divided by
+zero giving max - 1 (only the oracle).
+
 ## Read the generated code
 
 `scripts/emit-intermediates.sh arm` builds each board image with the flags
