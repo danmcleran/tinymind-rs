@@ -57,6 +57,7 @@ PORTED=(
   benchmarks/framework_comparison_f411/gen/out/mlp_tinymind.hpp
   cpp/qactivations.hpp
   cpp/qsoftmax_fixedpoint.hpp
+  cpp/qfft1d.hpp
   cpp/qtree.hpp
   examples/gbdt_tabular_int8
   examples/kws_cortex_m_int8

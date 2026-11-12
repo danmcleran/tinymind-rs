@@ -21,6 +21,9 @@ paths:
   - "scripts/cpp/recurrent_sweep.cpp"
   - "scripts/cpp/softmax_sweep.cpp"
   - "scripts/cpp/kws_int8_dump.cpp"
+  - "tests/fft_sweep.rs"
+  - "tests/sweeps/fft.rs"
+  - "scripts/cpp/fft_sweep.cpp"
 ---
 
 # Int8 inference (`src/int8`)
@@ -97,6 +100,46 @@ C++ source: `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `buildQMulRequant
 C++ source: `cpp/qlstm.hpp`, `cpp/qgru.hpp`, `buildQLSTMParams`/`buildQGRUParams`/`quantizeQLSTMBiases`/`quantizeQGRUBiases` in `cpp/include/qcalibration.hpp`
 
 2026-11-10, against `TINYMIND_REF` 7e83cb4. `QLstmCell<'a, IN, HID, C = i8>` (C++ `QLSTMCell`; cell state `C` through the sealed `CellStorage`, `i8` or `i16`) and `QGruCell<'a, IN, HID>` (`QGRUCell`, reset before the R_n multiply): one step, state updated in place, caller runs the time loop. Gate-major weights as nested arrays (`[[[i8; IN]; HID]; 4]`, gates i f g o / r z n), so no `4 * HID` const arithmetic. Field names = the C++ ones (as `QAdd`); C++ storage template params other than the cell state are fixed (int8 in/weights/hidden, i32 acc), the only instantiations tinymind uses. LUT output grids fixed (sigmoid 1/256 zp -128, tanh 1/128 zp 0). Both share `gate_preactivations` (`dot_with_zero_point` + two `multiply_by_quantized_multiplier` + bias, saturated to i8); all gates computed before any unit is written (as the C++). Sums the C++ leaves to UB wrap; clamps are two `if`s (qmin > qmax gives qmax). Calibration: `LstmScales`/`LstmParams`/`build_lstm_params`, `GruScales`/`GruParams`/`build_gru_params`, `quantize_gate_biases` (generic over G; f64 divide, round half away, `as i64 as i32` = lround + int32 cast), `SIGMOID_LUT_OUTPUT_SCALE`/`TANH_LUT_OUTPUT_SCALE`. Checked by `tests/recurrent_int8_sweep.rs` (golden from `scripts/cpp/recurrent_sweep.cpp`, UBSan+ASan clean: LSTM 3x4 i8/i16, 1x1 i8, 2x3 i16, 8x16 i8, 16x8 i16, 5x7 i8; GRU 3x4, 1x1, 2x3, 8x16, 16x8, 5x7; 2 calibrated + 2 direct trials each, 32 steps, state hashed per step; shifts >= -3 so no C++ sum overflows); matched the C++ on the first run. Plants that fail it: g gate on the cell tanh LUT, cell zp not added, LSTM clamp order swapped, GRU 1-z off by one, n gate reading h not r*h, r*h without zp, LSTM output rescale with cell scale, biases truncated. Kani `lstm_int8_cell_never_panics`, `lstm_int16_cell_never_panics`, `gru_cell_never_panics` (1 input, 2 units, every field symbolic incl. LUTs; also state within [qmin, qmax] when qmin <= qmax; ~70-105 s each); panic-never covers i8/i16 LSTM and GRU at 3x16 and 5x7 (planted reachable index panics in each fail the link). Not yet: the importers do not emit these cells. PyTorch `nn.LSTM` gate order (i f g o) matches; `nn.GRU` is reset-after (`r * (R_n h + b_hn)`), tinymind's is reset-before, so a PyTorch GRU does not map. TFLite's integer LSTM kernel was not compared with QLSTMCell here; translating one needs a check against TFLite
+
+## `src/int8/fft.rs` (re-exported from `int8`)
+
+C++ source: `cpp/qfft1d.hpp`, `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp`
+
+2026-11-12, against `TINYMIND_REF` 7e83cb4 (qfft1d.hpp unchanged since #222's
+C++14 guard; #127 saturates magnitudeSquared). `QFft1D<'a,
+N, HALF> { twiddle_cos: &[i16; HALF], twiddle_sin }`: public fields, usable in a
+`static`; `HALF` is a second const param because `[i16; N / 2]` needs
+`generic_const_exprs`; `STAGES` associated const asserts N >= 2, power of two,
+HALF == N/2 (post-mono error; compile_fail doctest). `forward` (scaled,
+`saturate((top ± t) >> 1)`), `inverse` (wrapping_neg imag, unscaled, negate
+again), `magnitude_squared(&self, ..)` (C++ static; a method here
+because an associated fn would need HALF spelled out). q15 = `(a*b) >> 15` in
+i32: |a|,|b| <= 32768 so no overflow anywhere (Kani). Bit reversal without the
+C++ `size_t[N]` table: reverse-carry increment of j (no RBIT on v6-M),
+swapped by masked indices; `slice::swap` kept a panic path at opt-level z (not
+inlined). Butterfly indices masked (`& (N-1)`, twiddle `& (HALF-1)`) so no
+bounds checks: identity masks, no panic path at 3/s/z. Tried: groups via
+`chunks_exact_mut` + `split_at_mut_checked` + zipped iterators: slower (F411
+73,938 vs 71,628; L031 174,112 vs 172,685) and kept a panic at z; dropped.
+`magnitude_squared(&self, re, im, &mut [i32; N])` fills the caller's array as
+the C++ does (returning it cost the copy: L031 7,267 vs 4,863 cycles).
+**Perf not tuned:** L031 forward 172,683 cycles; the M0+ transform has 116
+`ldr` (spills) vs 42 in gcc 13.2 -O3 -mcpu=cortex-m0plus's C++ (static count;
+C++ not timed on the boards). Calibration: `build_fft_twiddles::<N, HALF>() ->
+(cos, sin)`: `-TAU * k / N` (TAU == the C++ literal as f64), `round()` = lround,
+clamp to i16; matched glibc's cos/sin output on the first run. Checked by
+`tests/fft_sweep.rs` (golden from `scripts/cpp/fft_sweep.cpp`, UBSan+ASan
+clean, identical at -O1 and -O3; N = 2..1024: tables in lines of 16, 9 signals
+(impulse, offset impulse, dc, tone, two tones, random, rails, all -32768,
+32767/-32768) x {input, mag of input, forward, mag, inverse(forward), inverse}
+on built and on random twiddles (-32768 included)); matched on the first run.
+Twelve plants each fail it (no >>1 in one stage, sin sign, saturate before
+shift, bit reversal off by one, builder trunc, magnitude wraps, inverse
+missing final negate, rounding q15, unscaled path wraps, scaled path no
+saturation (only from line 55), stride off, no clamp at 32767). Device: bench
+`sweeps` reads the tables from the golden (`twiddles ` lines); bench `fft`
+(N=256 forward on the random signal; tables and expected hash written by
+bench/build.rs from the golden). panic-never: N=2 and N=256
 
 ## `examples/kws_cortex_m_int8.rs`, `examples/common/kws_int8_driver.rs`, `examples/common/std_random.rs`, `scripts/cpp/kws_int8_dump.cpp`
 

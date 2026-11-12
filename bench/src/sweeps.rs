@@ -20,6 +20,8 @@ mod add;
 mod compose;
 #[path = "../../tests/sweeps/conv.rs"]
 mod conv;
+#[path = "../../tests/sweeps/fft.rs"]
+mod fft;
 #[path = "../../tests/sweeps/lstm.rs"]
 mod lstm;
 #[path = "../../tests/sweeps/oracle.rs"]
@@ -302,6 +304,51 @@ impl softmax::Calibrate for SoftmaxParams {
     }
 }
 
+/// The FFT sweep's twiddle tables: `twiddles n=N k=K cos=... sin=...` lines,
+/// up to 16 entries each, in order.
+struct FftTwiddles(GoldenLines);
+
+impl fft::Twiddles for FftTwiddles {
+    fn twiddles<const N: usize, const HALF: usize>(&mut self) -> ([i16; HALF], [i16; HALF]) {
+        let (mut cos, mut sin) = ([0i16; HALF], [0i16; HALF]);
+        for k in (0..HALF).step_by(16) {
+            let line = self.0.next();
+            let mut fields = line.split(' ');
+            assert!(fields.nth(1) == Some(itoa_eq(N)), "twiddles out of step");
+            for f in fields {
+                let (table, values) = if let Some(v) = f.strip_prefix("cos=") {
+                    (&mut cos, v)
+                } else if let Some(v) = f.strip_prefix("sin=") {
+                    (&mut sin, v)
+                } else {
+                    continue;
+                };
+                for (slot, v) in table[k..].iter_mut().zip(values.split(',')) {
+                    *slot = v.parse().expect("integer");
+                }
+            }
+        }
+        (cos, sin)
+    }
+}
+
+/// `n=<n>`, for comparing a golden field without formatting.
+fn itoa_eq(n: usize) -> &'static str {
+    match n {
+        2 => "n=2",
+        4 => "n=4",
+        8 => "n=8",
+        16 => "n=16",
+        32 => "n=32",
+        64 => "n=64",
+        128 => "n=128",
+        256 => "n=256",
+        512 => "n=512",
+        1024 => "n=1024",
+        _ => "",
+    }
+}
+
 /// The int8 recurrent sweep's calibrated trials need weights, biases and LUTs
 /// that the golden prints only as hashes: they run here only to keep the
 /// generator in step, and only the direct-parameter lines are compared.
@@ -357,6 +404,11 @@ pub fn run(out: &mut Uart) {
     let mut e = Expect::new(SOFTMAX);
     softmax::report(&mut e, &mut SoftmaxParams(GoldenLines::new(SOFTMAX, "e=")));
     e.report(out, "softmax");
+
+    const FFT: &str = include_str!("../../tests/golden/fft/stdout.txt");
+    let mut e = Expect::new(FFT);
+    fft::report(&mut e, &mut FftTwiddles(GoldenLines::new(FFT, "twiddles ")));
+    e.report(out, "fft");
 
     let mut e = Expect::keeping(
         include_str!("../../tests/golden/recurrent_int8/stdout.txt"),

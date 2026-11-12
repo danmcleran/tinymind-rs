@@ -25,8 +25,8 @@ networks of the same depths that are just their weights, int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
 (for residual connections) and multiplication, padding, concatenation, quantized
-ReLU, activation tables, a softmax that is bit-exact with TFLite's, and LSTM and
-GRU cells), quantized decision trees and gradient-boosted ensembles, tabular Q-learning, and LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`). It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
+ReLU, activation tables, a softmax that is bit-exact with TFLite's, LSTM and
+GRU cells, and a radix-2 FFT on 16-bit samples), quantized decision trees and gradient-boosted ensembles, tabular Q-learning, and LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`). It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -172,6 +172,7 @@ set.
 | `src/int8/conv.rs` | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`: int8 2D convolution (per-tensor and per-channel), depthwise and pointwise convolution, with zero-point padding |
 | `src/int8/pool.rs` | `cpp/qpool2d.hpp`: int8 max, average and global average pooling |
 | `src/int8/add.rs` | `cpp/qadd.hpp`: int8 elementwise addition (TFLite ADD), for residual connections |
+| `src/int8/fft.rs` | `cpp/qfft1d.hpp`, `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp`: radix-2 FFT on int16 samples with Q1.15 twiddle tables (forward scaled by 1/N, inverse, bin magnitudes), and its twiddle-table builder |
 | `src/int8/compose.rs` | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`: int8 elementwise multiplication (TFLite MUL), explicit padding (PAD) and channel concatenation (CONCATENATION) |
 | `src/int8/recurrent.rs` | `cpp/qlstm.hpp`, `cpp/qgru.hpp`: int8 LSTM cell (int8 or int16 cell state) and GRU cell, one time step at a time |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
@@ -234,6 +235,11 @@ the int8 quantization tiers, SIMD backends, and so on.
   reference kernel's outputs (tinymind (C++)'s unit-test goldens and sweep hashes), and
   `tests/softmax_sweep.rs` against the tinymind (C++) softmax and its calibration
   over 504 calibrations and row lengths 1 to 511.
+- `tests/fft_sweep.rs` checks the FFT and its twiddle-table builder against
+  tinymind (C++)'s `QFFT1D` and `buildQFFTTwiddles` for every length from 2 to
+  1024: the tables, then nine signals (impulses, DC, tones, random samples,
+  full-scale values that saturate) through the forward and inverse transforms,
+  the round trip and the bin magnitudes, on the built tables and on random ones.
 - `tests/kws_int8_golden.rs` checks every tensor of the `kws_cortex_m_int8`
   example (quantized input, weights, requantizers and each layer's output) and
   its logits report against `tests/golden/kws_int8/`, printed by tinymind (C++)'s
@@ -285,7 +291,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, energy efficiency, maze, har_activity, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (76 checks today, including
+  example does, runs both sides, and compares every output file (78 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
@@ -301,20 +307,21 @@ the int8 quantization tiers, SIMD backends, and so on.
   requantizer's fast path equals gemmlowp's two-step rounding, and that the
   requantizer, the int8 dense layers, convolutions, pooling, addition,
   multiplication, padding and concatenation, the
-  tables, the softmax, the int8 LSTM and GRU cells, the trees, the Q-learner
-  and the LSTM network never panic, and that pooling's divide rounds half away
-  from zero.
+  tables, the softmax, the int8 LSTM and GRU cells, the FFT (for any samples
+  and twiddle tables), the trees, the Q-learner and the LSTM network never
+  panic, that pooling's divide rounds half away from zero, and that the FFT's
+  Q1.15 multiply floors and its magnitudes saturate only where they must.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
   and whose panic handler is an undefined symbol, so CI fails to link it if any
   panic path survives optimisation (M0+ and M4F, three optimisation levels).
 - `scripts/qemu-bench.sh` runs the on-board checks in `bench/` under QEMU, on a
   Cortex-M4 and a Cortex-M0 (the boards' instruction sets), at three
   optimisation levels: every workload's output hash (the int8 MLP and CNNs,
-  the MLPerf models, xor training, the anomaly demo, the trees) must match, as
+  the MLPerf models, xor training, the anomaly demo, the FFT, the trees) must match, as
   on the boards. It also runs the convolution and pooling, LSTM, decision-tree
   and Q-learning sweeps on Cortex-M, along with the addition, composition,
-  softmax and int8 LSTM/GRU sweeps (with the C++'s calibrated parameters,
-  since calibration needs `std`), whose reports must equal tinymind (C++)'s
+  softmax, FFT and int8 LSTM/GRU sweeps (with the C++'s calibrated parameters
+  and twiddle tables, since calibration needs `std`), whose reports must equal tinymind (C++)'s
   goldens byte for byte, and the qformat oracle's default sample (240,277
   checks). CI runs it on every pull request; the boards themselves are still
   needed for timings.

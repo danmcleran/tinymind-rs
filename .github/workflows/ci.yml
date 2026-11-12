@@ -196,7 +196,7 @@ jobs:
               --out src/gen/mlperf_$m.rs --data src/gen/mlperf_${m}_data.rs --target-dir "$RUNNER_TEMP/tflite_target"
           done
           for spec in f411:thumbv7em-none-eabihf l031:thumbv6m-none-eabi; do
-            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",trees" ",kws" ",kws-profile" ",mlperf-kws" ",mlperf-ic"; do
+            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",fft" ",trees" ",kws" ",kws-profile" ",mlperf-kws" ",mlperf-ic"; do
               # The MLPerf models do not fit the L031.
               case "${spec%%:*}$wl" in l031,mlperf-*) continue ;; esac
               echo "== ${spec%%:*}$wl"
