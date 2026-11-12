@@ -868,3 +868,71 @@ mod recurrent {
         let _ = (nn.calculate_error(&[any_q8_8()]), nn.learned_values());
     }
 }
+
+/// The quantized FFT: the Q1.15 multiply floors, the saturation clamps, and the
+/// transforms never panic or overflow for any samples and any twiddle tables
+/// (`-32768` included), which the built-in overflow checks cover; magnitudes
+/// saturate only at the both-rails bin.
+mod fft {
+    use crate::int8::QFft1D;
+    use crate::int8::fft::{q15_mul, saturate_i16};
+
+    /// `q15_mul(a, b)` is `floor(a * b / 2^15)`: the only `q` with
+    /// `q * 2^15 <= a * b < (q + 1) * 2^15`.
+    #[kani::proof]
+    fn q15_mul_floors() {
+        let (a, b): (i16, i16) = (kani::any(), kani::any());
+        let p = i64::from(a) * i64::from(b);
+        let q = i64::from(q15_mul(i32::from(a), i32::from(b)));
+        assert!(q * 32768 <= p && p < (q + 1) * 32768);
+    }
+
+    #[kani::proof]
+    fn saturate_i16_clamps() {
+        let v: i32 = kani::any();
+        let s = i32::from(saturate_i16(v));
+        assert!(s == v.max(-32768).min(32767));
+    }
+
+    fn any_fft_4<'a>(c: &'a [i16; 2], s: &'a [i16; 2]) -> QFft1D<'a, 4, 2> {
+        QFft1D {
+            twiddle_cos: c,
+            twiddle_sin: s,
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(5)]
+    fn fft_forward_never_panics() {
+        let (c, s): ([i16; 2], [i16; 2]) = (kani::any(), kani::any());
+        let (mut re, mut im): ([i16; 4], [i16; 4]) = (kani::any(), kani::any());
+        any_fft_4(&c, &s).forward(&mut re, &mut im);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(5)]
+    fn fft_inverse_never_panics() {
+        let (c, s): ([i16; 2], [i16; 2]) = (kani::any(), kani::any());
+        let (mut re, mut im): ([i16; 4], [i16; 4]) = (kani::any(), kani::any());
+        any_fft_4(&c, &s).inverse(&mut re, &mut im);
+    }
+
+    /// `magnitude_squared` is `min(r^2 + i^2, i32::MAX)`, spec in i128.
+    #[kani::proof]
+    #[kani::unwind(3)]
+    fn fft_magnitude_saturates() {
+        let t = [32767i16];
+        let fft: QFft1D<'_, 2, 1> = QFft1D {
+            twiddle_cos: &t,
+            twiddle_sin: &t,
+        };
+        let (re, im): ([i16; 2], [i16; 2]) = (kani::any(), kani::any());
+        let mut m = [0i32; 2];
+        fft.magnitude_squared(&re, &im, &mut m);
+        for i in 0..2 {
+            let exact =
+                i128::from(re[i]) * i128::from(re[i]) + i128::from(im[i]) * i128::from(im[i]);
+            assert!(i128::from(m[i]) == exact.min(i128::from(i32::MAX)));
+        }
+    }
+}

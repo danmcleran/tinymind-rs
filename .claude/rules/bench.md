@@ -32,6 +32,14 @@ and the xor trajectories too, all reproduced on both boards 2026-11-10.
 #267's round-to-nearest SGD step: anomaly hash 0x7C074DAD (threshold 128,
 stall 46/64), F411 step 6,437, L031 39,763 cycles; Q8.8 xor solves XOR again;
 all reproduced on both boards 2026-11-10.
+The `fft` workload (2026-11-12): `int8::QFft1D` forward at N=256 on the FFT
+sweep's random signal, tinymind's twiddle tables and the expected hash
+(0xEFABBA1C) generated into OUT_DIR by build.rs from tests/golden/fft (an
+`include_str!` of the whole golden overflowed the L031 by 23 KB). F411 71,627
+cycles forward, 2,731 magnitudes; L031 172,683 and 4,863; flash over baseline
++2,420 / +2,236 B; stack is the workload's buffers (~4 KB), the transform
+uses none. `magnitude_squared` returning `[i32; N]` instead of filling the
+caller's array took 4,539 / 7,267 (the copy out). Raw in bench/results/fft-2026-11-12. C++ FFT not timed on boards.
 The `kws` workload (4C) is tinymind's framework-comparison KWS-shaped CNN
 (`gen/out/kws_tinymind.hpp`, generated into `bench/src/gen/kws.rs` by `gen.py`;
 hash `TM_KWS_HASH`), with per-layer cycles in `kws-profile`. After tuning, Rust

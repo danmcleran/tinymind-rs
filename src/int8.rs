@@ -2,7 +2,8 @@
 //! `cpp/qdense.hpp`, `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`,
 //! `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp`, `cpp/qadd.hpp`, `cpp/qmul.hpp`,
 //! `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `cpp/qactivations.hpp`,
-//! `cpp/qsoftmax_fixedpoint.hpp`, `cpp/qlstm.hpp` and `cpp/qgru.hpp`.
+//! `cpp/qsoftmax_fixedpoint.hpp`, `cpp/qlstm.hpp`, `cpp/qgru.hpp` and
+//! `cpp/qfft1d.hpp`.
 //!
 //! This is the TFLite / CMSIS-NN quantization model, separate from the Q-format
 //! [`QValue`](crate::QValue) pipeline: a real value is `scale * (q - zero_point)`,
@@ -58,6 +59,13 @@
 //! grids; `calibration` builds the tables and the rescaling parameters from
 //! float scales.
 //!
+//! # FFT
+//!
+//! [`QFft1D`] is a radix-2 FFT for vibration, audio or IMU front ends: 16-bit
+//! samples, Q1.15 twiddle tables borrowed from flash, in place on the caller's
+//! real and imaginary buffers. Its bin magnitudes come out in `i32`, ready for a
+//! [`Requantizer`] onto an int8 grid; `calibration` builds the twiddle tables.
+//!
 //! A convolution over two or more input channels widens its input rows and
 //! each filter's weights to 16 bits and adds the products in pairs. On cores
 //! with the DSP extension (Cortex-M4, M7, M33), LLVM can turn each pair into
@@ -109,6 +117,7 @@ pub(crate) mod add;
 pub mod calibration;
 pub(crate) mod compose;
 pub(crate) mod conv;
+pub(crate) mod fft;
 pub(crate) mod pool;
 pub(crate) mod recurrent;
 
@@ -117,6 +126,7 @@ pub use compose::{QConcat, QMul, QPad2D};
 pub use conv::{
     QConv2D, QConv2DPerChannel, QDepthwiseConv2D, QPointwiseConv2D, QPointwiseConv2DPerChannel,
 };
+pub use fft::QFft1D;
 pub use pool::{QAvgPool2D, QGlobalAvgPool2D, QMaxPool2D};
 pub use recurrent::{CellStorage, QGruCell, QLstmCell};
 

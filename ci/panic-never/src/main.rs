@@ -10,7 +10,7 @@ use core::hint::black_box;
 use core::mem::size_of;
 use tinymind::int8::{
     self, QAdd, QAvgPool2D, QConcat, QConv2D, QConv2DPerChannel, QDense, QDensePerChannel,
-    QDepthwiseConv2D, QGlobalAvgPool2D, QGruCell, QLstmCell, QMaxPool2D, QMul, QPad2D,
+    QDepthwiseConv2D, QFft1D, QGlobalAvgPool2D, QGruCell, QLstmCell, QMaxPool2D, QMul, QPad2D,
     QPointwiseConv2D, QPointwiseConv2DPerChannel, QSoftmax, Requantizer,
 };
 use tinymind::qlearn;
@@ -343,6 +343,25 @@ fn int8_inference() {
     };
     black_box(softmax.forward(&black_box([0i8; 1])));
     black_box(softmax.forward(&black_box([0i8; 10])));
+}
+
+/// The quantized FFT: forward, inverse and magnitudes, on tables the compiler
+/// cannot see.
+fn int8_fft<const N: usize, const HALF: usize>() {
+    let cos = black_box([black_box(32767i16); HALF]);
+    let sin = black_box([black_box(-32768i16); HALF]);
+    let fft: QFft1D<'_, N, HALF> = black_box(QFft1D {
+        twiddle_cos: &cos,
+        twiddle_sin: &sin,
+    });
+    let mut real = black_box([black_box(1i16); N]);
+    let mut imag = black_box([black_box(-1i16); N]);
+    fft.forward(&mut real, &mut imag);
+    black_box((&real, &imag));
+    fft.inverse(&mut real, &mut imag);
+    let mut mag = black_box([0i32; N]);
+    fft.magnitude_squared(&real, &imag, &mut mag);
+    black_box(&mag);
 }
 
 /// Convolutions and pooling: padded and unpadded, strided, per tensor and per
@@ -685,6 +704,8 @@ pub extern "C" fn _start() -> ! {
     activations();
     int8_inference();
     int8_conv();
+    int8_fft::<2, 1>();
+    int8_fft::<256, 128>();
     // The int8 recurrent cells: both cell-state types, an odd shape and a
     // larger one.
     int8_recurrent::<i8, 3, 16>(black_box(0));

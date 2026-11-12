@@ -2,7 +2,7 @@
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
 # iris, energy_efficiency, maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
-# int8 softmax sweep, the Q-learning and tree sweeps, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# int8 softmax and FFT sweeps, the Q-learning and tree sweeps, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -373,6 +373,25 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test softmax_s
   && same "softmax Rust vs tests/golden/softmax" \
   || { echo "DIFFERENT  softmax Rust vs tests/golden/softmax"; status=1; }
 
+echo "== fft"
+# tinymind's QFFT1D and buildQFFTTwiddles over lengths 2 to 1024;
+# tests/fft_sweep.rs checks the Rust layer against the committed golden, so the
+# golden must still be what the C++ prints.
+mkdir -p "$TMP/fft"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/fft/fft_sweep" "$ROOT/scripts/cpp/fft_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+"$TMP/fft/fft_sweep" > "$TMP/fft/stdout.txt"
+if cmp -s "$TMP/fft/stdout.txt" "$ROOT/tests/golden/fft/stdout.txt"; then
+  same "fft stdout.txt (C++ vs tests/golden/fft)"
+else
+  echo "DIFFERENT  fft stdout.txt (C++ vs tests/golden/fft)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test fft_sweep >/dev/null 2>&1 \
+  && same "fft Rust vs tests/golden/fft" \
+  || { echo "DIFFERENT  fft Rust vs tests/golden/fft"; status=1; }
+
 echo "== conv"
 # tinymind's int8 convolution and pooling layers over random tensors;
 # tests/conv_sweep.rs checks the Rust layers against the committed golden, so
@@ -651,6 +670,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/inference_deep/stdout.txt" "$KEEP_CPP_OUTPUT/inference_deep/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/softmax"
   cp "$TMP/softmax/stdout.txt" "$KEEP_CPP_OUTPUT/softmax/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/fft"
+  cp "$TMP/fft/stdout.txt" "$KEEP_CPP_OUTPUT/fft/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/imported_mlp"
   cp "$TMP/imported/cpp.txt" "$KEEP_CPP_OUTPUT/imported_mlp/stdout.txt"
   cp -r "$TMP/gbdt/cpp" "$KEEP_CPP_OUTPUT/gbdt"

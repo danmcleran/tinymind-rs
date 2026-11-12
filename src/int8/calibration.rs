@@ -5,7 +5,7 @@
 //! `computeAffineParamsSymmetric`, `computePerChannelSymmetricScales`, the
 //! `RangeObserver`, `buildQAddParams`, `buildRescaler`,
 //! `buildQMulRequantizer`, `buildQLSTMParams`, `buildQGRUParams`,
-//! `quantizeQLSTMBiases`, `quantizeQGRUBiases`).
+//! `quantizeQLSTMBiases`, `quantizeQGRUBiases`, `buildQFFTTwiddles`).
 //!
 //! Needs the `std` feature, for `f32::exp` and `f32::tanh`; tinymind (C++) gates the
 //! same functions on `TINYMIND_ENABLE_FLOAT && TINYMIND_ENABLE_STD`. On a device,
@@ -16,7 +16,7 @@
 
 use super::{LUT_SIZE, QAdd, QSoftmax, Requantizer};
 #[cfg(doc)]
-use super::{QGruCell, QLstmCell};
+use super::{QFft1D, QGruCell, QLstmCell};
 
 /// C `frexp`: `x = mantissa * 2^exponent` with `|mantissa|` in `[0.5, 1)`.
 /// Zero, infinities and NaN come back unchanged with exponent 0.
@@ -648,6 +648,45 @@ pub fn quantize_gate_biases<const G: usize, const HID: usize>(
 ) -> [[i32; HID]; G] {
     biases
         .map(|gate| gate.map(|b| (f64::from(b) / f64::from(lut_input_scale)).round() as i64 as i32))
+}
+
+/// The Q1.15 twiddle tables of a [`QFft1D`]`<N, HALF>`: `cos(-2πk/N)` and
+/// `sin(-2πk/N)` for `k` in `0..N/2`, times 32768, rounded to nearest (ties
+/// away from zero) and clamped to `i16` (C++ `buildQFFTTwiddles`). Returns
+/// `(cos, sin)`.
+///
+/// `1.0` (`k = 0`) clamps to 32767, the convention of TFLite and CMSIS-DSP;
+/// `-1.0` (the sine at `k = N/4`) is exactly -32768. `cos` and `sin` come from
+/// the system math library, as in the C++, so the tables match the C++ ones on
+/// the same platform. The same checks on `N` and `HALF` as the layer's apply.
+///
+/// ```
+/// use tinymind::int8::QFft1D;
+/// use tinymind::int8::calibration::build_fft_twiddles;
+///
+/// let (cos, sin) = build_fft_twiddles::<8, 4>();
+/// assert_eq!(cos, [32767, 23170, 0, -23170]);
+/// assert_eq!(sin, [0, -23170, -32768, -23170]);
+/// let fft: QFft1D<'_, 8, 4> = QFft1D { twiddle_cos: &cos, twiddle_sin: &sin };
+/// # let _ = fft;
+/// ```
+pub fn build_fft_twiddles<const N: usize, const HALF: usize>() -> ([i16; HALF], [i16; HALF]) {
+    const {
+        assert!(N >= 2, "FFT length must be at least 2");
+        assert!(N.is_power_of_two(), "FFT length must be a power of two");
+        assert!(HALF == N / 2, "HALF must be N / 2");
+    }
+    // C `lround`, then the C++ clamp to the i16 range.
+    let q15 = |x: f64| (x * 32768.0).round().clamp(-32768.0, 32767.0) as i16;
+    let mut cos = [0i16; HALF];
+    let mut sin = [0i16; HALF];
+    for (k, (c, s)) in cos.iter_mut().zip(sin.iter_mut()).enumerate() {
+        // The C++ literal 6.283185307179586476925286766559 is TAU as an f64.
+        let phase = -core::f64::consts::TAU * k as f64 / N as f64;
+        *c = q15(phase.cos());
+        *s = q15(phase.sin());
+    }
+    (cos, sin)
 }
 
 #[cfg(test)]

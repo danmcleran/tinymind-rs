@@ -31,6 +31,8 @@ xor-q16 = []
 xor-q8 = []
 # The anomaly-detection demo: an autoencoder trained on the device.
 anomaly = []
+# The quantized FFT: a 256-point forward transform, hash-matched to tinymind (C++).
+fft = []
 # The imported scikit-learn tree models: results, both forms, flash vs SRAM.
 trees = []
 # Per-layer cycles for the MLP (a separate image, like tinymind's PROFILE build).

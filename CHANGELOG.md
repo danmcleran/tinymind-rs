@@ -9,6 +9,17 @@ break the API).
 
 ### Added
 
+- `int8::QFft1D`: a radix-2 decimation-in-time FFT on `i16` real and
+  imaginary buffers, in place, with Q1.15 twiddle tables borrowed from flash
+  (tinymind (C++)'s `QFFT1D`), for vibration, audio and IMU front ends on
+  cores without an FPU. `forward` scales by 1/N, `inverse` does not, and
+  `magnitude_squared` gives each bin's power in `i32`, saturating only at the
+  one bin that overflows. The length `N` and the table length `HALF` (`N / 2`)
+  are checked at compile time; the bit reversal needs no table.
+  `int8::calibration::build_fft_twiddles` (feature `std`) builds the tables as
+  tinymind (C++)'s `buildQFFTTwiddles` does. Checked against tinymind (C++) at
+  every length from 2 to 1024 (`tests/fft_sweep.rs`), on Cortex-M under QEMU,
+  and timed on both boards (bench workload `fft`).
 - CI runs the on-board checks under QEMU on a Cortex-M4 and a Cortex-M0 (the
   two boards' instruction sets) at three optimisation levels
   (`scripts/qemu-bench.sh`): every workload's output hash must match, as on

@@ -52,12 +52,18 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   detect. `unsafe` is ruled out for good (Dan, 2026-11-11; CLAUDE.md), SIMD
   intrinsics and `asm!` included.
 - **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, 17 to
-  21 minutes on CI, 16 before the recurrent cells): 87 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
+  21 minutes on CI, 16 before the recurrent cells): 92 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
   and Q1.31: add/sub wrap, multiply floors then wraps, the SGD products
   (`mul_round_toward_zero`, `mul_round_nearest`) round then wrap, division never panics,
   `from_int`, `pow2_neg`, zero tolerance and comparisons match their definitions.
   Tanh and sigmoid (both formats) stay within their tables' range and never index
-  out of bounds; ReLU is max(0, x). Int8: the requantizer's fused path equals
+  out of bounds; ReLU is max(0, x). FFT (2026-11-12, `mod fft`, 19 s for all
+  five): `q15_mul` floors (remainder inequality in i64), `saturate_i16`
+  clamps, forward and inverse at N=4 never panic or overflow for any samples
+  and twiddles (-32768 included; unwind 5), magnitudes = min(exact, i32::MAX)
+  (i128 spec). Plants: rounding q15, i16 butterfly sum (overflow), an
+  out-of-range bot index, a magnitude threshold 100,000 low; `>=` for `>` is an
+  equivalent mutant (2^31 - 1 is not a sum of two squares). Int8: the requantizer's fused path equals
   gemmlowp's two-step rounding (written as tinymind's unit test writes it) for
   every input in its domain; the requantizer, the dense layer, the LUT and the
   softmax (its exp and reciprocal on every `i32`, and the layer for any
@@ -105,7 +111,9 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   12345 scale 3 too). Default sample pinned: `CHECKS_16BIT` 105,792,
   `CHECKS_32BIT` 134,485 (host asserts at seed 0 scale 1; device requires them).
   Sizes: M0 O3 image > 256K (conv alone overflowed by 4.3 KB) and LSTM stack
-  73 KB, so QEMU's nRF51 gets flash-size 1M, sram-size 256K. Real F411: all
+  73 KB, so QEMU's nRF51 gets flash-size 1M, sram-size 256K (2M flash since
+  2026-11-12: the FFT sweep took the M0 O3 sweeps image 1.4 KB past 1M; QEMU
+  8.2 accepts 2M). Real F411: all
   match, 679,290,763 cycles, 477 KB. qemu-bench.sh's match regex was
   `^[a-z_]*match`, blind to `oracle_16bit_match=0`; now `[a-z0-9_]`, shown by
   an oracle-only plant (positive / 0 -> MAX-1). Other plants: tree `<`,

@@ -31,6 +31,12 @@ samples, so the numbers sit next to the tinymind (C++) ones.
   windows. The report must equal the host's, and its hash (every trained weight
   and every score) must equal `EXPECT_HASH` in `src/anomaly.rs`, which the host
   run and `tests/anomaly_golden.rs` pin. No C++ counterpart.
+- **`fft`**: one 256-point forward transform of `int8::QFft1D` and the
+  squared magnitudes of its bins, on the FFT sweep's random signal with
+  tinymind (C++)'s twiddle tables (`build.rs` reads both, and the hash
+  tinymind (C++) printed for that transform, from
+  `tests/golden/fft/stdout.txt`). The spectrum's hash must equal the one
+  tinymind (C++) printed.
 - **`trees`**: the two imported scikit-learn models of the `imported_trees`
   example (gradient boosting, 90 trees on int8 inputs; random forest, 15
   voting trees on int16) classify the 54 held-out UCI Wine samples; the hash of
@@ -145,6 +151,7 @@ sensitive to placement (see below).
 | xor Q8.8 training trajectory (20,000 steps) = golden | match | match |
 | anomaly demo: report and hash = host run (`0x7C074DAD`) | match | match |
 | KWS CNN output hash = tinymind (C++)'s (`0x6B1854D3`) | match | match |
+| 256-point FFT, forward: spectrum hash = tinymind (C++)'s (`0xEFABBA1C`) | match | match |
 | MLPerf Tiny DS-CNN (translated from TFLite) output hash = tinymind (C++)'s (`0xF623A166`) | match | - |
 | MLPerf Tiny ResNet-8 (translated from TFLite) output hash = tinymind (C++)'s (`0x8897F6ED`) | match | - |
 | MLP accuracy | 346/360 (96.11%) | 31/32 (96.88%) |
@@ -224,6 +231,22 @@ The L031 image leaves about 2.3 KB of the part's 32 KB free; the training step
 and the scorer are `#[inline(never)]` so the training and timing loops share
 one copy (inlined twice at `opt-level = 3` it did not fit), and so is the
 library's per-layer update loop (`optimizer::update_all`).
+
+### Quantized FFT, 256 points
+
+| | F411 | L031 |
+|---|---:|---:|
+| Forward transform (median) | 71,627 cycles (716 us) | 172,683 cycles (5.40 ms) |
+| Squared magnitudes of the 256 bins (median) | 2,731 | 4,863 |
+| Stack (peak) / over baseline | 4,564 B / +4,052 B | 4,564 B / +3,960 B |
+| Flash (text) / over baseline | 15,736 B / +2,420 B | 14,672 B / +2,236 B |
+
+Measured 2026-11-12, at `opt-level = 3` with `target-cpu`. The transform
+itself works in the caller's buffers and needs no memory of its own: the stack
+figure is the workload's (the input kept for 33 timed runs, the working
+buffers, 1 KB of magnitudes). The flash delta includes the twiddle tables
+(512 B), the signal generator and the report. tinymind (C++)'s FFT has not
+been timed on the boards yet.
 
 ### KWS-shaped CNN (int8 convolutions)
 
@@ -439,7 +462,8 @@ on every pull request (CI's `cpp-equivalence` job); timings need the boards.
 
 The `sweeps` workload (`src/sweeps.rs`) runs every host test sweep on the
 device: convolution and pooling, addition, composition (multiply, concat,
-pad), softmax, the int8 LSTM and GRU cells, LSTM training, decision trees and
+pad), softmax, the FFT (with tinymind (C++)'s twiddle tables from the
+golden), the int8 LSTM and GRU cells, LSTM training, decision trees and
 Q-learning, and the qformat oracle, from `tests/sweeps/`, which the host tests
 include too. Each sweep writes its report into a sink that compares it line by
 line, as it is written, with the committed golden from tinymind (C++)'s

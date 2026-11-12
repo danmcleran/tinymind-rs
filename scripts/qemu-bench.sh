@@ -9,7 +9,7 @@
 #
 # Cores: m4 = QEMU mps2-an386 (Cortex-M4, thumbv7em-none-eabihf, the F411's
 # instruction set), m0 = QEMU microbit (Cortex-M0, thumbv6m-none-eabi: the
-# L031's Cortex-M0+ runs the same ARMv6-M instructions), given 1M of flash and
+# L031's Cortex-M0+ runs the same ARMv6-M instructions), given 2M of flash and
 # 256K of RAM for the sweeps image (the chip has 256K and 16K). The `sweeps`
 # workload runs the host test sweeps (tests/sweeps/) against their goldens.
 # The MLPerf workloads run on m4 only, and only when their generated sources
@@ -28,10 +28,10 @@ runs=0
 for core in ${CORES:-m4 m0}; do
   case "$core" in
     m4) target=thumbv7em-none-eabihf machine=(-machine mps2-an386 -cpu cortex-m4) ;;
-    m0) target=thumbv6m-none-eabi machine=(-machine microbit -global nrf51-soc.flash-size=1048576 -global nrf51-soc.sram-size=262144) ;;
+    m0) target=thumbv6m-none-eabi machine=(-machine microbit -global nrf51-soc.flash-size=2097152 -global nrf51-soc.sram-size=262144) ;;
     *) echo "qemu-bench: unknown core '$core'" >&2; exit 2 ;;
   esac
-  default="mlp profile xor-q16 xor-q8 anomaly trees kws kws-profile sweeps"
+  default="mlp profile xor-q16 xor-q8 anomaly fft trees kws kws-profile sweeps"
   if [ "$core" = m4 ]; then
     for wl in mlperf-kws mlperf-ic; do
       [ -f "src/gen/${wl//-/_}.rs" ] && default="$default $wl"
