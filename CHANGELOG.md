@@ -34,6 +34,14 @@ break the API).
   spills its small unrolled Q16.16 layers to the stack; see "Build settings"
   in `bench/README.md`). The L031 timings did not change. No library change.
 
+### Performance
+
+- Int8 pointwise convolutions (`QPointwiseConv2D`, `QPointwiseConv2DPerChannel`)
+  with 32 or more input channels run two filters at two pixels at a time, so
+  each loaded input serves two filters and each weight two pixels: the MLPerf
+  DS-CNN takes 9% fewer cycles on the F411 (10,790,589). Shorter rows, where
+  pairs measured slower, run as before. Results are unchanged.
+
 ## [0.3.1] - 2026-11-11
 
 ### Added
