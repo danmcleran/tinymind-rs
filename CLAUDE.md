@@ -23,7 +23,7 @@ because that name is taken on crates.io.
 
 **Publishing:** `tinymind` is on crates.io (owner `danmcleran`; docs on docs.rs).
 Releases, each with a tag `vX.Y.Z` and a GitHub release (contents in `CHANGELOG.md`):
-0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.2.0, 0.3.0, 0.3.1 (2026-11-11). Agents run the
+0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.4, 0.1.5, 0.2.0, 0.3.0, 0.3.1 (2026-11-11), 0.3.2 (2026-11-12). Agents run the
 whole release in a session, including `cargo publish` (Dan's preference,
 2026-11-07), but only after Dan's explicit go-ahead for that release: a version
 cannot be deleted, only yanked. Semver applies: before 1.0 a minor bump may break

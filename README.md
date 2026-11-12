@@ -68,11 +68,11 @@ the results page lists the settings to measure. Results and method:
 
 ```toml
 [dependencies]
-tinymind = "0.3.1"
+tinymind = "0.3.2"
 # Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat:
-# tinymind = { version = "0.3.1", features = ["std"] }
+# tinymind = { version = "0.3.2", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
-# tinymind = { version = "0.3.1", features = ["libm"] }
+# tinymind = { version = "0.3.2", features = ["libm"] }
 ```
 
 The API reference is on [docs.rs](https://docs.rs/tinymind).
@@ -236,8 +236,8 @@ the int8 quantization tiers, SIMD backends, and so on.
   `tests/softmax_sweep.rs` against the tinymind (C++) softmax and its calibration
   over 504 calibrations and row lengths 1 to 511.
 - `tests/fft_sweep.rs` checks the FFT and its twiddle-table builder against
-  tinymind (C++)'s `QFFT1D` and `buildQFFTTwiddles` for every length from 2 to
-  1024: the tables, then nine signals (impulses, DC, tones, random samples,
+  tinymind (C++)'s `QFFT1D` and `buildQFFTTwiddles` for every power-of-two
+  length from 2 to 1024: the tables, then nine signals (impulses, DC, tones, random samples,
   full-scale values that saturate) through the forward and inverse transforms,
   the round trip and the bin magnitudes, on the built tables and on random ones.
 - `tests/kws_int8_golden.rs` checks every tensor of the `kws_cortex_m_int8`
@@ -320,8 +320,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   the MLPerf models, xor training, the anomaly demo, the FFT, the trees) must match, as
   on the boards. It also runs the convolution and pooling, LSTM, decision-tree
   and Q-learning sweeps on Cortex-M, along with the addition, composition,
-  softmax, FFT and int8 LSTM/GRU sweeps (with the C++'s calibrated parameters
-  and twiddle tables, since calibration needs `std`), whose reports must equal tinymind (C++)'s
+  softmax and FFT sweeps (with the C++'s calibrated parameters and twiddle
+  tables from the goldens, since calibration needs `std`) and the int8
+  LSTM/GRU sweep's direct-parameter trials, whose reports must equal tinymind (C++)'s
   goldens byte for byte, and the qformat oracle's default sample (240,277
   checks). CI runs it on every pull request; the boards themselves are still
   needed for timings.

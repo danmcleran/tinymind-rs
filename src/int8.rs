@@ -38,41 +38,13 @@
 //! padded tap contributes nothing. Pooling keeps the input's scale and zero
 //! point: no requantizer.
 //!
-//! [`QAdd`] adds two tensors of the same shape with their own scales and zero
-//! points (TFLite ADD), for residual connections, and [`QMul`] multiplies them
-//! (TFLite MUL, squeeze-and-excite gating). [`QPad2D`] pads a tensor with a
-//! constant and [`QConcat`] joins two along the channel axis.
-//!
-//! # Recurrent cells
-//!
-//! [`QLstmCell`] and [`QGruCell`] run one time step of an int8 LSTM or GRU
-//! cell, updating the caller's hidden state (and the LSTM's cell state, `i8`
-//! or `i16`) in place; the caller runs the time loop over a sequence. Weights
-//! are gate-major, `[gate][unit][input]`: PyTorch's `nn.LSTM` stacks its gates
-//! in the same order (i, f, g, o), so its weight matrices map onto them
-//! directly (add its two bias vectors, `bias_ih` and `bias_hh`, before
-//! quantizing them). The GRU applies its reset gate before the recurrent
-//! multiply, as Keras does with `reset_after=False` (whose kernels store the
-//! gates as update, reset, new, so reorder them); PyTorch's `nn.GRU` and Keras' default
-//! apply it after, which is a different function. The gate
-//! activations come from 256-entry sigmoid and tanh tables with fixed output
-//! grids; `calibration` builds the tables and the rescaling parameters from
-//! float scales.
-//!
-//! # FFT
-//!
-//! [`QFft1D`] is a radix-2 FFT for vibration, audio or IMU front ends: 16-bit
-//! samples, Q1.15 twiddle tables borrowed from flash, in place on the caller's
-//! real and imaginary buffers. Its bin magnitudes come out in `i32`, ready for a
-//! [`Requantizer`] onto an int8 grid; `calibration` builds the twiddle tables.
-//!
 //! A convolution over two or more input channels widens its input rows and
 //! each filter's weights to 16 bits and adds the products in pairs. On cores
 //! with the DSP extension (Cortex-M4, M7, M33), LLVM can turn each pair into
 //! one `SMLAD` instruction, from this plain Rust, but by default it gives up
 //! on long unrolled sums. Building with `-C
 //! llvm-args=-arm-parallel-dsp-load-limit=512` (in the target's `rustflags`)
-//! lets it pair them: on an STM32F411 the MLPerf Tiny ResNet-8 then takes 36%
+//! lets it pair them: on an STM32F411 the MLPerf Tiny ResNet-8 then takes 35%
 //! fewer cycles. It is an LLVM internal option, not a stable Rust one.
 //!
 //! ```
@@ -105,6 +77,36 @@
 //! let mut features = [[[0i8; 8]; 17]; 18]; // 17 columns: the layer makes 18
 //! conv.forward(&input, &mut features);
 //! ```
+//!
+//! [`QAdd`] adds two tensors of the same shape with their own scales and zero
+//! points (TFLite ADD), for residual connections, and [`QMul`] multiplies them
+//! (TFLite MUL, squeeze-and-excite gating). [`QPad2D`] pads a tensor with a
+//! constant and [`QConcat`] joins two along the channel axis.
+//!
+//! # Recurrent cells
+//!
+//! [`QLstmCell`] and [`QGruCell`] run one time step of an int8 LSTM or GRU
+//! cell, updating the caller's hidden state (and the LSTM's cell state, `i8`
+//! or `i16`) in place; the caller runs the time loop over a sequence. Weights
+//! are gate-major, `[gate][unit][input]`: PyTorch's `nn.LSTM` stacks its gates
+//! in the same order (i, f, g, o), so its weight matrices map onto them
+//! directly (add its two bias vectors, `bias_ih` and `bias_hh`, before
+//! quantizing them). The GRU applies its reset gate before the recurrent
+//! multiply, as Keras does with `reset_after=False` (whose kernels store the
+//! gates as update, reset, new, so reorder them); PyTorch's `nn.GRU` and Keras' default
+//! apply it after, which is a different function. The gate
+//! activations come from 256-entry sigmoid and tanh tables with fixed output
+//! grids; `calibration` builds the tables and the rescaling parameters from
+//! float scales.
+//!
+//! # FFT
+//!
+//! [`QFft1D`] is a radix-2 FFT for vibration, audio or IMU front ends: 16-bit
+//! samples, Q1.15 twiddle tables borrowed from flash, in place on the caller's
+//! real and imaginary buffers. Its bin magnitudes come out in `i32`, ready for a
+//! [`Requantizer`] onto an int8 grid; `calibration` builds the twiddle tables.
+//!
+//! # Equivalence with tinymind (C++)
 //!
 //! Results match tinymind (C++) bit for bit, and through it TFLite's reference
 //! kernels for the layers TFLite has (the recurrent cells' table-based gates

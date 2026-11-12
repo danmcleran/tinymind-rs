@@ -7,7 +7,7 @@
 //! `buildQMulRequantizer`, `buildQLSTMParams`, `buildQGRUParams`,
 //! `quantizeQLSTMBiases`, `quantizeQGRUBiases`, `buildQFFTTwiddles`).
 //!
-//! Needs the `std` feature, for `f32::exp` and `f32::tanh`; tinymind (C++) gates the
+//! Needs the `std` feature, for `exp`, `tanh`, `cos` and `sin`; tinymind (C++) gates the
 //! same functions on `TINYMIND_ENABLE_FLOAT && TINYMIND_ENABLE_STD`. On a device,
 //! run these on the host and embed the results as constants. The float
 //! arithmetic follows the C++ step for step, so the tables and requantizers match
