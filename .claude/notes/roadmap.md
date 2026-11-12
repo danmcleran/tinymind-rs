@@ -5,6 +5,13 @@ what to port next, and update it when a step is done.
 
 ## Next steps
 
+- **FFT speed (open, 2026-11-12):** `QFft1D` forward at N=256 takes 172,683
+  cycles on the L031 and 71,627 on the F411, untuned. On the M0+ the
+  transform has 116 `ldr` against 42 in gcc's build of the C++ (static
+  count), so it spills; tinymind's FFT has not been timed on the boards.
+  Time the C++ on both boards first, then tune (results must stay
+  bit-exact; notes in `.claude/rules/int8.md`).
+
 Next steps follow `reports/Embedded Rust ML priorities.md` (local, not committed):
 Dan chose to port what matters most to embedded Rust developers, not the smallest
 piece. Done: int8 dense + softmax, the PyTorch importer, multiple hidden layers
@@ -85,5 +92,7 @@ tag `v0.3.0`: tabular Q-learning and the maze, the LSTM and `har_activity`,
 the syncs to tinymind #261-#267: optimizers train biases with one step per
 update, SGD momentum rounds toward zero and its step to nearest; `Default`
 Adam/RmsProp constants, `mul_round_toward_zero`, `mul_round_nearest`; minor bump because results change and `Scalar` gained
-a method), and 0.3.1 (2026-11-11, tag `v0.3.1`: the int8 LSTM and GRU cells,
-`int8::QLstmCell` and `int8::QGruCell`, with their calibration).
+a method), 0.3.1 (2026-11-11, tag `v0.3.1`: the int8 LSTM and GRU cells,
+`int8::QLstmCell` and `int8::QGruCell`, with their calibration), and 0.3.2
+(2026-11-12, tag `v0.3.2`: the quantized FFT, `int8::QFft1D` and
+`calibration::build_fft_twiddles`; 2x2 pointwise pairs; QEMU runs in CI).
