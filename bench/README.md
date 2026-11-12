@@ -428,28 +428,45 @@ model cycles, so every timing reads 0: this checks correctness, on Arm code,
 on every pull request (CI's `cpp-equivalence` job); timings need the boards.
 `CORES=m4 OPTS=3 WORKLOADS="mlp kws" scripts/qemu-bench.sh` runs a subset.
 
-The `sweeps` workload (`src/sweeps.rs`) runs the host test sweeps on the
-device: the convolution and pooling, LSTM, decision-tree and Q-learning sweeps
-and the qformat oracle, from `tests/sweeps/`, which the host tests include
-too. Each sweep writes its report into a sink that compares it, as it is
-written, with the committed golden from tinymind (C++)'s program (no buffer:
-the goldens are in flash), and prints `<sweep>_match=1`, or the first golden
-line that differs. The oracle checks itself against exact arithmetic and must
-also run all of its default sample (105,792 checks on 16-bit storage, 134,485
-on 32-bit). The Q-learning sweep's maze line stays on the host (the maze
-driver uses `std`). The add, compose, softmax and int8 recurrent sweeps are not
-on the device: they calibrate their layers with `int8::calibration`, which
-needs `std`.
+The `sweeps` workload (`src/sweeps.rs`) runs every host test sweep on the
+device: convolution and pooling, addition, composition (multiply, concat,
+pad), softmax, the int8 LSTM and GRU cells, LSTM training, decision trees and
+Q-learning, and the qformat oracle, from `tests/sweeps/`, which the host tests
+include too. Each sweep writes its report into a sink that compares it line by
+line, as it is written, with the committed golden from tinymind (C++)'s
+program (no buffer: the goldens are in flash), and prints `<sweep>_match=1`,
+or the first golden line that differs. The oracle checks itself against exact
+arithmetic and must also run all of its default sample (105,792 checks on
+16-bit storage, 134,485 on 32-bit).
 
-The image is large (477 KB on the F411 at opt-level 3; it does not fit the
-L031), and the LSTM sweep needs 73 KB of stack, so `qemu-bench.sh` gives the
-microbit 1 MB of flash and 256 KB of RAM (`-global nrf51-soc.flash-size`,
-`sram-size`; `memory-qemu-m0.x`); only the instruction set is under test
-there. On the F411 itself (`WORKLOADS=sweeps bench/run.sh f411`) every sweep
-matches; the run takes 679,290,763 cycles (6.8 s). Planted defects that fail
-it: the trees' `<=` as `<` (`tree_match=0`), a rounding Q-format multiply (the
-oracle, the LSTM and Q-learning sweeps), and a positive number divided by
-zero giving max - 1 (only the oracle).
+Some of the host's report is not reproduced on the device:
+
+- The addition, composition and softmax sweeps calibrate their layers with
+  `int8::calibration`, which needs `std` (float rounding, `exp`). The golden
+  prints every calibrated parameter, so on the device each calibrated layer
+  takes the C++'s parameters from its golden line and must still produce the
+  golden's output hash. The zero points and output range the sweep draws must
+  agree with the line read, or the run fails (it is reading another trial's
+  parameters).
+- The int8 LSTM and GRU sweep's calibrated trials also need quantized weights,
+  biases and lookup tables, which the golden prints only as hashes. On the
+  device those trials run with zeroed parameters only to keep the generator in
+  step, and only the direct-parameter trials (26 of 52 lines) are compared;
+  the host compares all of them.
+- The Q-learning sweep's maze line stays on the host (the maze driver uses
+  `std`).
+
+The image is large, and the LSTM sweep needs 73 KB of stack, so
+`qemu-bench.sh` gives the microbit 1 MB of flash and 256 KB of RAM (`-global
+nrf51-soc.flash-size`, `sram-size`; `memory-qemu-m0.x`); only the instruction
+set is under test there. On the F411 it fits only at opt-level s (321 KB; 767
+KB at 3): `OPT=s WORKLOADS=sweeps bench/run.sh f411` matches on every sweep,
+in 293,084,567 cycles (2.9 s). It does not fit the L031. Planted defects that
+fail it: the trees' `<=` as `<` (`tree_match=0`), a rounding Q-format
+multiply (the oracle, the LSTM and Q-learning sweeps), a positive number
+divided by zero giving max - 1 (only the oracle), addition subtracting a's
+zero point from b, padding with 0, softmax dropping a logit exactly at
+`diff_min`, and the GRU's `1 - z` off by one; each fails its own sweep only.
 
 ## Read the generated code
 
