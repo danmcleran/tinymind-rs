@@ -48,8 +48,8 @@ built for the same boards with the same models, inputs and compiler settings:
   1.89 ms on the M4F and 20.3 ms on the M0+, 26% and 13% fewer cycles than the
   C++'s portable build.
 - On the F411, the MLPerf Tiny keyword-spotting and image-classification
-  (ResNet-8) models, translated from TFLite: the C++'s output hashes, in 119 ms
-  and 588 ms, 25% and 31% fewer cycles than the C++'s portable build.
+  (ResNet-8) models, translated from TFLite: the C++'s output hashes, in 108 ms
+  and 588 ms, 31% fewer cycles than the C++'s portable build for each.
 - XOR trained on the board reproduces the desktop weight trajectory bit for bit.
 - The anomaly example trains on the chip in 0.28 s on the M4F and 4.6 s on the
   M0+.
@@ -307,7 +307,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   optimisation levels: every workload's output hash (the int8 MLP and CNNs,
   the MLPerf models, xor training, the anomaly demo, the trees) must match, as
   on the boards. It also runs the convolution and pooling, LSTM, decision-tree
-  and Q-learning sweeps on Cortex-M, whose reports must equal tinymind (C++)'s
+  and Q-learning sweeps on Cortex-M, along with the addition, composition,
+  softmax and int8 LSTM/GRU sweeps (with the C++'s calibrated parameters,
+  since calibration needs `std`), whose reports must equal tinymind (C++)'s
   goldens byte for byte, and the qformat oracle's default sample (240,277
   checks). CI runs it on every pull request; the boards themselves are still
   needed for timings.

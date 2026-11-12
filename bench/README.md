@@ -290,15 +290,22 @@ includes its tensor arena).
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **11,850,835** | **118.5 ms** | **45,872 B** | **16,680 B** |
+| **tinymind-rs** | **10,790,589** | **107.9 ms** | **49,712 B** | **16,812 B** |
 | tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
 | tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,288 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,764 B |
 
-- The Rust model takes 25% fewer cycles than tinymind (C++)'s portable build, in
-  13% less flash and 3% less RAM; tinymind (C++)'s SMLAD build and TFLM with
-  CMSIS-NN are faster. The parallel-DSP flag does not change it. Per layer
+- The Rust model takes 31% fewer cycles than tinymind (C++)'s portable build, in
+  6% less flash and 3% less RAM; tinymind (C++)'s SMLAD build and TFLM with
+  CMSIS-NN are faster. The parallel-DSP flag does not change it. Its four
+  64-channel pointwise layers run two filters at two pixels at a time (2x2,
+  from 32 input channels), as tinymind (C++)'s SMLAD kernel blocks them: each
+  loaded input serves two filters and each weight two pixels. That took the
+  model from 11,850,835 to 10,790,589 cycles (-9%) for 3,840 B more flash. With
+  8 channels (the KWS-shaped network) pairs made the pointwise layer 28%
+  slower on the F411 and 9% on the L031, so shorter rows keep one filter at a
+  time. Per layer
   (measured before the build settings were matched, 13.23M cycles in all): the 10x4 stem 1.77M cycles (3.09M before its
   window was gathered once per pixel), each pointwise layer 2.17M (2.60M before
   two pixels per pass), each depthwise layer 0.65M. The depthwise layers spend
@@ -421,28 +428,45 @@ model cycles, so every timing reads 0: this checks correctness, on Arm code,
 on every pull request (CI's `cpp-equivalence` job); timings need the boards.
 `CORES=m4 OPTS=3 WORKLOADS="mlp kws" scripts/qemu-bench.sh` runs a subset.
 
-The `sweeps` workload (`src/sweeps.rs`) runs the host test sweeps on the
-device: the convolution and pooling, LSTM, decision-tree and Q-learning sweeps
-and the qformat oracle, from `tests/sweeps/`, which the host tests include
-too. Each sweep writes its report into a sink that compares it, as it is
-written, with the committed golden from tinymind (C++)'s program (no buffer:
-the goldens are in flash), and prints `<sweep>_match=1`, or the first golden
-line that differs. The oracle checks itself against exact arithmetic and must
-also run all of its default sample (105,792 checks on 16-bit storage, 134,485
-on 32-bit). The Q-learning sweep's maze line stays on the host (the maze
-driver uses `std`). The add, compose, softmax and int8 recurrent sweeps are not
-on the device: they calibrate their layers with `int8::calibration`, which
-needs `std`.
+The `sweeps` workload (`src/sweeps.rs`) runs every host test sweep on the
+device: convolution and pooling, addition, composition (multiply, concat,
+pad), softmax, the int8 LSTM and GRU cells, LSTM training, decision trees and
+Q-learning, and the qformat oracle, from `tests/sweeps/`, which the host tests
+include too. Each sweep writes its report into a sink that compares it line by
+line, as it is written, with the committed golden from tinymind (C++)'s
+program (no buffer: the goldens are in flash), and prints `<sweep>_match=1`,
+or the first golden line that differs. The oracle checks itself against exact
+arithmetic and must also run all of its default sample (105,792 checks on
+16-bit storage, 134,485 on 32-bit).
 
-The image is large (477 KB on the F411 at opt-level 3; it does not fit the
-L031), and the LSTM sweep needs 73 KB of stack, so `qemu-bench.sh` gives the
-microbit 1 MB of flash and 256 KB of RAM (`-global nrf51-soc.flash-size`,
-`sram-size`; `memory-qemu-m0.x`); only the instruction set is under test
-there. On the F411 itself (`WORKLOADS=sweeps bench/run.sh f411`) every sweep
-matches; the run takes 679,290,763 cycles (6.8 s). Planted defects that fail
-it: the trees' `<=` as `<` (`tree_match=0`), a rounding Q-format multiply (the
-oracle, the LSTM and Q-learning sweeps), and a positive number divided by
-zero giving max - 1 (only the oracle).
+Some of the host's report is not reproduced on the device:
+
+- The addition, composition and softmax sweeps calibrate their layers with
+  `int8::calibration`, which needs `std` (float rounding, `exp`). The golden
+  prints every calibrated parameter, so on the device each calibrated layer
+  takes the C++'s parameters from its golden line and must still produce the
+  golden's output hash. The zero points and output range the sweep draws must
+  agree with the line read, or the run fails (it is reading another trial's
+  parameters).
+- The int8 LSTM and GRU sweep's calibrated trials also need quantized weights,
+  biases and lookup tables, which the golden prints only as hashes. On the
+  device those trials run with zeroed parameters only to keep the generator in
+  step, and only the direct-parameter trials (26 of 52 lines) are compared;
+  the host compares all of them.
+- The Q-learning sweep's maze line stays on the host (the maze driver uses
+  `std`).
+
+The image is large, and the LSTM sweep needs 73 KB of stack, so
+`qemu-bench.sh` gives the microbit 1 MB of flash and 256 KB of RAM (`-global
+nrf51-soc.flash-size`, `sram-size`; `memory-qemu-m0.x`); only the instruction
+set is under test there. On the F411 it fits only at opt-level s (321 KB; 767
+KB at 3): `OPT=s WORKLOADS=sweeps bench/run.sh f411` matches on every sweep,
+in 293,084,567 cycles (2.9 s). It does not fit the L031. Planted defects that
+fail it: the trees' `<=` as `<` (`tree_match=0`), a rounding Q-format
+multiply (the oracle, the LSTM and Q-learning sweeps), a positive number
+divided by zero giving max - 1 (only the oracle), addition subtracting a's
+zero point from b, padding with 0, softmax dropping a logit exactly at
+`diff_min`, and the GRU's `1 - z` off by one; each fails its own sweep only.
 
 ## Read the generated code
 

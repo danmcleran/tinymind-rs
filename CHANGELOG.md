@@ -16,7 +16,10 @@ break the API).
 - The convolution and pooling, LSTM, decision-tree and Q-learning sweeps and
   the qformat oracle now also run on Cortex-M (bench workload `sweeps`, under
   QEMU in CI): each report must equal tinymind (C++)'s golden byte for byte,
-  and every oracle check must pass. The sweeps moved into `tests/sweeps/`,
+  and every oracle check must pass. So do the addition, composition, softmax
+  and int8 LSTM/GRU sweeps, whose calibrated layers take the C++'s parameters
+  from the golden there (calibration needs `std`); the int8 recurrent cells'
+  calibrated trials are compared on the host only. The sweeps moved into `tests/sweeps/`,
   shared by the host tests and the device. No library change.
 
 ### Changed
@@ -30,6 +33,14 @@ break the API).
   37% slower (LLVM's instruction scheduler, which that setting enables,
   spills its small unrolled Q16.16 layers to the stack; see "Build settings"
   in `bench/README.md`). The L031 timings did not change. No library change.
+
+### Performance
+
+- Int8 pointwise convolutions (`QPointwiseConv2D`, `QPointwiseConv2DPerChannel`)
+  with 32 or more input channels run two filters at two pixels at a time, so
+  each loaded input serves two filters and each weight two pixels: the MLPerf
+  DS-CNN takes 9% fewer cycles on the F411 (10,790,589). Shorter rows, where
+  pairs measured slower, run as before. Results are unchanged.
 
 ## [0.3.1] - 2026-11-11
 

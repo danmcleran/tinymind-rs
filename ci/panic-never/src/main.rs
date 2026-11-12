@@ -439,6 +439,37 @@ fn int8_conv() {
     pointwise.forward(&input, &mut out);
     black_box(&out);
 
+    // 32 channels reach the filter-pair path (PAIR_MIN_CHANNELS); 5 filters
+    // and 3 pixels leave an odd last filter and an odd last pixel.
+    let wide_input: [[[i8; 32]; 1]; 3] = black_box([[[1; 32]; 1]; 3]);
+    let wide_weights: [[i8; 32]; 5] = black_box([[1; 32]; 5]);
+    let wide_biases: [i32; 5] = black_box([1; 5]);
+    let wide_rqs: [Requantizer; 5] = black_box([rq; 5]);
+    let wide_bias = || {
+        if black_box(true) {
+            Some(&wide_biases)
+        } else {
+            None
+        }
+    };
+    let mut wide_out = [[[0i8; 5]; 1]; 3];
+    QPointwiseConv2D {
+        weights: &wide_weights,
+        biases: wide_bias(),
+        input_zero_point: zp,
+        requantizer: rq,
+    }
+    .forward(&wide_input, &mut wide_out);
+    black_box(&wide_out);
+    QPointwiseConv2DPerChannel {
+        weights: &wide_weights,
+        biases: wide_bias(),
+        input_zero_point: zp,
+        requantizers: &wide_rqs,
+    }
+    .forward(&wide_input, &mut wide_out);
+    black_box(&wide_out);
+
     let mut out = [[[0i8; 2]; 3]; 3];
     QMaxPool2D::<2, 2>.forward(&input, &mut out);
     black_box(&out);
