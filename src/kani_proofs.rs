@@ -764,6 +764,26 @@ mod conv {
         layer.forward(&input, &mut output);
     }
 
+    /// The filter-pair path needs rows of `PAIR_MIN_CHANNELS` (32); three
+    /// pixels also reach its odd last pixel. (The odd last filter runs the
+    /// one-filter path the harnesses above cover.)
+    #[kani::proof]
+    #[kani::unwind(34)]
+    fn pointwise_pairs_never_panic() {
+        let weights: [[i8; 32]; 2] = kani::any();
+        let biases: [i32; 2] = kani::any();
+        let input: [[[i8; 32]; 1]; 3] = kani::any();
+        let mut output = [[[0i8; 2]; 1]; 3];
+        let requantizers = [any_requantizer(), any_requantizer()];
+        let layer = QPointwiseConv2DPerChannel {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
+        };
+        layer.forward(&input, &mut output);
+    }
+
     #[kani::proof]
     #[kani::unwind(4)]
     fn pools_never_panic() {
