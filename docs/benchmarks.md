@@ -23,6 +23,7 @@ The crate has been run on two microcontroller boards, with the same boards, cloc
 | anomaly detection: training and every decision equal the host run | match | match |
 | imported decision trees: every score and class on the 54 Wine samples equals the host run | match | match |
 | int8 KWS-shaped CNN (convolutions): output hash equals tinymind (C++)'s | match | match |
+| 256-point FFT, forward transform: spectrum hash equals tinymind (C++)'s | match | match |
 | MLPerf Tiny keyword spotting (DS-CNN), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 | MLPerf Tiny image classification (ResNet-8), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 
@@ -133,6 +134,18 @@ The [anomaly-detection example]({{ site.baseurl }}/anomaly) on the boards: an 8-
 | Training, 3,000 steps (signal generation included) | 0.28 s | 4.6 s |
 | One training step | 8,811 cycles | 39,763 cycles |
 | One detection | 1,611 cycles | 8,096 cycles |
+
+## Quantized FFT
+
+One 256-point forward transform of `int8::QFft1D` on random 16-bit samples, with tinymind (C++)'s twiddle tables; the spectrum's hash equals the one tinymind (C++) computes. Measured 2026-11-12. tinymind (C++)'s FFT has not been timed on the boards.
+
+| | F411 | L031 |
+|---|---:|---:|
+| Forward transform | 71,627 cycles (716 µs) | 172,683 cycles (5.40 ms) |
+| Squared magnitudes of the 256 bins | 2,731 cycles | 4,863 cycles |
+| Flash over the empty image (tables, test signal and report included) | 2,420 B | 2,236 B |
+
+The transform works in the caller's buffers and needs no memory of its own.
 
 ## Decision trees, imported from scikit-learn
 

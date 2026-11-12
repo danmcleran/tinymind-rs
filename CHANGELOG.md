@@ -7,18 +7,20 @@ break the API).
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-12
+
 ### Added
 
 - `int8::QFft1D`: a radix-2 decimation-in-time FFT on `i16` real and
   imaginary buffers, in place, with Q1.15 twiddle tables borrowed from flash
   (tinymind (C++)'s `QFFT1D`), for vibration, audio and IMU front ends on
   cores without an FPU. `forward` scales by 1/N, `inverse` does not, and
-  `magnitude_squared` gives each bin's power in `i32`, saturating only at the
-  one bin that overflows. The length `N` and the table length `HALF` (`N / 2`)
+  `magnitude_squared` gives each bin's power in `i32`, saturating only where
+  both parts are -32768, the one sum that overflows. The length `N` and the table length `HALF` (`N / 2`)
   are checked at compile time; the bit reversal needs no table.
   `int8::calibration::build_fft_twiddles` (feature `std`) builds the tables as
   tinymind (C++)'s `buildQFFTTwiddles` does. Checked against tinymind (C++) at
-  every length from 2 to 1024 (`tests/fft_sweep.rs`), on Cortex-M under QEMU,
+  every power-of-two length from 2 to 1024 (`tests/fft_sweep.rs`), on Cortex-M under QEMU,
   and timed on both boards (bench workload `fft`).
 - CI runs the on-board checks under QEMU on a Cortex-M4 and a Cortex-M0 (the
   two boards' instruction sets) at three optimisation levels
@@ -35,12 +37,27 @@ break the API).
 
 ### Changed
 
+- Docs: layers built from values known only at run time (not `const` or
+  `static` items) give the same results more slowly; the int8 page and the
+  `int8` module docs now say so, with F411 figures (the keyword-spotting
+  shaped network's one-channel convolution 2.1x, its pointwise layer +10%,
+  the int8 MLP +1%). No library change.
+- Int8 pointwise convolutions (`QPointwiseConv2D`, `QPointwiseConv2DPerChannel`)
+  with 32 or more input channels run two filters at two pixels at a time, so
+  each loaded input serves two filters and each weight two pixels: the MLPerf
+  DS-CNN takes 9% fewer cycles on the F411 (10,790,589) when built with
+  `-C target-cpu=cortex-m4`; built for the `thumbv7em` target's generic tuning
+  it takes 8% more (14,277,919, was 13,225,965): the four-sum inner loop
+  spills to the stack unless LLVM schedules before register allocation, which
+  that tuning does not. Shorter rows, where pairs measured slower, run as
+  before. Results are unchanged.
 - On-board results: the benchmark images are now built with the same compiler
   settings as tinymind (C++)'s benchmark images, including tuning for the core
   (`-C target-cpu=cortex-m4` / `cortex-m0plus`, as its `-mcpu`), and every
-  figure was re-measured. On the F411 the MLPerf DS-CNN and ResNet-8 now take
-  25% and 31% fewer cycles than tinymind (C++)'s portable build (were 16% and
-  25%), and the int8 MLP is level with it; the anomaly demo's training step is
+  figure was re-measured. On the F411 the MLPerf DS-CNN and ResNet-8 now both
+  take 31% fewer cycles than tinymind (C++)'s portable build (were 16% and
+  25%; for the DS-CNN, 25% from `target-cpu` and the rest from the pointwise
+  pairs above), and the int8 MLP is level with it; the anomaly demo's training step is
   37% slower (LLVM's instruction scheduler, which that setting enables,
   spills its small unrolled Q16.16 layers to the stack; see "Build settings"
   in `bench/README.md`). The L031 timings did not change. No library change.
@@ -52,24 +69,6 @@ break the API).
   The anomaly slowdown with `target-cpu=cortex-m4` is reported upstream as
   llvm/llvm-project#241851. README.md and the anomaly page point to it. No
   library change.
-
-### Performance
-
-- Docs: layers built from values known only at run time (not `const` or
-  `static` items) give the same results more slowly; the int8 page and the
-  `int8` module docs now say so, with F411 figures (the keyword-spotting
-  shaped network's one-channel convolution 2.1x, its pointwise layer +10%,
-  the int8 MLP +1%). No library change.
-
-- Int8 pointwise convolutions (`QPointwiseConv2D`, `QPointwiseConv2DPerChannel`)
-  with 32 or more input channels run two filters at two pixels at a time, so
-  each loaded input serves two filters and each weight two pixels: the MLPerf
-  DS-CNN takes 9% fewer cycles on the F411 (10,790,589) when built with
-  `-C target-cpu=cortex-m4`; built for the `thumbv7em` target's generic tuning
-  it takes 8% more (14,277,919, was 13,225,965): the four-sum inner loop
-  spills to the stack unless LLVM schedules before register allocation, which
-  that tuning does not. Shorter rows, where pairs measured slower, run as
-  before. Results are unchanged.
 
 ## [0.3.1] - 2026-11-11
 
@@ -399,7 +398,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/danmcleran/tinymind-rs/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/danmcleran/tinymind-rs/compare/v0.1.5...v0.2.0

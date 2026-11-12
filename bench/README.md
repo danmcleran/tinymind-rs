@@ -486,15 +486,19 @@ Some of the host's report is not reproduced on the device:
   device those trials run with zeroed parameters only to keep the generator in
   step, and only the direct-parameter trials (26 of 52 lines) are compared;
   the host compares all of them.
+- The FFT sweep builds its twiddle tables with `int8::calibration` on the
+  host; on the device it reads them from the golden's `twiddles ` lines, which
+  the host also compares with what it built.
 - The Q-learning sweep's maze line stays on the host (the maze driver uses
   `std`).
 
 The image is large, and the LSTM sweep needs 73 KB of stack, so
-`qemu-bench.sh` gives the microbit 1 MB of flash and 256 KB of RAM (`-global
+`qemu-bench.sh` gives the microbit 2 MB of flash and 256 KB of RAM (`-global
 nrf51-soc.flash-size`, `sram-size`; `memory-qemu-m0.x`); only the instruction
-set is under test there. On the F411 it fits only at opt-level s (321 KB; 767
-KB at 3): `OPT=s WORKLOADS=sweeps bench/run.sh f411` matches on every sweep,
-in 293,084,567 cycles (2.9 s). It does not fit the L031. Planted defects that
+set is under test there. On the F411 it fits only at opt-level s (411 KB with
+the FFT sweep, 2026-11-12; at 3 it exceeds the 512 KB): `OPT=s
+WORKLOADS=sweeps bench/run.sh f411` matches on every sweep, in 355,889,556
+cycles (3.6 s), with 73 KB of stack. It does not fit the L031. Planted defects that
 fail it: the trees' `<=` as `<` (`tree_match=0`), a rounding Q-format
 multiply (the oracle, the LSTM and Q-learning sweeps), a positive number
 divided by zero giving max - 1 (only the oracle), addition subtracting a's

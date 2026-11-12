@@ -133,7 +133,8 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   minus a's zp (line 2), pad 0 (line 101), softmax `>` for `>=` diff_min (line
   402), GRU 1-z +1 (line 39). Full image: F411 767 KB at O3 (> 512 KB), 321 KB
   at s; `OPT=s WORKLOADS=sweeps bench/run.sh f411` all match, 293,084,567
-  cycles, 72 KB stack. QEMU 6 sweep runs ~2 min.
+  cycles, 72 KB stack. With the FFT sweep (2026-11-12): 411 KB at s, all match,
+  355,889,556 cycles, 73,280 B stack. QEMU 6 sweep runs ~2 min.
 - **Not done yet:** a coverage report. The sweeps on Cortex-M were first meant
   as the prerequisite for an opt-in `unsafe` DSP feature; Dan ruled `unsafe`
   out in any form (2026-11-11, CLAUDE.md), so they guard Arm code generation

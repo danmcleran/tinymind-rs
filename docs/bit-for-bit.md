@@ -12,11 +12,11 @@ The port has one rule that shapes everything else: **every ported path produces 
 
 ## What is in the crate
 
-As of 0.3.1:
+As of 0.3.2:
 
 - Q16.16 and Q8.8 fixed-point arithmetic (`QValue<i32, 16>`, `QValue<i16, 8>`), with ReLU, linear, and lookup-table tanh and sigmoid activations; the same networks also run on `f32` and `f64`.
 - Networks that train on the device with SGD and momentum, Adam or RMSprop (optionally with gradient clipping; for `f32`/`f64` also tinymind (C++)'s floating-point Adam and RMSprop, `AdamFloat` and `RmsPropFloat`): up to seven hidden layers (`NeuralNetwork` over `Dense` layers), and a one-hidden-layer perceptron (`MultilayerPerceptron`), each with an inference-only version that holds nothing but its weights (`InferenceNetwork`, `InferencePerceptron`).
-- int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), 2D convolutions (standard, depthwise and pointwise), pooling, residual addition, multiplication, padding, concatenation, quantized ReLU, activation tables, a softmax that is bit-exact with TFLite's, and LSTM and GRU cells.
+- int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), 2D convolutions (standard, depthwise and pointwise), pooling, residual addition, multiplication, padding, concatenation, quantized ReLU, activation tables, a softmax that is bit-exact with TFLite's, and LSTM and GRU cells; and a radix-2 FFT on 16-bit samples (`QFft1D`, with a host-side twiddle-table builder).
 - Tabular Q-learning (`QLearner` over a `QTable`, module `qlearn`), with tinymind (C++)'s maze example.
 - LSTM networks with one hidden layer (`LstmNetwork`, module `recurrent`), trained one step back in time, in fixed or floating point, with tinymind (C++)'s activity-recognition example.
 - Quantized decision trees and gradient-boosted ensembles (`QDecisionTree`, `QGbdt`) over a node pool that can live in flash, with int8, uint8 or int16 thresholds.
@@ -46,7 +46,7 @@ The examples only exercise the paths they use, so the arithmetic gets more:
 
 - **A differential oracle**, ported from tinymind (C++)'s, checks every Q-format operation against an exact 64-bit reference. For Q8.8 it is exhaustive: every pair of values, about four billion, in roughly fifteen seconds.
 - **Overflow checks on, in release.** Rust overflow is not undefined behaviour, but release builds wrap silently, so a plain `+` that should have been `wrapping_add` gives the right answer and passes. The exhaustive run is built with `overflow-checks = true`, which turns that mistake into a panic. I planted one to make sure: it passed with checks off and failed with them on.
-- **Kani proofs** (92 harnesses) for every input rather than a sample: add and subtract wrap, multiply floors then wraps, and the round-toward-zero and round-to-nearest multiplies SGD uses, for six Q formats; the int8 requantizer's single-rounding fast path equals gemmlowp's two-step rounding wherever it is used; and the requantizer, dense layers, convolutions, pooling, addition, multiplication, padding, concatenation, tables, softmax and the LSTM and GRU cells never panic, whatever their parameters, the decision trees never panic for any field values of small node pools, and the Q-learner and the LSTM network never panic for any parameters.
+- **Kani proofs** (92 harnesses) for every input rather than a sample: add and subtract wrap, multiply floors then wraps, and the round-toward-zero and round-to-nearest multiplies SGD uses, for six Q formats; the int8 requantizer's single-rounding fast path equals gemmlowp's two-step rounding wherever it is used; and the requantizer, dense layers, convolutions, pooling, addition, multiplication, padding, concatenation, tables, softmax, the LSTM and GRU cells and the FFT never panic, whatever their parameters; the FFT's Q1.15 multiply floors and its magnitudes saturate only where both parts are -32768; the decision trees never panic for any field values of small node pools, and the Q-learner and the LSTM network never panic for any parameters.
 
 One thing Kani could not do: prove that 64-bit fixed-point division truncates toward zero. The symbolic division timed out after five minutes with two different SAT solvers. That property is covered by the oracle instead, exhaustively for Q8.8.
 
