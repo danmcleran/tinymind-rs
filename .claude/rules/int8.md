@@ -36,6 +36,12 @@ hard-won detail here, and new files to `paths:`.
 
 C++ source: `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`, `cpp/include/simd/simd_dispatch.hpp` (scalar dot)
 
+`TINYMIND_REF` 4cccbcd (v18.2, 2026-11-12): #272 (loop invariants to locals
+in QAdd/QPad2D/QEmbedding), #273 (QAdd one-rounding input rescaling +
+FastRequantizer output) and #275 (Thumb-1 split of QDense/pointwise loops,
+`applyOneRounding`) change C++ code shape only; all 78 comparisons identical,
+nothing to port (the Rust kernels have their own loop structure).
+
 Int8 affine inference: gemmlowp primitives, `Requantizer` (i8 output only; both C++ paths, fused and saturating), `QDense<'a, IN, OUT>` borrowing `&[[i8; IN]; OUT]` weights (flash-friendly), `qrelu`/`qrelu6`, 256-entry LUT. Integer only, no_std
 
 ## (same, `QSoftmax`)

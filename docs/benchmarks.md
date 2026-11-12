@@ -31,15 +31,15 @@ The int8 MLP is tinymind (C++)'s 64-32-16-10 digits classifier with per-channel 
 
 ## int8 MLP
 
-Cycles are the median of 33 warm inferences; code + weights excludes the harness and the test data; RAM is static data plus peak stack above the harness's own. Every tinymind (C++) and TFLM figure on this page is from tinymind (C++)'s `-O3` builds; its summary reports list RAM as the larger of its `-O2` and `-O3` builds, so the RAM figures here are recomputed from the `-O3` raw results.
+Cycles are the median of 33 warm inferences; code + weights excludes the harness and the test data; RAM is static data plus peak stack above the harness's own. Every tinymind (C++) and TFLM figure on this page is from tinymind (C++)'s `-O3` builds, as re-measured for its v18.2 release; its summary reports list RAM as the larger of its `-O2` and `-O3` builds, so the RAM figures here are recomputed from the `-O3` raw results.
 
 **Cortex-M4F (F411, 360 test samples, 96.11% accuracy)**
 
 | | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
 | **tinymind-rs** | **20,437** | **204 µs** | **5,452 B** | **76 B** |
-| tinymind (C++), scalar | 20,486 | 205 µs | 5,464 B | 152 B |
-| tinymind (C++), +SMLAD | 10,241 | 102 µs | 5,548 B | 124 B |
+| tinymind (C++), scalar | 21,002 | 210 µs | 5,848 B | 152 B |
+| tinymind (C++), +SMLAD | 10,227 | 102 µs | 5,896 B | 124 B |
 | TFLM int8 (CMSIS-NN) | 14,030 | 140 µs | 40,624 B | 2,600 B |
 | TFLM int8 (reference kernels) | 31,411 | 314 µs | 29,552 B | 2,132 B |
 
@@ -48,7 +48,7 @@ Cycles are the median of 33 warm inferences; code + weights excludes the harness
 | | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
 | **tinymind-rs** | **42,514** | **1.33 ms** | **5,412 B** | **472 B** |
-| tinymind (C++) | 35,963 | 1.12 ms | 5,784 B | 200 B |
+| tinymind (C++) | 32,644 | 1.02 ms | 6,136 B | 224 B |
 | TFLM (any build) | does not fit in 32 KB | – | 38.3–50.0 KB | – |
 | emlearn float32 (software float) | 707,113 | 22.1 ms | 18,988 B | 972 B |
 
@@ -61,25 +61,25 @@ tinymind (C++)'s keyword-spotting shaped benchmark network: a 20x20x1 input, a 3
 | | F411 (100 MHz) | L031 (32 MHz) |
 |---|---:|---:|
 | **tinymind-rs**, cycles | **189,097** (1.89 ms) | **649,286** (20.3 ms) |
-| tinymind (C++) scalar, `-O3` | 254,900 | 746,112 |
-| tinymind (C++) +SMLAD, `-O3` | 181,568 | – (no SMLAD on the M0+) |
+| tinymind (C++) scalar, `-O3` | 254,766 | 740,279 |
+| tinymind (C++) +SMLAD, `-O3` | 181,853 | – (no SMLAD on the M0+) |
 | TFLM int8 (CMSIS-NN), `-O3` | 576,368 | does not fit in 32 KB |
 | **tinymind-rs**, code + weights / RAM | **8,056 B / 4,420 B** | **8,352 B / 4,848 B** |
-| tinymind (C++) scalar `-O3`, flash / RAM | 6,848 B / 5,292 B | 8,452 B / 5,476 B |
+| tinymind (C++) scalar `-O3`, flash / RAM | 6,608 B / 5,308 B | 8,220 B / 5,596 B |
 | tinymind-rs at `opt-level = "s"`, cycles / code + weights | 537,118 / 4,372 B | 1,171,205 / 4,120 B |
 
 Per layer (cycles, each layer timed separately; C++ scalar `-O3` in brackets):
 
 | Layer | F411 | L031 |
 |---|---:|---:|
-| conv 3x3, 8 filters | 98,406 (173,164) | 400,956 (516,155) |
-| max pool 2x2 | 9,527 (10,156) | 20,192 (24,921) |
-| depthwise 3x3 | 22,061 (21,054) | 69,218 (73,079) |
-| pointwise 8 -> 16 | 43,652 (44,258) | 138,649 (137,483) |
+| conv 3x3, 8 filters | 98,406 (183,748) | 400,956 (510,808) |
+| max pool 2x2 | 9,527 (10,158) | 20,192 (24,921) |
+| depthwise 3x3 | 22,061 (20,668) | 69,218 (72,544) |
+| pointwise 8 -> 16 | 43,652 (41,835) | 138,649 (135,798) |
 | global average pool | 2,583 (2,282) | 4,704 (5,756) |
-| dense 16 -> 10 | 1,601 (1,281) | 3,347 (2,830) |
+| dense 16 -> 10 | 1,601 (1,302) | 3,347 (2,696) |
 
-The Rust port takes 26% fewer cycles than tinymind (C++)'s portable build on the M4F and 13% fewer on the M0+, and is 4% behind its SMLAD build on the M4F without SIMD. It uses less RAM; its flash is 18% more than the C++'s at `-O3` on the M4F and 1% less on the M0+; at `opt-level = "s"` the network fits in 4.1-4.4 KB but runs 1.8-2.8x slower. The stem convolution gathers each window once and runs its filters in pairs; pointwise runs filter by filter, two pixels at a time, and depthwise channel by channel, with the weights, folded bias and prepared requantizer held across the pixels.
+The Rust port takes 26% fewer cycles than tinymind (C++)'s portable build on the M4F and 12% fewer on the M0+, and is 4% behind its SMLAD build on the M4F without SIMD. It uses less RAM; its flash is 22% more than the C++'s at `-O3` on the M4F and 2% more on the M0+; at `opt-level = "s"` the network fits in 4.1-4.4 KB but runs 1.8-2.8x slower. The stem convolution gathers each window once and runs its filters in pairs; pointwise runs filter by filter, two pixels at a time, and depthwise channel by channel, with the weights, folded bias and prepared requantizer held across the pixels.
 
 ## MLPerf Tiny keyword spotting (DS-CNN)
 
@@ -88,8 +88,8 @@ The MLPerf Tiny keyword-spotting reference model (49x10 MFCC input, a 10x4 convo
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
 | **tinymind-rs** | **10,790,589** | **107.9 ms** | **49,712 B** | **16,812 B** |
-| tinymind (C++), scalar | 15,736,026 | 157.4 ms | 52,748 B | 17,264 B |
-| tinymind (C++), +SMLAD | 8,193,064 | 81.9 ms | 53,156 B | 17,248 B |
+| tinymind (C++), scalar | 15,677,563 | 156.8 ms | 53,072 B | 17,288 B |
+| tinymind (C++), +SMLAD | 8,011,750 | 80.1 ms | 53,452 B | 17,276 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,288 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,764 B |
 
@@ -103,14 +103,14 @@ The MLPerf Tiny image-classification reference model (32x32x3 CIFAR-10 input, a 
 |---|---:|---:|---:|---:|
 | **tinymind-rs** | **58,807,476** | **588.1 ms** | **130,504 B** | **57,428 B** |
 | tinymind-rs, `-C llvm-args=-arm-parallel-dsp-load-limit=512` | 38,273,811 | 382.7 ms | 125,496 B | 57,428 B |
-| tinymind (C++), scalar | 85,467,754 | 854.7 ms | 120,836 B | 54,380 B |
-| tinymind (C++), +SMLAD | 26,753,191 | 267.5 ms | 108,324 B | 54,416 B |
+| tinymind (C++), scalar | 85,326,662 | 853.3 ms | 124,140 B | 54,352 B |
+| tinymind (C++), +SMLAD | 26,368,775 | 263.7 ms | 112,352 B | 54,400 B |
 | TFLM int8 (CMSIS-NN) | 37,372,049 | 373.7 ms | 191,212 B | 56,464 B |
 | TFLM int8 (reference kernels) | 191,555,451 | 1,915.6 ms | 155,412 B | 55,372 B |
 
-The Rust model takes 31% fewer cycles than tinymind (C++)'s portable build, in 8% more flash and 6% more RAM. Its convolutions over several input channels widen the input rows and each filter's weights to 16 bits and add products in pairs, and its residual additions look each input's rescaling up in a 256-entry table. The translator plans one byte arena for the feature maps, as tinymind (C++) does (49,152 B), and views it as typed tensors without `unsafe`.
+The Rust model takes 31% fewer cycles than tinymind (C++)'s portable build, in 5% more flash and 6% more RAM. Its convolutions over several input channels widen the input rows and each filter's weights to 16 bits and add products in pairs, and its residual additions look each input's rescaling up in a 256-entry table. The translator plans one byte arena for the feature maps, as tinymind (C++) does (49,152 B), and views it as typed tensors without `unsafe`.
 
-On cores with the DSP extension (Cortex-M4, M7, M33), LLVM can turn those pairs of 16-bit products into `SMLAD`, the instruction behind tinymind (C++)'s +SMLAD build, from plain Rust: no intrinsics, no nightly, no `unsafe`. By default it gives up on long unrolled sums; building with `-C llvm-args=-arm-parallel-dsp-load-limit=512` (in `.cargo/config.toml`) lets it pair them, and the model then takes 38.3M cycles, 55% fewer than the portable C++ but still 1.43 times tinymind (C++)'s +SMLAD build, which also reads four int8 values per load. That option is an LLVM internal setting, not a stable Rust one, and only this model's convolutions use it so far: it leaves the KWS-shaped network and the DS-CNN unchanged.
+On cores with the DSP extension (Cortex-M4, M7, M33), LLVM can turn those pairs of 16-bit products into `SMLAD`, the instruction behind tinymind (C++)'s +SMLAD build, from plain Rust: no intrinsics, no nightly, no `unsafe`. By default it gives up on long unrolled sums; building with `-C llvm-args=-arm-parallel-dsp-load-limit=512` (in `.cargo/config.toml`) lets it pair them, and the model then takes 38.3M cycles, 55% fewer than the portable C++ but still 1.45 times tinymind (C++)'s +SMLAD build, which also reads four int8 values per load. That option is an LLVM internal setting, not a stable Rust one, and only this model's convolutions use it so far: it leaves the KWS-shaped network and the DS-CNN unchanged.
 
 
 ## On-device training
@@ -199,7 +199,7 @@ The crate cannot choose compiler settings for you: `-C target-cpu` and `-C llvm-
 ## What these show
 
 - Exactness holds on both cores: int8 inference and every training step match the C++ (and, for the anomaly demo, the host run) bit for bit on the chips themselves, not only on a desktop.
-- Against tinymind (C++)'s portable C++ the Rust MLP is level on the Cortex-M4F (0.2% fewer cycles) and 7–18% slower on the Cortex-M0+, at about the same code size; the KWS-shaped network takes 13-26% fewer cycles, the MLPerf DS-CNN 31% and ResNet-8 31% fewer on the M4F. It has no SMLAD backend of its own: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee; only the 16-bit pairs of multi-channel convolutions reach `SMLAD`, through LLVM, with the opt-in option above.
+- Against tinymind (C++)'s portable C++ the Rust MLP takes 2.7% fewer cycles on the Cortex-M4F and is 18–30% slower on the Cortex-M0+, in less code; the KWS-shaped network takes 12-26% fewer cycles, the MLPerf DS-CNN 31% and ResNet-8 31% fewer on the M4F. It has no SMLAD backend of its own: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee; only the 16-bit pairs of multi-channel convolutions reach `SMLAD`, through LLVM, with the opt-in option above.
 - These are two boards, one model per task and one compiler version. Tuning for the core moves workloads both ways: on the F411, `target-cpu=cortex-m4` makes the int8 networks faster and the anomaly demo's training step 37% slower; see [Settings for your own build](#settings-for-your-own-build).
 - F411 timings are taken with every loop aligned to 16 bytes, so they do not move when unrelated code changes shift the hot loops in flash (without it, a 10-byte shift once made the MLPerf DS-CNN 11% slower). The alignment padding costs 0-2% on most workloads, up to 7.8% on the tree walks and 12% at `opt-level = "s"`. The L031 figures, without it, stay sensitive to placement.
 
