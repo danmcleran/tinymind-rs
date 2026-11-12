@@ -64,7 +64,20 @@ scheduler, and the 2x2 inner loop (8x unrolled, 4 sums) spills 28 stack accesses
 per 32 MACs (0 with cortex-m4); generic + `-C llvm-args=-enable-misched=true`
 gives 13,379,028. Not the CortexM4Model bug (llvm#241851); the opposite case.
 No cfg can tell the tunings apart (`rustc --print cfg` identical), so kept,
-documented on docs/benchmarks.md. Tried: filter pairs one pixel at a time
+documented on docs/benchmarks.md. **Layers built at run time** (2026-11-12, F411,
+cortex-m4; each KWS layer behind `black_box(&LAYER)`, per-layer cycle stamps
+inside the fused `infer`): stem (`conv2d_gather`) 106,987 -> 222,117 (2.08x),
+pointwise 43,809 -> 48,428 (+10.5%), depthwise 22,901 -> 24,156 (+5.5%), pools
+and fc ~0; whole MLP 20,437 -> 20,685 (+1.2%). `static` layers are as fast as
+`const`. Cause in the stem: LICM hoists the 72 weights out of the pixel loop as
+sign-extended i32 stack slots (274 stack loads per pixel, ~1,000 instructions)
+and `Requantizer::apply`'s general path is inlined 8 times. Tried and dropped:
+prepared `[Option<FastRequantizer>; F]` in the gather (runtime 254K, worse; const
+-3% stem, +2 KB flash); `apply`'s general path `#[cold] #[inline(never)]`
+(runtime -1.7%, const unchanged, +2.3 KB). Documented (docs/int8.md, int8 module
+docs), not fixed. Same session: inside the fused KWS `infer` the stem takes
+106,987 vs 98,406 timed alone; top-down scheduling gives 99,591 (that is where
+the KWS gain under top-down comes from). Tried: filter pairs one pixel at a time
 (`dot2` per pixel): DS-CNN cortex-m4 13,627,172, generic 15,645,174, worse both. conv_sweep's `wide` (C=40) and `odd` (C=33, 5 filters, 9 pixels) reach pair/odd-filter/odd-pixel; plants (a01 from w1*x0, odd pixel against w0 twice) fail it; panic-never has a C=32 instance (planted `o1[f1]` fails the link); Kani `pointwise_pairs_never_panic` (C=32, 2 filters, 3 pixels, unwind 34; 286 s locally, 355 s with 3 filters; a planted out-of-range `o1[f1 + 1]` fails it). Same `i32` sums as the C++ modulo 2^32. Checked by `tests/conv_sweep.rs` (golden from `scripts/cpp/conv_sweep.cpp`: 57 configurations x 3 trials, every C++ path incl. patch/row/tiles/odd filters/all-padding windows, both requantizer paths and the C++ FastRequantizer vs general form, pool ranges with qmin > qmax); ten planted defects each fail it. **16-bit band path** (2026-11-09, for ResNet-8): `QConv2D`/`QConv2DPerChannel` with `C >= BAND_MIN_CHANNELS` (2) run `conv2d_band`: per output row the KH input rows widen to an i16 band (`x - zp`), per (row, filter) the weights to i16, interior windows are KH `dot16` calls over contiguous KW*C, edges tap by tap, cold general-requantizer rows tap by tap (small code). Scratch on stack ~2*KH*(W+KW)*C B; not size-limited. LLVM's ARMParallelDSP pass makes `SMLAD` from `acc + x[i]*w[i] + x[i+1]*w[i+1]` over i16 loads (plain safe Rust, opt 3), but it analyses at most 16 loads (`-arm-parallel-dsp-load-limit`, default 16), and fully unrolled constant-length sums exceed it, so by default the code is ldrsh/ldrsh/smlabb (~4.7 c/MAC); `-C llvm-args=-arm-parallel-dsp-load-limit=512` gives pure ldr/ldr/smlad (opt-in, documented; not in bench config). Tried and dropped: packed u32 words (needs `[u32; W*C/2]`, inexpressible; assembling words from i16 folds back to ldrsh), `black_box` length + multi-exit loop (SMLAD but loop overhead ~2.75 c/MAC), unsigned byte lanes (UXTB16 trick: LLVM splits to per-byte uxtb, worse), 2 filters x 2 pixels (68.0M default, 48.1M with flag vs 45.9M, +68 KB flash). Stable Rust exposes no Arm target features in cfg, so no DSP gate: measured on the L031 a 10x10x8 3x3 conv 675,064 vs 835,734 cycles on the old path (F411 303,574 vs 451,012), so the band path is used everywhere; C=3 stem also faster (2.75M vs 3.88M). Kani `conv_band_never_panics` (C=2, unwind 6, 69 s); conv_sweep plants (odd tail, zp not subtracted, band rows off by one) fail. These layers pad internally, so they never need `QPad2D` (tinymind's translator inserts it only when a padded band exceeds its buffer limit); `QPad2D` itself is ported in `src/int8/compose.rs`
 
 ## `src/int8/add.rs` (re-exported from `int8`)

@@ -15,6 +15,12 @@
 //! in `i32`, then a [`Requantizer`] rescales `acc` to the output tensor's int8 grid
 //! with a fixed-point multiplier, adds the output zero point and saturates.
 //!
+//! Layers run fastest as `const` or `static` items, as the importers generate
+//! them: the compiler then folds their weights and requantizers into the code.
+//! A layer built from values known only at run time gives the same results
+//! more slowly; on a Cortex-M4 a convolution over one input channel took about
+//! twice as long.
+//!
 //! # Convolution and pooling
 //!
 //! [`QConv2D`] (and [`QConv2DPerChannel`]), [`QDepthwiseConv2D`],

@@ -33,6 +33,8 @@ Alongside the Q-format networks, the crate runs **int8 affine-quantized** models
 
 A layer borrows its weights (`&[[i8; IN]; OUT]`, row-major as PyTorch and TFLite store them) and biases, so they can live in flash as `static` data. On a device, run the calibration on the host and embed the resulting integers; the five fields of a `Requantizer` are plain constants.
 
+Define the layers as `const` or `static` items, as the importers generate them: the compiler then knows every weight and requantizer and builds the loops around them. A layer filled in at run time, for example from a model read out of a flash partition, gives the same results but runs slower. On the F411 (2026-11-12) the keyword-spotting shaped network's convolution over one input channel took 2.1 times as long, its pointwise and depthwise layers 10% and 5% longer, and the int8 MLP 1% longer.
+
 ## Convolution and pooling
 
 Tensors are NHWC without the batch axis, as nested arrays: an input is `[[[i8; C]; W]; H]`, and convolution weights are `[[[[i8; C]; KW]; KH]; F]` (OHWI, as TFLite stores them). Kernel, strides and padding are const parameters of the layer type, and `forward` takes the input and a caller-owned output, so layers can share buffers. The output's size must be the one the layer produces, `(H + PT + PB - KH) / SH + 1` rows and likewise columns: a wrong size, a zero stride or a kernel larger than the padded input is a compile error, not a run-time check. Stable Rust cannot compute that size from the input's (C++ does it with template arithmetic), so the output array spells it out, and the compiler checks it. Padding holds the input zero point, as TFLite pads, so `PT = PB = PL = PR = 1` around a 3x3 kernel is TFLite's SAME padding at stride 1.

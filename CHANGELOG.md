@@ -44,6 +44,12 @@ break the API).
 
 ### Performance
 
+- Docs: layers built from values known only at run time (not `const` or
+  `static` items) give the same results more slowly; the int8 page and the
+  `int8` module docs now say so, with F411 figures (the keyword-spotting
+  shaped network's one-channel convolution 2.1x, its pointwise layer +10%,
+  the int8 MLP +1%). No library change.
+
 - Int8 pointwise convolutions (`QPointwiseConv2D`, `QPointwiseConv2DPerChannel`)
   with 32 or more input channels run two filters at two pixels at a time, so
   each loaded input serves two filters and each weight two pixels: the MLPerf
