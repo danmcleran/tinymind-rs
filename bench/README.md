@@ -248,17 +248,28 @@ library's per-layer update loop (`optimizer::update_all`).
 
 | | F411 | L031 |
 |---|---:|---:|
-| Forward transform (median) | 71,627 cycles (716 us) | 172,683 cycles (5.40 ms) |
+| Forward transform (median) | 59,965 cycles (600 us) | 153,696 cycles (4.80 ms) |
+| tinymind (C++) `QFFT1D<256>::forward`, gcc `-O3` | 107,265 cycles (1.07 ms) | 166,833 cycles (5.21 ms) |
 | Squared magnitudes of the 256 bins (median) | 2,731 | 4,863 |
 | Stack (peak) / over baseline | 4,564 B / +4,052 B | 4,564 B / +3,960 B |
-| Flash (text) / over baseline | 15,736 B / +2,420 B | 14,672 B / +2,236 B |
+| Flash (text) / over baseline | 15,656 B / +2,340 B | 14,684 B / +2,248 B |
 
 Measured 2026-11-12, at `opt-level = 3` with `target-cpu`. The transform
 itself works in the caller's buffers and needs no memory of its own: the stack
 figure is the workload's (the input kept for 33 timed runs, the working
 buffers, 1 KB of magnitudes). The flash delta includes the twiddle tables
-(512 B), the signal generator and the report. tinymind (C++)'s FFT has not
-been timed on the boards yet.
+(512 B), the signal generator and the report.
+
+The Rust transform takes 44% fewer cycles than tinymind (C++)'s on the F411
+and 8% fewer on the L031. The C++ figures come from tinymind (C++)'s benchmark
+harness (`fw/harness.cpp`, its board code and Makefile flags, `-O3`) with a
+backend that runs `QFFT1D<256>::forward` on the same signal and twiddle
+tables; it gives the same hash. That image adds 3.3 KB over its baseline,
+with a 1 KB input array and the C++'s 1 KB bit-reversal table. The Rust
+transform runs twiddle by twiddle (each twiddle loaded once per stage), where
+the C++ runs group by group and loads it for every butterfly; the
+butterflies of a stage are independent, so the results are the same. Group
+by group, as first ported, it took 71,627 and 172,683 cycles.
 
 ### KWS-shaped CNN (int8 convolutions)
 
