@@ -137,15 +137,16 @@ The [anomaly-detection example]({{ site.baseurl }}/anomaly) on the boards: an 8-
 
 ## Quantized FFT
 
-One 256-point forward transform of `int8::QFft1D` on random 16-bit samples, with tinymind (C++)'s twiddle tables; the spectrum's hash equals the one tinymind (C++) computes. Measured 2026-11-12. tinymind (C++)'s FFT has not been timed on the boards.
+One 256-point forward transform of `int8::QFft1D` on random 16-bit samples, with tinymind (C++)'s twiddle tables; the spectrum's hash equals the one tinymind (C++) computes. tinymind (C++)'s figures come from its own benchmark harness and build flags (`-O3`), running `QFFT1D<256>::forward` on the same signal and tables. Measured 2026-11-12.
 
 | | F411 | L031 |
 |---|---:|---:|
-| Forward transform | 71,627 cycles (716 µs) | 172,683 cycles (5.40 ms) |
-| Squared magnitudes of the 256 bins | 2,731 cycles | 4,863 cycles |
-| Flash over the empty image (tables, test signal and report included) | 2,420 B | 2,236 B |
+| **tinymind-rs**, forward transform | **59,965 cycles (600 µs)** | **153,696 cycles (4.80 ms)** |
+| tinymind (C++), forward transform | 107,265 cycles (1.07 ms) | 166,833 cycles (5.21 ms) |
+| tinymind-rs, squared magnitudes of the 256 bins | 2,731 cycles | 4,863 cycles |
+| tinymind-rs, flash over the empty image (tables, test signal and report included) | 2,340 B | 2,248 B |
 
-The transform works in the caller's buffers and needs no memory of its own.
+The Rust transform takes 44% fewer cycles than tinymind (C++)'s on the Cortex-M4F and 8% fewer on the Cortex-M0+, and works in the caller's buffers with no memory of its own. It runs each stage twiddle by twiddle, loading each twiddle pair once per stage, where the C++ loads it for every butterfly; the butterflies of a stage are independent, so the results are the same.
 
 ## Decision trees, imported from scikit-learn
 

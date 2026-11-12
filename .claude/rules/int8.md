@@ -145,9 +145,18 @@ bounds checks: identity masks, no panic path at 3/s/z. Tried: groups via
 73,938 vs 71,628; L031 174,112 vs 172,685) and kept a panic at z; dropped.
 `magnitude_squared(&self, re, im, &mut [i32; N])` fills the caller's array as
 the C++ does (returning it cost the copy: L031 7,267 vs 4,863 cycles).
-**Perf not tuned:** L031 forward 172,683 cycles; the M0+ transform has 116
-`ldr` (spills) vs 42 in gcc 13.2 -O3 -mcpu=cortex-m0plus's C++ (static count;
-C++ not timed on the boards). Calibration: `build_fft_twiddles::<N, HALF>() ->
+**Twiddle-outer loop** (2026-11-12): per stage `for pair` then `top in
+(pair..N).step(full)` (each twiddle loaded once per stage; `butterfly()`
+helper, `#[inline(always)]`): F411 71,627 -> 59,965, L031 172,683 -> 153,696,
+flash -80/+12 B, same hashes; sweep plants (top start `pair & !1`, twiddle
+index +1) fail it; panic-never 3/s/z ok. **C++ timed on the boards**: copy
+of tinymind's benchmark harness in a scratch dir (board/, fw/harness.cpp,
+Makefile with TM=../tinymind read-only) plus a `be_fft.cpp` backend
+(`QFFT1D<256>`, tables and input from tests/golden/fft, hash 0xEFABBA1C
+matched): F411 107,265, L031 166,833 at -O3 (image +3.3 KB over baseline incl.
+1 KB input array and the 1 KB `size_t[256]` bit-reversal table). Rust 44% /
+8% fewer. The static `ldr` count (Rust 116 vs gcc 42 on M0+) was a poor
+predictor: the C++ was the slower one. Calibration: `build_fft_twiddles::<N, HALF>() ->
 (cos, sin)`: `-TAU * k / N` (TAU == the C++ literal as f64), `round()` = lround,
 clamp to i16; matched glibc's cos/sin output on the first run. Checked by
 `tests/fft_sweep.rs` (golden from `scripts/cpp/fft_sweep.cpp`, UBSan+ASan

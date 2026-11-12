@@ -145,39 +145,60 @@ impl<const N: usize, const HALF: usize> QFft1D<'_, N, HALF> {
             let full = half << 1;
             // C++ `HalfLength / halfSize`.
             let stride = HALF >> stage;
-            let mut group = 0;
-            while group < N {
-                for pair in 0..half {
-                    let k = (pair * stride) & tw_mask;
-                    let w_cos = i32::from(self.twiddle_cos[k]);
-                    let w_sin = i32::from(self.twiddle_sin[k]);
-
-                    let top = (group + pair) & mask;
-                    let bot = (top + half) & mask;
-
-                    let bot_real = i32::from(real[bot]);
-                    let bot_imag = i32::from(imag[bot]);
-                    let t_real = q15_mul(w_cos, bot_real) - q15_mul(w_sin, bot_imag);
-                    let t_imag = q15_mul(w_cos, bot_imag) + q15_mul(w_sin, bot_real);
-
-                    let top_real = i32::from(real[top]);
-                    let top_imag = i32::from(imag[top]);
-                    if SCALE {
-                        real[top] = saturate_i16((top_real + t_real) >> 1);
-                        imag[top] = saturate_i16((top_imag + t_imag) >> 1);
-                        real[bot] = saturate_i16((top_real - t_real) >> 1);
-                        imag[bot] = saturate_i16((top_imag - t_imag) >> 1);
-                    } else {
-                        real[top] = saturate_i16(top_real + t_real);
-                        imag[top] = saturate_i16(top_imag + t_imag);
-                        real[bot] = saturate_i16(top_real - t_real);
-                        imag[bot] = saturate_i16(top_imag - t_imag);
-                    }
+            // The C++ runs group by group and loads the twiddle for every
+            // butterfly; the butterflies of a stage are independent, so this
+            // runs twiddle by twiddle instead and loads each pair once per
+            // stage. The results are the same.
+            for pair in 0..half {
+                let k = (pair * stride) & tw_mask;
+                let w_cos = i32::from(self.twiddle_cos[k]);
+                let w_sin = i32::from(self.twiddle_sin[k]);
+                let mut top = pair;
+                while top < N {
+                    butterfly::<SCALE, N>(
+                        real,
+                        imag,
+                        top & mask,
+                        (top + half) & mask,
+                        w_cos,
+                        w_sin,
+                    );
+                    top += full;
                 }
-                group += full;
             }
             half = full;
         }
+    }
+}
+
+/// One radix-2 butterfly on `top` and `bot` with the twiddle `(w_cos, w_sin)`
+/// (the body of the C++ `forwardImpl` loop).
+#[inline(always)]
+fn butterfly<const SCALE: bool, const N: usize>(
+    real: &mut [i16; N],
+    imag: &mut [i16; N],
+    top: usize,
+    bot: usize,
+    w_cos: i32,
+    w_sin: i32,
+) {
+    let bot_real = i32::from(real[bot]);
+    let bot_imag = i32::from(imag[bot]);
+    let t_real = q15_mul(w_cos, bot_real) - q15_mul(w_sin, bot_imag);
+    let t_imag = q15_mul(w_cos, bot_imag) + q15_mul(w_sin, bot_real);
+
+    let top_real = i32::from(real[top]);
+    let top_imag = i32::from(imag[top]);
+    if SCALE {
+        real[top] = saturate_i16((top_real + t_real) >> 1);
+        imag[top] = saturate_i16((top_imag + t_imag) >> 1);
+        real[bot] = saturate_i16((top_real - t_real) >> 1);
+        imag[bot] = saturate_i16((top_imag - t_imag) >> 1);
+    } else {
+        real[top] = saturate_i16(top_real + t_real);
+        imag[top] = saturate_i16(top_imag + t_imag);
+        real[bot] = saturate_i16(top_real - t_real);
+        imag[bot] = saturate_i16(top_imag - t_imag);
     }
 }
 

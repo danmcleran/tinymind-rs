@@ -18,6 +18,11 @@ break the API).
   (42,514 to 35,710) and half the RAM (472 to 232 B), and 6% fewer on the
   STM32F411 (20,437 to 19,149), for 536 and 784 bytes more flash. Results are
   unchanged.
+- `int8::QFft1D` runs each stage twiddle by twiddle, loading each twiddle
+  pair once per stage instead of once per butterfly. A 256-point forward
+  transform takes 59,965 cycles on the STM32F411 (was 71,627) and 153,696 on
+  the STM32L031 (was 172,683): 44% and 8% fewer than tinymind (C++)'s
+  `QFFT1D`, now timed on both boards. Results are unchanged.
 
 ## [0.3.2] - 2026-11-12
 
