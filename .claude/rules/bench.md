@@ -92,9 +92,21 @@ narrowing any: `score` frame 36 -> 260 B, sp loads 32 -> 131; `train_step` frame
 `-enable-misched=false` (target-cpu kept) on the board: step 6,415, detect 1,350,
 train/step 6,994, but MLP 20,437 -> 22,428 (+9.7%), KWS 189,097 -> 196,624 (+4.0%),
 xor/trees within 1.3%, all hashes matched. So the bench keeps the scheduler on;
-documented as a trade-off. Not tried: a library code shape that survives the
-scheduler (no stable Rust control over it; would need a measured win on both
-boards). Results (local, gitignored): bench/results/misched-off-2026-11-11/. L031: code differs (KWS +416 B, 224 of
+documented as a trade-off. Per-function or per-crate `target-cpu`/scheduler
+settings do not exist on stable Rust (Cargo profiles vary opt-level per package,
+not rustflags). Code shapes tried to survive the scheduler (2026-11-11), all
+dropped: `Dense::forward`'s per-neuron sum `#[inline(never)]` (bit-exact) made
+the F411 anomaly worse under both settings (cortex-m4 step 9,042, detect 1,784;
+generic 6,887 / 1,695: call overhead and inputs reloaded per neuron outweigh
+the spills saved); on a standalone 8x4 Q16.16 reproducer, input-outer order
+(acc[o] += x[i]*w[i][o]) and an opaque neuron-loop bound (`black_box`) left
+cortex-m4 at 88-90 stack accesses (generic 15). Root cause is in LLVM:
+CortexM4Model (cortex-m3/m4/m33/m35p) with FeatureUseMISched; `generic` uses
+CortexA8Model without it. Reproduced on clang trunk and llc 18; clang's
+default CPU for `-march=armv7e-m` is cortex-m4. Dan files the LLVM issue
+himself (drafted 2026-11-11; LLVM's AI Tool Use Policy bars agents from
+posting on llvm-project).
+Results (local, gitignored): bench/results/misched-off-2026-11-11/. L031: code differs (KWS +416 B, 224 of
 9,406 instructions) but every timing identical to the cycle; anomaly image 30,392 B
 (2.3 KB free). `CARGO_TARGET_<TRIPLE>_RUSTFLAGS` joins the config's flags, so to
 measure without `target-cpu` edit the config, do not override by env. The
