@@ -51,6 +51,8 @@ The boards run the same program and print the same report. Its hash covers every
 | Stack, over the empty harness | 3.8 KB | 3.7 KB |
 | Flash, over the empty harness | 18.7 KB | 18.0 KB |
 
+The F411 figures are built with `-C target-cpu=cortex-m4`, like the other on-board results. Without it a training step takes 6,437 cycles and a detection 1,332: with that setting, LLVM's instruction scheduler moves the demo's small layers' products to the stack ([Settings for your own build]({{ site.baseurl }}/benchmarks#settings-for-your-own-build) has the options and what they cost other networks).
+
 The flash figures include the demo's signal generator and its text report, not only the network. The L031 image leaves about 2.3 KB of its 32 KB of flash free.
 
 [Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/examples/common/anomaly_demo.rs)

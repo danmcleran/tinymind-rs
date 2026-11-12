@@ -55,7 +55,12 @@ built for the same boards with the same models, inputs and compiler settings:
   M0+.
 
 On the M4F, tinymind (C++)'s build with the Cortex-M4's DSP instructions (SMLAD)
-is faster than the Rust on all four inference models. Results and method:
+is faster than the Rust on all four inference models. Compiler settings matter
+on the M4F: tuning for the core (`-C target-cpu=cortex-m4`, set by your
+application) makes the int8 networks up to a third faster but small Q16.16
+networks such as the anomaly demo about a third slower, through an LLVM
+scheduler issue ([llvm/llvm-project#241851](https://github.com/llvm/llvm-project/issues/241851));
+the results page lists the settings to measure. Results and method:
 [On-board results](https://danmcleran.github.io/tinymind-rs/benchmarks) and
 `bench/`.
 
