@@ -33,14 +33,26 @@ break the API).
   37% slower (LLVM's instruction scheduler, which that setting enables,
   spills its small unrolled Q16.16 layers to the stack; see "Build settings"
   in `bench/README.md`). The L031 timings did not change. No library change.
+- On-board results: a new section, "Settings for your own build", compares
+  the F411 workloads with and without `target-cpu`, with LLVM's machine
+  scheduler off and with top-down scheduling, explains when each pays, and
+  says which part of the gap without `target-cpu` comes from the pointwise
+  pairs.
+  The anomaly slowdown with `target-cpu=cortex-m4` is reported upstream as
+  llvm/llvm-project#241851. README.md and the anomaly page point to it. No
+  library change.
 
 ### Performance
 
 - Int8 pointwise convolutions (`QPointwiseConv2D`, `QPointwiseConv2DPerChannel`)
   with 32 or more input channels run two filters at two pixels at a time, so
   each loaded input serves two filters and each weight two pixels: the MLPerf
-  DS-CNN takes 9% fewer cycles on the F411 (10,790,589). Shorter rows, where
-  pairs measured slower, run as before. Results are unchanged.
+  DS-CNN takes 9% fewer cycles on the F411 (10,790,589) when built with
+  `-C target-cpu=cortex-m4`; built for the `thumbv7em` target's generic tuning
+  it takes 8% more (14,277,919, was 13,225,965): the four-sum inner loop
+  spills to the stack unless LLVM schedules before register allocation, which
+  that tuning does not. Shorter rows, where pairs measured slower, run as
+  before. Results are unchanged.
 
 ## [0.3.1] - 2026-11-11
 
