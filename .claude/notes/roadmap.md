@@ -52,9 +52,10 @@ not ported (a policy parameter on `QValue` is an API change).
 ### Performance without `unsafe` (2026-11-11)
 
 Dan ruled out `unsafe` in any form, including an opt-in feature (see
-CLAUDE.md). The `asm!` SMLAD experiment (local branch `exp-smlad-asm`; F411:
-MLP 15,419, KWS 176,194, DS-CNN 9.93M, ResNet-8 38.9M cycles) is therefore
-closed; its numbers only show the gap to the C++ +SMLAD build. Safe routes
+CLAUDE.md). The `asm!` SMLAD experiment (F411: MLP 15,419, KWS 176,194,
+DS-CNN 9.93M, ResNet-8 38.9M cycles) is therefore closed; Dan kept it for
+reference as the branch `archive/exp-smlad-asm` on GitHub (never to be
+merged). Its numbers only show the gap to the C++ +SMLAD build. Safe routes
 left, roughly by expected gain:
 
 - 16-bit pairs that LLVM's ARMParallelDSP pass turns into `SMLAD` (already the
