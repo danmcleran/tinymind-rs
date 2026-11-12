@@ -49,8 +49,8 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   never triggered one.
 - **Sanitizers / Miri / MSan / TSan: not needed** while the library is
   `#![forbid(unsafe_code)]` and single-threaded; safe Rust cannot have the UB they
-  detect. If `unsafe` ever enters (SIMD intrinsics), add Miri and the matching
-  sanitizer for that code.
+  detect. `unsafe` is ruled out for good (Dan, 2026-11-11; CLAUDE.md), SIMD
+  intrinsics and `asm!` included.
 - **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, 17 to
   21 minutes on CI, 16 before the recurrent cells): 86 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
   and Q1.31: add/sub wrap, multiply floors then wraps, the SGD products
@@ -126,7 +126,7 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   402), GRU 1-z +1 (line 39). Full image: F411 767 KB at O3 (> 512 KB), 321 KB
   at s; `OPT=s WORKLOADS=sweeps bench/run.sh f411` all match, 293,084,567
   cycles, 72 KB stack. QEMU 6 sweep runs ~2 min.
-- **Not done yet:** a coverage report. Sweeps on Cortex-M were the
-  prerequisite for any Arm-only code (an opt-in `unsafe` DSP feature; the
-  `exp-smlad-asm` experiment, 2026-11-11, is a local branch only); they are
-  in place now.
+- **Not done yet:** a coverage report. The sweeps on Cortex-M were first meant
+  as the prerequisite for an opt-in `unsafe` DSP feature; Dan ruled `unsafe`
+  out in any form (2026-11-11, CLAUDE.md), so they guard Arm code generation
+  of safe code instead (target-cpu, opt-level, LLVM changes).
