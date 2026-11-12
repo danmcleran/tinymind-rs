@@ -111,7 +111,16 @@ Adding `-C llvm-args=-enable-misched=false` brings the step back to 6,415
 cycles and detection to 1,350, but costs the int8 MLP 9.7% (20,437 -> 22,428)
 and the KWS-shaped network 4.0% (189,097 -> 196,624), so the images keep the
 scheduler on, as the C++ build's settings do. A project dominated by small
-Q16.16 layers can measure both settings.
+Q16.16 layers can measure both settings. The spills are reported upstream as
+[llvm/llvm-project#241851](https://github.com/llvm/llvm-project/issues/241851)
+(cortex-m3, m4, m33 and m35p share the scheduling model). Scheduling top-down
+instead (`-C llvm-args=-misched-prera-direction=topdown`) avoids most of them,
+but it is no general fix either. On the F411 (2026-11-12, every hash matching)
+the anomaly step took 6,518 cycles and detection 1,326, the KWS-shaped network
+175,319 (-7.3%) and the trees 0.3-2.4% less, while the MLPerf DS-CNN took
+11,875,413 (+10.1%), ResNet-8 59,614,538 (+1.4%) and the int8 MLP 20,835
+(+1.9%). The L031 images were identical with and without it. The images keep
+the default.
 
 F411 images are built with every loop aligned to 16 bytes (`-C
 llvm-args=-align-loops=16`, in `bench/.cargo/config.toml`), so a timing does not

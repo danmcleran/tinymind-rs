@@ -103,9 +103,31 @@ the spills saved); on a standalone 8x4 Q16.16 reproducer, input-outer order
 cortex-m4 at 88-90 stack accesses (generic 15). Root cause is in LLVM:
 CortexM4Model (cortex-m3/m4/m33/m35p) with FeatureUseMISched; `generic` uses
 CortexA8Model without it. Reproduced on clang trunk and llc 18; clang's
-default CPU for `-march=armv7e-m` is cortex-m4. Dan files the LLVM issue
-himself (drafted 2026-11-11; LLVM's AI Tool Use Policy bars agents from
-posting on llvm-project).
+default CPU for `-march=armv7e-m` is cortex-m4. Forcing top-down scheduling
+(`-misched-topdown` on llc 18, `-misched-prera-direction=topdown` on newer
+LLVM) removes nearly all spills on the reproducer (llc 18: 9 stack accesses vs
+88; clang trunk: none); bottom-up equals the default, so the bottom-up side
+hoists the products. F411 with `-C llvm-args=-misched-prera-direction=topdown`
+(2026-11-12, target-cpu kept, hashes matched): anomaly step 6,518, detect
+1,326; MLP 20,437 -> 20,835 (+1.9%); KWS
+189,097 -> 175,319 (-7.3%, below the C++ +SMLAD 181,568); text anomaly 30,848,
+mlp 42,216, kws 24,668. Full A/B the same day (bench/results/topdown-2026-11-12/,
+local): DS-CNN 10,790,589 -> 11,875,413 (+10.1%), ResNet-8 58,807,476 ->
+59,614,538 (+1.4%), MLP profile +1.7%, KWS profile 182,002 -> 180,069, trees
+-2.4%..+0.5% (subset flash 3,793 -> 3,807), xor within 0.3%; anomaly stack
+4,304 -> 3,680 B, xor-q16 flash -960 B. L031: every ELF byte-identical: cortex-m0plus
+lacks `use-misched`, so the pre-RA machine scheduler skips every function and the
+direction flag has nothing to steer (llc 18 on repro.ll: default output ==
+`-enable-misched=false`, byte for byte). Forced on (`-enable-misched=true`), it
+reorders code but spills the same: ARMv6-M has no SMULL, so every 64-bit
+product is a `bl __aeabi_lmul` call, and calls end scheduling regions. Not adopted: the DS-CNN loss outweighs the KWS gain, and the
+C++ Makefile has no counterpart. Filed by Dan as
+llvm/llvm-project#241851 (2026-11-12; LLVM's AI Tool Use Policy: agents draft,
+the human reviews and submits, with a disclosure line). Reproducer and
+run.sh: ~/code/llvm-m4-misched/ (local, outside the repo). Re-measured
+2026-11-12 before filing, all to the cycle: anomaly step/detect generic
+6,437/1,332, cortex-m4 8,811/1,611, misched off 6,415/1,350; MLP 20,437 ->
+22,428 and KWS 189,097 -> 196,624 with misched off.
 Results (local, gitignored): bench/results/misched-off-2026-11-11/. L031: code differs (KWS +416 B, 224 of
 9,406 instructions) but every timing identical to the cycle; anomaly image 30,392 B
 (2.3 KB free). `CARGO_TARGET_<TRIPLE>_RUSTFLAGS` joins the config's flags, so to

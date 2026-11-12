@@ -66,6 +66,8 @@ left, roughly by expected gain:
   (C = 8) +15% for that layer, the 36-tree subset +7%. Not investigated.
 - The small-Q16.16-layer spills (anomaly +37% under cortex-m4) are LLVM's
   CortexM4Model scheduler; no safe code shape fixed them (`.claude/rules/bench.md`).
+  Filed upstream as llvm/llvm-project#241851 (2026-11-12); watch it, and
+  re-measure the anomaly workload when a fix reaches rustc's LLVM.
 
 ## Release history (as CLAUDE.md recorded it; CHANGELOG.md is the full record)
 
