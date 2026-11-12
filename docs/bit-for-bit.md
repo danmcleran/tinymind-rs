@@ -46,7 +46,7 @@ The examples only exercise the paths they use, so the arithmetic gets more:
 
 - **A differential oracle**, ported from tinymind (C++)'s, checks every Q-format operation against an exact 64-bit reference. For Q8.8 it is exhaustive: every pair of values, about four billion, in roughly fifteen seconds.
 - **Overflow checks on, in release.** Rust overflow is not undefined behaviour, but release builds wrap silently, so a plain `+` that should have been `wrapping_add` gives the right answer and passes. The exhaustive run is built with `overflow-checks = true`, which turns that mistake into a panic. I planted one to make sure: it passed with checks off and failed with them on.
-- **Kani proofs** (92 harnesses) for every input rather than a sample: add and subtract wrap, multiply floors then wraps, and the round-toward-zero and round-to-nearest multiplies SGD uses, for six Q formats; the int8 requantizer's single-rounding fast path equals gemmlowp's two-step rounding wherever it is used; and the requantizer, dense layers, convolutions, pooling, addition, multiplication, padding, concatenation, tables, softmax, the LSTM and GRU cells and the FFT never panic, whatever their parameters; the FFT's Q1.15 multiply floors and its magnitudes saturate only where both parts are -32768; the decision trees never panic for any field values of small node pools, and the Q-learner and the LSTM network never panic for any parameters.
+- **Kani proofs** (93 harnesses) for every input rather than a sample: add and subtract wrap, multiply floors then wraps, and the round-toward-zero and round-to-nearest multiplies SGD uses, for six Q formats; the int8 requantizer's single-rounding fast path equals gemmlowp's two-step rounding wherever it is used; and the requantizer, dense layers, convolutions, pooling, addition, multiplication, padding, concatenation, tables, softmax, the LSTM and GRU cells and the FFT never panic, whatever their parameters; the FFT's Q1.15 multiply floors and its magnitudes saturate only where both parts are -32768; the decision trees never panic for any field values of small node pools, and the Q-learner and the LSTM network never panic for any parameters.
 
 One thing Kani could not do: prove that 64-bit fixed-point division truncates toward zero. The symbolic division timed out after five minutes with two different SAT solvers. That property is covered by the oracle instead, exhaustively for Q8.8.
 
@@ -75,8 +75,8 @@ int8 MLP, one inference:
 
 | Board | tinymind-rs | tinymind (C++), scalar | Code + weights (Rust) |
 |---|---|---|---|
-| STM32F411 | 20,437 cycles | 21,002 cycles | 5,452 B |
-| STM32L031 | 42,514 cycles | 32,644 cycles | 5,412 B |
+| STM32F411 | 19,149 cycles | 21,002 cycles | 6,236 B |
+| STM32L031 | 35,710 cycles | 32,644 cycles | 5,948 B |
 
 TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,226 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction. Arm DSP intrinsics are not available in stable Rust, so the port has no SMLAD path of its own; only its multi-channel convolutions reach SMLAD, through LLVM, when built with an opt-in LLVM option. Convolutional networks are faster than the C++'s portable build even without it: the KWS-shaped CNN by 12-26%, the MLPerf Tiny DS-CNN and ResNet-8 by 31% each (full tables on [On-board results]({{ site.baseurl }}/benchmarks)).
 

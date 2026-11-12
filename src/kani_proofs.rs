@@ -814,6 +814,19 @@ mod conv {
         }
     }
 
+    /// The one-rounding form the dense layers run when every requantizer
+    /// allows it gives exactly `Requantizer::apply`'s result, for every
+    /// accumulator; for any other requantizer it never panics.
+    #[kani::proof]
+    fn apply_one_rounding_matches_apply() {
+        let rq = any_requantizer();
+        let acc: i32 = kani::any();
+        let r = rq.apply_one_rounding(acc);
+        if rq.one_rounding() {
+            assert!(r == rq.apply(acc));
+        }
+    }
+
     /// Total for every numerator and denominator.
     #[kani::proof]
     fn rounded_divide_never_panics() {

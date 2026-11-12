@@ -62,6 +62,22 @@ C++ source: `cpp/qpointwiseconv2d.hpp` (1x1, per channel)
 
 Dense with one requantizer per output, as TFLite quantizes dense layers; verified on the boards against tinymind's benchmark hash
 
+**One-rounding loop** (2026-11-12, mirrors tinymind #275): `QDense` and
+`QDensePerChannel` check `Requantizer::one_rounding()` (all requantizers) once
+per call and run `forward_with(apply_one_rounding)`, else `forward_with(apply)`
+(generic closure, `#[inline(always)]`: two loop copies). With `apply`'s general
+path inlined in the output loop, LLVM on the M0+ kept the unrolled dot
+product's index constants (1..15, Thumb-1 `ldrsb` takes only a register
+offset) in spilled stack slots: L031 MLP 42,514 -> 35,710 cycles, RAM 472 ->
+232 B (stack 1,076 -> 836), +536 B flash; F411 20,437 -> 19,149, +784 B; KWS
+unchanged; same hashes. The M0+ MAC is now 6 instructions like gcc's (C++
+32,644: 9% gap left, per-output work and placement; profile image 36,811).
+`apply_one_rounding` masks the shift into 2..=31 so it is total; Kani
+`apply_one_rounding_matches_apply` (17 s; a planted `shift.min(30)` fails);
+unit test `dense_requantizer_forms` (all fast, mixed, all general; planted
+`any` for `all` fails). The `all` check is not folded for const layers (LLVM
+reads the requantizers at run time, ~8 instructions each per call).
+
 ## `src/int8/conv.rs`, `src/int8/pool.rs` (re-exported from `int8`)
 
 C++ source: `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp`

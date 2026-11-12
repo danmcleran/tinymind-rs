@@ -7,6 +7,18 @@ break the API).
 
 ## [Unreleased]
 
+### Changed
+
+- Int8 dense layers (`QDense`, `QDensePerChannel`) check their requantizers
+  once per call and, when every one takes the one-rounding path (a scale
+  ratio below 0.25, as nearly every imported layer), run an output loop
+  without the general path's code, as tinymind (C++) does on Thumb-1 since
+  its #275. With that path inlined in the loop, LLVM spilled the dot product
+  on the Cortex-M0+. The int8 MLP takes 16% fewer cycles on the STM32L031
+  (42,514 to 35,710) and half the RAM (472 to 232 B), and 6% fewer on the
+  STM32F411 (20,437 to 19,149), for 536 and 784 bytes more flash. Results are
+  unchanged.
+
 ## [0.3.2] - 2026-11-12
 
 ### Added
