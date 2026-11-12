@@ -38,6 +38,7 @@ PORTED=(
   examples/iris
   examples/energy_efficiency
   examples/maze
+  examples/dqn_maze
   examples/har_activity
   examples/pytorch_quant/xor
   apps/import_pytorch

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Render the example plots for the docs site: xor in both formats, iris,
-energy efficiency, anomaly detection, the int8 GBDT, the Q-learning maze and the
-LSTM activity classifier.
+energy efficiency, anomaly detection, the int8 GBDT, the Q-learning and deep
+Q-network mazes and the LSTM activity classifier.
 
-Runs the Rust `xor`, `iris`, `energy_efficiency`, `anomaly`, `gbdt_tabular_int8`, `maze` and
-`har_activity`
+Runs the Rust `xor`, `iris`, `energy_efficiency`, `anomaly`, `gbdt_tabular_int8`, `maze`,
+`dqn_maze` and `har_activity`
 examples (which, except anomaly, write byte-identical output to the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
 from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
@@ -35,6 +35,7 @@ ENERGY = os.path.join(ROOT, "target", "release", "examples", "energy_efficiency"
 ANOMALY = os.path.join(ROOT, "target", "release", "examples", "anomaly")
 GBDT = os.path.join(ROOT, "target", "release", "examples", "gbdt_tabular_int8")
 MAZE = os.path.join(ROOT, "target", "release", "examples", "maze")
+DQN_MAZE = os.path.join(ROOT, "target", "release", "examples", "dqn_maze")
 HAR = os.path.join(ROOT, "target", "release", "examples", "har_activity")
 HAR_NAMES = ["walking", "upstairs", "downstairs", "sitting"]
 IRIS_NAMES = ["setosa", "versicolor", "virginica"]
@@ -243,17 +244,17 @@ def gbdt(out_dir, png):
 MAZE_SHORTEST = {0: 2, 1: 1, 2: 3, 3: 2, 4: 1, 5: 1}
 
 
-def maze(out_dir, png):
+def maze(out_dir, png, prefix="maze",
+         title="tinymind-rs: Q-learning, the way out of a six-room maze (Q16.16)"):
     """Moves per training episode, and each test episode against the shortest path."""
     def load(name):
         with open(os.path.join(out_dir, name)) as f:
             return [[int(x) for x in line.strip().rstrip(",").split(",")] for line in f if line.strip()]
-    train, test = load("maze_training.csv"), load("maze_test.csv")
+    train, test = load(prefix + "_training.csv"), load(prefix + "_test.csv")
 
     tp.apply_style()
     fig, (ax1, ax2) = tp.plt.subplots(1, 2, figsize=(12, 4.6), gridspec_kw={"width_ratios": [2, 1]})
-    fig.suptitle("tinymind-rs: Q-learning, the way out of a six-room maze (Q16.16)",
-                 fontsize=13, fontweight="bold")
+    fig.suptitle(title, fontsize=13, fontweight="bold")
     moves = [len(e) - 1 for e in train]
     ax1.scatter(range(len(moves)), moves, s=3, color=tp.PALETTE[0], alpha=0.35, label="moves")
     shortest = [MAZE_SHORTEST[e[0]] for e in train]
@@ -343,7 +344,7 @@ def har(out_dir, png):
 
 
 def main():
-    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY, GBDT, MAZE, HAR)):
+    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY, GBDT, MAZE, DQN_MAZE, HAR)):
         sys.exit("build first: cargo build --release --examples --features std")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
@@ -382,6 +383,12 @@ def main():
         subprocess.run([MAZE, tmp], check=True, stdout=subprocess.DEVNULL)
         png = os.path.join(OUT, "maze_paths.png")
         maze(tmp, png)
+        print("wrote", os.path.relpath(png, ROOT))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([DQN_MAZE, tmp], check=True, stdout=subprocess.DEVNULL)
+        png = os.path.join(OUT, "dqn_maze_paths.png")
+        maze(tmp, png, "dqn_maze",
+             "tinymind-rs: a deep Q-network finds the way out of a six-room maze (Q16.16)")
         print("wrote", os.path.relpath(png, ROOT))
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run([HAR, tmp, os.path.join(tmp, "har.csv")], check=True, stdout=subprocess.DEVNULL)

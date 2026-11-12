@@ -207,6 +207,37 @@ where
         }
     }
 
+    /// The outputs for `inputs` without changing the network: the same sums,
+    /// in the same order, as [`feed_forward`](Self::feed_forward) followed by
+    /// [`learned_values`](Self::learned_values), but nothing is stored, so the
+    /// next training step still sees the last `feed_forward`. For readers that
+    /// hold the network by shared reference (`qlearn::QNetwork::q_value`).
+    pub(crate) fn evaluate(&self, inputs: &[V; IN]) -> [V; OUT] {
+        let mut hidden = [V::ZERO; HID];
+        for (h, out) in hidden.iter_mut().enumerate() {
+            let weight = |n: &Neuron<V, HID>| n.connections.get(h).map_or(V::ZERO, |c| c.weight);
+            let mut sum = self.input_bias.output * weight(&self.input_bias);
+            let mut layer_sum = V::ZERO;
+            for (&x, neuron) in inputs.iter().zip(&self.input) {
+                layer_sum += x * weight(neuron);
+            }
+            sum += layer_sum;
+            *out = H::activate(sum);
+        }
+        let mut output = [V::ZERO; OUT];
+        for (o, out) in output.iter_mut().enumerate() {
+            let weight = |n: &Neuron<V, OUT>| n.connections.get(o).map_or(V::ZERO, |c| c.weight);
+            let mut sum = self.hidden_bias.output * weight(&self.hidden_bias);
+            let mut layer_sum = V::ZERO;
+            for (&x, neuron) in hidden.iter().zip(&self.hidden) {
+                layer_sum += x * weight(neuron);
+            }
+            sum += layer_sum;
+            *out = O::activate(sum);
+        }
+        output
+    }
+
     /// The output-layer activations from the latest
     /// [`feed_forward`](Self::feed_forward).
     pub fn learned_values(&self) -> [V; OUT] {
@@ -637,12 +668,15 @@ mod tests {
             let frozen = nn.to_inference();
             for _ in 0..20 {
                 let input: [V; IN] = core::array::from_fn(|_| raw(rng.next_i32()));
+                // `evaluate` (no state change) agrees with `feed_forward` too.
+                let evaluated = nn.evaluate(&input);
                 nn.feed_forward(&input);
                 assert_eq!(
                     frozen.feed_forward(&input),
                     nn.learned_values(),
                     "trial {trial}"
                 );
+                assert_eq!(evaluated, nn.learned_values(), "trial {trial}");
             }
         }
     }

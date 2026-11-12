@@ -7,6 +7,17 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- `qlearn::QNetwork`: Q values from a neural network, a deep Q-network
+  (tinymind (C++)'s `QValueNeuralNetworkPolicy`), for `QLearner::with_q_values`.
+  It holds a `MultilayerPerceptron` mapping a state (encoded by a function you
+  supply) to one Q value per action, trains it once per update on the taken
+  action's target, and reads the update's lookahead from a target network
+  refreshed every given number of training steps. The `dqn_maze` example
+  ports tinymind (C++)'s and matches it byte for byte
+  (`tests/dqn_maze_golden.rs`).
+
 ### Changed
 
 - Int8 dense layers (`QDense`, `QDensePerChannel`) check their requantizers

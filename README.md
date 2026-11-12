@@ -26,7 +26,7 @@ affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
 (for residual connections) and multiplication, padding, concatenation, quantized
 ReLU, activation tables, a softmax that is bit-exact with TFLite's, LSTM and
-GRU cells, and a radix-2 FFT on 16-bit samples), quantized decision trees and gradient-boosted ensembles, tabular Q-learning, and LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`). It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
+GRU cells, and a radix-2 FFT on 16-bit samples), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), and LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`). It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -99,6 +99,7 @@ cargo run --release --features std --example gbdt_tabular_int8 -- output   # int
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN, per-layer report
 cargo run --release --example imported_trees                 # scikit-learn tree models via the tree importer
 cargo run --release --example maze -- output                 # Q-learning: find the way out of a six-room maze
+cargo run --release --example dqn_maze -- output             # the same maze, learned by a deep Q-network
 cargo run --release --example har_activity -- output         # LSTM: classify accelerometer windows into four activities
 cargo test --all-features                                # unit, doc and golden tests against the C++ output
 PYTHON=<python with the packages below> scripts/compare-with-cpp.sh   # rebuild the C++ side and diff everything
@@ -119,7 +120,10 @@ flags faults by reconstruction error; the same code runs on the boards in
 there. The `maze` example trains a Q-learner to leave a six-room maze over 5000
 episodes, compares its Q table with the optimal one (`maze_qtable.csv`), then
 runs 100 greedy test episodes, and writes each episode's path to
-`maze_training.csv` and `maze_test.csv`. The `har_activity` example trains a
+`maze_training.csv` and `maze_test.csv`. The `dqn_maze` example learns the same
+maze with a deep Q-network (a 6-8-6 Q16.16 network from the one-hot room to a Q
+value per action, with a target network) over 10000 episodes and writes the
+same three files, prefixed `dqn_`. The `har_activity` example trains a
 3-16-4 LSTM network on synthesized accelerometer windows (32 samples of three
 axes each) to tell walking, walking upstairs, walking downstairs and sitting apart,
 reading each window one sample at a time (upstairs and downstairs differ only
@@ -163,8 +167,9 @@ set.
 | `examples/xor.rs` | `examples/xor/xor.cpp` |
 | `examples/iris.rs` | `examples/iris/iris.cpp` |
 | `examples/energy_efficiency.rs` | `examples/energy_efficiency/energy_efficiency.cpp` |
-| `src/qlearn.rs` | `cpp/qlearn.hpp`: tabular Q-learning (`QLearner` with a `QTable`, tinymind (C++)'s `QValueTablePolicy`, `ArgMaxPolicy` and `DefaultLearningPolicy`); not the deep Q-network policy |
+| `src/qlearn.rs` | `cpp/qlearn.hpp`: Q-learning (`QLearner` with `ArgMaxPolicy` and `DefaultLearningPolicy`), its Q values in a `QTable` (`QValueTablePolicy`) or a deep Q-network, `QNetwork` (`QValueNeuralNetworkPolicy`) |
 | `examples/maze.rs` | `examples/maze/maze.cpp`, `mazelearner.h` |
+| `examples/dqn_maze.rs` | `examples/dqn_maze/dqn_maze.cpp`, `dqn_mazelearner.h` |
 | `src/recurrent.rs` | `cpp/neuralnet.hpp` (`LstmNeuralNetwork`): an LSTM network with one hidden layer (`LstmNetwork`), trained one step back in time with SGD with momentum, Adam or RMSprop and optional gradient clipping |
 | `examples/har_activity.rs` | `examples/har_activity/har_activity.cpp` |
 | `examples/anomaly.rs` | no counterpart: an on-device anomaly-detection demo built from the ported parts |
@@ -203,7 +208,8 @@ the int8 quantization tiers, SIMD backends, and so on.
   example with both bit counts in `xornet.h` set to 8. `tests/iris_golden.rs`
   does the same for iris against `tests/golden/iris/`, `tests/energy_golden.rs`
   for energy_efficiency against `tests/golden/energy/`, `tests/maze_golden.rs`
-  for the maze against `tests/golden/maze/`, `tests/har_golden.rs` for
+  for the maze against `tests/golden/maze/`, `tests/dqn_maze_golden.rs` for
+  the deep Q-network maze against `tests/golden/dqn_maze/`, `tests/har_golden.rs` for
   har_activity against `tests/golden/har/`, and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`,
   and `tests/imported_mlp_golden.rs` and `tests/imported_cnn_golden.rs` for the
@@ -289,9 +295,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   tinymind (C++)'s on 504 and 48 calibrations; `test_ops.py` checks PAD, MUL and
   CONCATENATION on generated models against TFLite's reference kernels (LiteRT).
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
-  (xor in both formats, iris, energy efficiency, maze, har_activity, int8 xor, GBDT) with the flags their
+  (xor in both formats, iris, energy efficiency, maze, dqn_maze, har_activity, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (78 checks today, including
+  example does, runs both sides, and compares every output file (83 checks today, including
   that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
@@ -308,8 +314,8 @@ the int8 quantization tiers, SIMD backends, and so on.
   requantizer, the int8 dense layers, convolutions, pooling, addition,
   multiplication, padding and concatenation, the
   tables, the softmax, the int8 LSTM and GRU cells, the FFT (for any samples
-  and twiddle tables), the trees, the Q-learner and the LSTM network never
-  panic, that pooling's divide rounds half away from zero, and that the FFT's
+  and twiddle tables), the trees, the Q-learner, the deep Q-network and the LSTM
+  network never panic, that pooling's divide rounds half away from zero, and that the FFT's
   Q1.15 multiply floors and its magnitudes saturate only where they must.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
   and whose panic handler is an undefined symbol, so CI fails to link it if any

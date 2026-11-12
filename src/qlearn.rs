@@ -67,9 +67,21 @@
 //! }
 //! ```
 //!
-//! tinymind (C++)'s deep Q-network policy (`QValueNeuralNetworkPolicy`) is not
-//! ported yet.
+//! # Deep Q-network
+//!
+//! [`QNetwork`] (tinymind (C++)'s `QValueNeuralNetworkPolicy`) keeps the Q
+//! values in a [`MultilayerPerceptron`] instead of a table: the network maps a
+//! state, encoded as its input vector by a function you supply, to one Q
+//! value per action, so states that look alike share what they learn. Each
+//! update trains the network on the taken action's target. The update's
+//! lookahead reads a second, target network, a copy of the online one
+//! refreshed every so many training steps, which keeps the target from
+//! chasing its own updates. It is a drop-in replacement for the table: pass
+//! it to [`QLearner::with_q_values`].
 
+use crate::activation::Activation;
+use crate::neuralnet::{InferencePerceptron, MultilayerPerceptron};
+use crate::optimizer::{Optimizer, Sgd};
 use crate::qformat::Scalar;
 
 /// The world a [`QLearner`] acts in: tinymind (C++)'s environment (the
@@ -150,6 +162,134 @@ impl<V: Scalar, const STATES: usize, const ACTIONS: usize> QValues<V>
             .and_then(|row| row.get_mut(action))
         {
             *q = value;
+        }
+    }
+}
+
+/// Q values from a neural network: a deep Q-network (tinymind (C++)'s
+/// `QValueNeuralNetworkPolicy`), for [`QLearner::with_q_values`].
+///
+/// The online network is a [`MultilayerPerceptron`] with `IN` inputs, `HID`
+/// hidden neurons and one output per action. `inputs` encodes a state as the
+/// network's input vector (C++ `getInputValues`; a one-hot vector for a small
+/// set of states). Reading a Q value runs the online network forward without
+/// changing it. Storing one feeds the state forward, sets the taken action's
+/// output to the new value, keeps the others as they are, and trains once,
+/// unless the value is already there. Every `target_update_interval` training
+/// steps the online weights are copied into the target network, which the
+/// learner's lookahead reads ([`QValues::future_q_value`]); it starts as a
+/// copy of the online network.
+///
+/// ```
+/// use tinymind::qlearn::{QNetwork, QValues};
+/// use tinymind::{Linear, MultilayerPerceptron, Q16_16, Tanh};
+///
+/// // Three states, one-hot encoded; two actions; four hidden neurons.
+/// fn one_hot(state: usize) -> [Q16_16; 3] {
+///     core::array::from_fn(|i| Q16_16::from_int(i32::from(i == state)))
+/// }
+/// let mut seed = 1;
+/// let net = MultilayerPerceptron::<Q16_16, Tanh, Linear, 3, 4, 2>::new(|| {
+///     seed = (seed * 7 + 3) % 17;
+///     Q16_16::from_raw((seed - 8) * 4096)
+/// });
+/// let mut q = QNetwork::new(net, one_hot, 10);
+/// let target = Q16_16::from_int(1) / Q16_16::from_int(2);
+/// let before = q.q_value(1, 0);
+/// q.set_q_value(1, 0, target);
+/// // One training step moves Q(1, 0) towards the target.
+/// let after = q.q_value(1, 0);
+/// assert!((after - target).raw().abs() < (before - target).raw().abs());
+/// ```
+pub struct QNetwork<V, H, O, const IN: usize, const HID: usize, const ACTIONS: usize, Opt = Sgd> {
+    network: MultilayerPerceptron<V, H, O, IN, HID, ACTIONS, Opt>,
+    target: InferencePerceptron<V, H, O, IN, HID, ACTIONS>,
+    inputs: fn(usize) -> [V; IN],
+    target_update_interval: usize,
+    iterations: usize,
+}
+
+impl<V, H, O, const IN: usize, const HID: usize, const ACTIONS: usize, Opt>
+    QNetwork<V, H, O, IN, HID, ACTIONS, Opt>
+where
+    V: Scalar,
+    H: Activation<V>,
+    O: Activation<V>,
+    Opt: Optimizer<V>,
+{
+    /// Q values from `network`, with `inputs` encoding each state as its
+    /// input vector, and the target network refreshed every
+    /// `target_update_interval` training steps (0 refreshes it after every
+    /// step, as 1 does, like the C++ `>=` test).
+    pub fn new(
+        network: MultilayerPerceptron<V, H, O, IN, HID, ACTIONS, Opt>,
+        inputs: fn(usize) -> [V; IN],
+        target_update_interval: usize,
+    ) -> Self {
+        let target = network.to_inference();
+        Self {
+            network,
+            target,
+            inputs,
+            target_update_interval,
+            iterations: 0,
+        }
+    }
+
+    /// The online network.
+    pub fn network(&self) -> &MultilayerPerceptron<V, H, O, IN, HID, ACTIONS, Opt> {
+        &self.network
+    }
+
+    /// The online network, to change its rates or weights.
+    pub fn network_mut(&mut self) -> &mut MultilayerPerceptron<V, H, O, IN, HID, ACTIONS, Opt> {
+        &mut self.network
+    }
+
+    /// The target network: the online weights as of the last refresh.
+    pub fn target(&self) -> &InferencePerceptron<V, H, O, IN, HID, ACTIONS> {
+        &self.target
+    }
+}
+
+impl<V, H, O, const IN: usize, const HID: usize, const ACTIONS: usize, Opt> QValues<V>
+    for QNetwork<V, H, O, IN, HID, ACTIONS, Opt>
+where
+    V: Scalar,
+    H: Activation<V>,
+    O: Activation<V>,
+    Opt: Optimizer<V>,
+{
+    /// The online network's output for `action` (0 for an action out of
+    /// range).
+    fn q_value(&self, state: usize, action: usize) -> V {
+        let outputs = self.network.evaluate(&(self.inputs)(state));
+        outputs.get(action).copied().unwrap_or(V::ZERO)
+    }
+
+    /// The target network's output for `action` (0 for an action out of
+    /// range).
+    fn future_q_value(&mut self, state: usize, action: usize) -> V {
+        let outputs = self.target.feed_forward(&(self.inputs)(state));
+        outputs.get(action).copied().unwrap_or(V::ZERO)
+    }
+
+    /// Trains the online network once towards `value` for `action`, unless
+    /// its output already equals it (an action out of range is ignored).
+    fn set_q_value(&mut self, state: usize, action: usize, value: V) {
+        self.network.feed_forward(&(self.inputs)(state));
+        let mut targets = self.network.learned_values();
+        let Some(target) = targets.get_mut(action) else {
+            return;
+        };
+        if *target != value {
+            *target = value;
+            self.network.train(&targets);
+            self.iterations += 1;
+            if self.iterations >= self.target_update_interval {
+                self.iterations = 0;
+                self.target = self.network.to_inference();
+            }
         }
     }
 }

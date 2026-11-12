@@ -146,6 +146,7 @@ The third column is the notes file in `.claude/rules/`.
 | `src/network.rs` | `cpp/neuralnet.hpp` (`NeuralNetwork`, chain path: `InnerLayerChainBuilder`, `ChainNetworkDeltasCalculator`, `ChainNetworkGradientsCalculator`, `ChainBackPropConnectionWeightUpdater`) | `core.md` |
 | `src/optimizer.rs` | `cpp/adam.hpp`, `cpp/rmsprop.hpp` (`SquareRootApproximation` -> `qformat::Sqrt`; `AdamOptimizerFloat`/`RmsPropOptimizerFloat` -> `AdamFloat`/`RmsPropFloat`, see Floating point below) | `core.md` |
 | `src/qlearn.rs`, `examples/maze.rs`, `examples/common/maze_driver.rs` | `cpp/qlearn.hpp` (`QLearner`, `QValueTablePolicy`, `ArgMaxPolicy`, `DefaultLearningPolicy`, `QLearningEnvironment`), `examples/maze` | `qlearn.md` |
+| (same, `QNetwork`), `examples/dqn_maze.rs`, `examples/common/dqn_maze_driver.rs` | `cpp/qlearn.hpp` (`QValueNeuralNetworkPolicy`), `examples/dqn_maze` | `qlearn.md` |
 | `src/recurrent.rs`, `examples/har_activity.rs`, `examples/common/har_driver.rs` | `cpp/neuralnet.hpp` (`LstmNeuralNetwork`, `LstmHiddenLayer`, `TrainableLstmHiddenLayerNeuron`, `ChainBackPropagationThruTimePolicy` and the recurrent chain calculators), `examples/har_activity` | `recurrent.md` |
 | `src/rand.rs` | (glibc) | `core.md` |
 | `examples/xor.rs`, `examples/common/xor_driver.rs` | `examples/xor/xor.cpp`, `xornet.h` | `core.md` |
