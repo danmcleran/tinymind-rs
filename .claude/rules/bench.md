@@ -32,6 +32,13 @@ and the xor trajectories too, all reproduced on both boards 2026-11-10.
 #267's round-to-nearest SGD step: anomaly hash 0x7C074DAD (threshold 128,
 stall 46/64), F411 step 6,437, L031 39,763 cycles; Q8.8 xor solves XOR again;
 all reproduced on both boards 2026-11-10.
+C++ figures refreshed to tinymind v18.2's re-measured `raw_*_O3.txt` (#274,
+2026-11-12; RAM recomputed as above). Changes that moved a conclusion: L031
+MLP C++ 35,963 -> 32,644 (#275 restored its -O2/-O3 speed), so Rust's 42,514 is
+30% slower (was 18%); F411 MLP C++ 20,486 -> 21,002 (Rust 2.7% faster, was
+level); KWS L031 Rust 12% fewer cycles (was 13%), flash +2% vs C++ (was -1%);
+ResNet-8 flash +5% (was +8%), parallel-DSP 1.45x SMLAD (was 1.43x). The dated
+history lines in these notes keep the figures of their day.
 The `fft` workload (2026-11-12): `int8::QFft1D` forward at N=256 on the FFT
 sweep's random signal, tinymind's twiddle tables and the expected hash
 (0xEFABBA1C) generated into OUT_DIR by build.rs from tests/golden/fft (an

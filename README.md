@@ -42,10 +42,10 @@ STM32L031 (Cortex-M0+, 32 MHz, 32 KB flash, 8 KB RAM), next to tinymind (C++)
 built for the same boards with the same models, inputs and compiler settings:
 
 - tinymind (C++)'s int8 digits classifier: the Rust build gives the same output
-  hash as the C++ build, in 204 µs per inference on the M4F (C++: 205 µs) and
-  1.33 ms on the M0+ (C++: 1.12 ms).
+  hash as the C++ build, in 204 µs per inference on the M4F (C++: 210 µs) and
+  1.33 ms on the M0+ (C++: 1.02 ms).
 - tinymind (C++)'s KWS-shaped convolutional network: the same output hash, in
-  1.89 ms on the M4F and 20.3 ms on the M0+, 26% and 13% fewer cycles than the
+  1.89 ms on the M4F and 20.3 ms on the M0+, 26% and 12% fewer cycles than the
   C++'s portable build.
 - On the F411, the MLPerf Tiny keyword-spotting and image-classification
   (ResNet-8) models, translated from TFLite: the C++'s output hashes, in 108 ms
