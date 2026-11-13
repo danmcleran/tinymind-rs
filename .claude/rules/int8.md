@@ -170,6 +170,23 @@ scratch harness (gcc 13.2.1, prefetch on): const object -O3 F411 107,292 L031
 than 27 cycles. gcc -O3's code for the const object is generic (no unrolled
 stages, no constant twiddles; per-stage __udivsi3 for the stride): the
 "gcc specialises a constant FFT object" explanation does not hold here.
+**Correction (same day): those C++ -O3 figures were an unlucky caller.** gcc's
+register allocation of the same stock loop depends on the function `forward`
+is inlined into: in the harness's `be_invoke` (global arrays) a 184 B loop with
+10 [sp] loads, 3 stores, 2 literal loads per butterfly (158,603-166,833); a
+noinline `(int16_t*, int16_t*)` function 193,277; noinline `Scratch&` 158,224;
+a processing function that copies the input into a `Scratch&` then calls
+forward (`fw/be_fft_app.cpp` in the scratch harness) a 138 B loop with 4 [sp]
+loads, 0 stores, 0 literal loads: 103,492 incl. a 1,861-cycle copy (F411
+84,200 incl. 1,278). With a prep pass in that function 114,315 at -O3 and
+176,393 at -Os. Not alignment (-falign-loops=8/16: 3%), not -std=c++14
+-ffreestanding, not data. Best C++ now quoted: -O3 L031 ~101,600, F411
+~82,900; -Os L031 142,482 (first harness, run-time object; ~152,200 in the
+processing function), F411 ~85,200 (processing function). Rust vs best:
+L031 +16% at 3, -5% at s; F411 about half. Staged C++ in the processing
+function: -O3 L031 ~97,700 (only -4%), F411 ~63,200 (-24%); -Os L031 ~166,000
+(+9%), F411 ~85,300. Rust's L031 loops still reload the clamp bounds from the
+literal pool (13-34 per loop) and spill: that is the remaining gap.
 Dropped: `(v >> 15) + 1 <= 1` saturation (LLVM folds `as i16` round trips
 back into the clamp; the shift form kept constants out of the M0+ loop but
 was no faster there and lost `ssat` on the F411: 85,251), real outputs before
