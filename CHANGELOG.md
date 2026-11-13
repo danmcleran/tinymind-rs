@@ -16,14 +16,15 @@ break the API).
   (SGD with the step rounded to nearest, no momentum, the update fused into
   the backward pass) with a softmax cross-entropy loss
   (`SoftmaxCrossEntropyLoss`, the default) or a squared-error loss
-  (`SquaredErrorLoss`); `backward` gives the gradient with respect to the
-  embedding. `head::PrototypeHead` is a nearest-class-mean classifier with a
+  (`SquaredErrorLoss`), or your own through the `HeadLoss` trait; `backward`
+  gives the gradient with respect to the embedding. `head::PrototypeHead` is a nearest-class-mean classifier with a
   running mean per class, an optional count cap that turns it into a moving
   average, and squared Euclidean (`SquaredEuclideanDistance`, the default) or
-  Manhattan (`ManhattanDistance`) distance. Both run on `Q16_16`, `Q8_8`,
+  Manhattan (`ManhattanDistance`) distance, or your own through the
+  `Distance` trait. Both run on `Q16_16`, `Q8_8`,
   `f32` and `f64`; the softmax's exponential (`head::SoftmaxExp`) is the
   96-entry exp lookup table for the Q formats, now extracted from
-  tinymind (C++)'s tables, and the math library's `exp` for the float types
+  tinymind (C++)'s tables (`EXP_Q16_16`, `EXP_Q8_8`, crate-private), and the math library's `exp` for the float types
   (feature `std` or `libm`). `tests/head_sweep.rs` checks both against the
   C++ after every step.
 - `MultilayerPerceptron::hidden_values`: the hidden-layer activations from
