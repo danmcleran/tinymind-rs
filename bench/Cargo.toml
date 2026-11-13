@@ -33,6 +33,8 @@ xor-q8 = []
 anomaly = []
 # The quantized FFT: a 256-point forward transform, hash-matched to tinymind (C++).
 fft = []
+# The same with the layer built at run time from tables the compiler cannot see.
+fft-runtime = ["fft"]
 # The imported scikit-learn tree models: results, both forms, flash vs SRAM.
 trees = []
 # Per-layer cycles for the MLP (a separate image, like tinymind's PROFILE build).

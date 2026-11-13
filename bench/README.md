@@ -36,7 +36,8 @@ samples, so the numbers sit next to the tinymind (C++) ones.
   tinymind (C++)'s twiddle tables (`build.rs` reads both, and the hash
   tinymind (C++) printed for that transform, from
   `tests/golden/fft/stdout.txt`). The spectrum's hash must equal the one
-  tinymind (C++) printed.
+  tinymind (C++) printed. `fft-runtime` is the same with the layer built at
+  run time from tables the compiler cannot see, instead of a `static`.
 - **`trees`**: the two imported scikit-learn models of the `imported_trees`
   example (gradient boosting, 90 trees on int8 inputs; random forest, 15
   voting trees on int16) classify the 54 held-out UCI Wine samples; the hash of
@@ -246,30 +247,51 @@ library's per-layer update loop (`optimizer::update_all`).
 
 ### Quantized FFT, 256 points
 
+Forward transform, median cycles, prefetch on, same signal and twiddle tables
+and the same output hash in both languages (2026-11-12):
+
 | | F411 | L031 |
 |---|---:|---:|
-| Forward transform (median) | 59,965 cycles (600 us) | 153,696 cycles (4.80 ms) |
-| tinymind (C++) `QFFT1D<256>::forward`, gcc `-O3` | 107,265 cycles (1.07 ms) | 166,833 cycles (5.21 ms) |
-| Squared magnitudes of the 256 bins (median) | 2,731 | 4,863 |
-| Stack (peak) / over baseline | 4,564 B / +4,052 B | 4,564 B / +3,960 B |
-| Flash (text) / over baseline | 15,656 B / +2,340 B | 14,684 B / +2,248 B |
+| **tinymind-rs**, `static` layer, `opt-level = 3` | **41,991** (420 us) | **117,640** (3.68 ms) |
+| **tinymind-rs**, `static` layer, `opt-level = "s"` | **44,255** | **135,233** |
+| tinymind-rs, layer built at run time (`fft-runtime`), `opt-level = 3` | 45,619 | 138,456 |
+| tinymind-rs, layer built at run time, `opt-level = "s"` | 43,864 | 141,600 |
+| tinymind (C++), `const` object, gcc `-O3` | 107,292 | 166,833 |
+| tinymind (C++), `const` object, gcc `-Os` | 113,125 | 143,245 |
+| tinymind (C++), object built at run time, gcc `-O3` | 104,509 | 152,747 |
+| tinymind (C++), object built at run time, gcc `-Os` | 115,202 | 142,482 |
 
-Measured 2026-11-12, at `opt-level = 3` with `target-cpu`. The transform
-itself works in the caller's buffers and needs no memory of its own: the stack
-figure is the workload's (the input kept for 33 timed runs, the working
-buffers, 1 KB of magnitudes). The flash delta includes the twiddle tables
-(512 B), the signal generator and the report.
+On the L031 the Rust transform takes 17-30% fewer cycles than every C++
+build at `opt-level = 3` (`static` layer) and 5-6% fewer at `"s"`; on the F411
+about 60% fewer. The squared magnitudes of the 256 bins take 2,731 and 4,863
+cycles. Code for the transform (L031): 1,852 B at `"s"` and 4,676 B at 3; the
+C++'s 392 B at `-Os` and 584 B at `-O3` plus its 1 KB bit-reversal table; both
+also read the 512 B of twiddle tables. The workload as a whole adds 2,716 B
+(`"s"`) and 5,920 B (3) of flash on the L031 over the baseline image, with
+the signal generator and the report, and about 4 KB of stack for its own
+buffers (the input kept for 33 timed runs, the working buffers, 1 KB of
+magnitudes); the transform itself needs none.
 
-The Rust transform takes 44% fewer cycles than tinymind (C++)'s on the F411
-and 8% fewer on the L031. The C++ figures come from tinymind (C++)'s benchmark
-harness (`fw/harness.cpp`, its board code and Makefile flags, `-O3`) with a
-backend that runs `QFFT1D<256>::forward` on the same signal and twiddle
-tables; it gives the same hash. That image adds 3.3 KB over its baseline,
-with a 1 KB input array and the C++'s 1 KB bit-reversal table. The Rust
-transform runs twiddle by twiddle (each twiddle loaded once per stage), where
-the C++ runs group by group and loads it for every butterfly; the
-butterflies of a stage are independent, so the results are the same. Group
-by group, as first ported, it took 71,627 and 172,683 cycles.
+The C++ figures come from tinymind (C++)'s benchmark harness (`fw/harness.cpp`,
+its board code and Makefile flags) with a backend that runs
+`QFFT1D<256>::forward`, as a namespace-scope `const` object or built at run
+time from opaque pointers. Feeding it the FFT sweep's two-tone signal instead
+of random samples changed no C++ timing by more than 27 cycles, and the
+`const` object was not faster than the run-time one: gcc does not specialise
+the transform for constant tables.
+
+Where the Rust cycles went (L031, `static` layer, `opt-level = 3`): 172,685 as
+first ported (group by group, as the C++); 153,698 running each stage twiddle
+by twiddle (each twiddle loaded once per stage, not once per butterfly);
+117,640 with each stage's half size a constant (one loop per stage, chosen by
+a macro over the powers of two), so offsets, strides and trip counts are
+immediates and the M0+'s eight low registers hold the butterfly. All three
+give the same bits: the butterflies of a stage are independent. Tried and
+dropped: saturating with `(v >> 15) + 1 <= 1` instead of a clamp (no faster on
+the L031; the F411 lost `ssat`, 59,965 -> 85,251); real outputs before
+imaginary ones (F411 4% faster, L031 4% slower); constant stages only for half
+sizes 1-8 (same at 3, 141,374 at `"s"` for 764 B less flash). The bit reversal
+(no table) takes about 9,300 cycles of the L031 total.
 
 ### KWS-shaped CNN (int8 convolutions)
 

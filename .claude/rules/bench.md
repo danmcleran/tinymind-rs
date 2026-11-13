@@ -45,10 +45,12 @@ history lines in these notes keep the figures of their day.
 The `fft` workload (2026-11-12): `int8::QFft1D` forward at N=256 on the FFT
 sweep's random signal, tinymind's twiddle tables and the expected hash
 (0xEFABBA1C) generated into OUT_DIR by build.rs from tests/golden/fft (an
-`include_str!` of the whole golden overflowed the L031 by 23 KB). F411 59,965
-cycles forward (71,627 before the twiddle-outer loop), 2,731 magnitudes; L031
-153,696 (172,683) and 4,863; flash over baseline +2,340 / +2,248 B; C++
-`QFFT1D` on the boards 107,265 / 166,833 (scratch backend, see int8.md); stack is the workload's buffers (~4 KB), the transform
+`include_str!` of the whole golden overflowed the L031 by 23 KB). F411 41,991
+cycles forward at opt 3 (59,965 twiddle-outer, 71,627 first port), 2,731
+magnitudes; L031 117,640 (153,696; 172,683) and 4,863; opt s 44,255 / 135,233;
+flash over baseline L031 +5,920 (3) / +2,716 (s); `fft-runtime` feature
+(layer behind black_box) for the run-time shape; C++ `QFFT1D` matrix in
+int8.md (scratch backend); stack is the workload's buffers (~4 KB), the transform
 uses none. `magnitude_squared` returning `[i32; N]` instead of filling the
 caller's array took 4,539 / 7,267 (the copy out). Raw in bench/results/fft-2026-11-12. C++ FFT not timed on boards.
 The `kws` workload (4C) is tinymind's framework-comparison KWS-shaped CNN
