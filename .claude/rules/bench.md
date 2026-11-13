@@ -50,7 +50,8 @@ cycles forward at opt 3 (59,965 twiddle-outer, 71,627 first port), 2,731
 magnitudes; L031 117,640 (153,696; 172,683) and 4,863; opt s 44,255 / 135,233;
 flash over baseline L031 +5,920 (3) / +2,716 (s); `fft-runtime` feature
 (layer behind black_box) for the run-time shape; C++ `QFFT1D` matrix in
-int8.md (scratch backend); stack is the workload's buffers (~4 KB), the transform
+int8.md (scratch backend; gcc's -O3 code depends on the caller, so quote the
+best caller: L031 ~101,600, F411 ~82,900); stack is the workload's buffers (~4 KB), the transform
 uses none. `magnitude_squared` returning `[i32; N]` instead of filling the
 caller's array took 4,539 / 7,267 (the copy out). Raw in bench/results/fft-2026-11-12. C++ FFT not timed on boards.
 The `kws` workload (4C) is tinymind's framework-comparison KWS-shaped CNN

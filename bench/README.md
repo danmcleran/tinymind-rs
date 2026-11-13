@@ -256,14 +256,12 @@ and the same output hash in both languages (2026-11-12):
 | **tinymind-rs**, `static` layer, `opt-level = "s"` | **44,255** | **135,233** |
 | tinymind-rs, layer built at run time (`fft-runtime`), `opt-level = 3` | 45,619 | 138,456 |
 | tinymind-rs, layer built at run time, `opt-level = "s"` | 43,864 | 141,600 |
-| tinymind (C++), `const` object, gcc `-O3` | 107,292 | 166,833 |
-| tinymind (C++), `const` object, gcc `-Os` | 113,125 | 143,245 |
-| tinymind (C++), object built at run time, gcc `-O3` | 104,509 | 152,747 |
-| tinymind (C++), object built at run time, gcc `-Os` | 115,202 | 142,482 |
+| tinymind (C++), gcc `-O3`, best measured | about 82,900 | about 101,600 |
+| tinymind (C++), gcc `-Os`, best measured | about 85,200 | 142,482 |
 
-On the L031 the Rust transform takes 17-30% fewer cycles than every C++
-build at `opt-level = 3` (`static` layer) and 5-6% fewer at `"s"`; on the F411
-about 60% fewer. The squared magnitudes of the 256 bins take 2,731 and 4,863
+On the L031 the Rust transform takes about 16% more cycles than the best
+gcc `-O3` build of tinymind (C++) and about 5% fewer than its best `-Os`
+build; on the F411 about half the cycles of either. The squared magnitudes of the 256 bins take 2,731 and 4,863
 cycles. Code for the transform (L031): 1,852 B at `"s"` and 4,676 B at 3; the
 C++'s 392 B at `-Os` and 584 B at `-O3` plus its 1 KB bit-reversal table; both
 also read the 512 B of twiddle tables. The workload as a whole adds 2,716 B
@@ -273,12 +271,31 @@ buffers (the input kept for 33 timed runs, the working buffers, 1 KB of
 magnitudes); the transform itself needs none.
 
 The C++ figures come from tinymind (C++)'s benchmark harness (`fw/harness.cpp`,
-its board code and Makefile flags) with a backend that runs
-`QFFT1D<256>::forward`, as a namespace-scope `const` object or built at run
-time from opaque pointers. Feeding it the FFT sweep's two-tone signal instead
-of random samples changed no C++ timing by more than 27 cycles, and the
-`const` object was not faster than the run-time one: gcc does not specialise
-the transform for constant tables.
+its board code and Makefile flags) with backends that run
+`QFFT1D<256>::forward` on the same signal and tables. **gcc's code for that
+loop depends on the function it is inlined into**, so the same source
+measured 101,600 to 193,277 cycles on the L031 at `-O3`:
+
+| Caller of `forward` (L031, gcc `-O3`) | Butterfly loop | Cycles |
+|---|---|---:|
+| the harness's timed function, on global arrays | 184 B; 10 stack loads, 3 stores, 2 literal-pool loads per butterfly | 158,603-166,833 |
+| a non-inlined function taking two `int16_t*` | | 193,277 |
+| a non-inlined function taking a struct of the two arrays by reference | 170 B; 13 stack loads, 6 stores, 2 literal loads | 158,224 |
+| a processing function that copies the input into such a struct, then calls `forward` | 138 B; 4 stack loads, no stores, no literal loads | 103,492 (1,861 of it the copy) |
+
+The best rows above are that last caller with the copy subtracted (F411:
+84,200 - 1,278; L031: 103,492 - 1,861), and at `-Os` on the L031 the
+harness's own function with the object built at run time (in the processing
+function: about 152,200). Loop alignment (`-falign-loops=8` or `16`) moved the
+C++ by 3%; the language standard (`-std=c++14 -ffreestanding` or
+`-std=c++17`), a `const` object against one built at run time, and the input
+(random, a two-tone signal, a low-amplitude one) did not explain the spread.
+First measured in the harness's own function, the C++ took 107,292 / 166,833
+cycles at `-O3` and 113,125 / 143,245 at `-Os` (F411 / L031), and the
+comparison here first said the Rust was 17-30% faster on the L031 at
+`opt-level = 3`; against the best C++ caller it is 16% slower. The rustc
+transform is a function of its own at `opt-level = 3`, so its code does not
+depend on the caller in the same way.
 
 Where the Rust cycles went (L031, `static` layer, `opt-level = 3`): 172,685 as
 first ported (group by group, as the C++); 153,698 running each stage twiddle

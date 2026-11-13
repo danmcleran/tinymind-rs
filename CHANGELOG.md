@@ -36,8 +36,10 @@ break the API).
   butterfly. A 256-point forward transform takes 117,640 cycles on the
   STM32L031 at `opt-level = 3` (was 172,683) and 135,233 at `"s"` (was
   173,627); 41,991 and 44,255 on the STM32F411 (was 71,627 and 75,934).
-  tinymind (C++)'s `QFFT1D`, now timed on both boards, takes 166,833 (gcc
-  `-O3`) and 143,245 (`-Os`) on the L031. The transform's code grows to
+  tinymind (C++)'s `QFFT1D`, now timed on both boards, takes about 101,600
+  (gcc `-O3`) and 142,482 (`-Os`) on the L031 at best, and about 82,900 and
+  85,200 on the F411; gcc's code for it depends on the calling function (the
+  same source measured up to 193,277 at `-O3` on the L031). The transform's code grows to
   1,852 B at `"s"` and 4,676 B at 3 on the M0+ (was 380 and 1,040). Results are
   unchanged.
 
