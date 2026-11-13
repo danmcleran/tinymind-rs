@@ -590,8 +590,10 @@ mod tree {
 /// states, actions and rewards, whatever the environment returns (more valid
 /// actions than `ACTIONS`, random integers out of range).
 mod qlearn {
+    use crate::activation::{Linear, Relu};
+    use crate::neuralnet::MultilayerPerceptron;
     use crate::qformat::Q8_8;
-    use crate::qlearn::{Environment, Experience, QLearner, QTable};
+    use crate::qlearn::{Environment, Experience, QLearner, QNetwork, QTable, QValues};
 
     struct AnyEnvironment;
 
@@ -635,6 +637,28 @@ mod qlearn {
             new_state: kani::any(),
         });
         let _ = q.take_action(kani::any());
+    }
+
+    fn encode(state: usize) -> [Q8_8; 1] {
+        [Q8_8::from_raw(state as i16)]
+    }
+
+    /// The deep Q-network's reads and its training step never panic, for any
+    /// weights, rates, states, actions (in or out of range), targets and
+    /// refresh interval (1 input, 1 hidden neuron, 2 actions).
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn qnetwork_never_panics() {
+        let mut net = MultilayerPerceptron::<Q8_8, Relu, Linear, 1, 1, 2>::new(any_q8_8);
+        net.set_learning_rate(any_q8_8());
+        net.set_momentum_rate(any_q8_8());
+        net.set_acceleration_rate(any_q8_8());
+        let mut q = QNetwork::new(net, encode, kani::any());
+        let _ = q.q_value(kani::any(), kani::any());
+        let _ = q.future_q_value(kani::any(), kani::any());
+        q.set_q_value(kani::any(), kani::any(), any_q8_8());
+        q.set_q_value(kani::any(), kani::any(), any_q8_8());
+        let _ = q.future_q_value(kani::any(), kani::any());
     }
 }
 

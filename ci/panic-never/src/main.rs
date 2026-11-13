@@ -698,6 +698,47 @@ fn q_learning<V: Scalar>(raw: fn(i32) -> V) {
     ));
 }
 
+/// The deep Q-network: a learner over a 6-8-4 tanh/linear perceptron, its
+/// reads and training steps, with states and actions the compiler cannot see.
+fn dqn<V: Scalar>(raw: fn(i32) -> V, encode: fn(usize) -> [V; 6])
+where
+    Tanh: Activation<V>,
+{
+    let mut rng = GlibcRand::new(black_box(1));
+    let net = MultilayerPerceptron::<V, Tanh, Linear, 6, 8, 4>::new(|| {
+        raw(rng.next_i32() % 65_537 - 32_768)
+    });
+    let q_values = qlearn::QNetwork::new(net, encode, black_box(10));
+    let mut q = qlearn::QLearner::<V, _, 6, 4, _>::with_q_values(
+        OpaqueEnvironment,
+        q_values,
+        raw(black_box(13_107)),
+        raw(black_box(52_428)),
+        black_box(50),
+    );
+    for _ in 0..black_box(3) {
+        let action = q.take_action(black_box(0)).unwrap_or(black_box(9));
+        q.update_from_experience(&qlearn::Experience {
+            state: black_box(0),
+            action,
+            reward: raw(black_box(65_536)),
+            new_state: black_box(3),
+        });
+    }
+    q.set_q_value(black_box(7), black_box(9), raw(black_box(1)));
+    let values = q.q_values_mut();
+    black_box((
+        qlearn::QValues::q_value(values, black_box(2), black_box(5)),
+        qlearn::QValues::future_q_value(values, black_box(1), black_box(3)),
+        values.target(),
+        values.network().learned_values(),
+    ));
+}
+
+fn one_hot_q16(state: usize) -> [Q16_16; 6] {
+    core::array::from_fn(|i| Q16_16::from_int(i32::from(i == state)))
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
     arithmetic();
@@ -765,6 +806,7 @@ pub extern "C" fn _start() -> ! {
     q_learning::<Q16_16>(Q16_16::from_raw);
     q_learning::<Q8_8>(|r| Q8_8::from_raw(r as i16));
     q_learning::<f32>(|r| r as f32 / 65536.0);
+    dqn::<Q16_16>(Q16_16::from_raw, one_hot_q16);
     #[allow(clippy::empty_loop)]
     loop {}
 }

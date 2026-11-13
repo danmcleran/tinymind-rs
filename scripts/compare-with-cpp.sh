@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris, energy_efficiency, maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
+# iris, energy_efficiency, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
 # int8 softmax and FFT sweeps, the Q-learning and tree sweeps, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
@@ -255,6 +255,29 @@ for f in stdout.txt maze_training.csv maze_qtable.csv maze_test.csv; do
     same "maze $f"
   else
     echo "DIFFERENT  maze $f"
+    status=1
+  fi
+done
+
+echo "== dqn_maze"
+mkdir -p "$TMP/dqn_maze/cpp" "$TMP/dqn_maze/rust"
+# Flags from examples/dqn_maze/Makefile's release target, plus
+# -ffp-contract=off: the weights come from a double distribution and Q* from
+# value iteration in double, and a compiler that fuses multiply-adds changes
+# them.
+g++ -g -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/dqn_maze/dqn_maze" \
+  "$TINYMIND_DIR/examples/dqn_maze/dqn_maze.cpp" "$TINYMIND_DIR/examples/dqn_maze/dqn_mazelearner.cpp" \
+  "$TINYMIND_DIR/cpp/lookupTables.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_USE_TANH_16_16=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_RAND=1
+(cd "$TMP/dqn_maze/cpp" && ../dqn_maze > stdout.txt 2> stderr.txt)
+"$ROOT/target/release/examples/dqn_maze" "$TMP/dqn_maze/rust" > "$TMP/dqn_maze/rust/stdout.txt" \
+  2> "$TMP/dqn_maze/rust/stderr.txt"
+for f in stdout.txt stderr.txt dqn_maze_training.csv dqn_maze_qtable.csv dqn_maze_test.csv; do
+  if cmp -s "$TMP/dqn_maze/cpp/$f" "$TMP/dqn_maze/rust/$f"; then
+    same "dqn_maze $f"
+  else
+    echo "DIFFERENT  dqn_maze $f"
     status=1
   fi
 done
@@ -678,6 +701,7 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   mkdir -p "$KEEP_CPP_OUTPUT/imported_trees"
   cp "$TMP/trees/cpp.txt" "$KEEP_CPP_OUTPUT/imported_trees/stdout.txt"
   cp -r "$TMP/maze/cpp" "$KEEP_CPP_OUTPUT/maze"
+  cp -r "$TMP/dqn_maze/cpp" "$KEEP_CPP_OUTPUT/dqn_maze"
   mkdir -p "$KEEP_CPP_OUTPUT/qlearn"
   cp "$TMP/qlearn/stdout.txt" "$KEEP_CPP_OUTPUT/qlearn/stdout.txt"
   cp -r "$TMP/har/cpp" "$KEEP_CPP_OUTPUT/har"

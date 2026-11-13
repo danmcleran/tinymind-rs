@@ -63,6 +63,18 @@ The figure is drawn from this port's output with tinymind (C++)'s plotting style
 - `tests/qlearn_sweep.rs` hashes the whole Q table after every update and compares it with tinymind (C++)'s `QLearner`: the maze as above, and 60 random environments in Q16.16 and Q8.8 with negative rewards, rooms with zero, one, two or more valid actions, learning rates and discount factors of exactly 1 and ones the setters must reject (negative or above 1), exploration rates above 100, and updates for a state other than the learner's, including an invalid one.
 - A Kani proof shows the learner never panics, whatever the Q values, rates, states and actions, and whatever the environment returns.
 
-tinymind (C++)'s deep Q-network (`QValueNeuralNetworkPolicy`, its `dqn_maze` example) is not ported yet.
+## The deep Q-network version
+
+The `dqn_maze` example is a port of tinymind (C++)'s `dqn_maze`: the same maze, with the Q values in a neural network instead of a table. `tinymind::qlearn::QNetwork` (tinymind (C++)'s `QValueNeuralNetworkPolicy`) holds a 6-8-6 Q16.16 `MultilayerPerceptron`, tanh hidden layer and linear output (Q values reach 5, beyond tanh's range), whose input is the room as a one-hot vector and whose outputs are the six actions' Q values. Each update trains the network once on the taken action's target, leaving the other outputs where they are. The update's lookahead reads a target network, a copy of the online one refreshed every 10 training steps. Exploration stays at 100% for 9,900 of the 10,000 episodes: with no replay buffer, a long greedy phase lets the network drift on the moves it stops taking.
+
+```bash
+cargo run --release --example dqn_maze -- output
+```
+
+It writes `dqn_maze_training.csv`, `dqn_maze_qtable.csv` and `dqn_maze_test.csv`, as the maze example does, and the same files as the C++ example, byte for byte. The initial weights come from the C++'s `std::default_random_engine` through `uniform_real_distribution<double>(-1, 1)`, reproduced in the example.
+
+![Moves per training episode, and moves per test episode against the shortest path, for the deep Q-network]({{ site.baseurl }}/assets/plots/dqn_maze_paths.png)
+
+The network's Q values end within 0.00064 of Q\* (RMS 0.00047), and all 100 test episodes take the shortest path. `tests/dqn_maze_golden.rs` compares every output with the C++ example's; a Kani proof shows the network's reads and training steps never panic, whatever the weights, rates, states and actions.
 
 [Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/examples/maze.rs)
