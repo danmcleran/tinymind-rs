@@ -50,6 +50,9 @@ built for the same boards with the same models, inputs and compiler settings:
 - On the F411, the MLPerf Tiny keyword-spotting and image-classification
   (ResNet-8) models, translated from TFLite: the C++'s output hashes, in 108 ms
   and 588 ms, 31% fewer cycles than the C++'s portable build for each.
+- A 256-point int8 FFT gives tinymind (C++)'s spectrum hash, in 41,991 cycles
+  on the M4F and 91,430 on the M0+: about half and 10% fewer than the best
+  gcc `-O3` build of the C++.
 - XOR trained on the board reproduces the desktop weight trajectory bit for bit.
 - The anomaly example trains on the chip in 0.28 s on the M4F and 4.6 s on the
   M0+.
@@ -68,11 +71,11 @@ the results page lists the settings to measure. Results and method:
 
 ```toml
 [dependencies]
-tinymind = "0.3.2"
+tinymind = "0.3.3"
 # Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat:
-# tinymind = { version = "0.3.2", features = ["std"] }
+# tinymind = { version = "0.3.3", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
-# tinymind = { version = "0.3.2", features = ["libm"] }
+# tinymind = { version = "0.3.3", features = ["libm"] }
 ```
 
 The API reference is on [docs.rs](https://docs.rs/tinymind).
@@ -195,7 +198,6 @@ set.
 Everything else in tinymind (C++) is not ported: other Q
 formats, unsigned and 8/64-bit storage, the other activations, the trainable GRU
 and Elman networks and recurrent networks with more than one hidden layer,
-the deep Q-network (`QValueNeuralNetworkPolicy`),
 the int8 quantization tiers, SIMD backends, and so on.
 
 ## How equivalence is proven
@@ -315,8 +317,10 @@ the int8 quantization tiers, SIMD backends, and so on.
   multiplication, padding and concatenation, the
   tables, the softmax, the int8 LSTM and GRU cells, the FFT (for any samples
   and twiddle tables), the trees, the Q-learner, the deep Q-network and the LSTM
-  network never panic, that pooling's divide rounds half away from zero, and that the FFT's
-  Q1.15 multiply floors and its magnitudes saturate only where they must.
+  network never panic, that pooling's divide rounds half away from zero, that the FFT's
+  Q1.15 multiply floors and its magnitudes saturate only where they must, and
+  that the FFT's saturation skip on cores without a saturating instruction
+  changes no output.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
   and whose panic handler is an undefined symbol, so CI fails to link it if any
   panic path survives optimisation (M0+ and M4F, three optimisation levels).

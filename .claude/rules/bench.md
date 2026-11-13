@@ -53,7 +53,7 @@ flash over baseline L031 +5,920 (3) / +2,716 (s); `fft-runtime` feature
 int8.md (scratch backend; gcc's -O3 code depends on the caller, so quote the
 best caller: L031 ~101,600, F411 ~82,900); stack is the workload's buffers (~4 KB), the transform
 uses none. `magnitude_squared` returning `[i32; N]` instead of filling the
-caller's array took 4,539 / 7,267 (the copy out). Raw in bench/results/fft-2026-11-12. C++ FFT not timed on boards.
+caller's array took 4,539 / 7,267 (the copy out). Raw in bench/results/fft-2026-11-12. C++ FFT timed on the boards since (see int8.md).
 The `kws` workload (4C) is tinymind's framework-comparison KWS-shaped CNN
 (`gen/out/kws_tinymind.hpp`, generated into `bench/src/gen/kws.rs` by `gen.py`;
 hash `TM_KWS_HASH`), with per-layer cycles in `kws-profile`. After tuning, Rust

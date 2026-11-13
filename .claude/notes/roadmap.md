@@ -95,4 +95,7 @@ Adam/RmsProp constants, `mul_round_toward_zero`, `mul_round_nearest`; minor bump
 a method), 0.3.1 (2026-11-11, tag `v0.3.1`: the int8 LSTM and GRU cells,
 `int8::QLstmCell` and `int8::QGruCell`, with their calibration), and 0.3.2
 (2026-11-12, tag `v0.3.2`: the quantized FFT, `int8::QFft1D` and
-`calibration::build_fft_twiddles`; 2x2 pointwise pairs; QEMU runs in CI).
+`calibration::build_fft_twiddles`; 2x2 pointwise pairs; QEMU runs in CI), and 0.3.3
+(2026-11-12, tag `v0.3.3`: the deep Q-network `qlearn::QNetwork` and
+`dqn_maze`; QDense one-rounding loop; FFT twiddle-outer, constant stage sizes
+and the ARMv6-M saturation skip; TINYMIND_REF v18.2).
