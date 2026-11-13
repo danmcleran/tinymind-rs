@@ -293,7 +293,8 @@ C++ by 3%; the language standard (`-std=c++14 -ffreestanding` or
 First measured in the harness's own function, the C++ took 107,292 / 166,833
 cycles at `-O3` and 113,125 / 143,245 at `-Os` (F411 / L031), and the
 comparison here first said the Rust was 17-30% faster on the L031 at
-`opt-level = 3`; against the best C++ caller it is 16% slower. The rustc
+`opt-level = 3`; against the best C++ caller it was 16% slower before the
+saturation skip, and is now 10% faster. The rustc
 transform is a function of its own at `opt-level = 3`, so its code does not
 depend on the caller in the same way.
 

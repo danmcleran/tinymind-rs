@@ -1,7 +1,9 @@
-//! Tabular Q-learning, ported from tinymind (C++)'s `qlearn.hpp`: [`QLearner`]
-//! (`QLearner` with `DefaultLearningPolicy` and `ArgMaxPolicy`), [`QTable`]
-//! (`QValueTablePolicy`) and the [`Environment`] trait (what the C++ example
-//! environments derive from `QLearningEnvironment` and supply as policies).
+//! Q-learning, ported from tinymind (C++)'s `qlearn.hpp`: [`QLearner`]
+//! (`QLearner` with `DefaultLearningPolicy` and `ArgMaxPolicy`), its Q values
+//! in a [`QTable`] (`QValueTablePolicy`) or a [`QNetwork`]
+//! (`QValueNeuralNetworkPolicy`), and the [`Environment`] trait (what the C++
+//! example environments derive from `QLearningEnvironment` and supply as
+//! policies).
 //!
 //! The learner keeps a table of Q values, one per (state, action) pair, in
 //! the value type of your choice (`Q16_16`, `Q8_8`, `f32`, `f64`): a 6-state,

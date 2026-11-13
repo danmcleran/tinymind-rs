@@ -79,11 +79,11 @@ To use the library from another project:
 
 ```toml
 [dependencies]
-tinymind = "0.3.2"
+tinymind = "0.3.3"
 # Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat:
-# tinymind = { version = "0.3.2", features = ["std"] }
+# tinymind = { version = "0.3.3", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
-# tinymind = { version = "0.3.2", features = ["libm"] }
+# tinymind = { version = "0.3.3", features = ["libm"] }
 ```
 
 The [API reference]({{ site.baseurl }}/api/tinymind/) starts with a complete example that trains XOR; it runs as a test on every build.

@@ -77,4 +77,4 @@ It writes `dqn_maze_training.csv`, `dqn_maze_qtable.csv` and `dqn_maze_test.csv`
 
 The network's Q values end within 0.00064 of Q\* (RMS 0.00047), and all 100 test episodes take the shortest path. `tests/dqn_maze_golden.rs` compares every output with the C++ example's; a Kani proof shows the network's reads and training steps never panic, whatever the weights, rates, states and actions.
 
-[Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/examples/maze.rs)
+[Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/examples/maze.rs), and for the deep Q-network version, [dqn_maze](https://github.com/danmcleran/tinymind-rs/blob/master/examples/common/dqn_maze_driver.rs)

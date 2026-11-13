@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-12
+
 ### Added
 
 - `qlearn::QNetwork`: Q values from a neural network, a deep Q-network
@@ -438,7 +440,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/danmcleran/tinymind-rs/compare/v0.2.0...v0.3.0
