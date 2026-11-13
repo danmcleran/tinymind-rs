@@ -8,10 +8,8 @@ what to port next, and update it when a step is done.
 - **FFT speed (done, 2026-11-12):** C++ timed on both boards (a scratch
   backend in tinymind's harness; gcc's -O3 code depends on the caller, best
   found): gcc -O3 F411 ~82,900, L031 ~101,600; -Os ~85,200 / 142,482. Rust
-  (twiddle by twiddle, constant stage sizes): opt 3 41,991 / 117,640, opt s
-  44,255 / 135,233. **Open:** the L031 at opt 3 is 16% behind gcc -O3 (LLVM
-  reloads the clamp bounds from the literal pool and spills in the Thumb-1
-  loop); a bit-reversal table (~5K of the L031's ~9.3K reversal cycles, 512 B
+  (twiddle by twiddle, constant stage sizes, saturation skip on ARMv6-M):
+  opt 3 41,991 / 91,430, opt s 44,255 / 96,784. **Open:** a bit-reversal table (~5K of the L031's ~9.3K reversal cycles, 512 B
   at N=256). Notes in `.claude/rules/int8.md`.
 
 Next steps follow `reports/Embedded Rust ML priorities.md` (local, not committed):

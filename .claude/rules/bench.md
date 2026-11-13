@@ -47,7 +47,7 @@ sweep's random signal, tinymind's twiddle tables and the expected hash
 (0xEFABBA1C) generated into OUT_DIR by build.rs from tests/golden/fft (an
 `include_str!` of the whole golden overflowed the L031 by 23 KB). F411 41,991
 cycles forward at opt 3 (59,965 twiddle-outer, 71,627 first port), 2,731
-magnitudes; L031 117,640 (153,696; 172,683) and 4,863; opt s 44,255 / 135,233;
+magnitudes; L031 91,430 (117,640 before the saturation skip; 153,696; 172,683) and 4,863; opt s 44,255 / 96,784;
 flash over baseline L031 +5,920 (3) / +2,716 (s); `fft-runtime` feature
 (layer behind black_box) for the run-time shape; C++ `QFFT1D` matrix in
 int8.md (scratch backend; gcc's -O3 code depends on the caller, so quote the
