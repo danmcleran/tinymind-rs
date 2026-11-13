@@ -27,6 +27,8 @@ TABLES = [
     ("SIGMOID_Q16_16", "TINYMIND_USE_SIGMOID_16_16", "SigmoidValuesTableQ16_16", "uint32_t", "u32"),
     ("TANH_Q8_8", "TINYMIND_USE_TANH_8_8", "TanhValuesTableQ8_8", "uint16_t", "u16"),
     ("SIGMOID_Q8_8", "TINYMIND_USE_SIGMOID_8_8", "SigmoidValuesTableQ8_8", "uint16_t", "u16"),
+    ("EXP_Q16_16", "TINYMIND_USE_EXP_16_16", "ExpValuesTableQ16_16", "uint32_t", "u32"),
+    ("EXP_Q8_8", "TINYMIND_USE_EXP_8_8", "ExpValuesTableQ8_8", "uint16_t", "u16"),
 ]
 BITS = {"u16": 16, "u32": 32}
 

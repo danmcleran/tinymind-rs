@@ -7,6 +7,34 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- `head`: head-only fine-tuning, a port of tinymind (C++)'s `DenseHead` and
+  `PrototypeHead`. Both sit on top of a frozen model's embedding and learn on
+  the device from a few labelled samples, without backpropagating through the
+  model and without allocating. `head::DenseHead` is a trainable dense layer
+  (SGD with the step rounded to nearest, no momentum, the update fused into
+  the backward pass) with a softmax cross-entropy loss
+  (`SoftmaxCrossEntropyLoss`, the default) or a squared-error loss
+  (`SquaredErrorLoss`); `backward` gives the gradient with respect to the
+  embedding. `head::PrototypeHead` is a nearest-class-mean classifier with a
+  running mean per class, an optional count cap that turns it into a moving
+  average, and squared Euclidean (`SquaredEuclideanDistance`, the default) or
+  Manhattan (`ManhattanDistance`) distance. Both run on `Q16_16`, `Q8_8`,
+  `f32` and `f64`; the softmax's exponential (`head::SoftmaxExp`) is the
+  96-entry exp lookup table for the Q formats, now extracted from
+  tinymind (C++)'s tables, and the math library's `exp` for the float types
+  (feature `std` or `libm`). `tests/head_sweep.rs` checks both against the
+  C++ after every step.
+- `MultilayerPerceptron::hidden_values`: the hidden-layer activations from
+  the latest `feed_forward`, the embedding when a trained network becomes a
+  frozen model with a head on top.
+- The `gas_sensor_drift` example ports tinymind (C++)'s: a 128-32-6 Q16.16
+  network trained on the first of 10 batches of drifting synthetic gas-sensor
+  data, its drift curve, and seven ways to adapt to each drifted batch from 1
+  to 20 labelled samples per class. It matches the C++ byte for byte
+  (`tests/gas_golden.rs`).
+
 ## [0.3.3] - 2026-11-12
 
 ### Added

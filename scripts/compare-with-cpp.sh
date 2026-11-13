@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris, energy_efficiency, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
+# iris, energy_efficiency, gas_sensor_drift, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
-# int8 softmax and FFT sweeps, the Q-learning and tree sweeps, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# fine-tuning heads, the int8 softmax and FFT sweeps, the Q-learning and tree sweeps, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -359,6 +359,32 @@ for f in stdout.txt har_loss.csv har_confusion.csv; do
   fi
 done
 
+echo "== gas_sensor_drift"
+mkdir -p "$TMP/gas/cpp" "$TMP/gas/rust"
+# Flags from examples/gas_sensor_drift/Makefile's release target, plus
+# -ffp-contract=off: the example synthesizes its data in double arithmetic, and
+# a compiler that fuses multiply-adds changes it.
+g++ -g -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/gas/gas_sensor_drift" \
+  "$TINYMIND_DIR/examples/gas_sensor_drift/gas_sensor_drift.cpp" "$TINYMIND_DIR/cpp/lookupTables.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include/" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 \
+  -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_EXP_16_16=1
+(cd "$TMP/gas/cpp" && ../gas_sensor_drift > stdout.txt) &
+"$ROOT/target/release/examples/gas_sensor_drift" "$TMP/gas/rust" > "$TMP/gas/rust/stdout.txt" &
+wait
+for f in stdout.txt gas_loss.csv gas_confusion.csv gas_drift.csv gas_adapt.csv; do
+  if cmp -s "$TMP/gas/cpp/$f" "$TMP/gas/rust/$f"; then
+    same "gas_sensor_drift $f"
+  else
+    echo "DIFFERENT  gas_sensor_drift $f"
+    status=1
+  fi
+  if ! cmp -s "$TMP/gas/cpp/$f" "$ROOT/tests/golden/gas/$f"; then
+    echo "DIFFERENT  gas_sensor_drift $f (C++ vs tests/golden/gas)"
+    status=1
+  fi
+done
+
 echo "== tree"
 # tinymind's QDecisionTree and QGBDT over random ensembles; tests/tree_sweep.rs
 # checks the Rust trees against the committed golden, so the golden must still
@@ -414,6 +440,27 @@ fi
 cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test fft_sweep >/dev/null 2>&1 \
   && same "fft Rust vs tests/golden/fft" \
   || { echo "DIFFERENT  fft Rust vs tests/golden/fft"; status=1; }
+
+echo "== head"
+# tinymind's DenseHead and PrototypeHead (Q16.16, Q8.8, f64, f32);
+# tests/head_sweep.rs checks the Rust heads against the committed golden, so the
+# golden must still be what the C++ prints. -ffp-contract=off: the float heads'
+# multiply-adds must not fuse.
+mkdir -p "$TMP/head"
+g++ -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/head/head_sweep" \
+  "$ROOT/scripts/cpp/head_sweep.cpp" "$TINYMIND_DIR/cpp/lookupTables.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_USE_EXP_16_16=1 -DTINYMIND_USE_EXP_8_8=1
+"$TMP/head/head_sweep" > "$TMP/head/stdout.txt"
+if cmp -s "$TMP/head/stdout.txt" "$ROOT/tests/golden/head/stdout.txt"; then
+  same "head stdout.txt (C++ vs tests/golden/head)"
+else
+  echo "DIFFERENT  head stdout.txt (C++ vs tests/golden/head)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test head_sweep >/dev/null 2>&1 \
+  && same "head Rust vs tests/golden/head" \
+  || { echo "DIFFERENT  head Rust vs tests/golden/head"; status=1; }
 
 echo "== conv"
 # tinymind's int8 convolution and pooling layers over random tensors;
@@ -705,6 +752,9 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   mkdir -p "$KEEP_CPP_OUTPUT/qlearn"
   cp "$TMP/qlearn/stdout.txt" "$KEEP_CPP_OUTPUT/qlearn/stdout.txt"
   cp -r "$TMP/har/cpp" "$KEEP_CPP_OUTPUT/har"
+  cp -r "$TMP/gas/cpp" "$KEEP_CPP_OUTPUT/gas"
+  mkdir -p "$KEEP_CPP_OUTPUT/head"
+  cp "$TMP/head/stdout.txt" "$KEEP_CPP_OUTPUT/head/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/lstm"
   cp "$TMP/lstm/stdout.txt" "$KEEP_CPP_OUTPUT/lstm/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/tree"

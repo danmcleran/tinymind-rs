@@ -32,6 +32,10 @@ PORTED=(
   cpp/weightDecay.hpp
   cpp/adam.hpp
   cpp/rmsprop.hpp
+  cpp/densehead.hpp
+  cpp/prototypehead.hpp
+  cpp/expValues16Bit.hpp
+  cpp/expValues32Bit.hpp
   cpp/qlearn.hpp
   cpp/include/nnproperties.hpp
   examples/xor
@@ -40,6 +44,7 @@ PORTED=(
   examples/maze
   examples/dqn_maze
   examples/har_activity
+  examples/gas_sensor_drift
   examples/pytorch_quant/xor
   apps/import_pytorch
   apps/import_trees

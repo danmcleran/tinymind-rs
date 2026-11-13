@@ -1,0 +1,7 @@
+actual,pred_0,pred_1,pred_2,pred_3,pred_4,pred_5
+Ethanol,30,0,0,0,0,0
+Ethylene,0,29,0,0,0,0
+Ammonia,0,0,31,0,0,0
+Acetaldehyde,0,0,0,30,0,0
+Acetone,0,0,0,0,34,0
+Toluene,0,0,0,0,0,26

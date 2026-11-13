@@ -1,0 +1,54 @@
+Synthesized 9000 samples across 10 batches (6 classes, 150 samples/class/batch).
+Batch 1 -> train: 720  val: 180
+iter   2000   avg|err| = 0.0077
+iter   4000   avg|err| = 0.0004
+iter   6000   avg|err| = 0.0004
+iter   8000   avg|err| = 0.0003
+iter  10000   avg|err| = 0.0003
+iter  12000   avg|err| = 0.0003
+iter  14000   avg|err| = 0.0003
+iter  16000   avg|err| = 0.0003
+iter  18000   avg|err| = 0.0002
+iter  20000   avg|err| = 0.0003
+iter  22000   avg|err| = 0.0003
+iter  24000   avg|err| = 0.0003
+iter  26000   avg|err| = 0.0003
+iter  28000   avg|err| = 0.0003
+iter  30000   avg|err| = 0.0002
+iter  32000   avg|err| = 0.0003
+iter  34000   avg|err| = 0.0003
+iter  36000   avg|err| = 0.0003
+iter  38000   avg|err| = 0.0003
+iter  40000   avg|err| = 0.0003
+iter  42000   avg|err| = 0.0003
+iter  44000   avg|err| = 0.0003
+iter  46000   avg|err| = 0.0003
+iter  48000   avg|err| = 0.0003
+iter  50000   avg|err| = 0.0003
+
+Drift curve (model trained on batch 1 only):
+  batch  1   accuracy = 1.0000
+  batch  2   accuracy = 1.0000
+  batch  3   accuracy = 1.0000
+  batch  4   accuracy = 0.9867
+  batch  5   accuracy = 0.9378
+  batch  6   accuracy = 0.8567
+  batch  7   accuracy = 0.8333
+  batch  8   accuracy = 0.8267
+  batch  9   accuracy = 0.8133
+  batch 10   accuracy = 0.7900
+
+Batch 1 (val) accuracy: 1.0000
+Batch 10 accuracy:      0.7900   (drift degradation)
+
+Backbone + DenseHead vs the MLP over 9000 samples: 0 hidden values differ; 4 predictions differ, 4 of them where two sigmoid outputs tie.
+
+Batch 10 accuracy after adapting on k labelled samples per class (mean of 10 draws):
+  method          k=1     k=2     k=5    k=10    k=20
+  none          0.794   0.793   0.794   0.794   0.791
+  renorm        0.889   0.918   0.923   0.936   0.938
+  renorm_all    0.937   0.937   0.936   0.936   0.937
+  prototype     0.987   0.994   0.999   1.000   1.000
+  head          0.953   0.984   0.995   0.997   0.997
+  bias          0.848   0.896   0.967   0.986   0.990
+  bias_head     0.961   0.982   0.995   0.997   0.998

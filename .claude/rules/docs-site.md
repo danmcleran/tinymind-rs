@@ -18,7 +18,7 @@ site, published at <https://danmcleran.github.io/tinymind-rs/> by
 `master`) and adds the crate's rustdoc under `/api/`. Its `build site` job is not a
 required check.
 
-- Pages: Home, XOR example, Iris example, Energy example, Anomaly detection, Decision trees, Maze (Q-learning), Activity recognition (LSTM), Int8 inference, Q-format in Rust, On-board
+- Pages: Home, XOR example, Iris example, Energy example, Anomaly detection, Decision trees, Maze (Q-learning), Activity recognition (LSTM), Fine-tuning on the device, Int8 inference, Q-format in Rust, On-board
   results, Equivalence with tinymind, API reference, and "Bit for bit" (the launch write-up:
   how the port is checked and what Rust bought; its numbers must be kept current or the
   page dated). Keep them about what is ported; link to tinymind's site for concepts

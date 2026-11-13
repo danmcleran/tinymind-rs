@@ -19,8 +19,10 @@
 //! a TFLite-exact softmax, LSTM and GRU cells, and a radix-2 FFT on 16-bit
 //! samples), quantized decision trees and gradient-boosted
 //! ensembles ([`tree`]), Q-learning, tabular or with a deep Q-network
-//! ([`qlearn`]), and LSTM recurrent
-//! networks ([`recurrent::LstmNetwork`]). Every part produces the same bits as
+//! ([`qlearn`]), LSTM recurrent
+//! networks ([`recurrent::LstmNetwork`]), and head-only fine-tuning ([`head`]:
+//! a trainable dense head and a nearest-class-mean head that adapt a frozen
+//! model on the device from a few labelled samples). Every part produces the same bits as
 //! tinymind (C++) (floating point: with `std` on a glibc host). [`rand`] re-implements glibc's `rand()`, which tinymind (C++)'s
 //! examples use for weight initialisation and sampling, so they can be
 //! reproduced bit for bit. The library is `no_std` and allocation-free, like tinymind (C++)'s
@@ -76,6 +78,7 @@
 extern crate std;
 
 pub mod activation;
+pub mod head;
 pub mod int8;
 mod lut;
 pub mod network;

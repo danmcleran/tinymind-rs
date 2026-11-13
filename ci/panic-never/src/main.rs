@@ -8,6 +8,10 @@
 use core::hint::black_box;
 
 use core::mem::size_of;
+use tinymind::head::{
+    DenseHead, ManhattanDistance, PrototypeHead, SoftmaxCrossEntropyLoss, SoftmaxExp,
+    SquaredErrorLoss,
+};
 use tinymind::int8::{
     self, QAdd, QAvgPool2D, QConcat, QConv2D, QConv2DPerChannel, QDense, QDensePerChannel,
     QDepthwiseConv2D, QFft1D, QGlobalAvgPool2D, QGruCell, QLstmCell, QMaxPool2D, QMul, QPad2D,
@@ -735,6 +739,55 @@ where
     ));
 }
 
+/// The fine-tuning heads: a dense head with each loss (train, the pieces,
+/// load and clear) and a prototype head with each distance, with classes and
+/// caps the compiler cannot see.
+fn heads<V: SoftmaxExp>(raw: fn(i32) -> V) {
+    let input: [V; 8] = core::array::from_fn(|i| raw(black_box(i as i32 * 9_000 - 30_000)));
+    let rate = raw(black_box(3_277));
+
+    let mut dense = DenseHead::<V, 8, 6>::new();
+    let mut rng = GlibcRand::new(black_box(1));
+    dense.initialize_weights(|| raw(rng.next_i32() % 65_537 - 32_768));
+    let mut deltas = [raw(0); 8];
+    black_box(dense.train_class(&input, black_box(2), rate, Some(&mut deltas)));
+    black_box(dense.train_class(&input, black_box(9), rate, None));
+    let logits = dense.forward(&input);
+    let targets = black_box([raw(65_536); 6]);
+    let out = dense.output_deltas(&logits, &targets);
+    black_box(dense.backward(&out));
+    dense.update(&out, &input, rate);
+    black_box(SoftmaxCrossEntropyLoss::probabilities(&logits));
+    let shipped = dense;
+    dense.clear();
+    dense.load_weights(&shipped.weights, &shipped.biases);
+    black_box((dense.predict(&input), deltas));
+
+    let mut regression = DenseHead::<V, 8, 2, SquaredErrorLoss>::from_weights(
+        black_box([[raw(1); 8]; 2]),
+        black_box([raw(0); 2]),
+    );
+    black_box(regression.train(&input, &black_box([raw(1); 2]), rate, None));
+
+    let mut prototypes = PrototypeHead::<V, 8, 6>::new();
+    prototypes.learn(&input, black_box(3));
+    prototypes.learn(&input, black_box(17));
+    prototypes.set_maximum_count(black_box(0));
+    prototypes.set_prototype(black_box(1), &input, black_box(9));
+    prototypes.forget(black_box(4));
+    black_box((
+        prototypes.predict(&input),
+        prototypes.distance(&input, black_box(5)),
+        prototypes.count(black_box(7)),
+        prototypes.prototype(black_box(1)).is_some(),
+        prototypes.maximum_count(),
+    ));
+    prototypes.clear();
+    let mut manhattan = PrototypeHead::<V, 8, 6, ManhattanDistance>::default();
+    manhattan.learn(&input, black_box(0));
+    black_box(manhattan.predict(&input));
+}
+
 fn one_hot_q16(state: usize) -> [Q16_16; 6] {
     core::array::from_fn(|i| Q16_16::from_int(i32::from(i == state)))
 }
@@ -807,6 +860,11 @@ pub extern "C" fn _start() -> ! {
     q_learning::<Q8_8>(|r| Q8_8::from_raw(r as i16));
     q_learning::<f32>(|r| r as f32 / 65536.0);
     dqn::<Q16_16>(Q16_16::from_raw, one_hot_q16);
+    // The fine-tuning heads (the float softmax from the libm crate without std).
+    heads::<Q16_16>(Q16_16::from_raw);
+    heads::<Q8_8>(|r| Q8_8::from_raw(r as i16));
+    heads::<f32>(|r| r as f32 / 65536.0);
+    heads::<f64>(|r| f64::from(r) / 65536.0);
     #[allow(clippy::empty_loop)]
     loop {}
 }

@@ -139,7 +139,7 @@ const MAX_ACTIVATION_INDEX: usize = NUMBER_OF_ACTIVATION_TABLE_VALUES - 1;
 /// What [`lookup`] needs from a format beyond [`Scalar`]: its raw value widened
 /// to `i32` (exact for both storage types; every intermediate stays far inside
 /// `i32`), and the reverse for values known to fit.
-trait TableFormat: Scalar {
+pub(crate) trait TableFormat: Scalar {
     const FRAC: u32;
     fn raw_i32(self) -> i32;
     fn from_raw_i32(raw: i32) -> Self;
@@ -168,7 +168,7 @@ impl<const FRAC: u32> TableFormat for QValue<i16, FRAC> {
 /// Piecewise-linear table lookup (C++ `LookupTable::getValue`). Table entries
 /// are the unsigned bit patterns of the raw values (`uint16_t`/`uint32_t` in
 /// C++); the cast through `i32` and back to the storage type reinterprets them.
-fn lookup<V: TableFormat, T: Copy + Into<u32>>(
+pub(crate) fn lookup<V: TableFormat, T: Copy + Into<u32>>(
     x: V,
     table: &[T; NUMBER_OF_ACTIVATION_TABLE_VALUES],
 ) -> V {
