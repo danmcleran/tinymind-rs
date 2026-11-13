@@ -38,6 +38,15 @@ samples, so the numbers sit next to the tinymind (C++) ones.
   `tests/golden/fft/stdout.txt`). The spectrum's hash must equal the one
   tinymind (C++) printed. `fft-runtime` is the same with the layer built at
   run time from tables the compiler cannot see, instead of a `static`.
+- **`head`**: the fine-tuning heads (`tinymind::head`) on a Q16.16 workload
+  shared with the host (`tests/sweeps/head_bench.rs`): 32-value embeddings
+  for 6 classes, 5 samples each, and a shipped `DenseHead<Q16_16, 32, 6>`,
+  built by a `const fn` so they live in flash. It times a `DenseHead`
+  training step (with and without the embedding's gradient) and prediction,
+  a `PrototypeHead` update and prediction, and a whole adaptation (30 epochs
+  over the 30 samples). Each operation's hash over the 30 samples must equal
+  the one tinymind (C++) printed for the same workload (the `bench` lines of
+  `tests/golden/head/stdout.txt`, read by `build.rs`).
 - **`trees`**: the two imported scikit-learn models of the `imported_trees`
   example (gradient boosting, 90 trees on int8 inputs; random forest, 15
   voting trees on int16) classify the 54 held-out UCI Wine samples; the hash of
@@ -155,6 +164,7 @@ sensitive to placement (see below).
 | anomaly demo: report and hash = host run (`0x7C074DAD`) | match | match |
 | KWS CNN output hash = tinymind (C++)'s (`0x6B1854D3`) | match | match |
 | 256-point FFT, forward: spectrum hash = tinymind (C++)'s (`0xEFABBA1C`) | match | match |
+| Fine-tuning heads: dense step, prediction, prototype update and prediction, whole adaptation: hashes = tinymind (C++)'s | match | match |
 | MLPerf Tiny DS-CNN (translated from TFLite) output hash = tinymind (C++)'s (`0xF623A166`) | match | - |
 | MLPerf Tiny ResNet-8 (translated from TFLite) output hash = tinymind (C++)'s (`0x8897F6ED`) | match | - |
 | MLP accuracy | 346/360 (96.11%) | 31/32 (96.88%) |
@@ -244,6 +254,40 @@ The L031 image leaves about 2.3 KB of the part's 32 KB free; the training step
 and the scorer are `#[inline(never)]` so the training and timing loops share
 one copy (inlined twice at `opt-level = 3` it did not fit), and so is the
 library's per-layer update loop (`optimizer::update_all`).
+
+### Fine-tuning heads
+
+`DenseHead<Q16_16, 32, 6>` and `PrototypeHead<Q16_16, 32, 6>` (the
+`gas_sensor_drift` example's heads), median cycles. tinymind (C++)'s figures
+come from its own benchmark harness and board code running `DenseHead` and
+`PrototypeHead` on the same data, gcc `-O3`; every one of its hashes equals
+the Rust one. Measured 2026-11-13.
+
+| | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
+|---|---:|---:|---:|---:|
+| `DenseHead` training step | **10,129** (101 us) | 7,391 | **52,389** (1.64 ms) | 52,223 |
+| the same, with the embedding's gradient | **13,339** | 9,190 | **68,785** | 68,591 |
+| `DenseHead` prediction | **2,866** | 2,247 | **15,580** | 15,864 |
+| `PrototypeHead` update | **501** | 3,894 | **7,760** | 20,074 |
+| `PrototypeHead` prediction | **3,245** | 2,281 | **15,693** | 16,063 |
+| Whole adaptation, 30 epochs x 30 samples | **8,867,482** (89 ms) | 6,453,948 | **46,221,901** (1.44 s) | 46,510,967 |
+
+On the M0+ the two are level, apart from the prototype update, where the
+Rust takes 61% fewer cycles: it divides each value by the class count with a
+32-bit division (`__aeabi_idiv`; LLVM narrows the 64-bit division, whose
+operands come from 32-bit values), the C++ with a 64-bit one
+(`__aeabi_ldivmod`). Same results. On the M4F the Rust dense step takes 37%
+more cycles than the C++. Most of the prediction gap is LLVM's machine
+scheduler under `target-cpu=cortex-m4` (see Build settings): with
+`-C llvm-args=-enable-misched=false` the prediction takes 2,136 cycles and the
+prototype prediction 2,565, but the step still 9,385. Of the rest, a cheaper
+form of the step's round-to-nearest multiply takes the step to 9,339 cycles
+(same results, proved by Kani); it is not in this measurement.
+
+The heads hold 792 and 784 bytes; the image's stack (3,404 B on the F411,
+3,600 B on the L031, +2,892 B and +2,996 B over baseline) is mostly the
+copies the timing loops make. Flash over baseline, 18,376 B and 18,524 B,
+includes the 4.6 KB of workload data and the report's formatting.
 
 ### Quantized FFT, 256 points
 

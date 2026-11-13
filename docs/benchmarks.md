@@ -24,6 +24,7 @@ The crate has been run on two microcontroller boards, with the same boards, cloc
 | imported decision trees: every score and class on the 54 Wine samples equals the host run | match | match |
 | int8 KWS-shaped CNN (convolutions): output hash equals tinymind (C++)'s | match | match |
 | 256-point FFT, forward transform: spectrum hash equals tinymind (C++)'s | match | match |
+| fine-tuning heads: a dense training step and prediction, a prototype update and prediction, and a whole adaptation: hashes equal tinymind (C++)'s | match | match |
 | MLPerf Tiny keyword spotting (DS-CNN), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 | MLPerf Tiny image classification (ResNet-8), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 
@@ -134,6 +135,21 @@ The [anomaly-detection example]({{ site.baseurl }}/anomaly) on the boards: an 8-
 | Training, 3,000 steps (signal generation included) | 0.28 s | 4.6 s |
 | One training step | 8,811 cycles | 39,763 cycles |
 | One detection | 1,611 cycles | 8,096 cycles |
+
+## Fine-tuning heads
+
+The [fine-tuning heads]({{ site.baseurl }}/fine-tuning) of the gas sensor example, `DenseHead<Q16_16, 32, 6>` and `PrototypeHead<Q16_16, 32, 6>`, on 30 labelled 32-value embeddings (6 classes, 5 each). tinymind (C++)'s figures come from its own benchmark harness and board code running its heads on the same data, gcc `-O3`; every hash matches. Measured 2026-11-13.
+
+| Median cycles | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
+|---|---:|---:|---:|---:|
+| `DenseHead` training step | **10,129** (101 µs) | 7,391 | **52,389** (1.64 ms) | 52,223 |
+| the same, with the embedding's gradient | **13,339** | 9,190 | **68,785** | 68,591 |
+| `DenseHead` prediction | **2,866** | 2,247 | **15,580** | 15,864 |
+| `PrototypeHead` update | **501** | 3,894 | **7,760** | 20,074 |
+| `PrototypeHead` prediction | **3,245** | 2,281 | **15,693** | 16,063 |
+| Whole adaptation, 30 epochs × 30 samples | **89 ms** | 65 ms | **1.44 s** | 1.45 s |
+
+A whole adaptation, 900 training steps, takes 89 ms on the M4F and 1.44 s on the M0+; a `PrototypeHead` learns a sample in 5 µs and 243 µs. On the M0+ the Rust and the C++ are level, except the prototype update, where the Rust divides in 32 bits and the C++ in 64 (61% fewer cycles). On the M4F the Rust dense step takes 37% more cycles than the C++: most of the prediction gap is LLVM's machine scheduler for the Cortex-M4 (the same issue as the anomaly demo's), and the details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
 
 ## Quantized FFT
 

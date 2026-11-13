@@ -57,6 +57,10 @@ The heads' RAM against training the whole network, for this example's network in
 
 An inference-only network plus a head adapts in about a quarter of the RAM that training the whole network takes.
 
+## On the boards
+
+The heads run on an STM32F411 (Cortex-M4F, 100 MHz) and an STM32L031 (Cortex-M0+, 32 MHz) with the same results as tinymind (C++) on the same data. A `DenseHead<Q16_16, 32, 6>` training step takes 101 µs on the M4F and 1.64 ms on the M0+; a whole adaptation, 30 epochs over 30 labelled samples, 89 ms and 1.44 s. A `PrototypeHead` learns a sample in 5 µs and 243 µs. On the M0+ the Rust is level with tinymind (C++); on the M4F its dense step takes 37% more cycles. Details: [On-board results]({{ site.baseurl }}/benchmarks#fine-tuning-heads).
+
 ## Run it
 
 ```bash

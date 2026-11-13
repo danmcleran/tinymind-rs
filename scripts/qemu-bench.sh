@@ -31,7 +31,7 @@ for core in ${CORES:-m4 m0}; do
     m0) target=thumbv6m-none-eabi machine=(-machine microbit -global nrf51-soc.flash-size=2097152 -global nrf51-soc.sram-size=262144) ;;
     *) echo "qemu-bench: unknown core '$core'" >&2; exit 2 ;;
   esac
-  default="mlp profile xor-q16 xor-q8 anomaly fft trees kws kws-profile sweeps"
+  default="mlp profile xor-q16 xor-q8 anomaly fft head trees kws kws-profile sweeps"
   if [ "$core" = m4 ]; then
     for wl in mlperf-kws mlperf-ic; do
       [ -f "src/gen/${wl//-/_}.rs" ] && default="$default $wl"
