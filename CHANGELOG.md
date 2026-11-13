@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-13
+
 ### Added
 
 - `head`: head-only fine-tuning, a port of tinymind (C++)'s `DenseHead` and
@@ -26,7 +28,10 @@ break the API).
   96-entry exp lookup table for the Q formats, now extracted from
   tinymind (C++)'s tables (`EXP_Q16_16`, `EXP_Q8_8`, crate-private), and the math library's `exp` for the float types
   (feature `std` or `libm`). `tests/head_sweep.rs` checks both against the
-  C++ after every step.
+  C++ after every step. They also run on Cortex-M under QEMU and on
+  both boards (bench workload `head`) with tinymind (C++)'s results: a whole
+  adaptation, 30 epochs over 30 samples, takes 89 ms on an STM32F411 and
+  1.44 s on an STM32L031.
 - `MultilayerPerceptron::hidden_values`: the hidden-layer activations from
   the latest `feed_forward`, the embedding when a trained network becomes a
   frozen model with a head on top.
@@ -469,7 +474,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.0...v0.3.1

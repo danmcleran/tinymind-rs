@@ -108,7 +108,7 @@ where
             nn.train(&target);
         }
     }
-    black_box(nn.learned_values());
+    black_box((nn.learned_values(), nn.hidden_values()));
     black_box((nn.input_weights(), nn.input_bias_weights()));
     black_box((nn.hidden_weights(), nn.hidden_bias_weights()));
 

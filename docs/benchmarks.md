@@ -149,7 +149,7 @@ The [fine-tuning heads]({{ site.baseurl }}/fine-tuning) of the gas sensor exampl
 | `PrototypeHead` prediction | **3,245** | 2,281 | **15,693** | 16,063 |
 | Whole adaptation, 30 epochs × 30 samples | **89 ms** | 65 ms | **1.44 s** | 1.45 s |
 
-A whole adaptation, 900 training steps, takes 89 ms on the M4F and 1.44 s on the M0+; a `PrototypeHead` learns a sample in 5 µs and 243 µs. On the M0+ the Rust and the C++ are level, except the prototype update, where the Rust divides in 32 bits and the C++ in 64 (61% fewer cycles). On the M4F the Rust dense step takes 37% more cycles than the C++: most of the prediction gap is LLVM's machine scheduler for the Cortex-M4 (the same issue as the anomaly demo's), and the details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
+A whole adaptation, 900 training steps, takes 89 ms on the M4F and 1.44 s on the M0+; a `PrototypeHead` learns a sample in 5 µs and 243 µs. On the M0+ the Rust and the C++ are level, except the prototype update, where the Rust divides in 32 bits and the C++ in 64 (61% fewer cycles). On the M4F the Rust dense step takes 37% more cycles than the C++, and most of that gap remains with LLVM's machine scheduler turned off; most of the prediction gap, though, is that scheduler for the Cortex-M4 (the same issue as the anomaly demo's). The details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
 
 ## Quantized FFT
 

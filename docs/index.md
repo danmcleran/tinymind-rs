@@ -31,7 +31,7 @@ nav_exclude: true
 
 ## What it is
 
-- **`no_std` and allocation-free.** The library needs only Rust's `core` library, not `std` or `alloc`, so it builds for bare-metal targets with no operating system. Two optional features add more: `std` for the host-side int8 calibration helpers, and `libm` for floating-point tanh and sigmoid without `std`. Networks are plain fixed-size arrays sized by const generics: no heap, no global state.
+- **`no_std` and allocation-free.** The library needs only Rust's `core` library, not `std` or `alloc`, so it builds for bare-metal targets with no operating system. Two optional features add more: `std` for the host-side int8 calibration helpers, and `libm` for floating-point tanh, sigmoid, the float optimizers and the heads' softmax without `std`. Networks are plain fixed-size arrays sized by const generics: no heap, no global state.
 - **Fixed-point first, floating point too.** The value types are Q-format integers (Q16.16 and Q8.8), int8 in the TFLite/CMSIS-NN affine model, and the int8, uint8 or int16 feature grids of the decision trees, so training and inference need no FPU, and activations come from lookup tables. Like tinymind (C++)'s, the networks also run on `f32` and `f64`, with tanh and sigmoid from the math library (feature `std`, or `libm` without std); with `std` on a glibc host they train bit for bit like tinymind (C++)'s `float` and `double` networks.
 - **No `unsafe`, no reachable panics.** The library is `#![forbid(unsafe_code)]`, and CI links a Cortex-M firmware image that calls every public function and whose panic handler does not exist: any panic path left after optimisation would fail the build.
 - **Bit-exact with C++.** The port is checked byte for byte against tinymind (C++)'s own C++ build on every pull request. See [Equivalence with tinymind (C++)]({{ site.baseurl }}/equivalence).
@@ -82,11 +82,11 @@ To use the library from another project:
 
 ```toml
 [dependencies]
-tinymind = "0.3.3"
-# Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat:
-# tinymind = { version = "0.3.3", features = ["std"] }
+tinymind = "0.3.4"
+# Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat, DenseHead softmax:
+# tinymind = { version = "0.3.4", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
-# tinymind = { version = "0.3.3", features = ["libm"] }
+# tinymind = { version = "0.3.4", features = ["libm"] }
 ```
 
 The [API reference]({{ site.baseurl }}/api/tinymind/) starts with a complete example that trains XOR; it runs as a test on every build.

@@ -15,9 +15,9 @@ A model trained on the host meets data on the device that it never saw: a sensor
 | `DenseHead` | SGD on a dense layer, with a softmax cross-entropy loss (the default) or a squared-error loss | 792 bytes |
 | `PrototypeHead` | One running-mean embedding per class; the nearest mean wins | 784 bytes |
 
-Both sit after anything that produces an embedding: an inference-only network, an int8 pipeline whose output the application converts to a Q format (tinymind (C++)'s converters for this are not ported), or the layers in front of the last one of a trained network. Nothing is backpropagated through the frozen model, so there are no stored activations and no gradients for it, and neither head allocates. Both run on Q16.16, Q8.8, `f32` and `f64`.
+Both sit after anything that produces an embedding: an inference-only network, an int8 pipeline whose output the application converts to a Q format (tinymind (C++)'s converters for this are not ported), or the layers in front of the last one of a trained network. Nothing is backpropagated through the frozen model, so there are no stored activations and no gradients for it, and neither head allocates. Both run on Q16.16, Q8.8, `f32` and `f64` (the `f32`/`f64` softmax needs the `std` or `libm` feature).
 
-- **`DenseHead`.** Each parameter moves by learning rate &times; (delta &times; input), rounded to nearest as in every trainable layer of the crate; there is no momentum. The update is fused into the backward pass, so the head keeps no gradient buffer: its RAM is (inputs&nbsp;+&nbsp;1)&nbsp;&times;&nbsp;outputs values. The softmax subtracts the largest logit before the exponential, so no format overflows however large the logits grow; in fixed point the exponential is a 96-entry lookup table, and a class more than 6 behind the largest logit gets probability 0, so a well separated head stops moving instead of growing its logits until the format wraps. The squared-error loss needs no table. `backward` gives the gradient with respect to the embedding, for adapting something in front of the head too; the example uses it to train the frozen layer's biases. To undo an adaptation, reload the shipped weights, kept in flash.
+- **`DenseHead`.** Each parameter moves by learning rate &times; (delta &times; input), rounded to nearest, as the crate's SGD step is; there is no momentum. The update is fused into the backward pass, so the head keeps no gradient buffer: its RAM is (inputs&nbsp;+&nbsp;1)&nbsp;&times;&nbsp;outputs values. The softmax subtracts the largest logit before the exponential, so no format overflows however large the logits grow; in fixed point the exponential is a 96-entry lookup table, and a class 6 or more behind the largest logit gets probability 0, so a well separated head stops moving instead of growing its logits until the format wraps. The squared-error loss needs no table. `backward` gives the gradient with respect to the embedding, for adapting something in front of the head too; the example uses it to train the frozen layer's biases. To undo an adaptation, reload the shipped weights, kept in flash.
 - **`PrototypeHead`.** No learning rate and no epochs: one pass over the labelled samples is the whole training. A class can be added at any time, and a class never learned is never predicted. A cap on each class's count turns its prototype into an exponential moving average, so it keeps tracking a slowly drifting input. Squared Euclidean distance is the default; Manhattan distance has no multiplies and far more headroom before it overflows.
 
 The [API reference]({{ site.baseurl }}/api/tinymind/head/) has an example of each.
@@ -59,7 +59,7 @@ An inference-only network plus a head adapts in about a quarter of the RAM that 
 
 ## On the boards
 
-The heads run on an STM32F411 (Cortex-M4F, 100 MHz) and an STM32L031 (Cortex-M0+, 32 MHz) with the same results as tinymind (C++) on the same data. A `DenseHead<Q16_16, 32, 6>` training step takes 101 µs on the M4F and 1.64 ms on the M0+; a whole adaptation, 30 epochs over 30 labelled samples, 89 ms and 1.44 s. A `PrototypeHead` learns a sample in 5 µs and 243 µs. On the M0+ the Rust is level with tinymind (C++); on the M4F its dense step takes 37% more cycles. Details: [On-board results]({{ site.baseurl }}/benchmarks#fine-tuning-heads).
+The heads run on an STM32F411 (Cortex-M4F, 100 MHz) and an STM32L031 (Cortex-M0+, 32 MHz) with the same results as tinymind (C++) on the same data. A `DenseHead<Q16_16, 32, 6>` training step takes 101 µs on the M4F and 1.64 ms on the M0+; a whole adaptation, 30 epochs over 30 labelled samples, 89 ms and 1.44 s. A `PrototypeHead` learns a sample in 5 µs and 243 µs. On the M0+ the Rust is level with tinymind (C++), except a prototype update, which takes 61% fewer cycles; on the M4F its dense step takes 37% more cycles and its prototype update 87% fewer. Details: [On-board results]({{ site.baseurl }}/benchmarks#fine-tuning-heads).
 
 ## Run it
 
@@ -71,7 +71,7 @@ The program writes the same files the C++ example writes, byte for byte:
 
 | File | Contents |
 |---|---|
-| stdout | The training log, the drift curve, the check that backbone plus head reproduces the network, and the batch 10 table above |
+| stdout | The training log, the drift curve, the check that backbone plus head reproduces the network's hidden values (predictions differ only where two sigmoid outputs tie), and the batch 10 table above |
 | `gas_loss.csv` | Mean \|error\| every 2,000 training steps |
 | `gas_confusion.csv` | The batch-1 validation confusion matrix |
 | `gas_drift.csv` | Accuracy on each batch |
@@ -83,7 +83,7 @@ The figures are drawn from this port's output with tinymind (C++)'s plotting sty
 
 - `tests/gas_golden.rs` runs the example and compares its stdout and all four CSV files with the C++ example's.
 - `tests/head_sweep.rs` compares both heads with tinymind (C++)'s `DenseHead` and `PrototypeHead` after every step: nine dense heads (Q16.16, Q8.8, `f64` and `f32`; both losses; logits far beyond the exponential's table; sums that wrap in Q8.8) and seven prototype heads (both distances; squared distances that wrap; count caps, loaded and forgotten classes, ties), plus the softmax on its own.
-- Kani proofs show the heads never panic, whatever their parameters, inputs, classes (out of range too), learning rates and caps, that no class count exceeds its cap, and that the softmax's exponential stays in [0, 1] and is 0 at or below -6.
+- Kani proofs show that small Q8.8 heads (2 inputs, 2 classes; the prototype head with Manhattan distance) never panic, whatever their parameters, inputs, classes (out of range too), learning rates and caps, that no class count exceeds its cap, and that the softmax's exponential stays in [0, 1] and is 0 at or below -6.
 
 What the application still owns: saving the adapted head to flash (and how often), forgetting (keep a few samples of the original classes and train on them alongside the new ones, or reload the shipped head), and the quality of the labels, which every method here trusts.
 

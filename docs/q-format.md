@@ -28,7 +28,7 @@ pub type Q8_8 = QValue<i16, 8>;
 
 The C++ `QValue<FixedBits, FractionalBits>` chooses its storage type from the bit counts at compile time. Stable Rust cannot compute a type from const-generic arithmetic, so in Rust the storage type is an explicit parameter. A macro generates the methods and operators for each storage type, the same way the Rust standard library implements its integer methods.
 
-Any `FRAC` from 1 to one less than the storage width compiles (an invalid one is a compile-time error), but tanh and sigmoid exist only for the formats this port has lookup tables for: `Q16_16` and `Q8_8`. Using them on another format is a compile error, as it is in C++ when the matching table is not compiled in.
+Any `FRAC` from 1 to one less than the storage width compiles (an invalid one is a compile-time error), but tanh, sigmoid and the `DenseHead` softmax exist only for the formats this port has lookup tables for: `Q16_16` and `Q8_8`. Using them on another format is a compile error, as it is in C++ when the matching table is not compiled in.
 
 ## Arithmetic
 
@@ -51,6 +51,6 @@ The port implements tinymind (C++)'s default policies, `TruncatePolicy` and `Wra
 
 ## Activation lookup tables
 
-Tanh and sigmoid read 96-entry tables covering [-6, 6] in steps of 1/8, with linear interpolation between entries and clamping outside the range. The tables are generated from tinymind (C++)'s `cpp/lookupTables.cpp` by `scripts/extract-luts.py`, never typed by hand, and CI checks that they still match tinymind (C++). For how the tables are built, see tinymind (C++)'s [Activation LUTs page](https://danmcleran.github.io/tinymind/activation-luts.html).
+Tanh, sigmoid and the fine-tuning head's softmax exp read 96-entry tables covering [-6, 6] in steps of 1/8, with linear interpolation between entries and clamping outside the range. The tables are generated from tinymind (C++)'s `cpp/lookupTables.cpp` by `scripts/extract-luts.py`, never typed by hand, and CI checks that they still match tinymind (C++). For how the tables are built, see tinymind (C++)'s [Activation LUTs page](https://danmcleran.github.io/tinymind/activation-luts.html).
 
 The [API reference]({{ site.baseurl }}/api/tinymind/qformat/) documents every method.
