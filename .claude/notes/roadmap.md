@@ -6,8 +6,10 @@ what to port next, and update it when a step is done.
 ## Next steps
 
 - **FFT speed (done, 2026-11-12):** C++ timed on both boards (a scratch
-  backend in tinymind's harness): F411 107,265, L031 166,833. Rust twiddle by
-  twiddle: 59,965 and 153,696 (was 71,627 / 172,683). Notes in
+  backend in tinymind's harness): gcc -O3 F411 107,292, L031 166,833; -Os
+  113,125 / 143,245. Rust (twiddle by twiddle, constant stage sizes): opt 3
+  41,991 / 117,640, opt s 44,255 / 135,233. Open: a bit-reversal table (~5K
+  of the L031's ~9.3K reversal cycles, 512 B at N=256). Notes in
   `.claude/rules/int8.md`.
 
 Next steps follow `reports/Embedded Rust ML priorities.md` (local, not committed):

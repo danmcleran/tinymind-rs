@@ -18,6 +18,7 @@ mod twiddles {
 
 const N: usize = 256;
 
+#[cfg(not(feature = "fft-runtime"))]
 static FFT: QFft1D<'static, N, { N / 2 }> = QFft1D {
     twiddle_cos: &twiddles::COS,
     twiddle_sin: &twiddles::SIN,
@@ -50,11 +51,21 @@ fn hash_spectrum(re: &[i16; N], im: &[i16; N]) -> u32 {
 }
 
 pub fn run(out: &mut Uart) {
-    let _ = writeln!(out, "name=fft\nfft_n={N}");
+    // `fft-runtime`: the layer built from tables the compiler cannot see, as
+    // when it is filled in at run time; otherwise the `static` above.
+    #[cfg(feature = "fft-runtime")]
+    let fft: &QFft1D<'_, N, { N / 2 }> = &black_box(QFft1D {
+        twiddle_cos: black_box(&twiddles::COS),
+        twiddle_sin: black_box(&twiddles::SIN),
+    });
+    #[cfg(not(feature = "fft-runtime"))]
+    let fft = &FFT;
+    let shape = if cfg!(feature = "fft-runtime") { "runtime" } else { "static" };
+    let _ = writeln!(out, "name=fft\nfft_n={N}\nfft_layer={shape}");
     let (x, y) = random_signal();
 
     let (mut re, mut im) = (x, y);
-    FFT.forward(&mut re, &mut im);
+    fft.forward(&mut re, &mut im);
     let hash = hash_spectrum(&re, &im);
     let expect = twiddles::FORWARD_HASH;
     let _ = writeln!(
@@ -67,7 +78,7 @@ pub fn run(out: &mut Uart) {
     for slot in t.iter_mut() {
         let (mut re, mut im) = black_box((x, y));
         let a = board::cycles();
-        FFT.forward(&mut re, &mut im);
+        fft.forward(&mut re, &mut im);
         *slot = board::cycles().wrapping_sub(a);
         black_box((&re, &im));
     }
@@ -81,7 +92,7 @@ pub fn run(out: &mut Uart) {
     for slot in t.iter_mut() {
         let (r, i) = black_box((&re, &im));
         let a = board::cycles();
-        FFT.magnitude_squared(r, i, &mut mag);
+        fft.magnitude_squared(r, i, &mut mag);
         *slot = board::cycles().wrapping_sub(a);
         black_box(&mag);
     }

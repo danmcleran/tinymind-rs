@@ -156,7 +156,28 @@ Makefile with TM=../tinymind read-only) plus a `be_fft.cpp` backend
 matched): F411 107,265, L031 166,833 at -O3 (image +3.3 KB over baseline incl.
 1 KB input array and the 1 KB `size_t[256]` bit-reversal table). Rust 44% /
 8% fewer. The static `ldr` count (Rust 116 vs gcc 42 on M0+) was a poor
-predictor: the C++ was the slower one. Calibration: `build_fft_twiddles::<N, HALF>() ->
+predictor: the C++ was the slower one. **Constant stage sizes** (2026-11-12):
+`transform` dispatches `stage::<SCALE, H>` for H = 1, 2, 4, ...,
+2^30 (`if H < N`, folded; a macro over literals, since stable Rust cannot
+compute const params), so offsets/strides/trip counts are immediates. L031
+static 153,698 -> 117,640 (opt 3), 157,939 -> 135,233 (s); F411 59,965 ->
+41,991, 53,565 -> 44,255. Code (L031): 380 -> 1,852 B (s), 1,040 -> 4,676 B
+(3). Layer built at run time (bench feature `fft-runtime`, black_box tables):
+L031 138,456 (3) / 141,600 (s), F411 45,619 / 43,864. C++ matrix in the
+scratch harness (gcc 13.2.1, prefetch on): const object -O3 F411 107,292 L031
+166,833; -Os 113,125 / 143,245; run-time object -O3 104,509 / 152,747; -Os
+115,202 / 142,482; the sweep's two-tone signal changed no C++ timing by more
+than 27 cycles. gcc -O3's code for the const object is generic (no unrolled
+stages, no constant twiddles; per-stage __udivsi3 for the stride): the
+"gcc specialises a constant FFT object" explanation does not hold here.
+Dropped: `(v >> 15) + 1 <= 1` saturation (LLVM folds `as i16` round trips
+back into the clamp; the shift form kept constants out of the M0+ loop but
+was no faster there and lost `ssat` on the F411: 85,251), real outputs before
+imaginary (F411 -4%, L031 +4%), constant stages for H <= 8 only (141,374 at s
+for 764 B less). Bit reversal (reverse-carry, no table) ~9,300 cycles on the
+L031; a u16 table would cost 512 B at N=256. Plants (start `pair & !1`, step
+2H + (H >> 7), stride + (H >> 6)) fail the sweep. Kani FFT proofs, panic-never
+3/s/z, QEMU all pass. Calibration: `build_fft_twiddles::<N, HALF>() ->
 (cos, sin)`: `-TAU * k / N` (TAU == the C++ literal as f64), `round()` = lround,
 clamp to i16; matched glibc's cos/sin output on the first run. Checked by
 `tests/fft_sweep.rs` (golden from `scripts/cpp/fft_sweep.cpp`, UBSan+ASan
