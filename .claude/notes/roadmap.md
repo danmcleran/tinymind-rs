@@ -113,4 +113,7 @@ a method), 0.3.1 (2026-11-11, tag `v0.3.1`: the int8 LSTM and GRU cells,
 `calibration::build_fft_twiddles`; 2x2 pointwise pairs; QEMU runs in CI), and 0.3.3
 (2026-11-12, tag `v0.3.3`: the deep Q-network `qlearn::QNetwork` and
 `dqn_maze`; QDense one-rounding loop; FFT twiddle-outer, constant stage sizes
-and the ARMv6-M saturation skip; TINYMIND_REF v18.2).
+and the ARMv6-M saturation skip; TINYMIND_REF v18.2), and 0.3.4 (2026-11-13, tag `v0.3.4`:
+head-only fine-tuning, `tinymind::head` with `DenseHead` and `PrototypeHead`,
+`MultilayerPerceptron::hidden_values` and `gas_sensor_drift`; heads timed on
+both boards; TINYMIND_REF 3d89270).

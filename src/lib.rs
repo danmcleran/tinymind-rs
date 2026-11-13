@@ -4,7 +4,8 @@
 //! Scope: Q16.16 and Q8.8 arithmetic and a fixed-point square root ([`Sqrt`]); ReLU, [`Linear`] and the tanh and sigmoid
 //! lookup-table activations; `f32` and `f64` as network value types (their
 //! [`Tanh`] and [`Sigmoid`] need the `std` or `libm` feature, as do the
-//! floating-point `AdamFloat` and `RmsPropFloat`); trainable networks with up
+//! floating-point `AdamFloat` and `RmsPropFloat` and the `f32`/`f64` softmax
+//! of `head::DenseHead`); trainable networks with up
 //! to seven hidden layers
 //! ([`NeuralNetwork`] over [`Dense`] layers, trained with SGD and momentum,
 //! [`Adam`] or [`RmsProp`], with optional gradient clipping) and their
@@ -32,7 +33,7 @@
 //!
 //! - `std`: host-side int8 calibration (`int8::calibration`), and the math
 //!   (`tanh`, `exp`, `pow`, `sqrt`) of the `f32`/`f64` [`Tanh`], [`Sigmoid`],
-//!   `AdamFloat` and `RmsPropFloat`, from the platform (bit-identical to
+//!   `AdamFloat`, `RmsPropFloat` and `head::SoftmaxExp`, from the platform (bit-identical to
 //!   tinymind (C++) on a glibc host).
 //! - `libm`: the same float math without `std`, from the `libm` crate (for a
 //!   Cortex-M4F, say); within a few ulps of glibc, not bit-identical.

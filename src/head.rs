@@ -65,7 +65,7 @@ use crate::qformat::{Q8_8, Q16_16, Scalar};
 /// `detail::HeadExp`).
 ///
 /// For the Q formats it is the 96-entry exp lookup table, which spans
-/// `[-6, 6]` and clamps below. A class more than 6 behind the largest logit
+/// `[-6, 6]` and clamps below. A class 6 or more behind the largest logit
 /// would then keep `e^-6 ~ 0.0025` of the probability, the softmax would never
 /// reach a one-hot and the logits of a well separated head would grow until
 /// the format wraps; at or below -6 the true value is under 0.0025, so it is
@@ -137,7 +137,7 @@ pub trait HeadLoss<V> {
 ///
 /// The largest logit is subtracted before `exp`, so every argument is `<= 0`
 /// and every `exp` lies in `[0, 1]`: no format overflows however large the
-/// logits grow. See [`SoftmaxExp`] for the classes more than 6 behind.
+/// logits grow. See [`SoftmaxExp`] for the classes 6 or more behind.
 pub struct SoftmaxCrossEntropyLoss;
 
 impl SoftmaxCrossEntropyLoss {
@@ -207,7 +207,7 @@ impl<V: Scalar> HeadLoss<V> for SquaredErrorLoss {
 ///
 /// The SGD step is plain gradient descent, `learning rate x (delta x input)`,
 /// the product with the learning rate rounded to nearest
-/// ([`Scalar::mul_round_nearest`]) as in every trainable layer of the crate.
+/// ([`Scalar::mul_round_nearest`]), as the crate's SGD step is.
 /// There is no momentum. The Q formats wrap on overflow, so keep the
 /// embedding and the logits well inside the format: z-scored inputs and a
 /// Q16.16 head are the working recipe, and Q8.8 is too narrow for a wide head.

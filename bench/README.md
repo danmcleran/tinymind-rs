@@ -44,9 +44,11 @@ samples, so the numbers sit next to the tinymind (C++) ones.
   built by a `const fn` so they live in flash. It times a `DenseHead`
   training step (with and without the embedding's gradient) and prediction,
   a `PrototypeHead` update and prediction, and a whole adaptation (30 epochs
-  over the 30 samples). Each operation's hash over the 30 samples must equal
-  the one tinymind (C++) printed for the same workload (the `bench` lines of
-  `tests/golden/head/stdout.txt`, read by `build.rs`).
+  over the 30 samples). Five results must equal tinymind (C++)'s hashes for
+  the same workload: the step, the prediction, the prototype update and the
+  prototype prediction (each over the 30 samples), and the adapted head (the
+  `bench` lines of `tests/golden/head/stdout.txt`, read by `build.rs`). The
+  step with the embedding's gradient is timed only.
 - **`trees`**: the two imported scikit-learn models of the `imported_trees`
   example (gradient boosting, 90 trees on int8 inputs; random forest, 15
   voting trees on int16) classify the 54 held-out UCI Wine samples; the hash of
@@ -280,9 +282,10 @@ operands come from 32-bit values), the C++ with a 64-bit one
 more cycles than the C++. Most of the prediction gap is LLVM's machine
 scheduler under `target-cpu=cortex-m4` (see Build settings): with
 `-C llvm-args=-enable-misched=false` the prediction takes 2,136 cycles and the
-prototype prediction 2,565, but the step still 9,385. Of the rest, a cheaper
-form of the step's round-to-nearest multiply takes the step to 9,339 cycles
-(same results, proved by Kani); it is not in this measurement.
+prototype prediction 2,565, but the step still 9,385, so most of the step's
+gap remains. Separately, a cheaper form of the step's round-to-nearest
+multiply (not in this release) takes the step from 10,129 to 9,339 cycles with
+the same results.
 
 The heads hold 792 and 784 bytes; the image's stack (3,404 B on the F411,
 3,600 B on the L031, +2,892 B and +2,996 B over baseline) is mostly the
@@ -576,7 +579,8 @@ model cycles, so every timing reads 0: this checks correctness, on Arm code,
 on every pull request (CI's `cpp-equivalence` job); timings need the boards.
 `CORES=m4 OPTS=3 WORKLOADS="mlp kws" scripts/qemu-bench.sh` runs a subset.
 
-The `sweeps` workload (`src/sweeps.rs`) runs every host test sweep on the
+The `sweeps` workload (`src/sweeps.rs`) runs every host test sweep but the
+fine-tuning heads' (whose on-device check is the `head` workload) on the
 device: convolution and pooling, addition, composition (multiply, concat,
 pad), softmax, the FFT (with tinymind (C++)'s twiddle tables from the
 golden), the int8 LSTM and GRU cells, LSTM training, decision trees and

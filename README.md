@@ -31,7 +31,7 @@ GRU cells, and a radix-2 FFT on 16-bit samples), quantized decision trees and gr
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
 the int8 layers use, and the math (`tanh`, `exp`, `pow`, `sqrt`) of the
-floating-point activations and optimizers; the optional `libm` feature provides
+floating-point activations, optimizers and fine-tuning head's softmax; the optional `libm` feature provides
 that math without `std`, from the `libm` crate (not bit-identical to glibc).
 
 The minimum supported Rust version is 1.85. CI builds the library for Cortex-M4F
@@ -74,11 +74,11 @@ the results page lists the settings to measure. Results and method:
 
 ```toml
 [dependencies]
-tinymind = "0.3.3"
-# Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat:
-# tinymind = { version = "0.3.3", features = ["std"] }
+tinymind = "0.3.4"
+# Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat, DenseHead softmax:
+# tinymind = { version = "0.3.4", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
-# tinymind = { version = "0.3.3", features = ["libm"] }
+# tinymind = { version = "0.3.4", features = ["libm"] }
 ```
 
 The API reference is on [docs.rs](https://docs.rs/tinymind).
@@ -339,7 +339,7 @@ the int8 quantization tiers, SIMD backends, and so on.
   multiplication, padding and concatenation, the
   tables, the softmax, the int8 LSTM and GRU cells, the FFT (for any samples
   and twiddle tables), the trees, the Q-learner, the deep Q-network and the LSTM
-  network never panic, that the fine-tuning heads never panic and keep every
+  network never panic, that small Q8.8 fine-tuning heads never panic and keep every
   class count within its cap, that the softmax's exp stays in [0, 1] and is 0
   at or below -6, that pooling's divide rounds half away from zero, that the FFT's
   Q1.15 multiply floors and its magnitudes saturate only where they must, and
@@ -351,7 +351,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/qemu-bench.sh` runs the on-board checks in `bench/` under QEMU, on a
   Cortex-M4 and a Cortex-M0 (the boards' instruction sets), at three
   optimisation levels: every workload's output hash (the int8 MLP and CNNs,
-  the MLPerf models, xor training, the anomaly demo, the FFT, the trees) must match, as
+  the MLPerf models, xor training, the anomaly demo, the FFT, the fine-tuning heads, the trees) must match, as
   on the boards. It also runs the convolution and pooling, LSTM, decision-tree
   and Q-learning sweeps on Cortex-M, along with the addition, composition,
   softmax and FFT sweeps (with the C++'s calibrated parameters and twiddle

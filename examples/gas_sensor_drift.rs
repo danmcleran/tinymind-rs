@@ -6,7 +6,8 @@
 //! layer. It writes the same files the C++ example writes, byte for byte:
 //!
 //! - stdout: the training log, the drift curve, the check that the backbone
-//!   plus head reproduces the trained network, and batch 10 accuracy per
+//!   plus head reproduces the trained network's hidden values (predictions
+//!   differ only where two sigmoid outputs tie), and batch 10 accuracy per
 //!   adaptation method and number of labelled samples
 //! - `gas_loss.csv`: mean |error| every 2000 training steps
 //! - `gas_confusion.csv`: the batch-1 validation confusion matrix
