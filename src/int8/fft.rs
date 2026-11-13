@@ -12,6 +12,24 @@ pub(crate) fn saturate_i16(v: i32) -> i16 {
     }
 }
 
+/// Whether the forward transform checks once per butterfly that its two
+/// products fit in `i16`, and then skips the four saturations, which cannot
+/// change anything then. Both forms give the same results. On a Cortex-M0+
+/// the check pays (a 256-point transform took 91,430 cycles instead of
+/// 117,640 at opt-level 3): Thumb-1 has no saturating instruction, and each
+/// saturation loads its bounds from the literal pool. On a Cortex-M4 it costs
+/// (48,363 against 41,991), since `ssat` saturates in one instruction. Stable
+/// Rust names no instruction-set features in `cfg`, so this uses the closest
+/// available sign: ARMv6-M has no 32-bit atomic instructions, Armv7-M does.
+const SKIP_SATURATION: bool = cfg!(not(target_has_atomic = "32"));
+
+/// True when `v` is in the `i16` range: `v >> 15` is -1 or 0 exactly then.
+/// A shift and a compare with small immediates, no 32-bit constants.
+#[inline(always)]
+pub(crate) fn fits_i16(v: i32) -> bool {
+    ((v >> 15) + 1) as u32 <= 1
+}
+
 /// Q1.15 multiply, `(a * b) >> 15` in `i32` (C++ `qfft_detail::q15Mul`). The
 /// shift is arithmetic, so the result floors. With both operands from `i16`
 /// the product is at most `2^30` and cannot overflow.
@@ -93,7 +111,7 @@ impl<const N: usize, const HALF: usize> QFft1D<'_, N, HALF> {
 
     /// Forward transform in place, scaled by `1/N`.
     pub fn forward(&self, real: &mut [i16; N], imag: &mut [i16; N]) {
-        self.transform::<true>(real, imag);
+        self.transform::<true, SKIP_SATURATION>(real, imag);
     }
 
     /// Inverse transform in place, unscaled, so it cancels the `1/N` of
@@ -104,7 +122,7 @@ impl<const N: usize, const HALF: usize> QFft1D<'_, N, HALF> {
         for x in imag.iter_mut() {
             *x = x.wrapping_neg();
         }
-        self.transform::<false>(real, imag);
+        self.transform::<false, SKIP_SATURATION>(real, imag);
         for x in imag.iter_mut() {
             *x = x.wrapping_neg();
         }
@@ -131,7 +149,11 @@ impl<const N: usize, const HALF: usize> QFft1D<'_, N, HALF> {
 
     /// The radix-2 stages (C++ `forwardImpl`), with or without the per-stage
     /// halving.
-    fn transform<const SCALE: bool>(&self, real: &mut [i16; N], imag: &mut [i16; N]) {
+    pub(crate) fn transform<const SCALE: bool, const SKIP: bool>(
+        &self,
+        real: &mut [i16; N],
+        imag: &mut [i16; N],
+    ) {
         // The checks on N and HALF (a post-monomorphization error if they fail).
         let _ = Self::STAGES;
         bit_reverse_permute(real, imag);
@@ -140,13 +162,14 @@ impl<const N: usize, const HALF: usize> QFft1D<'_, N, HALF> {
         // strides and trip counts are immediates and more registers stay free
         // for the butterfly: on a Cortex-M0+ this took a 256-point forward
         // transform from 153,698 cycles to 117,640 at opt-level 3, and from
-        // 157,939 to 135,233 at "s", for about 1.5 KB more code. Stages that a length N
+        // 157,939 to 135,233 at "s", for about 1.5 KB more code (before the
+        // saturation skip). Stages that a length N
         // does not have compile to nothing. The list reaches past any array
         // that fits a 32-bit address space.
         macro_rules! stages {
             ($($h:literal)*) => {$(
                 if $h < N {
-                    self.stage::<SCALE, $h>(real, imag);
+                    self.stage::<SCALE, SKIP, $h>(real, imag);
                 }
             )*};
         }
@@ -164,7 +187,11 @@ impl<const N: usize, const HALF: usize> QFft1D<'_, N, HALF> {
     /// already in range; the masks only let the compiler see it, so no bounds
     /// check (and no panic) is emitted. `N` and `HALF` are powers of two.
     #[inline(always)]
-    fn stage<const SCALE: bool, const H: usize>(&self, real: &mut [i16; N], imag: &mut [i16; N]) {
+    fn stage<const SCALE: bool, const SKIP: bool, const H: usize>(
+        &self,
+        real: &mut [i16; N],
+        imag: &mut [i16; N],
+    ) {
         let mask = N - 1;
         let tw_mask = HALF - 1;
         let stride = HALF / H;
@@ -174,7 +201,7 @@ impl<const N: usize, const HALF: usize> QFft1D<'_, N, HALF> {
             let w_sin = i32::from(self.twiddle_sin[k]);
             let mut top = pair;
             while top < N {
-                butterfly::<SCALE, N>(real, imag, top & mask, (top + H) & mask, w_cos, w_sin);
+                butterfly::<SCALE, SKIP, N>(real, imag, top & mask, (top + H) & mask, w_cos, w_sin);
                 top += 2 * H;
             }
         }
@@ -184,7 +211,7 @@ impl<const N: usize, const HALF: usize> QFft1D<'_, N, HALF> {
 /// One radix-2 butterfly on `top` and `bot` with the twiddle `(w_cos, w_sin)`
 /// (the body of the C++ `forwardImpl` loop).
 #[inline(always)]
-fn butterfly<const SCALE: bool, const N: usize>(
+fn butterfly<const SCALE: bool, const SKIP: bool, const N: usize>(
     real: &mut [i16; N],
     imag: &mut [i16; N],
     top: usize,
@@ -200,10 +227,22 @@ fn butterfly<const SCALE: bool, const N: usize>(
     let top_real = i32::from(real[top]);
     let top_imag = i32::from(imag[top]);
     if SCALE {
-        real[top] = saturate_i16((top_real + t_real) >> 1);
-        imag[top] = saturate_i16((top_imag + t_imag) >> 1);
-        real[bot] = saturate_i16((top_real - t_real) >> 1);
-        imag[bot] = saturate_i16((top_imag - t_imag) >> 1);
+        // With both products in the i16 range, every halved sum is too:
+        // top + t lies in [-65536, 65534] and top - t in [-65535, 65535], so
+        // after `>> 1` all four fit and the saturation can be skipped (see
+        // SKIP_SATURATION). The products leave that range only near full
+        // scale.
+        if SKIP && fits_i16(t_real) && fits_i16(t_imag) {
+            real[top] = ((top_real + t_real) >> 1) as i16;
+            imag[top] = ((top_imag + t_imag) >> 1) as i16;
+            real[bot] = ((top_real - t_real) >> 1) as i16;
+            imag[bot] = ((top_imag - t_imag) >> 1) as i16;
+        } else {
+            real[top] = saturate_i16((top_real + t_real) >> 1);
+            imag[top] = saturate_i16((top_imag + t_imag) >> 1);
+            real[bot] = saturate_i16((top_real - t_real) >> 1);
+            imag[bot] = saturate_i16((top_imag - t_imag) >> 1);
+        }
     } else {
         real[top] = saturate_i16(top_real + t_real);
         imag[top] = saturate_i16(top_imag + t_imag);
@@ -254,6 +293,41 @@ mod tests {
             assert_eq!(real[i] as usize, reverse(i, bits), "N={N} i={i}");
             assert_eq!(imag[i], !(reverse(i, bits) as i16));
         }
+    }
+
+    /// The forward transform gives the same bits with and without the
+    /// saturation skip, at every power-of-two length up to 1024, on random
+    /// samples and twiddles that reach the rails (where the skip does not
+    /// apply) and on smaller ones (where it does). The host sweep runs the
+    /// form the host gets; QEMU's Cortex-M0 runs the other against the C++.
+    #[test]
+    fn saturation_skip_changes_nothing() {
+        fn check<const N: usize, const HALF: usize>(rng: &mut crate::rand::GlibcRand) {
+            for trial in 0..20 {
+                let scale = [0, 1, 6][trial % 3];
+                let mut draw = || (rng.next_i32() as i16) >> scale;
+                let cos: [i16; HALF] = core::array::from_fn(|_| draw());
+                let sin: [i16; HALF] = core::array::from_fn(|_| draw());
+                let real: [i16; N] = core::array::from_fn(|_| draw());
+                let imag: [i16; N] = core::array::from_fn(|_| draw());
+                let fft: QFft1D<'_, N, HALF> = QFft1D {
+                    twiddle_cos: &cos,
+                    twiddle_sin: &sin,
+                };
+                let (mut r0, mut i0) = (real, imag);
+                fft.transform::<true, false>(&mut r0, &mut i0);
+                let (mut r1, mut i1) = (real, imag);
+                fft.transform::<true, true>(&mut r1, &mut i1);
+                assert_eq!((r0, i0), (r1, i1), "N={N} trial {trial}");
+            }
+        }
+        let mut rng = crate::rand::GlibcRand::new(11);
+        check::<2, 1>(&mut rng);
+        check::<4, 2>(&mut rng);
+        check::<8, 4>(&mut rng);
+        check::<64, 32>(&mut rng);
+        check::<256, 128>(&mut rng);
+        check::<1024, 512>(&mut rng);
     }
 
     #[test]

@@ -141,16 +141,16 @@ One 256-point forward transform of `int8::QFft1D` on random 16-bit samples, with
 
 | Forward transform, cycles | F411 | L031 |
 |---|---:|---:|
-| **tinymind-rs**, `opt-level = 3` | **41,991 (420 µs)** | **117,640 (3.68 ms)** |
-| **tinymind-rs**, `opt-level = "s"` | **44,255** | **135,233** |
+| **tinymind-rs**, `opt-level = 3` | **41,991 (420 µs)** | **91,430 (2.86 ms)** |
+| **tinymind-rs**, `opt-level = "s"` | **44,255** | **96,784** |
 | tinymind (C++), gcc `-O3`, best measured | about 82,900 | about 101,600 |
 | tinymind (C++), gcc `-Os`, best measured | about 85,200 | 142,482 |
 
-On the Cortex-M0+ the Rust transform takes about 16% more cycles than the best gcc `-O3` build of tinymind (C++), and about 5% fewer than its best `-Os` build. On the Cortex-M4F it takes about half the cycles of either.
+On the Cortex-M0+ the Rust transform takes about 10% fewer cycles than the best gcc `-O3` build of tinymind (C++), and 32% fewer than its best `-Os` build. On the Cortex-M4F it takes about half the cycles of either. Its code is 2,056 B at `opt-level = "s"` and 3,808 B at 3 on the M0+, where the C++'s is 392 B and 584 B plus a 1 KB bit-reversal table that the Rust transform does without. The squared magnitudes of the 256 bins take 2,731 and 4,863 cycles. The transform works in the caller's buffers with no memory of its own.
 
-gcc's code for tinymind (C++)'s FFT loop depends on the function it is inlined into: on the M0+ at `-O3` the same source measured from 101,600 to 193,277 cycles in different callers, from a loop that keeps its state in registers to one that spills it and reloads constants every butterfly. The table gives the best caller found; the details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench). Its code is 1,852 B at `opt-level = "s"` and 4,676 B at 3 on the M0+, where the C++'s is 392 B and 584 B plus a 1 KB bit-reversal table that the Rust transform does without. The squared magnitudes of the 256 bins take 2,731 and 4,863 cycles. The transform works in the caller's buffers with no memory of its own.
+gcc's code for tinymind (C++)'s FFT loop depends on the function it is inlined into: on the M0+ at `-O3` the same source measured from 101,600 to 193,277 cycles in different callers, from a loop that keeps its state in registers to one that spills it and reloads constants every butterfly. The table gives the best caller found; the details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
 
-It runs each stage twiddle by twiddle, loading each twiddle pair once per stage where the C++ loads it for every butterfly, and with the stage's size as a constant, so that the M0+'s eight low registers hold the whole butterfly. The butterflies of a stage are independent, so the results are the same. A layer built at run time rather than as a `static` is slower on the M0+ at `opt-level = 3` (138,456 cycles), as the table addresses then need registers too.
+It runs each stage twiddle by twiddle, loading each twiddle pair once per stage where the C++ loads it for every butterfly, and with the stage's size as a constant, so that the M0+'s eight low registers hold the whole butterfly. On cores without a saturating instruction (the M0+) it also checks once per butterfly that both twiddle products fit in 16 bits, which they do except near full scale, and then skips the four saturations, which could not change anything; a Kani proof shows the two forms agree for every input. The butterflies of a stage are independent, so the results are the same. A layer built at run time rather than as a `static` takes 97,221 cycles on the M0+ at `opt-level = 3`, as the table addresses then need registers too.
 
 ## Decision trees, imported from scikit-learn
 

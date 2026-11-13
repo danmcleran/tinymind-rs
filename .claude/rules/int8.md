@@ -187,6 +187,25 @@ L031 +16% at 3, -5% at s; F411 about half. Staged C++ in the processing
 function: -O3 L031 ~97,700 (only -4%), F411 ~63,200 (-24%); -Os L031 ~166,000
 (+9%), F411 ~85,300. Rust's L031 loops still reload the clamp bounds from the
 literal pool (13-34 per loop) and spill: that is the remaining gap.
+**Saturation skip** (same day): in the scaled butterfly, if both products fit
+in i16 (`fits_i16`: `((v >> 15) + 1) as u32 <= 1`, immediates only), all four
+halved sums fit (top+t in [-65536, 65534], top-t in [-65535, 65535]) and are
+stored with `as i16`; otherwise the saturating path. `const SKIP_SATURATION =
+cfg!(not(target_has_atomic = "32"))` (the only cfg differing between thumbv6m
+and thumbv7em; ARMv6-M has no ldrex/strex): L031 static 117,640 -> 91,430
+(3), 135,233 -> 96,784 (s); run-time layer 97,221 / 98,389; F411 unchanged
+(ungated it cost 41,991 -> 48,363 at 3 and 44,255 -> 59,420 at s: ssat is one
+cycle). M0+ code 1,852 -> 2,056 B (s), 4,676 -> 3,808 B (3). vs best gcc on the
+L031: -10% at -O3 (101,600), -32% at -Os (142,482). `transform::<SCALE, SKIP>`
+is pub(crate) so the host checks both: unit test
+`saturation_skip_changes_nothing` (lengths 2-1024, random samples/twiddles at
+three scales; plants: skip formula `+ 1`, check `>> 16` fail it) and Kani
+`fft_saturation_skip_is_exact` (one butterfly, every input, 21 s; compare
+elementwise, array `==` is a memcmp loop that needs more unwinding; the `>> 16`
+plant gives a counterexample). The host sweep runs SKIP = false; QEMU's M0
+sweep runs SKIP = true against the C++ golden (247 lines match). Inverse
+(unscaled) keeps the saturating path: top +- t can overflow even with t in
+range.
 Dropped: `(v >> 15) + 1 <= 1` saturation (LLVM folds `as i16` round trips
 back into the clamp; the shift form kept constants out of the M0+ loop but
 was no faster there and lost `ssat` on the F411: 85,251), real outputs before

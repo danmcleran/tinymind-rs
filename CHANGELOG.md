@@ -33,14 +33,18 @@ break the API).
   pair once per stage instead of once per butterfly, and with the stage's
   size as a constant (one loop per stage), so that offsets, strides and trip
   counts are immediates and a Cortex-M0+'s eight low registers hold the
-  butterfly. A 256-point forward transform takes 117,640 cycles on the
-  STM32L031 at `opt-level = 3` (was 172,683) and 135,233 at `"s"` (was
-  173,627); 41,991 and 44,255 on the STM32F411 (was 71,627 and 75,934).
+  butterfly. On cores without 32-bit atomic instructions (ARMv6-M, such as
+  the Cortex-M0+, which also has no saturating instruction) it checks once per
+  butterfly that both twiddle products fit in 16 bits and then skips the four
+  saturations, which cannot change anything then. A 256-point forward
+  transform takes 91,430 cycles on the STM32L031 at `opt-level = 3` (was
+  172,683) and 96,784 at `"s"` (was 173,627); 41,991 and 44,255 on the
+  STM32F411 (was 71,627 and 75,934).
   tinymind (C++)'s `QFFT1D`, now timed on both boards, takes about 101,600
   (gcc `-O3`) and 142,482 (`-Os`) on the L031 at best, and about 82,900 and
   85,200 on the F411; gcc's code for it depends on the calling function (the
   same source measured up to 193,277 at `-O3` on the L031). The transform's code grows to
-  1,852 B at `"s"` and 4,676 B at 3 on the M0+ (was 380 and 1,040). Results are
+  2,056 B at `"s"` and 3,808 B at 3 on the M0+ (was 380 and 1,040). Results are
   unchanged.
 
 ## [0.3.2] - 2026-11-12

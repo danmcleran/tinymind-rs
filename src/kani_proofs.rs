@@ -954,6 +954,27 @@ mod fft {
         any_fft_4(&c, &s).inverse(&mut re, &mut im);
     }
 
+    /// Skipping the saturation when both products fit in `i16` (the
+    /// Cortex-M0+ form) gives exactly the saturating form's results, for any
+    /// samples and any twiddle: one butterfly (N = 2), which every butterfly
+    /// of every length runs.
+    #[kani::proof]
+    #[kani::unwind(3)]
+    fn fft_saturation_skip_is_exact() {
+        let (c, s): ([i16; 1], [i16; 1]) = (kani::any(), kani::any());
+        let fft: QFft1D<'_, 2, 1> = QFft1D {
+            twiddle_cos: &c,
+            twiddle_sin: &s,
+        };
+        let (re, im): ([i16; 2], [i16; 2]) = (kani::any(), kani::any());
+        let (mut r0, mut i0) = (re, im);
+        fft.transform::<true, false>(&mut r0, &mut i0);
+        let (mut r1, mut i1) = (re, im);
+        fft.transform::<true, true>(&mut r1, &mut i1);
+        // Element by element: `==` on arrays is a memcmp loop.
+        assert!(r0[0] == r1[0] && r0[1] == r1[1] && i0[0] == i1[0] && i0[1] == i1[1]);
+    }
+
     /// `magnitude_squared` is `min(r^2 + i^2, i32::MAX)`, spec in i128.
     #[kani::proof]
     #[kani::unwind(3)]

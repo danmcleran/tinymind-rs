@@ -252,20 +252,20 @@ and the same output hash in both languages (2026-11-12):
 
 | | F411 | L031 |
 |---|---:|---:|
-| **tinymind-rs**, `static` layer, `opt-level = 3` | **41,991** (420 us) | **117,640** (3.68 ms) |
-| **tinymind-rs**, `static` layer, `opt-level = "s"` | **44,255** | **135,233** |
-| tinymind-rs, layer built at run time (`fft-runtime`), `opt-level = 3` | 45,619 | 138,456 |
-| tinymind-rs, layer built at run time, `opt-level = "s"` | 43,864 | 141,600 |
+| **tinymind-rs**, `static` layer, `opt-level = 3` | **41,991** (420 us) | **91,430** (2.86 ms) |
+| **tinymind-rs**, `static` layer, `opt-level = "s"` | **44,255** | **96,784** |
+| tinymind-rs, layer built at run time (`fft-runtime`), `opt-level = 3` | 45,619 | 97,221 |
+| tinymind-rs, layer built at run time, `opt-level = "s"` | 43,864 | 98,389 |
 | tinymind (C++), gcc `-O3`, best measured | about 82,900 | about 101,600 |
 | tinymind (C++), gcc `-Os`, best measured | about 85,200 | 142,482 |
 
-On the L031 the Rust transform takes about 16% more cycles than the best
-gcc `-O3` build of tinymind (C++) and about 5% fewer than its best `-Os`
-build; on the F411 about half the cycles of either. The squared magnitudes of the 256 bins take 2,731 and 4,863
-cycles. Code for the transform (L031): 1,852 B at `"s"` and 4,676 B at 3; the
+On the L031 the Rust transform takes about 10% fewer cycles than the best
+gcc `-O3` build of tinymind (C++) and 32% fewer than its best `-Os` build;
+on the F411 about half the cycles of either. The squared magnitudes of the 256 bins take 2,731 and 4,863
+cycles. Code for the transform (L031): 2,056 B at `"s"` and 3,808 B at 3; the
 C++'s 392 B at `-Os` and 584 B at `-O3` plus its 1 KB bit-reversal table; both
-also read the 512 B of twiddle tables. The workload as a whole adds 2,716 B
-(`"s"`) and 5,920 B (3) of flash on the L031 over the baseline image, with
+also read the 512 B of twiddle tables. The workload as a whole adds 2,920 B
+(`"s"`) and 5,052 B (3) of flash on the L031 over the baseline image, with
 the signal generator and the report, and about 4 KB of stack for its own
 buffers (the input kept for 33 timed runs, the working buffers, 1 KB of
 magnitudes); the transform itself needs none.
@@ -302,9 +302,17 @@ first ported (group by group, as the C++); 153,698 running each stage twiddle
 by twiddle (each twiddle loaded once per stage, not once per butterfly);
 117,640 with each stage's half size a constant (one loop per stage, chosen by
 a macro over the powers of two), so offsets, strides and trip counts are
-immediates and the M0+'s eight low registers hold the butterfly. All three
-give the same bits: the butterflies of a stage are independent. Tried and
-dropped: saturating with `(v >> 15) + 1 <= 1` instead of a clamp (no faster on
+immediates and the M0+'s eight low registers hold the butterfly; 91,430
+skipping the saturation when both twiddle products fit in `i16` (then every
+halved sum does: `top + t` lies in [-65536, 65534], `top - t` in [-65535,
+65535]), one range check per butterfly instead of four saturations, each of
+which loaded its bounds from the literal pool (at `"s"`: 135,233 -> 96,784).
+All give the same bits: the butterflies of a stage are independent, and a
+Kani proof shows the saturation skip changes no output for any samples and
+twiddle. The skip is for cores without a saturating instruction: on the F411
+it cost 15-34% (`ssat` saturates in one cycle), so it is chosen at compile
+time by `cfg(not(target_has_atomic = "32"))`, the only `cfg` that tells
+ARMv6-M from Armv7-M on stable Rust. Tried and dropped: saturating with `(v >> 15) + 1 <= 1` instead of a clamp (no faster on
 the L031; the F411 lost `ssat`, 59,965 -> 85,251); real outputs before
 imaginary ones (F411 4% faster, L031 4% slower); constant stages only for half
 sizes 1-8 (same at 3, 141,374 at `"s"` for 764 B less flash). The bit reversal
