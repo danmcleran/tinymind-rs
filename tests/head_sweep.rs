@@ -17,6 +17,9 @@ use tinymind::head::{
 };
 use tinymind::{Q8_8, Q16_16, Scalar};
 
+#[path = "sweeps/head_bench.rs"]
+mod head_bench;
+
 struct Lcg(u32);
 
 impl Lcg {
@@ -293,11 +296,26 @@ fn head_sweep_matches_cpp() {
     prototype_run::<f64, 8, 4, Euclid>(&mut out, "euclid", 25, 3);
     prototype_run::<f32, 8, 4, Manhattan>(&mut out, "manhattan", 26, 3);
 
+    // The on-board workload (bench/src/head.rs), checked here on the host.
+    let data = head_bench::data();
+    let (hashes, correct) = head_bench::hashes(&data);
+    for (name, hash) in head_bench::NAMES.iter().zip(hashes) {
+        write!(out, "bench {name} {hash:08x}").unwrap();
+        if *name == "head_adapt" {
+            write!(out, " correct {correct}").unwrap();
+        }
+        writeln!(out).unwrap();
+    }
+
     let golden = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/golden/head/stdout.txt"
     ))
     .unwrap();
+    // The boards read their expected hashes back with this parser.
+    for (name, hash) in head_bench::NAMES.iter().zip(hashes) {
+        assert_eq!(head_bench::expected(&golden, name), Some(hash), "{name}");
+    }
     for (n, (got, want)) in out.lines().zip(golden.lines()).enumerate() {
         assert_eq!(got, want, "line {}", n + 1);
     }

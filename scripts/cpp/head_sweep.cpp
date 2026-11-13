@@ -305,6 +305,101 @@ static void prototypeRun(const char* const distance, const uint32_t seed, const 
     std::printf("tie pred %zu\n", head.predict(shared));
 }
 
+// The on-board workload (bench/src/head.rs and the C++ board images): Q16.16
+// embeddings of 32 values for 6 classes, 5 samples each, a shipped dense head
+// and the prototypes of all 30 samples. Each line is the FNV-1a hash, over the
+// 30 samples in turn, of the state after one operation on a fresh copy, so
+// the boards' hashes can be compared with these.
+static const size_t B_IN = 32;
+static const size_t B_OUT = 6;
+static const size_t B_N = 30;
+typedef tinymind::DenseHead<Q16, B_IN, B_OUT> BenchHead;
+typedef tinymind::PrototypeHead<Q16, B_IN, B_OUT> BenchPrototypes;
+
+static uint32_t hashDense(const BenchHead& head, uint32_t hash)
+{
+    for (size_t o = 0; o < B_OUT; ++o)
+    {
+        for (size_t i = 0; i < B_IN; ++i)
+        {
+            hash = fnv(hash, VT<Q16>::bits(head.getWeight(o, i)));
+        }
+        hash = fnv(hash, VT<Q16>::bits(head.getBias(o)));
+    }
+    return hash;
+}
+
+static uint32_t hashPrototypes(const BenchPrototypes& p, uint32_t hash)
+{
+    for (size_t c = 0; c < B_OUT; ++c)
+    {
+        for (size_t i = 0; i < B_IN; ++i)
+        {
+            hash = fnv(hash, VT<Q16>::bits(p.getPrototype(c, i)));
+        }
+        hash = fnv(hash, p.getCount(c));
+    }
+    return hash;
+}
+
+static void benchRun()
+{
+    gState = 2026u;
+    Q16 x[B_N][B_IN];
+    size_t label[B_N];
+    for (size_t s = 0; s < B_N; ++s)
+    {
+        label[s] = s % B_OUT;
+        for (size_t i = 0; i < B_IN; ++i)
+        {
+            const int32_t base = static_cast<int32_t>((label[s] * 5 + i * 3) % 8) * (VT<Q16>::ONE / 4);
+            x[s][i] = VT<Q16>::make(base + draw(VT<Q16>::ONE / 4));
+        }
+    }
+    BenchHead shipped;
+    shipped.initializeWeights<WeightDraw<Q16, 1> >();
+    const Q16 rate = VT<Q16>::make(3277); // 0.05
+    BenchPrototypes learned;
+    for (size_t s = 0; s < B_N; ++s)
+    {
+        learned.learn(x[s], label[s]);
+    }
+
+    uint32_t step = FNV_OFFSET;
+    uint32_t predict = FNV_OFFSET;
+    uint32_t learn = FNV_OFFSET;
+    uint32_t nearest = FNV_OFFSET;
+    for (size_t s = 0; s < B_N; ++s)
+    {
+        BenchHead head = shipped;
+        head.trainClass(x[s], label[s], rate);
+        step = hashDense(head, step);
+        predict = fnv(predict, shipped.predict(x[s]));
+        BenchPrototypes p = learned;
+        p.learn(x[s], label[s]);
+        learn = hashPrototypes(p, learn);
+        nearest = fnv(nearest, learned.predict(x[s]));
+    }
+    BenchHead adapted = shipped;
+    for (int epoch = 0; epoch < 30; ++epoch)
+    {
+        for (size_t s = 0; s < B_N; ++s)
+        {
+            adapted.trainClass(x[s], label[s], rate);
+        }
+    }
+    size_t correct = 0;
+    for (size_t s = 0; s < B_N; ++s)
+    {
+        correct += (adapted.predict(x[s]) == label[s]) ? 1u : 0u;
+    }
+    std::printf("bench head_step %08x\n", step);
+    std::printf("bench head_predict %08x\n", predict);
+    std::printf("bench proto_learn %08x\n", learn);
+    std::printf("bench proto_predict %08x\n", nearest);
+    std::printf("bench head_adapt %08x correct %zu\n", hashDense(adapted, FNV_OFFSET), correct);
+}
+
 int main()
 {
     using tinymind::SoftmaxCrossEntropyHeadLoss;
@@ -333,6 +428,8 @@ int main()
     prototypeRun<Q8, 4, 3, ManhattanDistance<Q8> >("manhattan", 24u, 20);
     prototypeRun<double, 8, 4, SquaredEuclideanDistance<double> >("euclid", 25u, 3);
     prototypeRun<float, 8, 4, ManhattanDistance<float> >("manhattan", 26u, 3);
+
+    benchRun();
 
     return 0;
 }

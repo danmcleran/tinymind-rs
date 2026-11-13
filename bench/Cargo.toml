@@ -35,6 +35,9 @@ anomaly = []
 fft = []
 # The same with the layer built at run time from tables the compiler cannot see.
 fft-runtime = ["fft"]
+# The fine-tuning heads: a DenseHead step and prediction, a PrototypeHead update
+# and prediction, and a whole adaptation, hash-matched to tinymind (C++).
+head = []
 # The imported scikit-learn tree models: results, both forms, flash vs SRAM.
 trees = []
 # Per-layer cycles for the MLP (a separate image, like tinymind's PROFILE build).

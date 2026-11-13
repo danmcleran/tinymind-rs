@@ -1,6 +1,7 @@
 //! Put the selected board's memory.x where cortex-m-rt's link.x finds it, and
 //! write the FFT workload's twiddle tables (tinymind (C++)'s, read from the FFT
-//! sweep's golden, with the hash it expects) to fft_twiddles.rs.
+//! sweep's golden, with the hash it expects) to fft_twiddles.rs, and the fine-tuning
+//! heads' expected hashes (read from the head sweep's golden) to head_expect.rs.
 use std::{env, fs, path::PathBuf};
 
 fn main() {
@@ -28,6 +29,22 @@ fn main() {
 
     fs::write(out.join("fft_twiddles.rs"), fft_twiddles(256)).unwrap();
     println!("cargo:rerun-if-changed=../tests/golden/fft/stdout.txt");
+
+    fs::write(out.join("head_expect.rs"), head_expect()).unwrap();
+    println!("cargo:rerun-if-changed=../tests/golden/head/stdout.txt");
+}
+
+/// `EXPECT`, the five `bench <name> <hex>` hashes tinymind (C++) printed for
+/// the fine-tuning heads' workload, in the golden's order.
+fn head_expect() -> String {
+    let golden = fs::read_to_string("../tests/golden/head/stdout.txt").unwrap();
+    let hashes: Vec<String> = golden
+        .lines()
+        .filter_map(|l| l.strip_prefix("bench "))
+        .map(|l| format!("0x{}", l.split(' ').nth(1).expect("bench <name> <hex>")))
+        .collect();
+    assert_eq!(hashes.len(), 5, "five bench lines in the head golden");
+    format!("pub const EXPECT: [u32; 5] = [{}];\n", hashes.join(", "))
 }
 
 /// `static COS` and `static SIN` for length `n`, from the golden's `twiddles

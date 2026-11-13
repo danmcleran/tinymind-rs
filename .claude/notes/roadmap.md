@@ -15,9 +15,13 @@ what to port next, and update it when a step is done.
 - **Head-only fine-tuning (done, 2026-11-13):** tinymind #277 added
   `DenseHead`/`PrototypeHead` and the gas_sensor_drift adaptation; ported as
   `tinymind::head` and `examples/gas_sensor_drift.rs` (notes in
-  `.claude/rules/core.md`). This was report priority 2's last item. Next for
-  it: a bench workload timing a head step and a prototype update on both
-  boards (the on-device cost is the selling point).
+  `.claude/rules/core.md`). This was report priority 2's last item. Timed on
+  both boards with the C++ alongside (2026-11-13, workload `head`): level on
+  the L031, 37% behind on the F411 step. Open: `mul_round_nearest` as
+  `(p + half + (p >> 63)) >> FRAC` (Kani-proved; F411 head step -7.8%, anomaly
+  -3.7%) costs L031 flash (+340 B anomaly, +1.5 KB head image): decide in its
+  own PR; the rest of the F411 gap is mostly the M4 machine scheduler
+  (llvm/llvm-project#241851).
 
 Next steps follow `reports/Embedded Rust ML priorities.md` (local, not committed):
 Dan chose to port what matters most to embedded Rust developers, not the smallest
