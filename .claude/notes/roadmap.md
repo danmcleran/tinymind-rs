@@ -12,13 +12,19 @@ what to port next, and update it when a step is done.
   opt 3 41,991 / 91,430, opt s 44,255 / 96,784. **Open:** a bit-reversal table (~5K of the L031's ~9.3K reversal cycles, 512 B
   at N=256). Notes in `.claude/rules/int8.md`.
 
+- **Head-only fine-tuning (done, 2026-11-13):** tinymind #277 added
+  `DenseHead`/`PrototypeHead` and the gas_sensor_drift adaptation; ported as
+  `tinymind::head` and `examples/gas_sensor_drift.rs` (notes in
+  `.claude/rules/core.md`). This was report priority 2's last item. Next for
+  it: a bench workload timing a head step and a prototype update on both
+  boards (the on-device cost is the selling point).
+
 Next steps follow `reports/Embedded Rust ML priorities.md` (local, not committed):
 Dan chose to port what matters most to embedded Rust developers, not the smallest
 piece. Done: int8 dense + softmax, the PyTorch importer, multiple hidden layers
 (2A), linear output + gradient clipping (2B, `examples/energy_efficiency`),
 Adam/RMSprop (2C), the on-device anomaly-detection demo on both boards (2D).
-Priority 2 is complete; head-only fine-tuning (train only the last layer) is the
-one idea from the report not done. Trees: the runtime (`src/tree.rs`, 3A) and
+Priority 2 is complete, head-only fine-tuning included (2026-11-13). Trees: the runtime (`src/tree.rs`, 3A) and
 the importer (`tools/import_trees`, 3B) are done; tinymind's packed
 `QTreeCompactEval` form is not. Int8 conv (priority 4): the layers are done
 (4A, 2026-11-08: output sizes spelled out by the caller and checked at compile
@@ -75,6 +81,11 @@ left, roughly by expected gain:
   CortexM4Model scheduler; no safe code shape fixed them (`.claude/rules/bench.md`).
   Filed upstream as llvm/llvm-project#241851 (2026-11-12); watch it, and
   re-measure the anomaly workload when a fix reaches rustc's LLVM.
+- **Toolchain for board timings (2026-11-13):** every table so far was measured
+  with local rustc 1.99.1 (LLVM 23.1.1); CI already runs stable 1.100.0. No
+  update was made then (no ROI on its own). Before the next board run, run
+  `rustup update stable` and re-measure every workload, not just the changed
+  one, so a table never mixes compilers.
 
 ## Release history (as CLAUDE.md recorded it; CHANGELOG.md is the full record)
 

@@ -52,7 +52,7 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   detect. `unsafe` is ruled out for good (Dan, 2026-11-11; CLAUDE.md), SIMD
   intrinsics and `asm!` included.
 - **Kani proofs** (`src/kani_proofs.rs`, `cfg(kani)` only; CI job `kani`, 17 to
-  21 minutes on CI, 16 before the recurrent cells): 95 harnesses, for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
+  21 minutes on CI, 16 before the recurrent cells): 99 harnesses (4 for the fine-tuning heads, `mod head`, 2026-11-13), for every input. For Q8.8, Q15.1, Q1.15, Q16.16, Q31.1
   and Q1.31: add/sub wrap, multiply floors then wraps, the SGD products
   (`mul_round_toward_zero`, `mul_round_nearest`) round then wrap, division never panics,
   `from_int`, `pow2_neg`, zero tolerance and comparisons match their definitions.

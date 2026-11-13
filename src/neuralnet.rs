@@ -244,6 +244,15 @@ where
         self.output.map(|n| n.output)
     }
 
+    /// The hidden-layer activations from the latest
+    /// [`feed_forward`](Self::feed_forward) (C++
+    /// `getLastHiddenLayer().getOutputValueForNeuron`): the embedding, when
+    /// the trained network becomes a frozen model with a
+    /// [`head`](crate::head) on top.
+    pub fn hidden_values(&self) -> [V; HID] {
+        self.hidden.map(|n| n.output)
+    }
+
     /// Mean-squared error against `targets` (C++ `MeanSquaredErrorCalculator`).
     pub fn calculate_error(&self, targets: &[V; OUT]) -> V {
         let mut error = V::ZERO;

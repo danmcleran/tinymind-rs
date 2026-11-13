@@ -22,6 +22,7 @@ nav_exclude: true
 [Decision trees]({{ site.baseurl }}/trees){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Q-learning maze]({{ site.baseurl }}/maze){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Activity recognition]({{ site.baseurl }}/har){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Fine-tuning on the device]({{ site.baseurl }}/fine-tuning){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Int8 inference]({{ site.baseurl }}/int8){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [API reference]({{ site.baseurl }}/api/tinymind/){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View on GitHub](https://github.com/danmcleran/tinymind-rs){: .btn .fs-5 .mb-4 .mb-md-0 }
@@ -40,7 +41,7 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-The port covers what nine of tinymind (C++)'s examples use (XOR, iris, energy efficiency, the Q-learning maze and its deep Q-network version, LSTM activity recognition, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, int8 LSTM and GRU cells, a 16-bit FFT, and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
+The port covers what ten of tinymind (C++)'s examples use (XOR, iris, energy efficiency, the Q-learning maze and its deep Q-network version, LSTM activity recognition, gas sensor drift with on-device fine-tuning, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, int8 LSTM and GRU cells, a 16-bit FFT, and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
 
 | Ported | Not yet ported |
 |---|---|
@@ -50,6 +51,7 @@ The port covers what nine of tinymind (C++)'s examples use (XOR, iris, energy ef
 | Floating-point (`f32`, `f64`) networks, trained with SGD or tinymind (C++)'s floating-point Adam and RMSprop | |
 | Q-learning (`QLearner`) over a Q table or a deep Q-network (`QNetwork`), with tinymind (C++)'s maze and deep Q-network maze examples | |
 | LSTM networks with one hidden layer (`LstmNetwork`, in fixed or floating point), with tinymind (C++)'s activity-recognition example | Trainable GRU and Elman networks, recurrent networks with more than one hidden layer |
+| Head-only fine-tuning on the device: a trainable dense head (`DenseHead`) and a nearest-class-mean head (`PrototypeHead`) on top of a frozen model, with tinymind (C++)'s gas sensor drift example | |
 
 The crate is on [crates.io](https://crates.io/crates/tinymind); the API is not stable yet (before 1.0, a minor version may break it). tinymind (C++) itself is the full library; this port grows by porting slices of it.
 
@@ -72,6 +74,7 @@ cargo run --release --example imported_trees                 # scikit-learn tree
 cargo run --release --example maze -- output                 # Q-learning: find the way out of a six-room maze
 cargo run --release --example dqn_maze -- output             # the same maze, learned by a deep Q-network
 cargo run --release --example har_activity -- output         # LSTM: classify accelerometer windows into four activities
+cargo run --release --example gas_sensor_drift -- output     # sensor drift, then on-device fine-tuning from a few samples
 cargo test --all-features                                # unit, doc and golden tests
 ```
 

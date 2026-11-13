@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Render the example plots for the docs site: xor in both formats, iris,
 energy efficiency, anomaly detection, the int8 GBDT, the Q-learning and deep
-Q-network mazes and the LSTM activity classifier.
+Q-network mazes, the LSTM activity classifier and the gas sensor drift example.
 
 Runs the Rust `xor`, `iris`, `energy_efficiency`, `anomaly`, `gbdt_tabular_int8`, `maze`,
-`dqn_maze` and `har_activity`
+`dqn_maze`, `har_activity` and `gas_sensor_drift`
 examples (which, except anomaly, write byte-identical output to the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
 from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
@@ -37,6 +37,8 @@ GBDT = os.path.join(ROOT, "target", "release", "examples", "gbdt_tabular_int8")
 MAZE = os.path.join(ROOT, "target", "release", "examples", "maze")
 DQN_MAZE = os.path.join(ROOT, "target", "release", "examples", "dqn_maze")
 HAR = os.path.join(ROOT, "target", "release", "examples", "har_activity")
+GAS = os.path.join(ROOT, "target", "release", "examples", "gas_sensor_drift")
+GAS_NAMES = ["Ethanol", "Ethylene", "Ammonia", "Acetaldehyde", "Acetone", "Toluene"]
 HAR_NAMES = ["walking", "upstairs", "downstairs", "sitting"]
 IRIS_NAMES = ["setosa", "versicolor", "virginica"]
 OUT = os.path.join(ROOT, "docs", "assets", "plots")
@@ -343,8 +345,121 @@ def har(out_dir, png):
     tp.plt.close(fig)
 
 
+def gas_drift(out_dir, png):
+    """The figure tinymind's examples/gas_sensor_drift/plot.py draws first:
+    training loss, the drift curve and the batch-1 confusion matrix."""
+    loss, _ = tp.read_csv(os.path.join(out_dir, "gas_loss.csv"))
+    drift, _ = tp.read_csv(os.path.join(out_dir, "gas_drift.csv"))
+    with open(os.path.join(out_dir, "gas_confusion.csv"), newline="") as f:
+        rows = list(csv.reader(f))
+    n = len(GAS_NAMES)
+    mat = [[int(rows[r + 1][c + 1]) for c in range(n)] for r in range(n)]
+    acc = sum(mat[i][i] for i in range(n)) / sum(sum(r) for r in mat)
+
+    tp.apply_style()
+    fig, (ax1, ax2, ax3) = tp.plt.subplots(1, 3, figsize=(16, 4.8))
+    fig.suptitle("tinymind-rs: gas sensor array drift (Q16.16, 128-32-6)",
+                 fontsize=13, fontweight="bold")
+    tp.line(ax1, loss["iter"], {"avg |error|": loss["avg_err"]},
+            xlabel="training iteration", ylabel="average |error|")
+    ax1.set_title("training loss (batch 1)", fontsize=9, color=tp.MUTED)
+
+    tp.line(ax2, drift["batch"], {"accuracy": drift["accuracy"]},
+            xlabel="batch (month)", ylabel="classification accuracy", markers=True)
+    ax2.set_ylim(0.0, 1.05)
+    ax2.set_xticks(drift["batch"])
+    ax2.axhline(drift["accuracy"][0], color=tp.MUTED, linestyle="--", linewidth=1.0, alpha=0.7)
+    ax2.set_title("drift: accuracy falls on later batches", fontsize=9, color=tp.MUTED)
+
+    ax3.imshow(mat, cmap="Blues")
+    ax3.set_xticks(range(n))
+    ax3.set_xticklabels(GAS_NAMES, rotation=35, ha="right")
+    ax3.set_yticks(range(n))
+    ax3.set_yticklabels(GAS_NAMES)
+    ax3.set_xlabel("predicted")
+    ax3.set_ylabel("actual")
+    vmax = max(max(r) for r in mat)
+    for r in range(n):
+        for c in range(n):
+            ax3.text(c, r, str(mat[r][c]), ha="center", va="center",
+                     color="white" if mat[r][c] > vmax / 2 else "#222",
+                     fontsize=9, fontweight="bold")
+    ax3.set_title("batch 1 validation, accuracy %.1f%%" % (100 * acc), fontsize=9, color=tp.MUTED)
+    ax3.grid(False)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(png)
+    tp.plt.close(fig)
+
+
+# Each method keeps its colour and marker in every panel, as in tinymind's
+# examples/gas_sensor_drift/plot.py. biases + DenseHead lands almost on
+# DenseHead, so it is drawn first and dashed.
+GAS_METHODS = [
+    ("none", "no adaptation", 7, "-", "x"),
+    ("renorm", "re-normalize (shots)", 0, "-", "s"),
+    ("renorm_all", "re-normalize (whole batch)", 0, "--", "s"),
+    ("bias", "backbone biases only", 4, "-", "v"),
+    ("bias_head", "biases + DenseHead", 3, "--", "D"),
+    ("head", "DenseHead (head only)", 1, "-", "^"),
+    ("prototype", "PrototypeHead", 2, "-", "o"),
+]
+
+
+def gas_adapt(out_dir, png):
+    """The adaptation comparison: accuracy per batch at 5 labelled samples per
+    class, batch 10 against the number of samples, and batch 1 afterwards."""
+    rows = {}
+    with open(os.path.join(out_dir, "gas_adapt.csv"), newline="") as f:
+        for r in csv.DictReader(f):
+            rows[(r["method"], int(r["batch"]), int(r["shots"]))] = (
+                float(r["accuracy_mean"]), float(r["accuracy_std"]),
+                float(r["batch1_accuracy_mean"]))
+    batches = sorted({k[1] for k in rows})
+    shots = sorted({k[2] for k in rows})
+    last = batches[-1]
+    k_mid = 5
+
+    tp.apply_style()
+    fig, (ax1, ax2, ax3) = tp.plt.subplots(1, 3, figsize=(16, 4.9))
+    fig.suptitle("tinymind-rs: adapting the drifted classifier on the device "
+                 "(mean of 10 draws of the labelled samples)", fontsize=13, fontweight="bold")
+    for key, label, color, style, marker in GAS_METHODS:
+        color = tp.PALETTE[color]
+        ys = [rows[(key, b, k_mid)][0] for b in batches]
+        sd = [rows[(key, b, k_mid)][1] for b in batches]
+        ax1.plot(batches, ys, color=color, linestyle=style, marker=marker, markersize=6, label=label)
+        ax1.fill_between(batches, [y - d for y, d in zip(ys, sd)], [y + d for y, d in zip(ys, sd)],
+                         color=color, alpha=0.12, linewidth=0)
+        ax2.plot(shots, [rows[(key, last, k)][0] for k in shots], color=color,
+                 linestyle=style, marker=marker, markersize=6, label=label)
+        ax3.plot(shots, [rows[(key, last, k)][2] for k in shots], color=color,
+                 linestyle=style, marker=marker, markersize=6, label=label)
+    ax1.set_xlabel("batch (month)")
+    ax1.set_ylabel("accuracy on the rest of the batch")
+    ax1.set_xticks(batches)
+    ax1.set_ylim(0.75, 1.01)
+    ax1.set_title("%d labelled samples per class" % k_mid, fontsize=9, color=tp.MUTED)
+    for ax in (ax2, ax3):
+        ax.set_xscale("log")
+        ax.set_xticks(shots)
+        ax.set_xticklabels([str(k) for k in shots])
+        ax.minorticks_off()
+        ax.set_xlabel("labelled samples per class")
+    ax2.set_ylim(0.75, 1.01)
+    ax3.set_ylim(0.0, 1.03)
+    ax2.set_ylabel("batch %d accuracy" % last)
+    ax2.set_title("batch %d: accuracy against labelled samples" % last, fontsize=9, color=tp.MUTED)
+    ax3.set_ylabel("batch 1 accuracy")
+    ax3.set_title("batch 1 accuracy after adapting to batch %d" % last, fontsize=9, color=tp.MUTED)
+    handles, labels = ax1.get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=len(GAS_METHODS), fontsize=9, frameon=False)
+    fig.tight_layout(rect=(0, 0.07, 1, 0.93))
+    fig.savefig(png)
+    tp.plt.close(fig)
+
+
 def main():
-    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY, GBDT, MAZE, DQN_MAZE, HAR)):
+    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY, GBDT, MAZE, DQN_MAZE, HAR, GAS)):
         sys.exit("build first: cargo build --release --examples --features std")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
@@ -395,6 +510,12 @@ def main():
         png = os.path.join(OUT, "har_activity.png")
         har(tmp, png)
         print("wrote", os.path.relpath(png, ROOT))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([GAS, tmp], check=True, stdout=subprocess.DEVNULL)
+        for name, fn in (("gas_drift.png", gas_drift), ("gas_adapt.png", gas_adapt)):
+            png = os.path.join(OUT, name)
+            fn(tmp, png)
+            print("wrote", os.path.relpath(png, ROOT))
 
 
 if __name__ == "__main__":

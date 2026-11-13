@@ -32,6 +32,12 @@ paths:
   - "scripts/cpp/inference_deep.cpp"
   - "scripts/cpp/float_mlp.cpp"
   - "scripts/extract-luts.py"
+  - "src/head.rs"
+  - "examples/gas_sensor_drift.rs"
+  - "examples/common/gas_driver.rs"
+  - "tests/head_sweep.rs"
+  - "tests/gas_golden.rs"
+  - "scripts/cpp/head_sweep.cpp"
 ---
 
 # Q formats, networks, optimizers and their examples
@@ -75,6 +81,12 @@ Any number of hidden layers: `NeuralNetwork<L>` over a flat tuple of 1-8 `Dense<
 C++ source: `cpp/adam.hpp`, `cpp/rmsprop.hpp` (`SquareRootApproximation` -> `qformat::Sqrt`; `AdamOptimizerFloat`/`RmsPropOptimizerFloat` -> `AdamFloat`/`RmsPropFloat`, see Floating point below)
 
 Optimizer = type parameter (`Opt = Sgd`, zero-sized, so no size cost; `new` exists for `Sgd` only, `with_optimizer` for any). Sealed `OptimizerImpl` (allow `private_interfaces`: it takes the crate-private `Connection`). Since tinymind #264 (`a40979f`, ported 2026-11-10): `begin_step` once per `train` before any update (C++ `beginTrainingStep`; was `step()` per layer), Adam/RMSprop/AdamFloat/RmsPropFloat update biases through the optimizer (`update_bias` takes `clip`), SGD clips bias gradients too, fixed Adam keeps `powers: Option<(b1^t, b2^t)>` (None = t 0, so `const fn new` needs no `V::ONE`) and corrects when `1 - b^t > 0` (no t<100 cut-off, no epsilon threshold), AdamFloat keeps f64 products (`pow` gone from `float_math`). Weight decay under Adam is C++-only (weight decay is not ported). `Default` for `Adam`/`RmsProp` on `Q16_16`/`Q8_8` = C++ `QFractionLsbs`/`QAdamEpsilonLsbs` (Q16.16 Adam 58982/64881/2560, Q8.8 230/253/160; RMSprop 58982/1, 230/1; printed by a C++ program and pinned by a unit test; deep_mlp's Q8.8 runs use C++ `AdamOptimizer<Q8>`/`RmsPropOptimizer<Q8>` defaults and Rust `Default`). `GradientClipByValue<V, I, F>` is now `[-b, b]` with b = QValue(I, F), so the harnesses' asymmetric `[-1.5, 2.5]` runs use their own `AsymmetricClip` policy. Moments live in the delta-weight slots. `(1 - beta2) * g * g` is left-associative. Checked by the adaptive runs in `tests/deep_mlp.rs`, `tests/lstm_sweep.rs`, `tests/float_mlp.rs`; plants that fail (2026-11-10): t per layer, Adam/RMSprop/AdamFloat bias not updated, SGD bias not clipped, t<100 cut-off, epsilon threshold, AdamFloat via pow
+
+## `src/head.rs`, `examples/gas_sensor_drift.rs`, `examples/common/gas_driver.rs`
+
+C++ source: `cpp/densehead.hpp`, `cpp/prototypehead.hpp` (tinymind #277, `b0920b7`), `examples/gas_sensor_drift`
+
+Ported 2026-11-13 at `3d89270`. `DenseHead<V, IN, OUT, L = SoftmaxCrossEntropyLoss>` stores `[[V; IN]; OUT]` (C++ flat `o * IN + i`, same order) with pub `weights`/`biases` (no per-index get/set: no panics); `train`/`train_class` take `Option<&mut [V; IN]>` for the C++ `inputDeltas` pointer; a class >= OUT gives an all-zero target, as in the C++. `PrototypeHead` ignores out-of-range classes in its mutators (C++: UB), `distance`/`prototype` return `Option`. `learn` divides with `div_int` (C++ `QValue / int` = `applyInteger`), not `/ from_int`. `SoftmaxExp` = C++ `detail::HeadExp`: exp table (new `EXP_Q16_16`/`EXP_Q8_8` in `src/lut.rs`, via `extract-luts.py`) with 0 at or below -6; for Q8.8 the table's first entry is already 0, so the -6 cut is an equivalent mutant there. Float softmax uses std/libm `exp`; the sweep has no f32 softmax (glibc 2.41 changed expf, see Floating point). `MultilayerPerceptron::hidden_values` added for the example's hidden-layer check. Checked by `tests/head_sweep.rs` (golden from `scripts/cpp/head_sweep.cpp`, 9 dense + 3 softmax + 7 prototype runs, integer LCG draws so Q formats and floats start from the same numbers, matched on the first run) and `tests/gas_golden.rs` (all 5 outputs, first run; 56 s debug, 4.3 s release; C++ 3.7 s at -O3). Plants that fail the sweep: Q16 exp cut at -7, weight or bias step floored, divide via reciprocal (prototype and softmax), Manhattan without abs, dense and prototype ties taking the last (needed the added tie lines), count past cap, set_prototype uncapped, cap 0 kept. Kani `mod head` (four proofs, 25 s): exp in [0, 1] and 0 at <= -6 (both formats), dense (both losses) and prototype never panic, counts <= cap, cap >= 1; plants (exp at -7, cap 0, set_prototype uncapped after the cap) fail. panic-never: `heads::<V>` for Q16.16, Q8.8, f32, f64 (an indexing plant in `learn` fails the M0+ link). Not done: a bench workload timing a head step on the boards.
 
 ## `src/rand.rs`
 

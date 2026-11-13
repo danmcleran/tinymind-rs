@@ -1,0 +1,1161 @@
+dense q16.16 sce 8x4 zero cb5a1845
+dense init 4d9f57eb
+step 0 class 0 pred 1 head 994560df in 4409d0e0
+step 1 class 4 pred 1 head f9e72c12 in dfde6ac5
+step 2 parts logits 55753fbf deltas e6c4e7d6 pred 1 head 31354898 in 7f87ef47
+step 3 class 3 pred 3 head 874441b6 in 26f2e10b
+step 4 class 3 pred 3 head 79efd146 in 11ce7666
+step 5 parts logits d9aa5db8 deltas 14a636b1 pred 2 head fbe39876 in 1e044db6
+step 6 parts logits 7d93d129 deltas 561a4eee pred 2 head 17474e92 in ce3ca467
+step 7 class 0 pred 3 head 2f29271b in 333d0f4c
+step 8 class 3 pred 1 head 30d6d84a in 5a4011bb
+step 9 parts logits 45f10d21 deltas 21a8a3b9 pred 3 head 0151ef3d in b4782802
+step 10 class 3 pred 1 head afb2cf65 in d4e758b9
+step 11 parts logits 4b0f25d1 deltas a6de22ed pred 3 head d4c2df6c in ed2725ae
+step 12 class 0 pred 1 head c79ea026 in a7341752
+step 13 class 0 pred 2 head a0f6a2fe in dfde6ac5
+step 14 class 3 pred 1 head cabab69c in 48a39059
+step 15 class 0 pred 0 head 9c75df2d in 909416d2
+step 16 class 2 pred 3 head 10f2a5be in 74293467
+step 17 class 2 pred 1 head 2a9fdad8 in dfde6ac5
+step 18 class 4 pred 1 head 923accfe in dfde6ac5
+step 19 class 0 pred 0 head 563d8700 in 6ecc9177
+step 20 class 0 pred 3 head 81b2e81d in cd86766f
+step 21 class 4 pred 3 head e270d015 in 35b9d472
+step 22 class 4 pred 2 head c37f6eca in 63649aa3
+step 23 parts logits 1d162a60 deltas aa0d5f18 pred 0 head ca71d84c in fcba40fe
+step 24 class 4 pred 3 head 85222530 in cb3888ad
+step 25 parts logits 1cc16287 deltas 070a7af8 pred 2 head 2acc6e65 in 1dcfc070
+step 26 parts logits b9e76417 deltas 4a4ded33 pred 1 head 390581a8 in dbd108e2
+step 27 parts logits 7e79c537 deltas 948ea179 pred 3 head 14644557 in 885de020
+step 28 class 3 pred 0 head 1ca4b518 in 415066e3
+step 29 class 0 pred 2 head 369c68ca in b0198a4e
+step 30 class 4 pred 0 head 4ec9464e in dfde6ac5
+step 31 class 4 pred 2 head 3b47eecd in 7fb57acc
+step 32 class 3 pred 1 head d2837983 in dfde6ac5
+step 33 class 1 pred 3 head 230171e4 in 0f9ff3c8
+step 34 parts logits 15a63dfa deltas 4204d4bd pred 3 head ebaf041d in 4f602c38
+step 35 class 3 pred 2 head 5871e6aa in 0af82273
+step 36 class 2 pred 0 head d695baf4 in dfde6ac5
+step 37 class 1 pred 0 head 3af6f05f in ffd931e1
+step 38 class 2 pred 3 head 8058d8ee in dfde6ac5
+step 39 class 0 pred 3 head 38f7ae7d in aee50e2e
+step 40 class 1 pred 2 head 1d39d641 in 0962c9c0
+step 41 class 1 pred 3 head 7ed19a60 in dfde6ac5
+step 42 parts logits d3ec5208 deltas 824bb59c pred 3 head b72ba1e4 in 6eda45de
+step 43 parts logits 239b3713 deltas d13bf028 pred 3 head d688e9eb in 0d0e9d4c
+step 44 parts logits 976fec55 deltas eb6c1d3a pred 0 head db1ee28e in 37d4e3d7
+step 45 class 2 pred 0 head 564e3c03 in 8da08314
+step 46 class 3 pred 2 head 5c9ca0d9 in dfde6ac5
+step 47 parts logits ce06dfe3 deltas 70815f31 pred 3 head 4f36cc2d in 3c9a601b
+step 48 class 4 pred 3 head 85135d89 in 3fd4e94e
+step 49 class 0 pred 3 head a1bece29 in bf89a28a
+step 50 class 2 pred 3 head f2f77082 in f295cfb6
+step 51 parts logits bc3821d6 deltas 908a0509 pred 1 head b2914cb6 in cf00fe30
+step 52 class 2 pred 3 head d790498a in 3d63fda4
+step 53 class 0 pred 0 head 32e7b9a2 in 62da7acd
+step 54 class 0 pred 3 head e59629db in 928d45a1
+step 55 class 2 pred 0 head 1e98ae52 in 761b354c
+step 56 parts logits f55f7ffa deltas 5b916272 pred 3 head 73cfd87f in 9fcdd0da
+step 57 class 1 pred 0 head d96e1d6e in cf2af216
+step 58 parts logits 5378e579 deltas b9033124 pred 1 head d728fab0 in e3cead97
+step 59 class 3 pred 2 head 10a0250b in 514ad2b8
+step 60 class 0 pred 3 head 0f90d0ad in feee9f67
+step 61 class 0 pred 1 head bb2db94d in 3e76d521
+step 62 class 0 pred 0 head f0bdb742 in dfde6ac5
+step 63 parts logits 08612292 deltas d036de07 pred 2 head 23eb8cbc in 448610c0
+dense loaded 23eb8cbc cleared cb5a1845 pred 0
+dense q16.16 se 8x4 zero cb5a1845
+dense init 9962c93b
+step 0 parts logits 563aa984 deltas 650daa17 pred 2 head 30c5a686 in fa64e2a8
+step 1 class 0 pred 0 head 3c8983b0 in 770b3645
+step 2 parts logits 7def9e1a deltas 78721efb pred 1 head ba121707 in 89fbceeb
+step 3 parts logits 9d2c6922 deltas 55ac635b pred 3 head 5e4abc81 in 550a7ddf
+step 4 parts logits 6953aef5 deltas bd1ffda6 pred 1 head c89fb845 in 6d0fef2c
+step 5 parts logits 30894906 deltas b9d3e513 pred 0 head f8d973bc in 6936f59e
+step 6 parts logits 0cb170cb deltas 7dc14daf pred 1 head c1fb46a3 in b9814e31
+step 7 parts logits 994298ac deltas 6d5e3c21 pred 2 head e9a6d6e4 in 7c87eaf6
+step 8 class 2 pred 0 head e203ecc1 in 1e783321
+step 9 class 0 pred 3 head 0a5eb388 in 6e0eb1fd
+step 10 parts logits c12670ef deltas 5c6fb0f4 pred 1 head d126de14 in d19e928c
+step 11 class 3 pred 0 head 1dfdd4b3 in de43688a
+step 12 class 2 pred 1 head db1f7843 in dfde6ac5
+step 13 class 3 pred 2 head 5d46c337 in dfde6ac5
+step 14 parts logits 4721a1ac deltas 3e6767ff pred 0 head c3a55556 in 010c313b
+step 15 class 2 pred 0 head 1acf9b2d in 90fd8a64
+step 16 parts logits 7c8ea210 deltas 39599b0b pred 1 head b7eaf5b3 in 3c2237b0
+step 17 class 1 pred 2 head e48326a7 in fc38ff1c
+step 18 class 4 pred 2 head 24200cbc in dfde6ac5
+step 19 class 4 pred 2 head ac953f9c in d736820f
+step 20 class 4 pred 2 head c3a5adb1 in 7d83a86e
+step 21 parts logits 4a81e79d deltas a21bdc22 pred 0 head f012a5f4 in ada1cfd5
+step 22 class 4 pred 2 head 58549952 in be279caa
+step 23 parts logits 82195a95 deltas 651ce92e pred 0 head 9c55d587 in 3dad8568
+step 24 class 1 pred 1 head 26efecfa in 2e57ffd1
+step 25 class 2 pred 0 head f73a1aa4 in dfde6ac5
+step 26 class 2 pred 1 head a60338d4 in 2114edff
+step 27 class 3 pred 2 head bb68cce9 in 72632373
+step 28 class 0 pred 2 head 554252d7 in dfde6ac5
+step 29 class 0 pred 2 head 29ef920d in c5b08b91
+step 30 parts logits 93356ece deltas 360298ab pred 2 head dd80d268 in c1f104ed
+step 31 parts logits e13049e8 deltas 61f63dd6 pred 2 head aa5814e5 in d0df0138
+step 32 class 2 pred 1 head fb963870 in fd7e3efd
+step 33 class 0 pred 0 head c654a862 in dfde6ac5
+step 34 class 3 pred 0 head 71bef457 in dfde6ac5
+step 35 class 3 pred 1 head a400d9ac in dfde6ac5
+step 36 class 4 pred 0 head b7566c5d in dfde6ac5
+step 37 class 3 pred 2 head c8beb83e in 6f0e59ca
+step 38 parts logits d9bad247 deltas 6fd9738f pred 3 head 4df8b683 in 58926841
+step 39 parts logits 62934d76 deltas ba7fce46 pred 0 head eec30d06 in 33c1632f
+step 40 parts logits 7918240d deltas 336f4ca0 pred 0 head fbf99700 in 6f866d55
+step 41 parts logits 692f55a5 deltas 09e8c0cb pred 2 head 5bcd1e6c in 8b8dec1a
+step 42 class 3 pred 0 head b3d5836f in 9e117d2e
+step 43 parts logits 2e1b4a85 deltas 6e071b11 pred 3 head 51eaca0a in 02ba88a7
+step 44 parts logits 5629e9eb deltas fd2e96a1 pred 1 head 9923a65c in 4026ecdf
+step 45 class 4 pred 2 head 3210ef75 in ee1f174e
+step 46 class 0 pred 2 head 3cc6da49 in 86d5b374
+step 47 class 0 pred 0 head 8e01e6f0 in 00ca77a8
+step 48 class 1 pred 3 head b91ecda3 in 86ff09dd
+step 49 parts logits 178a9178 deltas 1e373e2f pred 1 head da793461 in 77f4e462
+step 50 class 0 pred 0 head df0c17e8 in ba2acb82
+step 51 parts logits 8dbe8606 deltas c513635b pred 3 head 3e46b13e in 73595a67
+step 52 class 1 pred 1 head 92e1cae4 in efa2f977
+step 53 class 4 pred 0 head ddc8e3ea in ac5d6353
+step 54 class 2 pred 1 head aeeb3875 in f4121631
+step 55 class 1 pred 2 head 5ba27f5e in dfde6ac5
+step 56 parts logits 2076c336 deltas e3f98160 pred 2 head 5f09d215 in 8a5e8429
+step 57 class 4 pred 2 head c95ec495 in d2e2446e
+step 58 class 3 pred 0 head 9949bc5a in d0e69841
+step 59 class 0 pred 1 head 1954f289 in dfde6ac5
+step 60 class 0 pred 1 head a15c3efb in 5dbbaaac
+step 61 class 0 pred 0 head bc842954 in dfde6ac5
+step 62 parts logits fae326e6 deltas 03b0f20d pred 2 head 8cfc04ad in e42845d2
+step 63 class 0 pred 2 head beb5d2c9 in 1d3e6d20
+dense loaded beb5d2c9 cleared cb5a1845 pred 0
+dense q16.16 sce 3x5 zero 02187e45
+dense init d8fbf6f2
+step 0 class 1 pred 4 head 1f2573dd in e2ba14a5
+step 1 parts logits d9779cee deltas 4c6500c4 pred 3 head 585c9aac in 5e3bf64e
+step 2 class 4 pred 2 head 0a69192d in b07527ea
+step 3 parts logits 0505a024 deltas a15a7cb6 pred 3 head a04cb6cf in ce4f553e
+step 4 class 1 pred 0 head 90f2f8f3 in 569fd6ca
+step 5 class 2 pred 1 head 57d839f4 in e2ba14a5
+step 6 class 3 pred 1 head f9e23ba4 in e0acc474
+step 7 class 1 pred 4 head c7b47842 in e2ba14a5
+step 8 parts logits 679dc56c deltas 398a5148 pred 4 head 09b123bb in 4743b143
+step 9 class 0 pred 2 head dddda5e0 in 070cd203
+step 10 class 4 pred 4 head dddda5e0 in e2ba14a5
+step 11 class 2 pred 4 head 14b5e941 in a365bbe7
+step 12 class 0 pred 3 head d49e650a in e2ba14a5
+step 13 class 0 pred 4 head 174856d2 in e4250995
+step 14 class 0 pred 0 head 174856d2 in e2ba14a5
+step 15 class 5 pred 2 head 607f5bcc in b0214529
+step 16 parts logits 759431d3 deltas 30dacabf pred 4 head 46ebd692 in dd092523
+step 17 class 4 pred 1 head 570de32d in 79559570
+step 18 class 2 pred 3 head 8c682670 in c1e14271
+step 19 parts logits c9671bbd deltas 660dd7ff pred 0 head e159035c in d5b64beb
+step 20 class 4 pred 1 head 07eab473 in 5e912aeb
+step 21 class 5 pred 0 head 2bf7db2b in 473cf179
+step 22 parts logits 36958bfc deltas 0bcf315f pred 3 head eecf4c43 in ca5cb24f
+step 23 parts logits ce3e936a deltas 010a00a7 pred 2 head 82c67013 in c476fa27
+step 24 class 0 pred 4 head b5077499 in 689e103c
+step 25 parts logits 9fca59c5 deltas 21b96af8 pred 1 head bc5bc80e in d2c9783e
+step 26 class 4 pred 2 head 6e7d1df1 in 10520b92
+step 27 class 4 pred 0 head 15715600 in 017b8711
+step 28 class 0 pred 4 head bcaba484 in 4681d9a2
+step 29 class 1 pred 4 head 7d754dc9 in be733e30
+step 30 parts logits 69cf53c6 deltas cbe12c0d pred 3 head fdf78beb in 5a90c11c
+step 31 class 0 pred 3 head c66e2408 in a2d2c579
+step 32 parts logits 7eed67a6 deltas 02c1692b pred 0 head 6d2b6bcb in 72a1a3f7
+step 33 class 4 pred 0 head d2e61801 in 20171808
+step 34 class 2 pred 3 head 13024f44 in bb122e4c
+step 35 class 5 pred 4 head 9f7ea8eb in 58fc8db7
+step 36 class 5 pred 3 head 15056c07 in 9ae5c42b
+step 37 class 0 pred 2 head adb1e8b1 in e2ba14a5
+step 38 parts logits daba8942 deltas 0a909669 pred 0 head b658cc8c in 15f7b7e9
+step 39 class 1 pred 2 head 3c67941b in e2ba14a5
+step 40 class 1 pred 4 head 1ba791ea in 35213e53
+step 41 parts logits 7d22651e deltas 1c6e5d9b pred 4 head df7a65c4 in 78a9a94d
+step 42 class 0 pred 1 head f6c968ab in b0c0d695
+step 43 parts logits 53b43562 deltas 7ed9ef0a pred 0 head da8979b0 in b4da57b5
+step 44 class 3 pred 0 head 74c7531e in e2ba14a5
+step 45 parts logits b1a8011b deltas fbf437c5 pred 4 head d96f4be2 in 66eb554a
+step 46 parts logits e74a9b11 deltas 564b3cbb pred 2 head c4957a82 in 540cd813
+step 47 class 1 pred 2 head 39b508a6 in 540b5c13
+step 48 class 3 pred 1 head 07ce0cf5 in e2ba14a5
+step 49 parts logits 3c1f220b deltas b9156952 pred 4 head c87210da in 74a0836f
+step 50 class 3 pred 1 head d4fc2a16 in ba088da3
+step 51 class 3 pred 4 head a2920948 in 6f9b9f21
+step 52 class 0 pred 3 head 4a134d99 in 35231bc8
+step 53 parts logits df5450b0 deltas d92e2192 pred 4 head 9529eda7 in d15b2397
+step 54 parts logits 0873c259 deltas 52688774 pred 3 head f3df4dca in 7403abc4
+step 55 class 2 pred 3 head 25779c0c in e2ba14a5
+step 56 parts logits 610942b8 deltas 32ce9759 pred 0 head e5c1232a in b7a2b5a5
+step 57 parts logits b9b3513e deltas 354ab855 pred 0 head a3d61d12 in 513acd4c
+step 58 class 2 pred 2 head a3d61d12 in e2ba14a5
+step 59 class 4 pred 3 head e82fb3fd in 6652b602
+step 60 parts logits 56580f3a deltas 41f7b171 pred 0 head e8f85ac2 in e380a0ef
+step 61 class 5 pred 4 head a3eee11b in e2ba14a5
+step 62 class 2 pred 1 head 84a710a2 in 90542b0d
+step 63 parts logits e3192683 deltas a99ff2bd pred 3 head 6f9cfd6d in 2afc67ce
+dense loaded 6f9cfd6d cleared 02187e45 pred 0
+dense q8.8 sce 4x3 zero d9ab7825
+dense init 8b0f0c78
+step 0 class 1 pred 0 head bfe75626 in 0b2ae445
+step 1 class 3 pred 1 head 60dff7bb in 0e683a87
+step 2 class 3 pred 0 head 104afd36 in eb4450e7
+step 3 class 2 pred 0 head 3912d1a4 in 0b2ae445
+step 4 parts logits 177cf70c deltas 0f7b531d pred 2 head 0a17946c in 9d9bfa2a
+step 5 class 1 pred 2 head d52243b4 in 363f41e4
+step 6 parts logits a7bbf13c deltas 4832d848 pred 2 head 93f231e0 in 2aad8667
+step 7 class 1 pred 0 head cc95ecee in 03f44a13
+step 8 class 0 pred 1 head 589cb3ec in 75e0b48a
+step 9 class 1 pred 0 head bd79d8be in 3cddca4b
+step 10 class 0 pred 2 head 813987d2 in 0b2ae445
+step 11 class 0 pred 0 head 2c46c888 in 0b2ae445
+step 12 class 2 pred 1 head 13f37709 in 2301efaa
+step 13 class 3 pred 0 head 26a82ae0 in e1d0c6a4
+step 14 parts logits 3714cb53 deltas 24d54987 pred 2 head 0552829d in 54c3010c
+step 15 parts logits 3b534221 deltas a5fa66ce pred 2 head 4b154c46 in f9e48830
+step 16 parts logits 7ffc8e9b deltas 2d00175c pred 2 head 658e7a8d in 7a5a5c74
+step 17 class 2 pred 1 head 48e7fc1e in 0b2ae445
+step 18 class 2 pred 2 head d79b5f45 in f5f7f2fc
+step 19 class 0 pred 2 head e4c31996 in cf88b44b
+step 20 class 2 pred 0 head 59eda834 in dcf9c4ad
+step 21 class 0 pred 2 head 9a5aeb3f in 12796f0c
+step 22 class 1 pred 2 head 3e08fbc2 in 0b2ae445
+step 23 parts logits a2c57bd3 deltas bec8d8cf pred 2 head ad365a63 in 9b93385a
+step 24 class 2 pred 1 head 3dc27a76 in a44e5d72
+step 25 class 2 pred 2 head 2a0d9103 in 0b2ae445
+step 26 parts logits 0a604f26 deltas 1356b70b pred 2 head 6ed27475 in 032b420b
+step 27 class 1 pred 1 head 2dd2c846 in 0b2ae445
+step 28 class 3 pred 1 head 84573f08 in 0b2ae445
+step 29 class 0 pred 2 head ea275df7 in 9c4181a6
+step 30 parts logits 2d9e492c deltas 645c01c7 pred 1 head f17d888c in a576b23e
+step 31 class 0 pred 2 head bb9c9911 in 0b2ae445
+step 32 class 1 pred 2 head 59a43c91 in c414d59f
+step 33 class 2 pred 1 head ba4f5243 in 19e9897b
+step 34 class 1 pred 1 head 3de67b81 in 543351f4
+step 35 class 0 pred 1 head 134675a3 in 5355f330
+step 36 parts logits 8abf75b2 deltas 8a05730f pred 1 head c77d1286 in e8097b32
+step 37 class 0 pred 2 head 9e5a618f in 0b2ae445
+step 38 class 1 pred 2 head 6c2cfa60 in 535594e6
+step 39 class 3 pred 0 head 8a5f0d44 in a0e045a0
+step 40 class 0 pred 2 head a4dcce8d in 420d69bf
+step 41 class 3 pred 0 head ea9108ab in efdfddd8
+step 42 class 3 pred 1 head da4378be in 6e220be7
+step 43 parts logits 9af10c2b deltas a3856b3f pred 1 head 5bf9e558 in b4774d2c
+step 44 class 0 pred 0 head 8f0df029 in 55f54ef5
+step 45 class 1 pred 1 head 58fa2946 in 0b2ae445
+step 46 parts logits e18c29d6 deltas 0e742666 pred 0 head 83f7f75c in 51fc2af5
+step 47 class 0 pred 1 head afac8038 in 0b2ae445
+step 48 class 2 pred 0 head 283564d9 in 4ebc9924
+step 49 class 2 pred 2 head d41a41f6 in e4e16321
+step 50 class 2 pred 1 head 4198ca41 in 0b2ae445
+step 51 class 2 pred 0 head 689c2f91 in 4e8e631d
+step 52 parts logits fb84b2dc deltas 257bd747 pred 1 head ce73492c in 2cc0c097
+step 53 class 1 pred 0 head f638505d in a6923722
+step 54 class 0 pred 2 head 8a453ed8 in a614537f
+step 55 parts logits 6763c1f0 deltas 379d07a4 pred 2 head 21523fc5 in dd3a244f
+step 56 class 3 pred 0 head 24c5a39b in 0b2ae445
+step 57 class 3 pred 2 head cc501410 in dd3ea222
+step 58 parts logits ab48f028 deltas ec39664c pred 2 head 0ebaf081 in a96c25c4
+step 59 parts logits 20bff385 deltas aff44f93 pred 2 head 95469393 in ca2826e7
+step 60 parts logits 7cf211be deltas a921e58e pred 0 head a84c97f4 in 89c0c50d
+step 61 class 2 pred 1 head e6a50a46 in 7e9ab736
+step 62 class 2 pred 1 head 2650ebb4 in 0b2ae445
+step 63 class 0 pred 1 head 5d4f5b51 in 68c780a5
+dense loaded 5d4f5b51 cleared d9ab7825 pred 0
+dense q8.8 se 4x3 zero d9ab7825
+dense init 23fccc9c
+step 0 class 0 pred 1 head e2617193 in 9f000c12
+step 1 class 3 pred 1 head 7a34ee3a in 0b2ae445
+step 2 class 3 pred 2 head cb2f1efd in 0b2ae445
+step 3 class 2 pred 1 head 51235f6d in cf02941e
+step 4 class 0 pred 2 head 78cf1739 in 730fc8bf
+step 5 parts logits 265040bd deltas 118088cf pred 1 head 49d72614 in e546df14
+step 6 class 2 pred 1 head 0c912c4c in 0b2ae445
+step 7 class 1 pred 1 head 4ea7ae63 in 602b0708
+step 8 parts logits cce48ba3 deltas a9cde886 pred 0 head 3dacb552 in 985b5c4d
+step 9 class 0 pred 2 head 3a37625e in 0b2ae445
+step 10 parts logits 48d3c8af deltas 2038142c pred 2 head a3d07c46 in 11f71442
+step 11 class 2 pred 1 head b270b42c in 0b2ae445
+step 12 class 1 pred 1 head f10975f7 in 9ed858b9
+step 13 class 2 pred 0 head 686a9c01 in d690fe6e
+step 14 class 1 pred 2 head 07f78f8a in 022cb8b7
+step 15 parts logits 49a425fe deltas 0e9bbfce pred 1 head 92a30ba7 in 6941c0e1
+step 16 class 2 pred 0 head 1956ecc2 in 0b6f7233
+step 17 class 0 pred 0 head 585a51de in 10d421f0
+step 18 class 0 pred 2 head d9af5f53 in 4a702762
+step 19 class 2 pred 1 head 44216ee9 in 0b2ae445
+step 20 class 1 pred 2 head 4734aa96 in 0b2ae445
+step 21 parts logits 89760596 deltas 9def8e6f pred 1 head 52777c84 in 0de84364
+step 22 class 3 pred 1 head fd7657f8 in c47095e4
+step 23 parts logits ef358147 deltas feeb250c pred 1 head 839f3969 in 4463a4be
+step 24 class 2 pred 1 head 8026d905 in 3340f471
+step 25 class 1 pred 0 head 1c795b72 in 0b2ae445
+step 26 class 2 pred 1 head 6d4ad213 in 00751105
+step 27 class 2 pred 0 head b7654b1e in aef544f0
+step 28 class 0 pred 0 head 3d10af5e in 05fb0999
+step 29 parts logits 8c98005f deltas b2c691b4 pred 1 head 6303f4f2 in a1ad4a18
+step 30 class 2 pred 1 head 46d7a578 in 34a0fbbe
+step 31 parts logits 3bd4b211 deltas c5e5d435 pred 2 head 48142312 in c43b7b5b
+step 32 class 1 pred 1 head ace30de5 in 0ddfc578
+step 33 class 2 pred 1 head e5b03414 in 0b2ae445
+step 34 parts logits 6b1013a1 deltas b214e3fb pred 1 head eb006e26 in 0d5944bb
+step 35 class 0 pred 0 head 9a3270c1 in 4ef605e0
+step 36 parts logits 44ddb4e5 deltas 63b7c418 pred 1 head 4d2a6af3 in dd7e1161
+step 37 class 2 pred 2 head 266bc532 in 0b2ae445
+step 38 class 1 pred 2 head 005fca1e in aee4e1ba
+step 39 class 2 pred 0 head 1e371afe in 0b2ae445
+step 40 class 2 pred 0 head b6ad46ee in 029d5170
+step 41 class 3 pred 2 head 21f8bf7f in 68113eb2
+step 42 parts logits e9526938 deltas a8421990 pred 2 head 5c3f7ae5 in 46e0ba7e
+step 43 class 1 pred 0 head cbc41092 in 823a055c
+step 44 class 1 pred 0 head 6d1e9834 in 0b2ae445
+step 45 parts logits 76f00c91 deltas 16edf30e pred 2 head 1a627cfc in e68b65cb
+step 46 parts logits e977c9e4 deltas 2310a579 pred 2 head 85bbaa62 in 45f856b9
+step 47 class 1 pred 2 head e4e9d420 in c2d5a4e6
+step 48 class 1 pred 2 head 6a0ddee1 in 856b43ad
+step 49 class 1 pred 1 head e9c3c191 in 0b2ae445
+step 50 class 3 pred 0 head d5ff8f85 in d8a92016
+step 51 class 0 pred 2 head a9dfccaf in a5b2d543
+step 52 class 1 pred 2 head 502ce69a in d0dc3535
+step 53 class 1 pred 1 head e30c596b in 0b2ae445
+step 54 parts logits 8fd2f3b2 deltas 50673872 pred 1 head c96b6ce9 in 37eb658f
+step 55 class 2 pred 0 head fae288b6 in 0b2ae445
+step 56 class 2 pred 1 head 4e8138e0 in 6142b9a5
+step 57 parts logits 35c01fbb deltas bc49fbcc pred 0 head 76b6134d in 998a3a69
+step 58 class 3 pred 0 head 5a48a458 in 2d5c9387
+step 59 class 2 pred 2 head e438d4fe in cb3644b3
+step 60 class 1 pred 0 head 39b67ddd in 0b2ae445
+step 61 parts logits f6427d7e deltas 19db9d7c pred 0 head 2e51f9a8 in 35be0cbe
+step 62 class 3 pred 2 head 9371fce9 in 0b2ae445
+step 63 class 0 pred 2 head 93591597 in 4005ccb2
+dense loaded 93591597 cleared d9ab7825 pred 0
+dense q8.8 sce 1x1 zero 69691905
+dense init 35f86011
+step 0 class 0 pred 0 head 35f86011 in 9be17165
+step 1 class 0 pred 0 head 35f86011 in 9be17165
+step 2 class 1 pred 0 head 9cc18fca in 9be17165
+step 3 parts logits 83bd5402 deltas 5416c207 pred 0 head 3ae099a2 in 4389a925
+step 4 class 1 pred 0 head b07857cb in 6ec84d0a
+step 5 parts logits b57f62cf deltas fbfd8b41 pred 0 head 002c1a9c in 7b84a6b6
+step 6 parts logits 7647964f deltas 44554b94 pred 0 head e47c78e2 in 64078602
+step 7 class 0 pred 0 head e47c78e2 in 9be17165
+step 8 class 0 pred 0 head e47c78e2 in 9be17165
+step 9 parts logits a348e3bd deltas 2605b582 pred 0 head 6ffcda42 in 3aaa7bf9
+step 10 class 1 pred 0 head 404eb3fe in ad1412e3
+step 11 class 0 pred 0 head 404eb3fe in 9be17165
+step 12 class 0 pred 0 head 404eb3fe in 9be17165
+step 13 class 1 pred 0 head 66d4bf8b in 6eb334bf
+step 14 class 0 pred 0 head 66d4bf8b in 9be17165
+step 15 class 0 pred 0 head 66d4bf8b in 9be17165
+step 16 class 1 pred 0 head 4e5cf49f in 9be17165
+step 17 class 1 pred 0 head fb456df5 in 9be17165
+step 18 class 0 pred 0 head fb456df5 in 9be17165
+step 19 class 0 pred 0 head fb456df5 in 9be17165
+step 20 class 1 pred 0 head 062d49c3 in 9be17165
+step 21 class 0 pred 0 head 062d49c3 in 9be17165
+step 22 class 0 pred 0 head 062d49c3 in 9be17165
+step 23 parts logits 2eceace0 deltas b1199977 pred 0 head 8aeb9e72 in 95651d00
+step 24 parts logits bbac8904 deltas fec14f0f pred 0 head 6a53785e in e4e86461
+step 25 parts logits 03ba65ba deltas f782084b pred 0 head 9607c50f in c01820f7
+step 26 class 0 pred 0 head 9607c50f in 9be17165
+step 27 class 0 pred 0 head 9607c50f in 9be17165
+step 28 parts logits ce777519 deltas 8b2797c9 pred 0 head 1250457d in 966d4cf3
+step 29 parts logits 04c12714 deltas 03ef430e pred 0 head 46c8f8f8 in f321a787
+step 30 class 0 pred 0 head 46c8f8f8 in 9be17165
+step 31 class 1 pred 0 head 10ef714e in 3a717a68
+step 32 class 1 pred 0 head 54c27c8a in 2605b582
+step 33 class 0 pred 0 head 54c27c8a in 9be17165
+step 34 class 1 pred 0 head c9c10c21 in 2a02f16e
+step 35 class 0 pred 0 head c9c10c21 in 9be17165
+step 36 parts logits 22ceb35d deltas 9f1f087d pred 0 head 035b8829 in e4bf2d65
+step 37 class 0 pred 0 head 035b8829 in 9be17165
+step 38 parts logits 370f3218 deltas 43938c28 pred 0 head 8778c6ef in a68a3311
+step 39 parts logits 6cee1ee0 deltas 4d99bcba pred 0 head 0cad7a38 in 9d19de1b
+step 40 parts logits 882b1049 deltas 3f374298 pred 0 head 1e867f9f in c9c1777e
+step 41 parts logits 27ecbc59 deltas 99ba0cef pred 0 head b02bb5fc in 81b9efa7
+step 42 class 1 pred 0 head f886b55f in 9be17165
+step 43 parts logits 611f6d88 deltas 81e73dd7 pred 0 head b31006c6 in 917e4dc7
+step 44 class 0 pred 0 head b31006c6 in 9be17165
+step 45 class 1 pred 0 head 1df78e93 in 9be17165
+step 46 class 0 pred 0 head 1df78e93 in 9be17165
+step 47 class 1 pred 0 head 14639c22 in 9be17165
+step 48 class 1 pred 0 head 1b225c97 in 9be17165
+step 49 class 0 pred 0 head 1b225c97 in 9be17165
+step 50 parts logits 15789da7 deltas 3cd8642b pred 0 head a1472e46 in eb37c98e
+step 51 class 0 pred 0 head a1472e46 in 9be17165
+step 52 parts logits 8b704121 deltas 6a8d4ea0 pred 0 head 88f0dcb4 in 0ec757a6
+step 53 class 1 pred 0 head 6535c8fe in 9be17165
+step 54 class 1 pred 0 head f5d10da7 in 9be17165
+step 55 class 0 pred 0 head f5d10da7 in 9be17165
+step 56 parts logits 849f5b4d deltas f82091b6 pred 0 head eba7710f in aaedb9d5
+step 57 parts logits 7612b8fb deltas e2e339ff pred 0 head a7ca95d4 in fcaffc4a
+step 58 class 0 pred 0 head a7ca95d4 in 9be17165
+step 59 parts logits a222e0ce deltas 0e9180fe pred 0 head 3e04e90b in 01269cf0
+step 60 class 0 pred 0 head 3e04e90b in 9be17165
+step 61 class 1 pred 0 head a8f8ea74 in 4ef78984
+step 62 class 0 pred 0 head a8f8ea74 in 9be17165
+step 63 class 0 pred 0 head a8f8ea74 in 9be17165
+dense loaded a8f8ea74 cleared 69691905 pred 0
+dense f64 sce 8x4 zero cb5a1845
+dense init 732cbb4a
+step 0 class 1 pred 1 head 5432f017 in 60b6e3c1
+step 1 class 4 pred 0 head ce31c06b in ac9b564d
+step 2 class 3 pred 2 head b396467c in b22a1dae
+step 3 parts logits 785ceed9 deltas f6342ceb pred 1 head 1517d554 in 2d176a0d
+step 4 parts logits 8223adef deltas 08bb7bcc pred 1 head a70b7817 in 735f5438
+step 5 class 2 pred 2 head 91cd23c7 in 984e860d
+step 6 class 0 pred 1 head 90a3c1b8 in dfde6ac5
+step 7 class 4 pred 2 head 27a09c86 in a580a9fb
+step 8 parts logits cf77a55e deltas b7a24332 pred 2 head 81b205de in aca9d03d
+step 9 class 2 pred 1 head 2f46acca in 79b30aac
+step 10 parts logits 88ae49cd deltas c3ca1890 pred 2 head bb9f404e in 1b902033
+step 11 class 3 pred 1 head c50cb42c in 1e8e61bf
+step 12 parts logits f2c37649 deltas 25fb1fb3 pred 0 head d73406da in 0ef2c6dc
+step 13 parts logits c9db1a1e deltas d1b4d594 pred 2 head b0325742 in f2391c2a
+step 14 class 4 pred 2 head 84a6314b in 858f3be0
+step 15 class 4 pred 2 head ec78f797 in 78fa4cb7
+step 16 class 0 pred 0 head f7d4f669 in 545466c8
+step 17 class 1 pred 2 head 78e2df5d in dfde6ac5
+step 18 parts logits 59b7ae6e deltas dd1c9573 pred 1 head 3efb7ad5 in bca97199
+step 19 class 3 pred 0 head 69cc28c8 in 4e3b7937
+step 20 class 3 pred 2 head 6b36c48b in 5eaf1151
+step 21 parts logits 147815a2 deltas 5dfcb1e7 pred 1 head a636ed3e in 9ec95923
+step 22 parts logits 49060ec9 deltas 5a782a83 pred 3 head 28259408 in d6999102
+step 23 class 1 pred 3 head 21a11c82 in f1af84b2
+step 24 class 1 pred 3 head 2461a5ec in ee6ea851
+step 25 parts logits 397b5c9f deltas 46568b42 pred 0 head 5d9a9f99 in 8f9bfe90
+step 26 class 4 pred 1 head 4f79979e in 90134d3f
+step 27 parts logits 83535426 deltas 3916e648 pred 2 head 099883f8 in 3888ea94
+step 28 class 0 pred 1 head 487b0f08 in ed0c995d
+step 29 class 2 pred 0 head 8b0c9a62 in dfde6ac5
+step 30 class 2 pred 2 head eff75f2e in e9d8c35e
+step 31 class 0 pred 2 head 02e787bd in 20ab08bf
+step 32 class 4 pred 1 head 31d4aec9 in 39253ba9
+step 33 class 1 pred 2 head ca9778b9 in dfde6ac5
+step 34 class 1 pred 2 head 1bac6e56 in dfde6ac5
+step 35 class 3 pred 2 head 852393ac in 7302e33d
+step 36 class 4 pred 1 head 30574a66 in b5173961
+step 37 class 1 pred 1 head 42d99bb9 in 5fd1270a
+step 38 class 0 pred 1 head 20a97a2e in 060c8dc7
+step 39 parts logits 92894f7f deltas 583d1435 pred 0 head 2e55d6ed in 0f843131
+step 40 class 4 pred 0 head 43d075bf in 780af02d
+step 41 parts logits 5caf06b1 deltas d31d1f6f pred 3 head 4c47423d in 45f6c769
+step 42 parts logits 8013fbfb deltas 4fb78c49 pred 0 head a776ee8f in 6b647da5
+step 43 parts logits 031030c6 deltas 95edb304 pred 1 head 3b704619 in ebd8250d
+step 44 class 1 pred 1 head 42e0ee6d in fbc815b1
+step 45 class 4 pred 3 head 53650e0f in 32de5547
+step 46 class 4 pred 3 head c14b2ba9 in dfde6ac5
+step 47 class 2 pred 0 head f97dbadf in 7954e788
+step 48 class 4 pred 0 head 1ff5a1b2 in dfde6ac5
+step 49 class 1 pred 1 head b110336e in 7a4dfef3
+step 50 parts logits 9b279ad1 deltas 567acbd3 pred 1 head a01ff3cb in 9d4bc24d
+step 51 class 0 pred 1 head 21c6a6ae in d0b25ee9
+step 52 class 3 pred 3 head d378bf1a in dfde6ac5
+step 53 class 2 pred 0 head d34704e6 in 12a99d25
+step 54 class 0 pred 2 head 3652bc7a in dfde6ac5
+step 55 class 1 pred 2 head f60737fe in 2f5e7c80
+step 56 class 0 pred 0 head 7aae6b6c in 72a58f5f
+step 57 class 1 pred 3 head 7f7fe0a3 in dfde6ac5
+step 58 parts logits 54989175 deltas 671f986c pred 3 head 5dfd4604 in 9e8d5a44
+step 59 parts logits 41729658 deltas 241bd48b pred 2 head c85c24d8 in f4f940dd
+step 60 parts logits 352f71b0 deltas 0e7e89fa pred 0 head 9b7082b6 in a62a0a30
+step 61 class 0 pred 2 head ea07b808 in 10c4ca5d
+step 62 class 4 pred 0 head a0b73eb7 in dfde6ac5
+step 63 parts logits fdf85884 deltas 586b3dd0 pred 2 head e82c104f in f7dc927a
+dense loaded e82c104f cleared cb5a1845 pred 0
+dense f64 se 8x4 zero cb5a1845
+dense init be83bf15
+step 0 class 2 pred 0 head 0c0ace8f in dfde6ac5
+step 1 class 1 pred 2 head 60c2632f in d3f15488
+step 2 class 1 pred 1 head b9acd339 in dfde6ac5
+step 3 class 3 pred 0 head cb1d6c22 in 2908082f
+step 4 class 1 pred 1 head 5f9f3978 in 27f69ed2
+step 5 class 1 pred 3 head b89aa0b6 in d99b63a0
+step 6 class 4 pred 1 head 2aca1334 in a30f23fa
+step 7 class 1 pred 3 head 688c8910 in b0092c5e
+step 8 class 0 pred 1 head 638fc971 in dfde6ac5
+step 9 class 2 pred 3 head 17ed3045 in dfde6ac5
+step 10 class 0 pred 3 head 2fb86af9 in 57ae54f4
+step 11 class 3 pred 2 head 00c43162 in f029c176
+step 12 class 4 pred 3 head 775c43ed in dfde6ac5
+step 13 class 0 pred 0 head 2c083aba in ae7d6fe5
+step 14 class 3 pred 3 head 61fbfadd in 674491fb
+step 15 class 0 pred 3 head 629856bf in dfde6ac5
+step 16 class 0 pred 1 head f2cf16fd in a8fd1a50
+step 17 class 3 pred 0 head d0c63ebf in 1cb6d959
+step 18 class 1 pred 1 head bbd65d63 in 8ab4f222
+step 19 class 1 pred 0 head cdd7b4d9 in bf7934dc
+step 20 class 1 pred 0 head 75ef6a75 in cf87b54a
+step 21 parts logits f9e8ee72 deltas ac7275c6 pred 1 head cd2d896f in 46dc003e
+step 22 class 1 pred 3 head d205b276 in c94e53de
+step 23 class 3 pred 2 head 826a5a2e in 701835b8
+step 24 class 1 pred 1 head a7ada7c4 in d0b0f1db
+step 25 class 0 pred 1 head f8d8de25 in dfde6ac5
+step 26 parts logits 3f11e9ce deltas 6ed07b53 pred 0 head 2d8bcb98 in a8a38b5f
+step 27 class 1 pred 2 head 06a2f843 in 0ad19c93
+step 28 class 1 pred 2 head e203c3f3 in 332fa44c
+step 29 parts logits 689900cd deltas 72841fdb pred 2 head 3098b988 in 922c5811
+step 30 parts logits 5e5e5363 deltas f084fc22 pred 0 head 3ac7974c in 4dd6beb9
+step 31 class 2 pred 1 head c748b7f5 in 33682e41
+step 32 class 3 pred 0 head 56a96c8c in 546057ab
+step 33 parts logits f955e7c1 deltas d3d12706 pred 0 head 0764a994 in 22b2a848
+step 34 class 2 pred 1 head 4835cf55 in 0d42fe3f
+step 35 parts logits 2d4ffc19 deltas 331a10f6 pred 0 head 5edde4d5 in 2a11bbd8
+step 36 class 3 pred 1 head cac9198f in 9af7160a
+step 37 class 4 pred 2 head 8d8e27b0 in dfde6ac5
+step 38 class 1 pred 3 head 1f1b4c11 in 7e481d5b
+step 39 class 4 pred 2 head 4067a49d in f1fb75ee
+step 40 class 0 pred 3 head 3355b634 in 490dfd94
+step 41 class 0 pred 0 head 4be33386 in dfde6ac5
+step 42 class 0 pred 0 head cb058266 in dfde6ac5
+step 43 class 2 pred 1 head 3f8957fb in c33256ed
+step 44 class 2 pred 2 head 4b497ca7 in f993a939
+step 45 class 3 pred 1 head 82308bc5 in 1b1978ef
+step 46 class 0 pred 1 head c261cd41 in 8655acbc
+step 47 parts logits 9808ff54 deltas 91dd9a2d pred 2 head 076d3fdc in e3a1fba6
+step 48 class 4 pred 3 head 7af34cfc in 6b1b3c84
+step 49 parts logits 8a135980 deltas 44f0c57b pred 0 head 2649a020 in 7d7c32fe
+step 50 parts logits b389bb0d deltas 26baff66 pred 3 head 41490317 in e26f162f
+step 51 parts logits 348e93ce deltas a6ddefbd pred 2 head 9d0a2fe2 in 555e8b9f
+step 52 class 1 pred 0 head 380243ed in c637515b
+step 53 class 3 pred 3 head 9017ec33 in a7397aa9
+step 54 class 0 pred 1 head 72f6df5f in dfde6ac5
+step 55 class 4 pred 1 head afe56a58 in 1860a774
+step 56 class 1 pred 3 head 3dcd9aea in dfde6ac5
+step 57 class 0 pred 3 head 0276f77d in 896592fe
+step 58 parts logits 5fc2812c deltas 98bdc579 pred 1 head fd4d3220 in 63b2aef1
+step 59 class 3 pred 0 head 588f9444 in ff1d1254
+step 60 class 1 pred 2 head 982c554c in dfde6ac5
+step 61 class 3 pred 1 head 7d646ba2 in ebd3590e
+step 62 class 4 pred 0 head 53f04bb3 in dfde6ac5
+step 63 class 1 pred 3 head 087b2ba8 in 4eb46770
+dense loaded 087b2ba8 cleared cb5a1845 pred 0
+dense f32 se 8x4 zero cb5a1845
+dense init fe5e5157
+step 0 class 2 pred 3 head 15355a0e in 187ff9cf
+step 1 parts logits 4c8ec182 deltas d714ddd4 pred 0 head 41aa3a95 in 86df933f
+step 2 class 1 pred 2 head 0d291862 in 9d9486c1
+step 3 parts logits 228e8ad2 deltas 9fbaa137 pred 2 head aff7f6b1 in 847d20cd
+step 4 class 4 pred 2 head 66592742 in 544919a5
+step 5 class 1 pred 0 head 2d2b5ff8 in b90a822c
+step 6 class 3 pred 2 head 4b09c77c in b134550a
+step 7 class 0 pred 0 head 047ace12 in dfde6ac5
+step 8 class 0 pred 2 head 045376b7 in 8783d194
+step 9 class 4 pred 1 head e84d267c in 5871edbc
+step 10 class 3 pred 1 head 099d6499 in 66da22e6
+step 11 parts logits 1a133f09 deltas c3244086 pred 3 head 9033e716 in 12e7b84e
+step 12 class 2 pred 0 head c1d894c3 in dbea3cac
+step 13 class 4 pred 3 head 1cc9605b in 434f9981
+step 14 class 0 pred 1 head eea920f3 in dfde6ac5
+step 15 parts logits 648c8179 deltas d25d440f pred 3 head 9be3ae3f in 141adc61
+step 16 class 1 pred 1 head 6d35d89a in 9dd239dc
+step 17 class 1 pred 3 head 0d110582 in f5bb85ce
+step 18 class 4 pred 1 head 5bec3ce5 in c316080a
+step 19 class 2 pred 3 head 45dca6f7 in 3e7ec316
+step 20 class 4 pred 0 head 09871090 in 56f9878f
+step 21 class 4 pred 1 head 48ced34a in 38501738
+step 22 class 4 pred 3 head d06b6b7b in dfde6ac5
+step 23 parts logits 0aaa288a deltas 67a054f9 pred 0 head 31ca21a8 in a1abc123
+step 24 class 2 pred 2 head ca414698 in 7d5fd1b9
+step 25 parts logits 18f70a36 deltas c867dbc0 pred 0 head 997a087a in 8824c72f
+step 26 parts logits 44343d68 deltas feb7bdca pred 3 head ff3a2f2d in 4d7d2625
+step 27 parts logits 37b1fb70 deltas e57dfe47 pred 3 head 32352845 in 5ce4760f
+step 28 class 2 pred 3 head 95ddc3a6 in 19b86590
+step 29 class 0 pred 3 head 4c9234a5 in 25430f91
+step 30 parts logits 31f78090 deltas 0f2152ae pred 1 head 31ec96bb in bdbdf28b
+step 31 class 3 pred 3 head 8da373c0 in 5c9f86c8
+step 32 class 2 pred 3 head 2ad3d474 in dfde6ac5
+step 33 class 3 pred 2 head 5a8530d3 in bb50287d
+step 34 class 4 pred 2 head daca1567 in 130f5af4
+step 35 class 3 pred 3 head 6310300e in 1b475fb9
+step 36 class 0 pred 3 head fbfc1f5b in f7d87620
+step 37 class 3 pred 3 head 6be5b2b9 in 2f50584a
+step 38 parts logits 35101a9e deltas a8b3d1f2 pred 3 head 36a6ea78 in f9037bdb
+step 39 class 0 pred 2 head 46dd21f9 in 37afc699
+step 40 class 3 pred 3 head 2f15441c in 87f68bfe
+step 41 class 1 pred 0 head 21cf0608 in 85df2530
+step 42 class 1 pred 3 head 6aa29cac in dfde6ac5
+step 43 parts logits 4c9bebc7 deltas 587b3d3f pred 2 head cf74b384 in 296035b0
+step 44 class 3 pred 2 head ee5d954d in 8b4f816e
+step 45 class 2 pred 1 head 8d73090e in f760fe18
+step 46 parts logits 2595e832 deltas 8eea9a69 pred 2 head 843c46d0 in d96d91e7
+step 47 parts logits 82f21fe1 deltas 7c53a217 pred 0 head 9f0717a0 in 26622678
+step 48 class 4 pred 1 head e86b5a03 in 894eadda
+step 49 class 2 pred 3 head 950f93ca in fed259e7
+step 50 parts logits 578c3468 deltas 061cfd47 pred 1 head 09d1cbd8 in e321abd3
+step 51 class 2 pred 1 head 5e311cf9 in 33b86493
+step 52 parts logits 4ef5129a deltas ec3e95ff pred 0 head ee201eb0 in 32146d14
+step 53 class 1 pred 3 head 8e3152f9 in 90f8ee7e
+step 54 class 4 pred 0 head 292406af in dfde6ac5
+step 55 class 0 pred 3 head 46677c66 in 88d50280
+step 56 class 2 pred 1 head c8a20d5a in 2355a3e8
+step 57 class 2 pred 2 head 4b37b98b in 24e41eed
+step 58 class 1 pred 0 head 3b169525 in dfde6ac5
+step 59 class 3 pred 2 head 03dcf32b in dfde6ac5
+step 60 class 2 pred 1 head 7378034c in ebb830c3
+step 61 class 4 pred 3 head f730469e in c61a3378
+step 62 class 2 pred 3 head 5884d16c in fde5a970
+step 63 class 4 pred 3 head 17ac3884 in 6b604fb2
+dense loaded 17ac3884 cleared cb5a1845 pred 0
+softmax q16.16 5 #0 80edeaff
+softmax q16.16 5 #1 9076cf43
+softmax q16.16 5 #2 ca187973
+softmax q16.16 5 #3 6a4eaf7f
+softmax q16.16 5 #4 ae6432eb
+softmax q16.16 5 #5 3cbfcd4f
+softmax q16.16 5 #6 377d47c3
+softmax q16.16 5 #7 cb149f6c
+softmax q16.16 5 #8 11eea9cc
+softmax q16.16 5 #9 06d336f6
+softmax q16.16 5 #10 ebc4593f
+softmax q16.16 5 #11 d633f98f
+softmax q16.16 5 #12 c242209f
+softmax q16.16 5 #13 2aba11d3
+softmax q16.16 5 #14 36a931e5
+softmax q16.16 5 #15 98a910cb
+softmax q16.16 5 #16 90117bff
+softmax q16.16 5 #17 203d6139
+softmax q16.16 5 #18 cb149f6c
+softmax q16.16 5 #19 5e0a2e47
+softmax q16.16 5 #20 1c605fcf
+softmax q16.16 5 #21 cb149f6c
+softmax q16.16 5 #22 b4aa0671
+softmax q16.16 5 #23 9df59776
+softmax q16.16 5 #24 98ca6788
+softmax q16.16 5 #25 6e648eed
+softmax q16.16 5 #26 d86b718c
+softmax q16.16 5 #27 d002760b
+softmax q16.16 5 #28 20ee72d7
+softmax q16.16 5 #29 5876bf2f
+softmax q16.16 5 #30 731eac95
+softmax q16.16 5 #31 2b90638b
+softmax q8.8 5 #0 ba74efba
+softmax q8.8 5 #1 fa17f7ba
+softmax q8.8 5 #2 9c518f7a
+softmax q8.8 5 #3 c5ca747a
+softmax q8.8 5 #4 f59f705a
+softmax q8.8 5 #5 6a60463a
+softmax q8.8 5 #6 3e44f62a
+softmax q8.8 5 #7 2515c77a
+softmax q8.8 5 #8 4b9e56b5
+softmax q8.8 5 #9 f9dca885
+softmax q8.8 5 #10 03f7e8d9
+softmax q8.8 5 #11 334c227a
+softmax q8.8 5 #12 13c4e68a
+softmax q8.8 5 #13 a975917a
+softmax q8.8 5 #14 6f312d3a
+softmax q8.8 5 #15 95adcc7a
+softmax q8.8 5 #16 13c4e68a
+softmax q8.8 5 #17 0431fffa
+softmax q8.8 5 #18 420949c5
+softmax q8.8 5 #19 ce37585b
+softmax q8.8 5 #20 2a86916a
+softmax q8.8 5 #21 ff1dd744
+softmax q8.8 5 #22 86c5c7c5
+softmax q8.8 5 #23 b60caaea
+softmax q8.8 5 #24 67b48ab5
+softmax q8.8 5 #25 59172680
+softmax q8.8 5 #26 ff96ac85
+softmax q8.8 5 #27 b60caaea
+softmax q8.8 5 #28 4187251a
+softmax q8.8 5 #29 a1dadaf9
+softmax q8.8 5 #30 9392deda
+softmax q8.8 5 #31 913c6aba
+softmax f64 5 #0 d9edc982
+softmax f64 5 #1 3fcac0c7
+softmax f64 5 #2 f3dd4981
+softmax f64 5 #3 d14532e2
+softmax f64 5 #4 8a04a1cd
+softmax f64 5 #5 c732787a
+softmax f64 5 #6 e8fc4133
+softmax f64 5 #7 c80c03a1
+softmax f64 5 #8 7a5d560c
+softmax f64 5 #9 22ee7b82
+softmax f64 5 #10 6714e4a3
+softmax f64 5 #11 46fb46cb
+softmax f64 5 #12 ec24644c
+softmax f64 5 #13 fefebed1
+softmax f64 5 #14 24e86efd
+softmax f64 5 #15 fdddf946
+softmax f64 5 #16 a021c8fa
+softmax f64 5 #17 f8e080a8
+softmax f64 5 #18 3fa57f18
+softmax f64 5 #19 ab4d1bd0
+softmax f64 5 #20 f52ba4c9
+softmax f64 5 #21 b22e35cc
+softmax f64 5 #22 120d0660
+softmax f64 5 #23 88b5b708
+softmax f64 5 #24 565a5cc6
+softmax f64 5 #25 84eb2df1
+softmax f64 5 #26 6e92ff13
+softmax f64 5 #27 bc75883d
+softmax f64 5 #28 e9674bff
+softmax f64 5 #29 0408fde9
+softmax f64 5 #30 b3e61c97
+softmax f64 5 #31 fb5f05cd
+prototype q16.16 euclid 8x4
+step 0 learn 2 pred 2 max 65535 counts 0 0 1 0 d 4ce072ba p 883a5340
+step 1 cap 0 pred 2 max 1 counts 0 0 1 0 d 52dadaaf p 883a5340
+step 2 cap 0 pred 2 max 1 counts 0 0 1 0 d 2eb2de41 p 883a5340
+step 3 learn 1 pred 1 max 1 counts 0 1 1 0 d ee397fb1 p f4253bfd
+step 4 query pred 2 max 1 counts 0 1 1 0 d 567a4d5e p f4253bfd
+step 5 cap 3 pred 2 max 3 counts 0 1 1 0 d a2b67813 p f4253bfd
+step 6 cap 3 pred 1 max 3 counts 0 1 1 0 d 61c518c0 p f4253bfd
+step 7 query pred 2 max 3 counts 0 1 1 0 d 33d8e644 p f4253bfd
+step 8 learn 0 pred 2 max 3 counts 1 1 1 0 d f3ef03ad p 5d8287a1
+step 9 learn 0 pred 0 max 3 counts 2 1 1 0 d cf03916a p 8112f953
+step 10 learn 1 pred 2 max 3 counts 2 2 1 0 d 98f473a7 p a51db95a
+step 11 learn 3 pred 0 max 3 counts 2 2 1 1 d 2fafc1d6 p 96d2ddda
+step 12 learn 3 pred 3 max 3 counts 2 2 1 2 d ff21684c p 45f537be
+step 13 learn 2 pred 2 max 3 counts 2 2 2 2 d a12aade7 p e56d84c0
+step 14 query pred 3 max 3 counts 2 2 2 2 d a50e97da p e56d84c0
+step 15 learn 1 pred 2 max 3 counts 2 3 2 2 d 56790775 p 78dc32c1
+step 16 learn 3 pred 3 max 3 counts 2 3 2 3 d ed8325e5 p 9cfe7a8f
+step 17 learn 1 pred 3 max 3 counts 2 3 2 3 d 427b39b9 p c3b2e99a
+step 18 learn 1 pred 1 max 3 counts 2 3 2 3 d 08a6498b p 3876da3d
+step 19 learn 1 pred 0 max 3 counts 2 3 2 3 d 1b7b4c53 p 4ac96440
+step 20 cap 3 pred 0 max 3 counts 2 3 2 3 d 012a958d p 4ac96440
+step 21 learn 2 pred 2 max 3 counts 2 3 3 3 d fc7ef1a8 p c3bde9f4
+step 22 query pred 1 max 3 counts 2 3 3 3 d c4ae621e p c3bde9f4
+step 23 learn 1 pred 2 max 3 counts 2 3 3 3 d c6228f70 p f56d2936
+step 24 query pred 1 max 3 counts 2 3 3 3 d c8a36b5f p f56d2936
+step 25 forget 2 pred 1 max 3 counts 2 3 0 3 d ccab96c3 p 39baeaa5
+step 26 learn 3 pred 1 max 3 counts 2 3 0 3 d 454b16b3 p 9f9e55c0
+step 27 learn 0 pred 3 max 3 counts 3 3 0 3 d 346067d4 p ab1dfbc4
+step 28 set 0 2 pred 3 max 3 counts 2 3 0 3 d 87026e24 p c5302cf8
+step 29 query pred 0 max 3 counts 2 3 0 3 d 6857c985 p c5302cf8
+step 30 learn 3 pred 1 max 3 counts 2 3 0 3 d 2fbbc9b2 p f9ef8898
+step 31 learn 3 pred 1 max 3 counts 2 3 0 3 d fa2bbf11 p 471941d7
+step 32 learn 1 pred 3 max 3 counts 2 3 0 3 d f8e59c39 p 46ace763
+step 33 query pred 0 max 3 counts 2 3 0 3 d 954580b9 p 46ace763
+step 34 learn 2 pred 1 max 3 counts 2 3 1 3 d 2f8e57e6 p 86400ac2
+step 35 query pred 1 max 3 counts 2 3 1 3 d 540f0fcf p 86400ac2
+step 36 query pred 1 max 3 counts 2 3 1 3 d a769da02 p 86400ac2
+step 37 cap 65535 pred 1 max 65535 counts 2 3 1 3 d 8dc6867b p 86400ac2
+step 38 learn 0 pred 3 max 65535 counts 3 3 1 3 d 4173881a p 7ed87e63
+step 39 forget 0 pred 3 max 65535 counts 0 3 1 3 d 860ade93 p 22028d94
+step 40 query pred 2 max 65535 counts 0 3 1 3 d 5a67b74d p 22028d94
+step 41 learn 1 pred 2 max 65535 counts 0 4 1 3 d d17f7261 p c8f274e7
+step 42 learn 3 pred 3 max 65535 counts 0 4 1 4 d 0c23b91b p 9f63c8dd
+step 43 learn 2 pred 3 max 65535 counts 0 4 2 4 d 83762a9b p ac22e1e3
+step 44 query pred 3 max 65535 counts 0 4 2 4 d e55fd666 p ac22e1e3
+step 45 learn 3 pred 2 max 65535 counts 0 4 2 5 d 9f87eed0 p 820da51c
+step 46 query pred 1 max 65535 counts 0 4 2 5 d b047059a p 820da51c
+step 47 learn 1 pred 2 max 65535 counts 0 5 2 5 d abcd4609 p d76d7105
+step 48 set 2 5 pred 3 max 65535 counts 0 5 5 5 d 843a4a48 p 5d3e3b42
+step 49 query pred 1 max 65535 counts 0 5 5 5 d 49ed9318 p 5d3e3b42
+step 50 learn 3 pred 1 max 65535 counts 0 5 5 6 d 4d3edd2a p d734cbcb
+step 51 query pred 3 max 65535 counts 0 5 5 6 d 288bfd06 p d734cbcb
+step 52 learn 1 pred 3 max 65535 counts 0 6 5 6 d 1bc33bf5 p 11367802
+step 53 learn 0 pred 2 max 65535 counts 1 6 5 6 d 9a6f6fd9 p 8fd2f977
+step 54 set 1 2 pred 3 max 65535 counts 1 2 5 6 d a06ed01a p 7d1983c3
+step 55 learn 2 pred 3 max 65535 counts 1 2 6 6 d 94102f0a p b4b364c6
+step 56 query pred 1 max 65535 counts 1 2 6 6 d ab1d62f0 p b4b364c6
+step 57 forget 0 pred 3 max 65535 counts 0 2 6 6 d 08309b76 p 4d63c84f
+step 58 learn 2 pred 3 max 65535 counts 0 2 7 6 d f9ec8674 p d0e19176
+step 59 learn 0 pred 2 max 65535 counts 1 2 7 6 d ff4aeaf8 p caa344fb
+step 60 learn 1 pred 3 max 65535 counts 1 3 7 6 d 1381c7d9 p 11fd3d50
+step 61 query pred 2 max 65535 counts 1 3 7 6 d 219ec128 p 11fd3d50
+step 62 cap 65535 pred 1 max 65535 counts 1 3 7 6 d b0bac4e0 p 11fd3d50
+step 63 forget 1 pred 3 max 65535 counts 1 0 7 6 d 3b219b77 p 8202c29c
+tie pred 1
+prototype q16.16 manhattan 8x4
+step 0 learn 0 pred 0 max 65535 counts 1 0 0 0 d 23411c0b p 88befda9
+step 1 learn 1 pred 0 max 65535 counts 1 1 0 0 d ba09700b p 7ca00383
+step 2 forget 3 pred 0 max 65535 counts 1 1 0 0 d 603acb33 p 7ca00383
+step 3 query pred 1 max 65535 counts 1 1 0 0 d b4f1aa74 p 7ca00383
+step 4 query pred 0 max 65535 counts 1 1 0 0 d 69350611 p 7ca00383
+step 5 learn 0 pred 1 max 65535 counts 2 1 0 0 d ae6e683d p 799c92d9
+step 6 learn 2 pred 0 max 65535 counts 2 1 1 0 d 021a9056 p 0b3506d7
+step 7 query pred 2 max 65535 counts 2 1 1 0 d 85ca3a97 p 0b3506d7
+step 8 forget 2 pred 0 max 65535 counts 2 1 0 0 d fcb3fabc p 799c92d9
+step 9 query pred 0 max 65535 counts 2 1 0 0 d 57eeccb7 p 799c92d9
+step 10 query pred 1 max 65535 counts 2 1 0 0 d 6841cbcb p 799c92d9
+step 11 learn 2 pred 1 max 65535 counts 2 1 1 0 d 1ae2c581 p 6c616997
+step 12 learn 0 pred 0 max 65535 counts 3 1 1 0 d bbf3cc37 p 52d3f323
+step 13 learn 0 pred 0 max 65535 counts 4 1 1 0 d 10e19e33 p ba9a12e2
+step 14 learn 2 pred 0 max 65535 counts 4 1 2 0 d 5c03d580 p 99c6cec3
+step 15 set 3 3 pred 0 max 65535 counts 4 1 2 3 d fad15bf3 p 45dac339
+step 16 learn 3 pred 1 max 65535 counts 4 1 2 4 d 4ec148f9 p 10119a91
+step 17 query pred 3 max 65535 counts 4 1 2 4 d e9328784 p 10119a91
+step 18 query pred 3 max 65535 counts 4 1 2 4 d 6311d930 p 10119a91
+step 19 learn 3 pred 0 max 65535 counts 4 1 2 5 d 76522058 p 615f2802
+step 20 learn 2 pred 1 max 65535 counts 4 1 3 5 d b8aeaac8 p 92ac297a
+step 21 learn 0 pred 2 max 65535 counts 5 1 3 5 d d661d6b7 p 85d58d75
+step 22 learn 1 pred 3 max 65535 counts 5 2 3 5 d 399bbc48 p c17f19a0
+step 23 learn 2 pred 2 max 65535 counts 5 2 4 5 d 95750191 p 861c7904
+step 24 learn 2 pred 3 max 65535 counts 5 2 5 5 d f0d3148f p aabc88ac
+step 25 forget 2 pred 3 max 65535 counts 5 2 0 5 d 6c4b45c9 p 754d0d4f
+step 26 learn 3 pred 3 max 65535 counts 5 2 0 6 d 5ac74f0d p 900633c6
+step 27 learn 2 pred 3 max 65535 counts 5 2 1 6 d d2a69d21 p b19fe338
+step 28 learn 2 pred 3 max 65535 counts 5 2 2 6 d 6d5b43de p f4c9c6cb
+step 29 learn 1 pred 1 max 65535 counts 5 3 2 6 d 341912cd p c3f24671
+step 30 learn 2 pred 0 max 65535 counts 5 3 3 6 d 5d18ca80 p a7ab70ee
+step 31 learn 3 pred 0 max 65535 counts 5 3 3 7 d 9f01951f p 479dceee
+step 32 learn 0 pred 3 max 65535 counts 6 3 3 7 d 0c9fb44f p 9c032476
+step 33 learn 0 pred 2 max 65535 counts 7 3 3 7 d 270d6936 p 710cef1d
+step 34 learn 2 pred 0 max 65535 counts 7 3 4 7 d cc443d6c p be65ce19
+step 35 learn 1 pred 1 max 65535 counts 7 4 4 7 d 97dc5e9f p 6bda84e4
+step 36 learn 2 pred 2 max 65535 counts 7 4 5 7 d a65cd59f p bb5835c5
+step 37 learn 1 pred 0 max 65535 counts 7 5 5 7 d 73029021 p b98f347e
+step 38 forget 3 pred 1 max 65535 counts 7 5 5 0 d b3e16b61 p 515e112a
+step 39 learn 0 pred 0 max 65535 counts 8 5 5 0 d 0884928f p b9a807db
+step 40 learn 1 pred 1 max 65535 counts 8 6 5 0 d deb5a372 p 09c073b6
+step 41 query pred 1 max 65535 counts 8 6 5 0 d f64fd3bc p 09c073b6
+step 42 forget 1 pred 2 max 65535 counts 8 0 5 0 d 34d35190 p 1e2862f4
+step 43 set 0 3 pred 2 max 65535 counts 3 0 5 0 d 4cad35fa p 7f92521f
+step 44 learn 0 pred 0 max 65535 counts 4 0 5 0 d 99cefbf9 p c34168c6
+step 45 cap 3 pred 0 max 3 counts 3 0 3 0 d ffe7bc30 p c34168c6
+step 46 learn 3 pred 2 max 3 counts 3 0 3 1 d aa9b0b36 p 04fe5be3
+step 47 set 0 4 pred 3 max 3 counts 3 0 3 1 d 23a6cdcb p 66d50cbf
+step 48 learn 2 pred 0 max 3 counts 3 0 3 1 d 0453f615 p cd3ae462
+step 49 learn 2 pred 0 max 3 counts 3 0 3 1 d 8f7f0f1b p ace5bb17
+step 50 learn 0 pred 0 max 3 counts 3 0 3 1 d 4fd28256 p 759eb7e1
+step 51 query pred 0 max 3 counts 3 0 3 1 d 2c27d6d4 p 759eb7e1
+step 52 learn 0 pred 2 max 3 counts 3 0 3 1 d bf4fafc1 p 20a38121
+step 53 learn 1 pred 1 max 3 counts 3 1 3 1 d 37c3c928 p 15d349a4
+step 54 query pred 2 max 3 counts 3 1 3 1 d 525f009d p 15d349a4
+step 55 query pred 0 max 3 counts 3 1 3 1 d 573f3306 p 15d349a4
+step 56 learn 2 pred 3 max 3 counts 3 1 3 1 d 9afff951 p c99e9764
+step 57 forget 1 pred 3 max 3 counts 3 0 3 1 d dfa3add5 p 33173625
+step 58 learn 3 pred 0 max 3 counts 3 0 3 2 d 6004b419 p 2790c5e9
+step 59 query pred 3 max 3 counts 3 0 3 2 d 9bc33640 p 2790c5e9
+step 60 clear pred 4 max 3 counts 0 0 0 0 d 97020555 p e6a1d1c5
+step 61 query pred 4 max 3 counts 0 0 0 0 d 9c5fba85 p e6a1d1c5
+step 62 learn 0 pred 0 max 3 counts 1 0 0 0 d df3b3d6f p e0ad58c8
+step 63 set 0 2 pred 0 max 3 counts 2 0 0 0 d aa4378f8 p 2a99322a
+tie pred 1
+prototype q16.16 euclid 4x3
+step 0 query pred 3 max 65535 counts 0 0 0 d 040739aa p 3ad73145
+step 1 learn 1 pred 1 max 65535 counts 0 1 0 d a80b5639 p 0655c62c
+step 2 learn 2 pred 2 max 65535 counts 0 1 1 d 87f0ec97 p 16088e5c
+step 3 query pred 1 max 65535 counts 0 1 1 d e10132af p 16088e5c
+step 4 learn 2 pred 1 max 65535 counts 0 1 2 d a73d11fd p 8ba2cc2b
+step 5 clear pred 3 max 65535 counts 0 0 0 d 404b4744 p 3ad73145
+step 6 learn 1 pred 1 max 65535 counts 0 1 0 d 14d5d285 p b2741a4d
+step 7 cap 0 pred 1 max 1 counts 0 1 0 d 7cb8a242 p b2741a4d
+step 8 learn 2 pred 1 max 1 counts 0 1 1 d fc05525d p 71c2566a
+step 9 learn 1 pred 2 max 1 counts 0 1 1 d e1e91a2c p 7be3c795
+step 10 learn 1 pred 2 max 1 counts 0 1 1 d d7893d0e p ddf9cc12
+step 11 clear pred 3 max 1 counts 0 0 0 d 5fff1474 p 3ad73145
+step 12 query pred 3 max 1 counts 0 0 0 d 28321aed p 3ad73145
+step 13 learn 0 pred 0 max 1 counts 1 0 0 d d5b83599 p 37dacef0
+step 14 learn 2 pred 2 max 1 counts 1 0 1 d 7ac5902c p 4e1e7070
+step 15 learn 2 pred 2 max 1 counts 1 0 1 d d49ab511 p 6cebbd5f
+step 16 query pred 0 max 1 counts 1 0 1 d c41cf629 p 6cebbd5f
+step 17 learn 2 pred 0 max 1 counts 1 0 1 d caf783a3 p d4baa832
+step 18 query pred 2 max 1 counts 1 0 1 d 666a666e p d4baa832
+step 19 learn 0 pred 2 max 1 counts 1 0 1 d ef0e5056 p f1098bc4
+step 20 learn 2 pred 0 max 1 counts 1 0 1 d ca0f7954 p 82b304a7
+step 21 learn 2 pred 0 max 1 counts 1 0 1 d 14e2b6a2 p ae61a81b
+step 22 learn 1 pred 0 max 1 counts 1 1 1 d e5bd205f p a5659bd4
+step 23 query pred 0 max 1 counts 1 1 1 d 506708ad p a5659bd4
+step 24 learn 2 pred 1 max 1 counts 1 1 1 d 20cdf970 p 7990a3ff
+step 25 learn 1 pred 0 max 1 counts 1 1 1 d a313186d p 6ad0ab47
+step 26 learn 1 pred 2 max 1 counts 1 1 1 d b4e718e7 p 9f3c7c70
+step 27 forget 1 pred 0 max 1 counts 1 0 1 d 63933ac7 p e3aac708
+step 28 query pred 2 max 1 counts 1 0 1 d d4852eb7 p e3aac708
+step 29 learn 2 pred 2 max 1 counts 1 0 1 d a63e5018 p b8078c54
+step 30 learn 2 pred 0 max 1 counts 1 0 1 d 4c1f24ee p 6869d88b
+step 31 query pred 0 max 1 counts 1 0 1 d 3dc0af44 p 6869d88b
+step 32 query pred 0 max 1 counts 1 0 1 d 5de64355 p 6869d88b
+step 33 learn 0 pred 0 max 1 counts 1 0 1 d 6aebadde p b9d2a78f
+step 34 query pred 0 max 1 counts 1 0 1 d ce05302b p b9d2a78f
+step 35 learn 1 pred 0 max 1 counts 1 1 1 d cdf822a1 p 1eecbd9d
+step 36 set 0 4 pred 1 max 1 counts 1 1 1 d 9c84c069 p 45916818
+step 37 set 1 3 pred 2 max 1 counts 1 1 1 d 06f56ef6 p 12377811
+step 38 query pred 0 max 1 counts 1 1 1 d 8f338363 p 12377811
+step 39 learn 2 pred 0 max 1 counts 1 1 1 d c0c4166c p d3769e1d
+step 40 learn 1 pred 0 max 1 counts 1 1 1 d 85b2c9e4 p 21bfefef
+step 41 cap 3 pred 2 max 3 counts 1 1 1 d 70e0a19d p 21bfefef
+step 42 learn 0 pred 0 max 3 counts 2 1 1 d a7c56339 p b1de4442
+step 43 learn 2 pred 1 max 3 counts 2 1 2 d 4fe90d71 p 2fb93713
+step 44 learn 2 pred 0 max 3 counts 2 1 3 d dcf48d6c p 57fdffce
+step 45 forget 2 pred 0 max 3 counts 2 1 0 d 34cdab66 p a818298f
+step 46 learn 1 pred 0 max 3 counts 2 2 0 d 13b83a73 p a43f5944
+step 47 cap 3 pred 1 max 3 counts 2 2 0 d cd3761ca p a43f5944
+step 48 query pred 1 max 3 counts 2 2 0 d 258fff3e p a43f5944
+step 49 clear pred 3 max 3 counts 0 0 0 d 10623b83 p 3ad73145
+step 50 clear pred 3 max 3 counts 0 0 0 d e50b8a3b p 3ad73145
+step 51 learn 2 pred 2 max 3 counts 0 0 1 d 33419aa7 p a11b9fd2
+step 52 learn 1 pred 2 max 3 counts 0 1 1 d d2dc3d4d p b1bc8b6d
+step 53 learn 0 pred 0 max 3 counts 1 1 1 d 44ab1999 p 2772d3a8
+step 54 query pred 0 max 3 counts 1 1 1 d e6af5157 p 2772d3a8
+step 55 learn 0 pred 0 max 3 counts 2 1 1 d 9f7c393b p dfc48791
+step 56 learn 1 pred 1 max 3 counts 2 2 1 d 403a02ee p 83a5e074
+step 57 learn 0 pred 2 max 3 counts 3 2 1 d c0a65313 p 18c3bc13
+step 58 learn 1 pred 0 max 3 counts 3 3 1 d 66015823 p 9a998893
+step 59 learn 2 pred 1 max 3 counts 3 3 2 d e4e6957d p 81affa0e
+step 60 learn 1 pred 1 max 3 counts 3 3 2 d ceab4b14 p dc480165
+step 61 query pred 0 max 3 counts 3 3 2 d 50ab8d7b p dc480165
+step 62 forget 0 pred 2 max 3 counts 0 3 2 d 4f09980e p f92af262
+step 63 learn 2 pred 2 max 3 counts 0 3 3 d 4010d0b2 p 1879eeca
+tie pred 1
+prototype q8.8 euclid 4x3
+step 0 learn 1 pred 1 max 65535 counts 0 1 0 d f2433191 p 0f780142
+step 1 learn 2 pred 2 max 65535 counts 0 1 1 d 00fd19a5 p 43b6042d
+step 2 learn 0 pred 1 max 65535 counts 1 1 1 d 8b3588d5 p 692af228
+step 3 clear pred 3 max 65535 counts 0 0 0 d 052d57d9 p 3ad73145
+step 4 query pred 3 max 65535 counts 0 0 0 d b09f8256 p 3ad73145
+step 5 learn 0 pred 0 max 65535 counts 1 0 0 d 0cb8b4b1 p 57a3c654
+step 6 query pred 0 max 65535 counts 1 0 0 d d5fe0695 p 57a3c654
+step 7 learn 1 pred 0 max 65535 counts 1 1 0 d 96911e18 p c106da75
+step 8 cap 65535 pred 1 max 65535 counts 1 1 0 d dc0cf1b3 p c106da75
+step 9 forget 1 pred 0 max 65535 counts 1 0 0 d 745bb588 p 57a3c654
+step 10 set 0 2 pred 0 max 65535 counts 2 0 0 d aa1163d5 p e6bc9320
+step 11 query pred 0 max 65535 counts 2 0 0 d d02fea03 p e6bc9320
+step 12 learn 0 pred 0 max 65535 counts 3 0 0 d 70c9ebc4 p 648f9d73
+step 13 query pred 0 max 65535 counts 3 0 0 d 93dedb8c p 648f9d73
+step 14 learn 2 pred 2 max 65535 counts 3 0 1 d db52a531 p a42efc3f
+step 15 learn 2 pred 2 max 65535 counts 3 0 2 d 989173e3 p 41059690
+step 16 forget 0 pred 2 max 65535 counts 0 0 2 d 1ca4cbbc p 80a13546
+step 17 learn 1 pred 2 max 65535 counts 0 1 2 d 490be84c p db7ca5f5
+step 18 learn 2 pred 2 max 65535 counts 0 1 3 d 32d3f732 p 4375e8db
+step 19 learn 2 pred 2 max 65535 counts 0 1 4 d 1ff30e38 p 46a45a41
+step 20 learn 2 pred 2 max 65535 counts 0 1 5 d dfcb9da6 p cd661507
+step 21 clear pred 3 max 65535 counts 0 0 0 d 8f84e698 p 3ad73145
+step 22 query pred 3 max 65535 counts 0 0 0 d 3148f2d9 p 3ad73145
+step 23 query pred 3 max 65535 counts 0 0 0 d c242a676 p 3ad73145
+step 24 learn 0 pred 0 max 65535 counts 1 0 0 d d330a7bb p f7ca23b7
+step 25 learn 0 pred 0 max 65535 counts 2 0 0 d 352eecd3 p 71bfbbdd
+step 26 set 0 5 pred 0 max 65535 counts 5 0 0 d 56c6a347 p 34b518fe
+step 27 learn 1 pred 0 max 65535 counts 5 1 0 d 6098e3a9 p 7b47ad9b
+step 28 learn 1 pred 0 max 65535 counts 5 2 0 d a7f9d76b p 57022269
+step 29 query pred 0 max 65535 counts 5 2 0 d 5e5efedc p 57022269
+step 30 set 1 0 pred 0 max 65535 counts 5 0 0 d 0bc4ff88 p 6e7cef67
+step 31 query pred 0 max 65535 counts 5 0 0 d 5ed3caaa p 6e7cef67
+step 32 learn 0 pred 0 max 65535 counts 6 0 0 d 282f590c p a448f7d5
+step 33 learn 1 pred 1 max 65535 counts 6 1 0 d 18078423 p d1d69e8e
+step 34 learn 2 pred 1 max 65535 counts 6 1 1 d 74615884 p 1907844c
+step 35 query pred 0 max 65535 counts 6 1 1 d 4d0b4bb9 p 1907844c
+step 36 learn 1 pred 1 max 65535 counts 6 2 1 d 3d8e9005 p 795fa968
+step 37 learn 2 pred 2 max 65535 counts 6 2 2 d b9bc1a03 p d25da00e
+step 38 learn 0 pred 2 max 65535 counts 7 2 2 d 0a6c6cc1 p bbabd4e9
+step 39 learn 1 pred 0 max 65535 counts 7 3 2 d 9815aa02 p 7afc44c2
+step 40 set 0 3 pred 1 max 65535 counts 3 3 2 d f38685c2 p d68b7274
+step 41 learn 2 pred 2 max 65535 counts 3 3 3 d 47a653f0 p 9bfbe15d
+step 42 learn 1 pred 2 max 65535 counts 3 4 3 d f9a1d9e3 p 895ddb2f
+step 43 learn 2 pred 1 max 65535 counts 3 4 4 d 0a2a13a2 p 181faec3
+step 44 learn 2 pred 1 max 65535 counts 3 4 5 d 4a577833 p 67ed436f
+step 45 learn 0 pred 0 max 65535 counts 4 4 5 d b5a28a64 p 2414d0bc
+step 46 set 0 3 pred 2 max 65535 counts 3 4 5 d e5d584cb p 192f8716
+step 47 learn 0 pred 2 max 65535 counts 4 4 5 d c23684c9 p 156d8b13
+step 48 query pred 1 max 65535 counts 4 4 5 d e0c531e2 p 156d8b13
+step 49 learn 0 pred 1 max 65535 counts 5 4 5 d d066efb5 p 917c9a25
+step 50 learn 2 pred 2 max 65535 counts 5 4 6 d fafe2e3d p 687df812
+step 51 set 2 5 pred 1 max 65535 counts 5 4 5 d d4376585 p e20a7344
+step 52 clear pred 3 max 65535 counts 0 0 0 d 21b68187 p 3ad73145
+step 53 learn 1 pred 1 max 65535 counts 0 1 0 d fc556164 p d1cba6fa
+step 54 set 2 0 pred 1 max 65535 counts 0 1 0 d fdb85862 p 42012089
+step 55 learn 1 pred 1 max 65535 counts 0 2 0 d e88f22cf p 6172ad54
+step 56 learn 0 pred 1 max 65535 counts 1 2 0 d 850299ce p 4da4f3da
+step 57 learn 1 pred 1 max 65535 counts 1 3 0 d 22bbc39c p 1e6d25a0
+step 58 query pred 1 max 65535 counts 1 3 0 d 5aa0a635 p 1e6d25a0
+step 59 learn 1 pred 1 max 65535 counts 1 4 0 d b29a8973 p aa0b7890
+step 60 learn 0 pred 0 max 65535 counts 2 4 0 d 06c7d227 p dd30dc9c
+step 61 learn 0 pred 1 max 65535 counts 3 4 0 d ba858687 p 9e50b939
+step 62 learn 0 pred 1 max 65535 counts 4 4 0 d bb950b06 p 05ad7efe
+step 63 learn 2 pred 1 max 65535 counts 4 4 1 d ec27b0e4 p 588c7078
+tie pred 1
+prototype q8.8 manhattan 4x3
+step 0 query pred 3 max 65535 counts 0 0 0 d e9860a83 p 3ad73145
+step 1 learn 0 pred 0 max 65535 counts 1 0 0 d 907306aa p c7b51fd4
+step 2 query pred 0 max 65535 counts 1 0 0 d e123a2ba p c7b51fd4
+step 3 set 2 3 pred 0 max 65535 counts 1 0 3 d 7b27bb4e p cd4c1454
+step 4 learn 0 pred 0 max 65535 counts 2 0 3 d 99f13731 p f8679deb
+step 5 forget 2 pred 0 max 65535 counts 2 0 0 d 749e9086 p 12454423
+step 6 query pred 0 max 65535 counts 2 0 0 d 11ff77bb p 12454423
+step 7 learn 1 pred 1 max 65535 counts 2 1 0 d 6cd5cd5c p 8012c2b3
+step 8 query pred 0 max 65535 counts 2 1 0 d 0d3fbc11 p 8012c2b3
+step 9 learn 2 pred 0 max 65535 counts 2 1 1 d 6bd9f45c p 4d4cf078
+step 10 query pred 2 max 65535 counts 2 1 1 d 48dae4a9 p 4d4cf078
+step 11 learn 0 pred 0 max 65535 counts 3 1 1 d c58ace2d p e02fec24
+step 12 learn 1 pred 2 max 65535 counts 3 2 1 d 407db2c6 p 90e37748
+step 13 learn 0 pred 0 max 65535 counts 4 2 1 d eed22a68 p 084579dc
+step 14 set 2 0 pred 1 max 65535 counts 4 2 0 d 27df1770 p 7209a86a
+step 15 learn 1 pred 0 max 65535 counts 4 3 0 d 8d9140aa p fc0f1325
+step 16 forget 1 pred 0 max 65535 counts 4 0 0 d 776905fa p f1e075be
+step 17 learn 0 pred 0 max 65535 counts 5 0 0 d e39596b5 p f3f92f7c
+step 18 query pred 0 max 65535 counts 5 0 0 d 5e950d4e p f3f92f7c
+step 19 query pred 0 max 65535 counts 5 0 0 d c1f9f1a2 p f3f92f7c
+step 20 learn 1 pred 0 max 65535 counts 5 1 0 d d3573bfe p 1d990f81
+step 21 forget 2 pred 0 max 65535 counts 5 1 0 d ad50b1de p 85ad6c6c
+step 22 cap 65535 pred 1 max 65535 counts 5 1 0 d 4195fe1f p 85ad6c6c
+step 23 learn 0 pred 1 max 65535 counts 6 1 0 d 48ce9c13 p 6f2703be
+step 24 forget 2 pred 0 max 65535 counts 6 1 0 d bc6b7a2f p 6f2703be
+step 25 query pred 0 max 65535 counts 6 1 0 d a09c3e2a p 6f2703be
+step 26 set 2 5 pred 0 max 65535 counts 6 1 5 d a81de427 p b9b3a5db
+step 27 query pred 2 max 65535 counts 6 1 5 d e62e31c1 p b9b3a5db
+step 28 learn 2 pred 0 max 65535 counts 6 1 6 d f0553bd7 p e5c0d68b
+step 29 query pred 0 max 65535 counts 6 1 6 d 1bf7b1f8 p e5c0d68b
+step 30 learn 0 pred 0 max 65535 counts 7 1 6 d 3c856a00 p 3037a86f
+step 31 cap 65535 pred 1 max 65535 counts 7 1 6 d efce32e5 p 3037a86f
+step 32 learn 0 pred 0 max 65535 counts 8 1 6 d 10224049 p 55e24c24
+step 33 learn 0 pred 0 max 65535 counts 9 1 6 d 19f754f6 p 5de00f8c
+step 34 learn 2 pred 0 max 65535 counts 9 1 7 d 5818ad26 p 58f5c3f7
+step 35 learn 1 pred 0 max 65535 counts 9 2 7 d 57aee7d9 p c2413fee
+step 36 query pred 1 max 65535 counts 9 2 7 d d0e7e7cf p c2413fee
+step 37 learn 0 pred 0 max 65535 counts 10 2 7 d 00da2b91 p 02f48763
+step 38 query pred 1 max 65535 counts 10 2 7 d 00507114 p 02f48763
+step 39 query pred 1 max 65535 counts 10 2 7 d a3080337 p 02f48763
+step 40 clear pred 3 max 65535 counts 0 0 0 d 92dd2273 p 3ad73145
+step 41 query pred 3 max 65535 counts 0 0 0 d b48a3775 p 3ad73145
+step 42 set 1 0 pred 3 max 65535 counts 0 0 0 d ae5da20f p 4421130b
+step 43 query pred 3 max 65535 counts 0 0 0 d 66e3fac5 p 4421130b
+step 44 learn 1 pred 1 max 65535 counts 0 1 0 d 430432fd p fb29e574
+step 45 query pred 1 max 65535 counts 0 1 0 d e8d91a83 p fb29e574
+step 46 forget 0 pred 1 max 65535 counts 0 1 0 d 0875d377 p fb29e574
+step 47 learn 0 pred 1 max 65535 counts 1 1 0 d 7a320ec0 p 32c43c36
+step 48 learn 0 pred 1 max 65535 counts 2 1 0 d d58254b7 p de9f33b0
+step 49 learn 0 pred 0 max 65535 counts 3 1 0 d d44ed5b1 p d1a23b57
+step 50 query pred 0 max 65535 counts 3 1 0 d 1695e2ae p d1a23b57
+step 51 learn 1 pred 0 max 65535 counts 3 2 0 d bebd9904 p 22b17670
+step 52 learn 1 pred 0 max 65535 counts 3 3 0 d 52f3d268 p f7c8c36d
+step 53 query pred 0 max 65535 counts 3 3 0 d 45e09cb8 p f7c8c36d
+step 54 query pred 0 max 65535 counts 3 3 0 d 2e4b9926 p f7c8c36d
+step 55 query pred 1 max 65535 counts 3 3 0 d db6589b8 p f7c8c36d
+step 56 learn 0 pred 1 max 65535 counts 4 3 0 d bf22010b p 9d56b68c
+step 57 learn 2 pred 0 max 65535 counts 4 3 1 d 5b301ad1 p ddd6443b
+step 58 query pred 0 max 65535 counts 4 3 1 d 2aae5172 p ddd6443b
+step 59 learn 1 pred 0 max 65535 counts 4 4 1 d 3aa78491 p b79a4ff8
+step 60 query pred 0 max 65535 counts 4 4 1 d 77b23eb3 p b79a4ff8
+step 61 query pred 2 max 65535 counts 4 4 1 d 224294be p b79a4ff8
+step 62 learn 0 pred 1 max 65535 counts 5 4 1 d 00c9a23a p 95efed4d
+step 63 cap 65535 pred 0 max 65535 counts 5 4 1 d d4f4cdb2 p 95efed4d
+tie pred 1
+prototype f64 euclid 8x4
+step 0 query pred 4 max 65535 counts 0 0 0 0 d 885ae6c5 p e6a1d1c5
+step 1 learn 1 pred 1 max 65535 counts 0 1 0 0 d f3b81346 p a29f2e95
+step 2 learn 1 pred 1 max 65535 counts 0 2 0 0 d 29ff5c74 p 53220d39
+step 3 learn 2 pred 2 max 65535 counts 0 2 1 0 d 0bd43489 p 8d67736b
+step 4 learn 3 pred 3 max 65535 counts 0 2 1 1 d 5e3e2cb5 p 4d93c467
+step 5 learn 1 pred 1 max 65535 counts 0 3 1 1 d 62e1245a p aad9a031
+step 6 learn 1 pred 1 max 65535 counts 0 4 1 1 d a9df9a61 p a706b773
+step 7 learn 3 pred 1 max 65535 counts 0 4 1 2 d 70e30744 p 55ec00c5
+step 8 learn 3 pred 1 max 65535 counts 0 4 1 3 d 6338036f p e527b878
+step 9 learn 3 pred 1 max 65535 counts 0 4 1 4 d 275b6748 p bc4ce396
+step 10 learn 1 pred 3 max 65535 counts 0 5 1 4 d 1d7b5d5c p 832cc4e8
+step 11 learn 1 pred 1 max 65535 counts 0 6 1 4 d ace9512c p 25bb157d
+step 12 learn 0 pred 2 max 65535 counts 1 6 1 4 d 01ca16d3 p 60fdff29
+step 13 learn 1 pred 3 max 65535 counts 1 7 1 4 d 65ab8d63 p fc2c1ae1
+step 14 forget 3 pred 1 max 65535 counts 1 7 1 0 d 7d97d522 p f7938bc0
+step 15 set 0 5 pred 1 max 65535 counts 5 7 1 0 d 8f285a60 p 9a8785cb
+step 16 query pred 1 max 65535 counts 5 7 1 0 d baaabfba p 9a8785cb
+step 17 learn 2 pred 1 max 65535 counts 5 7 2 0 d ffd2bd20 p 4c4c840a
+step 18 query pred 1 max 65535 counts 5 7 2 0 d eb93907a p 4c4c840a
+step 19 query pred 2 max 65535 counts 5 7 2 0 d 806bb3e7 p 4c4c840a
+step 20 learn 2 pred 0 max 65535 counts 5 7 3 0 d 228d54d2 p e8258111
+step 21 query pred 1 max 65535 counts 5 7 3 0 d d96db929 p e8258111
+step 22 learn 0 pred 0 max 65535 counts 6 7 3 0 d 969923a3 p 26e3ff91
+step 23 learn 3 pred 2 max 65535 counts 6 7 3 1 d f686ebb7 p ae3e1f9a
+step 24 learn 1 pred 0 max 65535 counts 6 8 3 1 d 6c8911d3 p d623cb37
+step 25 cap 3 pred 1 max 3 counts 3 3 3 1 d 7ab0e213 p d623cb37
+step 26 learn 2 pred 1 max 3 counts 3 3 3 1 d 24972b1c p 66bab19e
+step 27 query pred 0 max 3 counts 3 3 3 1 d 9ceb05b0 p 66bab19e
+step 28 learn 0 pred 2 max 3 counts 3 3 3 1 d 11ce385b p ab682ba0
+step 29 set 3 3 pred 1 max 3 counts 3 3 3 3 d 5dff1e80 p a550669f
+step 30 forget 3 pred 0 max 3 counts 3 3 3 0 d 23a5397e p f46d8aaf
+step 31 query pred 1 max 3 counts 3 3 3 0 d ddf31784 p f46d8aaf
+step 32 query pred 2 max 3 counts 3 3 3 0 d b88d12b0 p f46d8aaf
+step 33 learn 0 pred 1 max 3 counts 3 3 3 0 d a8ff808f p c90b3325
+step 34 learn 2 pred 1 max 3 counts 3 3 3 0 d f3d7413d p 6e194a66
+step 35 query pred 2 max 3 counts 3 3 3 0 d fdc63bf7 p 6e194a66
+step 36 forget 2 pred 1 max 3 counts 3 3 0 0 d 7405ed07 p a56f94fc
+step 37 query pred 1 max 3 counts 3 3 0 0 d 1ecdf5ec p a56f94fc
+step 38 query pred 0 max 3 counts 3 3 0 0 d bb563e93 p a56f94fc
+step 39 learn 2 pred 1 max 3 counts 3 3 1 0 d 29001a1b p b5d0aa6c
+step 40 learn 0 pred 0 max 3 counts 3 3 1 0 d 3c2172fc p 978d07f7
+step 41 learn 0 pred 1 max 3 counts 3 3 1 0 d 0cc21443 p 624611e9
+step 42 learn 2 pred 0 max 3 counts 3 3 2 0 d ab378b83 p 87da8530
+step 43 set 3 3 pred 0 max 3 counts 3 3 2 3 d dc6bcd96 p 798635ef
+step 44 learn 3 pred 1 max 3 counts 3 3 2 3 d 355f2a2f p 89068b59
+step 45 query pred 1 max 3 counts 3 3 2 3 d 5f9fd880 p 89068b59
+step 46 query pred 1 max 3 counts 3 3 2 3 d 052954bd p 89068b59
+step 47 learn 3 pred 0 max 3 counts 3 3 2 3 d bd42565b p 1cc43e5d
+step 48 learn 2 pred 2 max 3 counts 3 3 3 3 d ce7cce46 p 9ef2e984
+step 49 learn 0 pred 1 max 3 counts 3 3 3 3 d c1cac958 p 98c54f92
+step 50 learn 1 pred 1 max 3 counts 3 3 3 3 d ddf0228c p 5e49ca90
+step 51 learn 2 pred 0 max 3 counts 3 3 3 3 d a7adb75b p 3ddd1685
+step 52 learn 2 pred 1 max 3 counts 3 3 3 3 d 26c7d10f p cb2c04d7
+step 53 forget 2 pred 1 max 3 counts 3 3 0 3 d dc02fc4a p 9a6edd8c
+step 54 learn 3 pred 3 max 3 counts 3 3 0 3 d e7c814f1 p c841d8d5
+step 55 learn 2 pred 1 max 3 counts 3 3 1 3 d 5d71e90c p b18dc433
+step 56 learn 2 pred 1 max 3 counts 3 3 2 3 d b8f289a8 p ac5c2744
+step 57 learn 1 pred 2 max 3 counts 3 3 2 3 d dda5840c p ec6d9d3d
+step 58 learn 2 pred 2 max 3 counts 3 3 3 3 d 8ab10b83 p e9da73fd
+step 59 learn 3 pred 0 max 3 counts 3 3 3 3 d aacb3301 p c30989d2
+step 60 learn 0 pred 0 max 3 counts 3 3 3 3 d cc7546ac p 66bd54df
+step 61 learn 0 pred 2 max 3 counts 3 3 3 3 d 1d8b7e12 p 9097f4de
+step 62 learn 2 pred 1 max 3 counts 3 3 3 3 d 61797455 p f0e03031
+step 63 learn 1 pred 2 max 3 counts 3 3 3 3 d 61591672 p bce4fdb3
+tie pred 1
+prototype f32 manhattan 8x4
+step 0 learn 1 pred 1 max 65535 counts 0 1 0 0 d 0146a1dd p 6d280dc4
+step 1 learn 3 pred 3 max 65535 counts 0 1 0 1 d f1cc7873 p fd12aaa3
+step 2 query pred 1 max 65535 counts 0 1 0 1 d 6b0f7dfa p fd12aaa3
+step 3 learn 3 pred 1 max 65535 counts 0 1 0 2 d 8a278e49 p 82107488
+step 4 query pred 1 max 65535 counts 0 1 0 2 d e505da54 p 82107488
+step 5 learn 2 pred 1 max 65535 counts 0 1 1 2 d 9a3cec2f p 2c3c7aab
+step 6 cap 0 pred 1 max 1 counts 0 1 1 1 d 730495e3 p 2c3c7aab
+step 7 cap 0 pred 1 max 1 counts 0 1 1 1 d 25c33f26 p 2c3c7aab
+step 8 learn 1 pred 1 max 1 counts 0 1 1 1 d 511b0568 p e90d738d
+step 9 query pred 3 max 1 counts 0 1 1 1 d b6f7d230 p e90d738d
+step 10 cap 3 pred 3 max 3 counts 0 1 1 1 d cc2db707 p e90d738d
+step 11 cap 3 pred 1 max 3 counts 0 1 1 1 d ebf9a145 p e90d738d
+step 12 query pred 3 max 3 counts 0 1 1 1 d def46785 p e90d738d
+step 13 learn 0 pred 2 max 3 counts 1 1 1 1 d 039d99e2 p d5367309
+step 14 learn 0 pred 2 max 3 counts 2 1 1 1 d 9e218466 p 265e01fa
+step 15 learn 1 pred 0 max 3 counts 2 2 1 1 d abcb51cf p af88dd1b
+step 16 learn 3 pred 2 max 3 counts 2 2 1 2 d 5160a0ef p aac2b395
+step 17 learn 3 pred 0 max 3 counts 2 2 1 3 d 34fc5635 p aff9c19a
+step 18 learn 2 pred 3 max 3 counts 2 2 2 3 d a221d94c p 4d2279ea
+step 19 query pred 0 max 3 counts 2 2 2 3 d 2dbe09c2 p 4d2279ea
+step 20 learn 1 pred 3 max 3 counts 2 3 2 3 d 3fac4a90 p c0f009ef
+step 21 learn 3 pred 1 max 3 counts 2 3 2 3 d ec7608d7 p c8f25146
+step 22 learn 1 pred 1 max 3 counts 2 3 2 3 d 83f2aad9 p caeecce7
+step 23 learn 1 pred 3 max 3 counts 2 3 2 3 d c541002c p 09b1bda1
+step 24 learn 1 pred 1 max 3 counts 2 3 2 3 d 7446a966 p c6e17939
+step 25 cap 3 pred 1 max 3 counts 2 3 2 3 d bcfa7b85 p c6e17939
+step 26 learn 2 pred 3 max 3 counts 2 3 3 3 d baa88d7b p 3e91351b
+step 27 query pred 1 max 3 counts 2 3 3 3 d 087b7e4a p 3e91351b
+step 28 learn 1 pred 1 max 3 counts 2 3 3 3 d 065999b6 p b144bee9
+step 29 query pred 0 max 3 counts 2 3 3 3 d 4748aa10 p b144bee9
+step 30 forget 2 pred 3 max 3 counts 2 3 0 3 d d2107202 p a59016d0
+step 31 learn 3 pred 3 max 3 counts 2 3 0 3 d f3e68e52 p 1ca38008
+step 32 learn 0 pred 3 max 3 counts 3 3 0 3 d f82362f7 p adfb14e9
+step 33 set 0 4 pred 1 max 3 counts 3 3 0 3 d d908172c p 0b830936
+step 34 query pred 0 max 3 counts 3 3 0 3 d 4c15c447 p 0b830936
+step 35 learn 3 pred 1 max 3 counts 3 3 0 3 d 3446eda2 p d20d85e4
+step 36 learn 3 pred 3 max 3 counts 3 3 0 3 d 78482fc7 p ef719666
+step 37 learn 1 pred 3 max 3 counts 3 3 0 3 d 4a61d91f p e0596a2c
+step 38 query pred 3 max 3 counts 3 3 0 3 d c5fc9bf5 p e0596a2c
+step 39 learn 2 pred 3 max 3 counts 3 3 1 3 d cb4af5fd p 567663ce
+step 40 query pred 1 max 3 counts 3 3 1 3 d 4e4099f5 p 567663ce
+step 41 query pred 3 max 3 counts 3 3 1 3 d a031f3b0 p 567663ce
+step 42 cap 65535 pred 3 max 65535 counts 3 3 1 3 d d58cc643 p 567663ce
+step 43 learn 0 pred 1 max 65535 counts 4 3 1 3 d 6ef88802 p 4c9a6bfe
+step 44 forget 0 pred 3 max 65535 counts 0 3 1 3 d 0a5b8889 p ad773053
+step 45 query pred 3 max 65535 counts 0 3 1 3 d 40b0388c p ad773053
+step 46 learn 1 pred 3 max 65535 counts 0 4 1 3 d 0f4639f0 p c7270a3a
+step 47 learn 3 pred 1 max 65535 counts 0 4 1 4 d 3f0daf05 p 23275248
+step 48 learn 2 pred 3 max 65535 counts 0 4 2 4 d 28df617c p 88f1ef97
+step 49 query pred 3 max 65535 counts 0 4 2 4 d 95e62f95 p 88f1ef97
+step 50 learn 3 pred 2 max 65535 counts 0 4 2 5 d ae768410 p cf53e335
+step 51 query pred 2 max 65535 counts 0 4 2 5 d 2aacd661 p cf53e335
+step 52 learn 1 pred 1 max 65535 counts 0 5 2 5 d f102f84c p 92f847f2
+step 53 set 2 3 pred 1 max 65535 counts 0 5 3 5 d 3b2db7bb p 6f504a6a
+step 54 query pred 3 max 65535 counts 0 5 3 5 d f1bef301 p 6f504a6a
+step 55 learn 3 pred 1 max 65535 counts 0 5 3 6 d b7c9b6c5 p 8b176cf7
+step 56 query pred 1 max 65535 counts 0 5 3 6 d f8a28224 p 8b176cf7
+step 57 learn 1 pred 1 max 65535 counts 0 6 3 6 d 7614e1e9 p 491cdc37
+step 58 learn 0 pred 3 max 65535 counts 1 6 3 6 d 2c55b629 p d3dc80e8
+step 59 set 1 0 pred 0 max 65535 counts 1 0 3 6 d a3faa7ae p 071e91a4
+step 60 learn 2 pred 3 max 65535 counts 1 0 4 6 d f79d2d29 p a789702b
+step 61 query pred 3 max 65535 counts 1 0 4 6 d d6cd3fd9 p a789702b
+step 62 forget 0 pred 3 max 65535 counts 0 0 4 6 d 1fe3f45a p aaf7faf4
+step 63 learn 2 pred 2 max 65535 counts 0 0 5 6 d 2eed5a86 p 981c6f6b
+tie pred 1

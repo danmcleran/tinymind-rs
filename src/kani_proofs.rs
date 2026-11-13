@@ -994,3 +994,79 @@ mod fft {
         }
     }
 }
+
+/// The fine-tuning heads: the softmax's exp stays in [0, 1] for every
+/// non-positive argument and is 0 at or below -6; the dense head (both losses)
+/// and the prototype head never panic for any parameters, inputs, classes
+/// (out of range too), rates and caps, and no class count exceeds the cap.
+mod head {
+    use crate::head::{DenseHead, ManhattanDistance, PrototypeHead, SoftmaxExp, SquaredErrorLoss};
+    use crate::qformat::{Q8_8, Q16_16, Scalar};
+
+    fn any_q8_8() -> Q8_8 {
+        Q8_8::from_raw(kani::any())
+    }
+
+    #[kani::proof]
+    fn softmax_exp_in_unit_range() {
+        let x = Q16_16::from_raw(kani::any());
+        kani::assume(x <= Q16_16::ZERO);
+        let y = x.softmax_exp();
+        assert!(y >= Q16_16::ZERO && y <= Q16_16::ONE);
+        if x <= Q16_16::from_int(-6) {
+            assert!(y == Q16_16::ZERO);
+        }
+        let x = any_q8_8();
+        kani::assume(x <= Q8_8::ZERO);
+        let y = x.softmax_exp();
+        assert!(y >= Q8_8::ZERO && y <= Q8_8::ONE);
+        if x <= Q8_8::from_int(-6) {
+            assert!(y == Q8_8::ZERO);
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn dense_head_never_panics() {
+        let mut head = DenseHead::<Q8_8, 2, 2>::from_weights(
+            [[any_q8_8(), any_q8_8()], [any_q8_8(), any_q8_8()]],
+            [any_q8_8(), any_q8_8()],
+        );
+        let input = [any_q8_8(), any_q8_8()];
+        let mut deltas = [Q8_8::ZERO; 2];
+        let _ = head.train_class(&input, kani::any(), any_q8_8(), Some(&mut deltas));
+        let _ = head.predict(&input);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn dense_head_squared_error_never_panics() {
+        let mut head = DenseHead::<Q8_8, 2, 2, SquaredErrorLoss>::from_weights(
+            [[any_q8_8(), any_q8_8()], [any_q8_8(), any_q8_8()]],
+            [any_q8_8(), any_q8_8()],
+        );
+        let input = [any_q8_8(), any_q8_8()];
+        let targets = [any_q8_8(), any_q8_8()];
+        let _ = head.train(&input, &targets, any_q8_8(), None);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn prototype_head_never_panics_and_caps_counts() {
+        let mut head = PrototypeHead::<Q8_8, 2, 2, ManhattanDistance>::new();
+        head.set_prototype(kani::any(), &[any_q8_8(), any_q8_8()], kani::any());
+        head.set_maximum_count(kani::any());
+        head.set_prototype(kani::any(), &[any_q8_8(), any_q8_8()], kani::any());
+        head.learn(&[any_q8_8(), any_q8_8()], kani::any());
+        head.learn(&[any_q8_8(), any_q8_8()], kani::any());
+        if kani::any() {
+            head.forget(kani::any());
+        }
+        let query = [any_q8_8(), any_q8_8()];
+        let predicted = head.predict(&query);
+        assert!(predicted <= 2);
+        let _ = head.distance(&query, kani::any());
+        assert!(head.maximum_count() >= 1);
+        assert!(head.count(0) <= head.maximum_count() && head.count(1) <= head.maximum_count());
+    }
+}
