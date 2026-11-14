@@ -46,8 +46,8 @@ The boards run the same program and print the same report. Its hash covers every
 | | NUCLEO-F411RE (Cortex-M4F, 100 MHz) | NUCLEO-L031K6 (Cortex-M0+, 32 MHz) |
 |---|---:|---:|
 | Training, 3,000 steps (signal generation included) | 0.27 s | 4.5 s |
-| One training step | 8,489 cycles (85 µs) | 38,569 cycles (1.2 ms) |
-| One detection (forward pass and error) | 1,611 cycles (16 µs) | 8,096 cycles (253 µs) |
+| One training step | 8,489 cycles (85 µs) | 38,557 cycles (1.2 ms) |
+| One detection (forward pass and error) | 1,611 cycles (16 µs) | 8,084 cycles (253 µs) |
 | Stack, over the empty harness | 3.8 KB | 3.6 KB |
 | Flash, over the empty harness | 18.6 KB | 18.3 KB |
 

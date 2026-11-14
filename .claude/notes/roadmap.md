@@ -88,11 +88,12 @@ left, roughly by expected gain:
   CortexM4Model scheduler; no safe code shape fixed them (`.claude/rules/bench.md`).
   Filed upstream as llvm/llvm-project#241851 (2026-11-12); watch it, and
   re-measure the anomaly workload when a fix reaches rustc's LLVM.
-- **Toolchain for board timings (2026-11-13):** every table so far was measured
-  with local rustc 1.99.1 (LLVM 23.1.1); CI already runs stable 1.100.0. No
-  update was made then (no ROI on its own). Before the next board run, run
-  `rustup update stable` and re-measure every workload, not just the changed
-  one, so a table never mixes compilers.
+- **Toolchain for board timings:** every table was re-measured on 2026-11-14
+  with rustc 1.100.0 (LLVM 23.1.5), the stable CI runs. Most figures moved by
+  0-0.3%; the largest moves were L031 KWS at opt s +0.9% and its max pool
+  -4.9%. When stable moves again, update and re-measure every workload, not
+  just the changed one, so a table never mixes compilers (raw notes in
+  `.claude/rules/bench.md`).
 
 ## Release history (as CLAUDE.md recorded it; CHANGELOG.md is the full record)
 
