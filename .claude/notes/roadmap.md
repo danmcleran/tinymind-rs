@@ -21,8 +21,10 @@ what to port next, and update it when a step is done.
   a never-inlined row update (2026-11-13) took the F411 step to 9,371 (27%
   behind) and the L031 to 51,252 (2% ahead); with the M4 machine scheduler off
   the F411 step is 8,001 (8% behind), so the rest is mostly
-  llvm/llvm-project#241851. Open, small: the anomaly/xor update loops are
-  unswitched on `clip` at opt 3 (+340 to +768 B on the L031).
+  llvm/llvm-project#241851. The MLP (xor) clips in a pass before the update
+  since 2026-11-13 (no unswitched copy); `optimizer::update_all` (anomaly)
+  still has two copies (+340 B on the L031): every fix tried cost cycles or
+  bytes (`.claude/rules/bench.md`).
 
 Next steps follow `reports/Embedded Rust ML priorities.md` (local, not committed):
 Dan chose to port what matters most to embedded Rust developers, not the smallest

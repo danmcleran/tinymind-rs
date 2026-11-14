@@ -120,7 +120,7 @@ The xor network (2-4-1, tanh hidden, sigmoid output, SGD with momentum), trained
 
 | | F411 Q16.16 | F411 Q8.8 | L031 Q16.16 | L031 Q8.8 |
 |---|---:|---:|---:|---:|
-| Cycles per training step | 1,233 | 479 | 5,961 | 3,050 |
+| Cycles per training step | 1,232 | 478 | 5,957 | 3,046 |
 | Time per step | 12.3 µs | 4.8 µs | 186 µs | 95 µs |
 | Inference cycles | 1,104 | 368 | 4,149 | 1,572 |
 

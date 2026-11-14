@@ -221,7 +221,7 @@ L031 and 784 B on the F411 (a second copy of each loop).
 
 | | F411 Q16.16 | F411 Q8.8 | L031 Q16.16 | L031 Q8.8 |
 |---|---:|---:|---:|---:|
-| Cycles per training step | 1,233 | 479 | 5,961 | 3,050 |
+| Cycles per training step | 1,232 | 478 | 5,957 | 3,046 |
 | Time per step | 12.3 us | 4.8 us | 186 us | 95 us |
 | Inference cycles (median) | 1,104 | 368 | 4,149 | 1,572 |
 
