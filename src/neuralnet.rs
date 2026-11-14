@@ -325,11 +325,28 @@ where
             self.acceleration_rate,
         );
 
-        let clip = self.gradient_clip;
+        // Clip every gradient first (weights and bias weights alike, as the
+        // C++ does), so the updates below see no clipping option. Each
+        // gradient was just computed and only its update reads it, so the
+        // results are the same as clipping inside the update. With the option
+        // inside, LLVM compiled the whole update twice, once per value of
+        // the option, at opt-level 3 (up to 944 B on Cortex-M).
+        if let Some(range) = self.gradient_clip {
+            let clip = |c: &mut Connection<V>| c.gradient = clip_gradient(c.gradient, range);
+            self.hidden
+                .iter_mut()
+                .for_each(|n| n.connections.iter_mut().for_each(clip));
+            self.hidden_bias.connections.iter_mut().for_each(clip);
+            self.input
+                .iter_mut()
+                .for_each(|n| n.connections.iter_mut().for_each(clip));
+            self.input_bias.connections.iter_mut().for_each(clip);
+        }
+        let clip = None;
 
         // One optimizer step (C++ `beginTrainingStep`), then the output layer
         // and the hidden layer, each neuron's incoming connections followed by
-        // its bias connection, all clipped alike.
+        // its bias connection.
         self.optimizer.begin_step();
         for o in 0..OUT {
             for h in 0..HID {

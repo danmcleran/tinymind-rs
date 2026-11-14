@@ -19,8 +19,14 @@ break the API).
   `DenseHead` training step takes 7.5% fewer cycles on the Cortex-M4F and 2.2%
   fewer on the Cortex-M0+, and the anomaly example's training step 3.7% and
   3.0% fewer; xor training is within 1%. At `opt-level = 3` the bench images
-  grow by up to 216 B (heads), 340 B (anomaly, Cortex-M0+) and 768 B (xor),
-  as LLVM now keeps two copies of the anomaly and xor update loops.
+  grow by up to 216 B (heads) and 340 B (anomaly, Cortex-M0+): LLVM now keeps
+  two copies of `NeuralNetwork`'s update loop, one per gradient-clipping
+  setting.
+- `MultilayerPerceptron` clips its gradients in a pass of its own before the
+  update, instead of inside it, with the same results. The cheaper multiply
+  above had made LLVM compile its whole update twice at `opt-level = 3`, once
+  per clipping setting; the xor bench images are now 288-944 B smaller than
+  that, at the same speed without clipping and up to 3% slower with it.
 
 ## [0.3.4] - 2026-11-13
 
