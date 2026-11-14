@@ -44,7 +44,7 @@ The [`int8` API reference]({{ site.baseurl }}/api/tinymind/int8/) has a compiled
 
 The C++ layers gather patches, tile output rows and pair filters for speed; the Rust layers fold the zero point into each filter's bias, hold its weights and a prepared requantizer across the pixels, and read windows inside the input as slices. A convolution over two or more input channels widens its input rows and each filter's weights to 16 bits first and adds the products in pairs; one over a single channel gathers each window once and runs its filters in pairs; pointwise layers run two pixels at a time, and with 32 or more input channels two filters as well. Both add the same integer products, so the results are the same. On the boards the Rust layers run a keyword-spotting shaped network in 12-26% fewer cycles than tinymind (C++)'s portable build, the MLPerf DS-CNN and ResNet-8 each in 31% fewer ([On-board results]({{ site.baseurl }}/benchmarks)).
 
-On Cortex-M4, M7 and M33 those pairs of 16-bit products can become `SMLAD` instructions, from plain Rust, if LLVM is allowed to analyse long sums: add `-C llvm-args=-arm-parallel-dsp-load-limit=512` to the target's `rustflags` in `.cargo/config.toml`. It is an LLVM internal option, not a stable Rust one; on the F411 it took the ResNet-8 from 58.8M to 38.3M cycles.
+On Cortex-M4, M7 and M33 those pairs of 16-bit products can become `SMLAD` instructions, from plain Rust, if LLVM is allowed to analyse long sums: add `-C llvm-args=-arm-parallel-dsp-load-limit=512` to the target's `rustflags` in `.cargo/config.toml`. It is an LLVM internal option, not a stable Rust one; on the F411 it took the ResNet-8 from 58.8M to 38.5M cycles.
 
 ## Recurrent cells
 

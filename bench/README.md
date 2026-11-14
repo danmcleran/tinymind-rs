@@ -80,8 +80,9 @@ samples, so the numbers sit next to the tinymind (C++) ones.
 
 ## Results
 
-Every Rust figure was measured 2026-11-11 on both boards, with the build
-settings below. Rust 1.99.1. C++ figures are tinymind (C++)'s own
+Every Rust figure in the tables was re-measured on both boards on 2026-11-14
+with Rust 1.100.0 (LLVM 23.1.5) and the build settings below; a section that
+gives an earlier date is describing how a figure got there. C++ figures are tinymind (C++)'s own
 (`docs/benchmarks.md`, gcc 13.2.1 `-O3`), measured on these same boards.
 
 ### Build settings
@@ -198,15 +199,15 @@ scalar `-O3`: 15,591, 4,169, 1,288.
 
 | Framework | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **35,710** | **1.12 ms** | **5,948 B** | **232 B** |
+| **tinymind-rs** | **35,711** | **1.12 ms** | **5,948 B** | **232 B** |
 | tinymind (C++) | 32,644 | 1.02 ms | 6,136 B | 224 B |
 | TFLM (any build) | does not fit 32 KB | - | 38.3-50.0 KB | - |
 | emlearn float32 (software float) | 707,113 | 22.1 ms | 18,988 B | 972 B |
 
-The same code measured 36,811 cycles in the profile image, whose extra code
+The same code measured 36,813 cycles in the profile image, whose extra code
 moves it in flash: with one wait state and a prefetch buffer the M0+ is
 sensitive to code placement (tinymind (C++) saw the same, #192). Per layer (profile
-image): fc0 26,611, fc1 6,761, fc2 3,054; tinymind (C++) scalar `-O3`: 23,185,
+image): fc0 26,612, fc1 6,761, fc2 3,055; tinymind (C++) scalar `-O3`: 23,185,
 6,956, 2,696.
 
 The dense layers check their requantizers once per call: when every one
@@ -221,9 +222,9 @@ L031 and 784 B on the F411 (a second copy of each loop).
 
 | | F411 Q16.16 | F411 Q8.8 | L031 Q16.16 | L031 Q8.8 |
 |---|---:|---:|---:|---:|
-| Cycles per training step | 1,232 | 478 | 5,957 | 3,046 |
+| Cycles per training step | 1,232 | 478 | 5,942 | 3,046 |
 | Time per step | 12.3 us | 4.8 us | 186 us | 95 us |
-| Inference cycles (median) | 1,104 | 368 | 4,149 | 1,572 |
+| Inference cycles (median) | 1,104 | 368 | 4,134 | 1,572 |
 
 First measured 2026-11-10, after tinymind (C++) #267 made the SGD step round to
 nearest (and #266 the momentum terms toward zero). Cycles per step are
@@ -240,11 +241,11 @@ plus peak stack, each minus the baseline's, as tinymind (C++) counts them.
 
 | | F411 | L031 |
 |---|---:|---:|
-| Training, 3,000 steps, signal generation included | 27,291,491 cycles (0.27 s) | 143,252,336 cycles (4.5 s) |
-| One training step (median) | 8,489 | 38,569 |
-| One detection: forward pass + error (median) | 1,611 | 8,096 |
+| Training, 3,000 steps, signal generation included | 27,291,488 cycles (0.27 s) | 143,216,336 cycles (4.5 s) |
+| One training step (median) | 8,489 | 38,557 |
+| One detection: forward pass + error (median) | 1,611 | 8,084 |
 | Stack (peak) / over baseline | 4,304 B / +3,792 B | 4,232 B / +3,628 B |
-| Flash (text) / over baseline | 31,936 B / +18,620 B | 30,732 B / +18,296 B |
+| Flash (text) / over baseline | 31,936 B / +18,620 B | 30,728 B / +18,292 B |
 
 On the F411 the step is 35% slower with `target-cpu=cortex-m4` (6,279 cycles
 without it): LLVM's scheduler spills the unrolled Q16.16 products to the stack,
@@ -271,12 +272,12 @@ the Rust one. Measured 2026-11-13.
 
 | | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
 |---|---:|---:|---:|---:|
-| `DenseHead` training step | **9,371** (94 us) | 7,391 | **51,252** (1.60 ms) | 52,223 |
-| the same, with the embedding's gradient | **12,524** | 9,190 | **67,508** | 68,591 |
+| `DenseHead` training step | **9,374** (94 us) | 7,391 | **51,222** (1.60 ms) | 52,223 |
+| the same, with the embedding's gradient | **12,520** | 9,190 | **67,464** | 68,591 |
 | `DenseHead` prediction | **2,866** | 2,247 | **15,580** | 15,864 |
 | `PrototypeHead` update | **501** | 3,894 | **7,760** | 20,074 |
 | `PrototypeHead` prediction | **3,245** | 2,281 | **15,693** | 16,063 |
-| Whole adaptation, 30 epochs x 30 samples | **8,173,070** (82 ms) | 6,453,948 | **45,194,924** (1.41 s) | 46,510,967 |
+| Whole adaptation, 30 epochs x 30 samples | **8,173,070** (82 ms) | 6,453,948 | **45,171,603** (1.41 s) | 46,510,967 |
 
 On the M0+ the Rust is level with the C++ or up to 3% ahead (a whole adaptation
 takes 3% fewer cycles), and the prototype update takes 61% fewer: it divides
@@ -311,13 +312,13 @@ and the same output hash in both languages (2026-11-12):
 | **tinymind-rs**, `static` layer, `opt-level = 3` | **41,991** (420 us) | **91,430** (2.86 ms) |
 | **tinymind-rs**, `static` layer, `opt-level = "s"` | **44,255** | **96,784** |
 | tinymind-rs, layer built at run time (`fft-runtime`), `opt-level = 3` | 45,619 | 97,221 |
-| tinymind-rs, layer built at run time, `opt-level = "s"` | 43,864 | 98,389 |
+| tinymind-rs, layer built at run time, `opt-level = "s"` | 43,864 | 98,387 |
 | tinymind (C++), gcc `-O3`, best measured | about 82,900 | about 101,600 |
 | tinymind (C++), gcc `-Os`, best measured | about 85,200 | 142,482 |
 
 On the L031 the Rust transform takes about 10% fewer cycles than the best
 gcc `-O3` build of tinymind (C++) and 32% fewer than its best `-Os` build;
-on the F411 about half the cycles of either. The squared magnitudes of the 256 bins take 2,731 and 4,863
+on the F411 about half the cycles of either. The squared magnitudes of the 256 bins take 2,731 and 4,895
 cycles. Code for the transform (L031): 2,056 B at `"s"` and 3,808 B at 3; the
 C++'s 392 B at `-Os` and 584 B at `-O3` plus its 1 KB bit-reversal table; both
 also read the 512 B of twiddle tables. The workload as a whole adds 2,920 B
@@ -383,20 +384,20 @@ data plus peak stack, each above the baseline's.
 
 | | F411 (100 MHz) | L031 (32 MHz) |
 |---|---:|---:|
-| **tinymind-rs**, cycles | **189,097** (1.89 ms) | **649,286** (20.3 ms) |
+| **tinymind-rs**, cycles | **189,015** (1.89 ms) | **649,090** (20.3 ms) |
 | tinymind (C++) scalar, `-O3` | 254,766 | 740,279 |
 | tinymind (C++) +SMLAD, `-O3` | 181,853 | – (no SMLAD on the M0+) |
 | TFLM int8 (CMSIS-NN), `-O3` | 576,368 | does not fit in 32 KB |
-| **tinymind-rs**, code + weights / RAM | **8,056 B / 4,420 B** | **8,352 B / 4,848 B** |
+| **tinymind-rs**, code + weights / RAM | **8,072 B / 4,420 B** | **8,096 B / 4,592 B** |
 | tinymind (C++) scalar `-O3`, flash / RAM | 6,608 B / 5,308 B | 8,220 B / 5,596 B |
-| tinymind-rs at `opt-level = "s"`, cycles / code + weights | 537,118 / 4,372 B | 1,171,205 / 4,120 B |
+| tinymind-rs at `opt-level = "s"`, cycles / code + weights | 537,193 / 4,372 B | 1,181,849 / 4,128 B |
 
 Per layer (cycles, each layer timed separately; C++ scalar `-O3` in brackets):
 
 | Layer | F411 | L031 |
 |---|---:|---:|
 | conv 3x3, 8 filters | 98,406 (183,748) | 400,956 (510,808) |
-| max pool 2x2 | 9,527 (10,158) | 20,192 (24,921) |
+| max pool 2x2 | 9,446 (10,158) | 19,210 (24,921) |
 | depthwise 3x3 | 22,061 (20,668) | 69,218 (72,544) |
 | pointwise 8 -> 16 | 43,652 (41,835) | 138,649 (135,798) |
 | global average pool | 2,583 (2,282) | 4,704 (5,756) |
@@ -404,8 +405,8 @@ Per layer (cycles, each layer timed separately; C++ scalar `-O3` in brackets):
 
 - **Faster than the portable C++.** The Rust model takes 26% fewer cycles than
   tinymind (C++)'s portable build on the M4F and 12% fewer on the M0+, and is
-  4.0% behind its SMLAD build on the M4F, without SIMD. It uses less RAM, 22%
-  more flash on the M4F and 2% more on the M0+ than the C++ at `-O3`. At
+  3.9% behind its SMLAD build on the M4F, without SIMD. It uses less RAM, 22%
+  more flash on the M4F and 2% less on the M0+ than the C++ at `-O3`. At
   `opt-level = "s"` the network's code and weights take 4.1-4.4 KB, and it
   runs 1.8-2.8x slower. The figures in the next two points were measured
   before the build settings were matched to the C++ (2026-11-11).
@@ -449,14 +450,14 @@ includes its tensor arena).
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **10,790,589** | **107.9 ms** | **49,712 B** | **16,812 B** |
+| **tinymind-rs** | **10,806,923** | **108.1 ms** | **46,952 B** | **16,812 B** |
 | tinymind (C++), scalar | 15,677,563 | 156.8 ms | 53,072 B | 17,288 B |
 | tinymind (C++), +SMLAD | 8,011,750 | 80.1 ms | 53,452 B | 17,276 B |
 | TFLM int8 (CMSIS-NN) | 9,583,099 | 95.8 ms | 148,864 B | 24,288 B |
 | TFLM int8 (reference kernels) | 67,484,238 | 674.8 ms | 101,944 B | 23,764 B |
 
 - The Rust model takes 31% fewer cycles than tinymind (C++)'s portable build, in
-  6% less flash and 3% less RAM; tinymind (C++)'s SMLAD build and TFLM with
+  12% less flash and 3% less RAM; tinymind (C++)'s SMLAD build and TFLM with
   CMSIS-NN are faster. The parallel-DSP flag does not change it. Its four
   64-channel pointwise layers run two filters at two pixels at a time (2x2,
   from 32 input channels), as tinymind (C++)'s SMLAD kernel blocks them: each
@@ -481,14 +482,14 @@ Same method and caveats. Test inputs are 24,576 B.
 
 | F411, 100 MHz | Cycles | Time | Code + weights | RAM |
 |---|---:|---:|---:|---:|
-| **tinymind-rs** | **58,807,476** | **588.1 ms** | **130,504 B** | **57,428 B** |
-| tinymind-rs, `-C llvm-args=-arm-parallel-dsp-load-limit=512` | 38,273,811 | 382.7 ms | 125,496 B | 57,428 B |
+| **tinymind-rs** | **58,755,508** | **587.6 ms** | **128,160 B** | **57,428 B** |
+| tinymind-rs, `-C llvm-args=-arm-parallel-dsp-load-limit=512` | 38,519,503 | 385.2 ms | 123,216 B | 57,428 B |
 | tinymind (C++), scalar | 85,326,662 | 853.3 ms | 124,140 B | 54,352 B |
 | tinymind (C++), +SMLAD | 26,368,775 | 263.7 ms | 112,352 B | 54,400 B |
 | TFLM int8 (CMSIS-NN) | 37,372,049 | 373.7 ms | 191,212 B | 56,464 B |
 | TFLM int8 (reference kernels) | 191,555,451 | 1,915.6 ms | 155,412 B | 55,372 B |
 
-- 31% fewer cycles than tinymind (C++)'s portable build, in 5% more flash and
+- 31% fewer cycles than tinymind (C++)'s portable build, in 3% more flash and
   6% more RAM. Before the tuning below: 91,085,417 cycles, 101,076 B, 86,520 B
   (and the figures in these points, before the build settings were matched).
 - Convolutions over several input channels (`conv2d_band` in
@@ -512,8 +513,8 @@ Same method and caveats. Test inputs are 24,576 B.
   `i16` products added to one sum into `SMLAD`, on M4/M7/M33, with no
   intrinsics. It analyses at most 16 loads by default and gives up on the
   fully unrolled sums here; with `-C
-  llvm-args=-arm-parallel-dsp-load-limit=512` it pairs them: 38,273,811 cycles,
-  1.45 times tinymind (C++)'s +SMLAD build (which reads four int8 values per
+  llvm-args=-arm-parallel-dsp-load-limit=512` it pairs them: 38,519,503 cycles,
+  1.46 times tinymind (C++)'s +SMLAD build (which reads four int8 values per
   load with `SXTB16`, an intrinsic). The flag changes no other workload here.
   It is an LLVM internal option, so it is opt-in, not in this bench's config.
 - The 16-bit path on the M0+ (no DSP): a 10x10x8 3x3 convolution measured
@@ -532,8 +533,8 @@ Cycles for one prediction (median of 33), first held-out sample.
 | Gradient boosting, nested `if`s | 1,680 (17 µs) | 2,627 (82 µs) |
 | Random forest, pool walk / nested `if`s | 2,054 / 461 | 3,936 / 820 |
 | First 36 trees (256 nodes, 3 KB): flash / SRAM copy | 3,793 / 3,345 | 6,586 / 6,170 |
-| `quantize_features` (13 float divisions) | 637 | 11,292 |
-| Flash (text), whole image | 56,388 B | 32,520 B (opt-level s) |
+| `quantize_features` (13 float divisions) | 637 | 11,241 |
+| Flash (text), whole image | 56,388 B | 32,512 B (opt-level s) |
 
 - **Where the model is.** The node pools are immutable `static`s, so
   cortex-m-rt's linker script puts them in `.rodata`, in flash (the
@@ -624,10 +625,10 @@ Some of the host's report is not reproduced on the device:
 The image is large, and the LSTM sweep needs 73 KB of stack, so
 `qemu-bench.sh` gives the microbit 2 MB of flash and 256 KB of RAM (`-global
 nrf51-soc.flash-size`, `sram-size`; `memory-qemu-m0.x`); only the instruction
-set is under test there. On the F411 it fits only at opt-level s (411 KB with
-the FFT sweep, 2026-11-12; at 3 it exceeds the 512 KB): `OPT=s
-WORKLOADS=sweeps bench/run.sh f411` matches on every sweep, in 355,889,556
-cycles (3.6 s), with 73 KB of stack. It does not fit the L031. Planted defects that
+set is under test there. On the F411 it fits only at opt-level s (424,448 B
+of flash, 2026-11-14; at 3 it exceeds the 512 KB): `OPT=s
+WORKLOADS=sweeps bench/run.sh f411` matches on every sweep, in 351,627,680
+cycles (3.5 s), with 73 KB of stack. It does not fit the L031. Planted defects that
 fail it: the trees' `<=` as `<` (`tree_match=0`), a rounding Q-format
 multiply (the oracle, the LSTM and Q-learning sweeps), a positive number
 divided by zero giving max - 1 (only the oracle), addition subtracting a's
