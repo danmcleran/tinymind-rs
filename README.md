@@ -55,9 +55,9 @@ built for the same boards with the same models, inputs and compiler settings:
   gcc `-O3` build of the C++.
 - XOR trained on the board reproduces the desktop weight trajectory bit for bit.
 - Head-only fine-tuning: a `DenseHead` adapts to 30 labelled samples (30
-  epochs) in 89 ms on the M4F and 1.44 s on the M0+, with tinymind (C++)'s
-  results; on the M0+ in about the C++'s time, on the M4F in 37% more cycles.
-- The anomaly example trains on the chip in 0.28 s on the M4F and 4.6 s on the
+  epochs) in 82 ms on the M4F and 1.41 s on the M0+, with tinymind (C++)'s
+  results; on the M0+ in 3% fewer cycles than the C++, on the M4F in 27% more.
+- The anomaly example trains on the chip in 0.27 s on the M4F and 4.5 s on the
   M0+.
 
 On the M4F, tinymind (C++)'s build with the Cortex-M4's DSP instructions (SMLAD)

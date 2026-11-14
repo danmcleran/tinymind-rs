@@ -140,7 +140,11 @@ the anomaly step took 6,518 cycles and detection 1,326, the KWS-shaped network
 (+1.9%). The L031 images were identical with and without it. The images keep
 the default. After the dense layers' one-rounding loop (later that day) the
 int8 MLP takes 19,149 cycles, 20,073 without `target-cpu` (+4.8%), 20,358
-with the scheduler off (+6.3%) and 18,930 top-down (-1.1%).
+with the scheduler off (+6.3%) and 18,930 top-down (-1.1%). After the cheaper
+round-to-nearest multiply (2026-11-13) the anomaly step takes 8,489 cycles,
+6,279 without `target-cpu`, 6,479 with the scheduler off and 8,182 top-down:
+top-down scheduling no longer avoids the training step's spills. Detection is
+unchanged (1,611, 1,332, 1,350 and 1,326).
 
 F411 images are built with every loop aligned to 16 bytes (`-C
 llvm-args=-align-loops=16`, in `bench/.cargo/config.toml`), so a timing does not
@@ -217,8 +221,8 @@ L031 and 784 B on the F411 (a second copy of each loop).
 
 | | F411 Q16.16 | F411 Q8.8 | L031 Q16.16 | L031 Q8.8 |
 |---|---:|---:|---:|---:|
-| Cycles per training step | 1,226 | 475 | 5,974 | 3,054 |
-| Time per step | 12.3 us | 4.8 us | 187 us | 95 us |
+| Cycles per training step | 1,233 | 479 | 5,961 | 3,050 |
+| Time per step | 12.3 us | 4.8 us | 186 us | 95 us |
 | Inference cycles (median) | 1,104 | 368 | 4,149 | 1,572 |
 
 First measured 2026-11-10, after tinymind (C++) #267 made the SGD step round to
@@ -236,13 +240,13 @@ plus peak stack, each minus the baseline's, as tinymind (C++) counts them.
 
 | | F411 | L031 |
 |---|---:|---:|
-| Training, 3,000 steps, signal generation included | 28,158,032 cycles (0.28 s) | 146,801,293 cycles (4.6 s) |
-| One training step (median) | 8,811 | 39,763 |
+| Training, 3,000 steps, signal generation included | 27,291,491 cycles (0.27 s) | 143,252,336 cycles (4.5 s) |
+| One training step (median) | 8,489 | 38,569 |
 | One detection: forward pass + error (median) | 1,611 | 8,096 |
-| Stack (peak) / over baseline | 4,304 B / +3,792 B | 4,272 B / +3,668 B |
-| Flash (text) / over baseline | 31,984 B / +18,668 B | 30,392 B / +17,956 B |
+| Stack (peak) / over baseline | 4,304 B / +3,792 B | 4,232 B / +3,628 B |
+| Flash (text) / over baseline | 31,936 B / +18,620 B | 30,732 B / +18,296 B |
 
-On the F411 the step is 37% slower with `target-cpu=cortex-m4` (6,437 cycles
+On the F411 the step is 35% slower with `target-cpu=cortex-m4` (6,279 cycles
 without it): LLVM's scheduler spills the unrolled Q16.16 products to the stack,
 see Build settings. Measured
 2026-11-10, a training step already cost more than before (F411 4,250, L031
@@ -252,7 +256,7 @@ one shared, never-inlined update function, which keeps the L031 image inside
 its 32 KB (F411 +10%).
 
 The flash delta includes the demo's signal generator and its formatted report.
-The L031 image leaves about 2.3 KB of the part's 32 KB free; the training step
+The L031 image leaves about 2.0 KB of the part's 32 KB free; the training step
 and the scorer are `#[inline(never)]` so the training and timing loops share
 one copy (inlined twice at `opt-level = 3` it did not fit), and so is the
 library's per-layer update loop (`optimizer::update_all`).
@@ -267,29 +271,34 @@ the Rust one. Measured 2026-11-13.
 
 | | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
 |---|---:|---:|---:|---:|
-| `DenseHead` training step | **10,129** (101 us) | 7,391 | **52,389** (1.64 ms) | 52,223 |
-| the same, with the embedding's gradient | **13,339** | 9,190 | **68,785** | 68,591 |
+| `DenseHead` training step | **9,371** (94 us) | 7,391 | **51,252** (1.60 ms) | 52,223 |
+| the same, with the embedding's gradient | **12,524** | 9,190 | **67,508** | 68,591 |
 | `DenseHead` prediction | **2,866** | 2,247 | **15,580** | 15,864 |
 | `PrototypeHead` update | **501** | 3,894 | **7,760** | 20,074 |
 | `PrototypeHead` prediction | **3,245** | 2,281 | **15,693** | 16,063 |
-| Whole adaptation, 30 epochs x 30 samples | **8,867,482** (89 ms) | 6,453,948 | **46,221,901** (1.44 s) | 46,510,967 |
+| Whole adaptation, 30 epochs x 30 samples | **8,173,070** (82 ms) | 6,453,948 | **45,194,924** (1.41 s) | 46,510,967 |
 
-On the M0+ the two are level, apart from the prototype update, where the
-Rust takes 61% fewer cycles: it divides each value by the class count with a
-32-bit division (`__aeabi_idiv`; LLVM narrows the 64-bit division, whose
-operands come from 32-bit values), the C++ with a 64-bit one
-(`__aeabi_ldivmod`). Same results. On the M4F the Rust dense step takes 37%
-more cycles than the C++. Most of the prediction gap is LLVM's machine
-scheduler under `target-cpu=cortex-m4` (see Build settings): with
-`-C llvm-args=-enable-misched=false` the prediction takes 2,136 cycles and the
-prototype prediction 2,565, but the step still 9,385, so most of the step's
-gap remains. Separately, a cheaper form of the step's round-to-nearest
-multiply (not in this release) takes the step from 10,129 to 9,339 cycles with
-the same results.
+On the M0+ the Rust is level with the C++ or up to 3% ahead (a whole adaptation
+takes 3% fewer cycles), and the prototype update takes 61% fewer: it divides
+each value by the class count with a 32-bit division (`__aeabi_idiv`; LLVM
+narrows the 64-bit division, whose operands come from 32-bit values), the C++
+with a 64-bit one (`__aeabi_ldivmod`). Same results. On the M4F the Rust dense
+step takes 27% more cycles than the C++. Most of that gap, and most of the
+prediction gap, is LLVM's machine scheduler under `target-cpu=cortex-m4` (see
+Build settings): with `-C llvm-args=-enable-misched=false` the step takes
+8,001 cycles, the prediction 2,136 and the prototype prediction 2,565.
+
+The step got faster on 2026-11-13 (from 10,129 and 52,389 cycles, 9,385 on
+the F411 with the scheduler off; same hashes): the round-to-nearest multiply
+adds the product's sign word instead of rounding the magnitude and restoring
+the sign, and `DenseHead::update` calls a never-inlined function per weight
+row. With the cheaper multiply alone, LLVM unrolled the
+six rows at `opt-level = 3`, which cost 1.5 KB of flash on both boards and
+made the L031 slower (51,804 cycles) than the rolled loop (51,252).
 
 The heads hold 792 and 784 bytes; the image's stack (3,404 B on the F411,
 3,600 B on the L031, +2,892 B and +2,996 B over baseline) is mostly the
-copies the timing loops make. Flash over baseline, 18,376 B and 18,524 B,
+copies the timing loops make. Flash over baseline, 18,552 B and 18,740 B,
 includes the 4.6 KB of workload data and the report's formatting.
 
 ### Quantized FFT, 256 points

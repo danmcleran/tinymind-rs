@@ -255,14 +255,15 @@ macro_rules! impl_qvalue {
             pub fn mul_round_nearest(self, rhs: Self) -> Self {
                 let () = Self::FORMAT_OK;
                 let product = <$wide>::from(self.0) * <$wide>::from(rhs.0);
-                // Round |product| half up, then restore the sign, without a
-                // branch: sign is 0 or -1, and (x ^ sign) - sign negates x
-                // when sign is -1. |product| <= 2^(2 * storage bits - 2), so
-                // neither the negation nor adding half can overflow.
+                // Half away from zero without a branch: adding half and then
+                // flooring rounds half up, which is right for a positive
+                // product; a negative one also gets the sign word, -1, added,
+                // which turns its ties down (away from zero) and leaves every
+                // other value where half up puts it. Kani proves it for every
+                // input. |product| <= 2^(2 * storage bits - 2), so the sum
+                // cannot overflow.
                 let sign = product >> (<$wide>::BITS - 1);
-                let magnitude = (product ^ sign) - sign;
-                let rounded = (magnitude + (1 << (FRAC - 1))) >> FRAC;
-                Self(((rounded ^ sign) - sign) as $s)
+                Self(((product + (1 << (FRAC - 1)) + sign) >> FRAC) as $s)
             }
 
             /// Divide by a whole number, truncating toward zero (C++

@@ -120,8 +120,8 @@ The xor network (2-4-1, tanh hidden, sigmoid output, SGD with momentum), trained
 
 | | F411 Q16.16 | F411 Q8.8 | L031 Q16.16 | L031 Q8.8 |
 |---|---:|---:|---:|---:|
-| Cycles per training step | 1,226 | 475 | 5,974 | 3,054 |
-| Time per step | 12.3 µs | 4.8 µs | 187 µs | 95 µs |
+| Cycles per training step | 1,233 | 479 | 5,961 | 3,050 |
+| Time per step | 12.3 µs | 4.8 µs | 186 µs | 95 µs |
 | Inference cycles | 1,104 | 368 | 4,149 | 1,572 |
 
 Cycles per step are averages over all 20,000 steps. The example skips training while its error is within the fixed-point zero tolerance, and both networks solve XOR within about 2,000 steps (see the [XOR example]({{ site.baseurl }}/xor)). Inference time depends on where the activations fall in the tanh and sigmoid tables, so it moves with the trained weights.
@@ -132,8 +132,8 @@ The [anomaly-detection example]({{ site.baseurl }}/anomaly) on the boards: an 8-
 
 | | F411 | L031 |
 |---|---:|---:|
-| Training, 3,000 steps (signal generation included) | 0.28 s | 4.6 s |
-| One training step | 8,811 cycles | 39,763 cycles |
+| Training, 3,000 steps (signal generation included) | 0.27 s | 4.5 s |
+| One training step | 8,489 cycles | 38,569 cycles |
 | One detection | 1,611 cycles | 8,096 cycles |
 
 ## Fine-tuning heads
@@ -142,14 +142,14 @@ The [fine-tuning heads]({{ site.baseurl }}/fine-tuning) of the gas sensor exampl
 
 | Median cycles | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
 |---|---:|---:|---:|---:|
-| `DenseHead` training step | **10,129** (101 µs) | 7,391 | **52,389** (1.64 ms) | 52,223 |
-| the same, with the embedding's gradient | **13,339** | 9,190 | **68,785** | 68,591 |
+| `DenseHead` training step | **9,371** (94 µs) | 7,391 | **51,252** (1.60 ms) | 52,223 |
+| the same, with the embedding's gradient | **12,524** | 9,190 | **67,508** | 68,591 |
 | `DenseHead` prediction | **2,866** | 2,247 | **15,580** | 15,864 |
 | `PrototypeHead` update | **501** | 3,894 | **7,760** | 20,074 |
 | `PrototypeHead` prediction | **3,245** | 2,281 | **15,693** | 16,063 |
-| Whole adaptation, 30 epochs × 30 samples | **89 ms** | 65 ms | **1.44 s** | 1.45 s |
+| Whole adaptation, 30 epochs × 30 samples | **82 ms** | 65 ms | **1.41 s** | 1.45 s |
 
-A whole adaptation, 900 training steps, takes 89 ms on the M4F and 1.44 s on the M0+; a `PrototypeHead` learns a sample in 5 µs and 243 µs. On the M0+ the Rust and the C++ are level, except the prototype update, where the Rust divides in 32 bits and the C++ in 64 (61% fewer cycles). On the M4F the Rust dense step takes 37% more cycles than the C++, and most of that gap remains with LLVM's machine scheduler turned off; most of the prediction gap, though, is that scheduler for the Cortex-M4 (the same issue as the anomaly demo's). The details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
+A whole adaptation, 900 training steps, takes 82 ms on the M4F and 1.41 s on the M0+; a `PrototypeHead` learns a sample in 5 µs and 243 µs. On the M0+ the Rust is level with the C++ or up to 3% ahead, and the prototype update, where the Rust divides in 32 bits and the C++ in 64, takes 61% fewer cycles. On the M4F the Rust dense step takes 27% more cycles than the C++; most of that gap, and of the prediction gap, is LLVM's machine scheduler for the Cortex-M4 (the same issue as the anomaly demo's): with it turned off, the step takes 8% more cycles than the C++. The details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
 
 ## Quantized FFT
 
@@ -198,7 +198,7 @@ The SMLAD rows are the exception, on both sides: tinymind (C++)'s +SMLAD build a
 
 ## Settings for your own build
 
-The crate cannot choose compiler settings for you: `-C target-cpu` and `-C llvm-args` come from your application's build (its `.cargo/config.toml` or `RUSTFLAGS`), and they apply to the whole program. On a Cortex-M4 they move these workloads both ways. F411 cycles, 2026-11-12, every output hash matching, each column against the first:
+The crate cannot choose compiler settings for you: `-C target-cpu` and `-C llvm-args` come from your application's build (its `.cargo/config.toml` or `RUSTFLAGS`), and they apply to the whole program. On a Cortex-M4 they move these workloads both ways. F411 cycles, 2026-11-12 (the anomaly demo 2026-11-13), every output hash matching, each column against the first:
 
 | | `target-cpu=cortex-m4` (the figures above) | no `target-cpu` (the `thumbv7em` target's generic tuning) | `cortex-m4`, scheduler off | `cortex-m4`, top-down scheduling |
 |---|---:|---:|---:|---:|
@@ -206,14 +206,14 @@ The crate cannot choose compiler settings for you: `-C target-cpu` and `-C llvm-
 | KWS-shaped CNN | 189,097 | −1.5% | +4.0% | −7.3% |
 | MLPerf DS-CNN | 10,790,589 | +32.3% | +1.0% | +10.1% |
 | MLPerf ResNet-8 | 58,807,476 | +9.5% | +4.6% | +1.4% |
-| Anomaly demo: training step | 8,811 | −26.9% | −27.2% | −26.0% |
+| Anomaly demo: training step | 8,489 | −26.0% | −23.7% | −3.6% |
 | Anomaly demo: detection | 1,611 | −17.3% | −16.2% | −17.7% |
 
 "Scheduler off" adds `-C llvm-args=-enable-misched=false`, "top-down" adds `-C llvm-args=-misched-prera-direction=topdown`.
 
 - **Set `target-cpu` for your core.** No other column beats it on every int8 network, and leaving it out costs the DS-CNN a third. The KWS-shaped CNN is the exception: it runs faster without it or with top-down scheduling (the int8 MLP is 1% faster top-down too).
 - **Part of that third is this crate's own code shape.** Pointwise layers with 32 or more input channels run two filters at two pixels at a time. Their inner loop keeps four running sums, and it fits in the registers only when LLVM schedules instructions before allocating registers, which `target-cpu=cortex-m4` turns on and the generic tuning does not. So that kernel makes the DS-CNN 9% faster with `target-cpu` and 8% slower without it (14,277,919 cycles, against 13,225,965 for the one-filter loop it replaced; with the generic tuning and `-C llvm-args=-enable-misched=true`, 13,379,028). Smaller layers, such as the KWS-shaped CNN's 8-channel pointwise layer, keep the one-filter loop.
-- **The exception is small fixed-point (Q16.16) networks.** With `cortex-m4` (and `cortex-m3`, `cortex-m33`, `cortex-m35p`, which share its scheduling model) LLVM's instruction scheduler starts all of a small, fully unrolled layer's 64-bit products before narrowing any of them, and the products spill to the stack; this is [llvm/llvm-project#241851](https://github.com/llvm/llvm-project/issues/241851). If a network like the anomaly demo dominates your program, measure the top-down setting: it recovers the anomaly demo's loss and even speeds up the int8 MLP by 1%, but costs the DS-CNN 10%.
+- **The exception is small fixed-point (Q16.16) networks.** With `cortex-m4` (and `cortex-m3`, `cortex-m33`, `cortex-m35p`, which share its scheduling model) LLVM's instruction scheduler starts all of a small, fully unrolled layer's 64-bit products before narrowing any of them, and the products spill to the stack; this is [llvm/llvm-project#241851](https://github.com/llvm/llvm-project/issues/241851). If a network like the anomaly demo dominates your program, measure the scheduler-off setting: it recovers most of the anomaly demo's loss and costs the int8 networks above 1-6%. Top-down scheduling recovers the demo's detection but only 4% of its training step.
 - **`-C llvm-args` options are LLVM internals**, with no stability promise: the top-down option was named `-misched-topdown` in older LLVM versions, and rustc rejects an option its LLVM does not know, so a Rust update can break a build that uses one. Measure on your own model before relying on one, and recheck when you update Rust.
 - On the Cortex-M0+ none of this applies: `cortex-m0plus` does not run that scheduler, and the L031 images were identical with and without the top-down option.
 
@@ -221,7 +221,7 @@ The crate cannot choose compiler settings for you: `-C target-cpu` and `-C llvm-
 
 - Exactness holds on both cores: int8 inference and every training step match the C++ (and, for the anomaly demo, the host run) bit for bit on the chips themselves, not only on a desktop.
 - Against tinymind (C++)'s portable C++ the Rust MLP takes 9% fewer cycles on the Cortex-M4F and is 9–13% slower on the Cortex-M0+; the KWS-shaped network takes 12-26% fewer cycles, the MLPerf DS-CNN 31% and ResNet-8 31% fewer on the M4F. It has no SMLAD backend of its own: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee; only the 16-bit pairs of multi-channel convolutions reach `SMLAD`, through LLVM, with the opt-in option above.
-- These are two boards, one model per task and one compiler version. Tuning for the core moves workloads both ways: on the F411, `target-cpu=cortex-m4` makes the int8 networks faster and the anomaly demo's training step 37% slower; see [Settings for your own build](#settings-for-your-own-build).
+- These are two boards, one model per task and one compiler version. Tuning for the core moves workloads both ways: on the F411, `target-cpu=cortex-m4` makes the int8 networks faster and the anomaly demo's training step 35% slower; see [Settings for your own build](#settings-for-your-own-build).
 - F411 timings are taken with every loop aligned to 16 bytes, so they do not move when unrelated code changes shift the hot loops in flash (without it, a 10-byte shift once made the MLPerf DS-CNN 11% slower). The alignment padding costs 0-2% on most workloads, up to 7.8% on the tree walks and 12% at `opt-level = "s"`. The L031 figures, without it, stay sensitive to placement.
 
 The harness, method and raw details are in [`bench/`](https://github.com/danmcleran/tinymind-rs/tree/master/bench) in the repository.

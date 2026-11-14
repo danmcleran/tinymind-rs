@@ -17,11 +17,12 @@ what to port next, and update it when a step is done.
   `tinymind::head` and `examples/gas_sensor_drift.rs` (notes in
   `.claude/rules/core.md`). This was report priority 2's last item. Timed on
   both boards with the C++ alongside (2026-11-13, workload `head`): level on
-  the L031, 37% behind on the F411 step. Open: `mul_round_nearest` as
-  `(p + half + (p >> 63)) >> FRAC` (Kani-proved; F411 head step -7.8%, anomaly
-  -3.7%) costs L031 flash (+340 B anomaly, +1.5 KB head image): decide in its
-  own PR; the rest of the F411 gap is mostly the M4 machine scheduler
-  (llvm/llvm-project#241851).
+  the L031, 37% behind on the F411 step. The cheaper `mul_round_nearest` plus
+  a never-inlined row update (2026-11-13) took the F411 step to 9,371 (27%
+  behind) and the L031 to 51,252 (2% ahead); with the M4 machine scheduler off
+  the F411 step is 8,001 (8% behind), so the rest is mostly
+  llvm/llvm-project#241851. Open, small: the anomaly/xor update loops are
+  unswitched on `clip` at opt 3 (+340 to +768 B on the L031).
 
 Next steps follow `reports/Embedded Rust ML priorities.md` (local, not committed):
 Dan chose to port what matters most to embedded Rust developers, not the smallest

@@ -320,9 +320,7 @@ impl<V: Scalar, const IN: usize, const OUT: usize, L> DenseHead<V, IN, OUT, L> {
             .zip(&mut self.biases)
             .zip(output_deltas)
         {
-            for (w, &x) in row.iter_mut().zip(input) {
-                *w += learning_rate.mul_round_nearest(delta * x);
-            }
+            update_row(row, input, delta, learning_rate);
             *b += learning_rate.mul_round_nearest(delta);
         }
     }
@@ -367,6 +365,21 @@ impl<V: Scalar, const IN: usize, const OUT: usize, L: HeadLoss<V>> DenseHead<V, 
     ) -> usize {
         let targets = core::array::from_fn(|o| if o == class { V::ONE } else { V::ZERO });
         self.train(input, &targets, learning_rate, input_deltas)
+    }
+}
+
+/// One row of [`DenseHead::update`]. Never inlined: inlined, LLVM unrolls
+/// the loop over the rows at `opt-level = 3`, which cost about 1.5 KB of
+/// flash on Cortex-M and made the Cortex-M0+ slower, not faster.
+#[inline(never)]
+fn update_row<V: Scalar, const IN: usize>(
+    row: &mut [V; IN],
+    input: &[V; IN],
+    delta: V,
+    learning_rate: V,
+) {
+    for (w, &x) in row.iter_mut().zip(input) {
+        *w += learning_rate.mul_round_nearest(delta * x);
     }
 }
 

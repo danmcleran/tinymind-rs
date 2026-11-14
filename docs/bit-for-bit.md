@@ -79,7 +79,7 @@ int8 MLP, one inference:
 | STM32F411 | 19,149 cycles | 21,002 cycles | 6,236 B |
 | STM32L031 | 35,710 cycles | 32,644 cycles | 5,948 B |
 
-TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,226 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction. Arm DSP intrinsics are not available in stable Rust, so the port has no SMLAD path of its own; only its multi-channel convolutions reach SMLAD, through LLVM, when built with an opt-in LLVM option. Convolutional networks are faster than the C++'s portable build even without it: the KWS-shaped CNN by 12-26%, the MLPerf Tiny DS-CNN and ResNet-8 by 31% each (full tables on [On-board results]({{ site.baseurl }}/benchmarks)).
+TensorFlow Lite Micro does not fit in the L031's 32 KB at all. The method and the full tables are on [On-board results]({{ site.baseurl }}/benchmarks). On the F411, one Q16.16 XOR training step takes 1,233 cycles, about 12 microseconds. The C++ build is faster on the F411 when it uses the Cortex-M4's SMLAD instruction. Arm DSP intrinsics are not available in stable Rust, so the port has no SMLAD path of its own; only its multi-channel convolutions reach SMLAD, through LLVM, when built with an opt-in LLVM option. Convolutional networks are faster than the C++'s portable build even without it: the KWS-shaped CNN by 12-26%, the MLPerf Tiny DS-CNN and ResNet-8 by 31% each (full tables on [On-board results]({{ site.baseurl }}/benchmarks)).
 
 ## Shipping a trained network
 
