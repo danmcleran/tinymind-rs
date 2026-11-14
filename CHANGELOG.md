@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-14
+
 ### Changed
 
 - `QValue::mul_round_nearest`, the rounding of the SGD step and of
@@ -15,18 +17,19 @@ break the API).
   restoring the sign. Results are unchanged (a Kani proof covers every input
   of six Q formats, and every golden and board hash still matches).
   `DenseHead::update` updates each weight row in a function of its own, so
-  LLVM does not unroll the six rows at `opt-level = 3`. On the boards, a
+  LLVM does not unroll the loop over the rows at `opt-level = 3`. On the boards, a
   `DenseHead` training step takes 7.5% fewer cycles on the Cortex-M4F and 2.2%
   fewer on the Cortex-M0+, and the anomaly example's training step 3.7% and
-  3.0% fewer; xor training is within 1%. At `opt-level = 3` the bench images
-  grow by up to 216 B (heads) and 340 B (anomaly, Cortex-M0+): LLVM now keeps
-  two copies of `NeuralNetwork`'s update loop, one per gradient-clipping
-  setting.
+  3.0% fewer; xor training is within 1%. At `opt-level = 3` the `DenseHead`
+  bench images grow by 176-216 B, and the anomaly image on the Cortex-M0+ by
+  about 340 B: LLVM now keeps two copies of `NeuralNetwork`'s update loop, one
+  per gradient-clipping setting.
 - `MultilayerPerceptron` clips its gradients in a pass of its own before the
   update, instead of inside it, with the same results. The cheaper multiply
   above had made LLVM compile its whole update twice at `opt-level = 3`, once
-  per clipping setting; the xor bench images are now 288-944 B smaller than
-  that, at the same speed without clipping and up to 3% slower with it.
+  per clipping setting. With the separate pass the xor bench images are
+  between 688 B smaller and 288 B larger than in 0.3.4, at the same speed
+  without clipping and about 3% slower with it (Cortex-M4F, Q8.8).
 
 ## [0.3.4] - 2026-11-13
 
@@ -495,7 +498,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.1...v0.3.2

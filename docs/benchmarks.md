@@ -13,6 +13,8 @@ The crate has been run on two microcontroller boards, with the same boards, cloc
 | NUCLEO-F411RE | Cortex-M4F | 100 MHz |
 | NUCLEO-L031K6 | Cortex-M0+ (no DSP extension, no hardware divide; 32 KB flash, 8 KB RAM) | 32 MHz |
 
+The Rust figures on this page were measured with Rust 1.100.0 (LLVM 23.1.5) on 2026-11-14.
+
 ## Exactness
 
 | Check | F411 | L031 |
@@ -138,7 +140,7 @@ The [anomaly-detection example]({{ site.baseurl }}/anomaly) on the boards: an 8-
 
 ## Fine-tuning heads
 
-The [fine-tuning heads]({{ site.baseurl }}/fine-tuning) of the gas sensor example, `DenseHead<Q16_16, 32, 6>` and `PrototypeHead<Q16_16, 32, 6>`, on 30 labelled 32-value embeddings (6 classes, 5 each). tinymind (C++)'s figures come from its own benchmark harness and board code running its heads on the same data, gcc `-O3`; every hash matches. Measured 2026-11-13.
+The [fine-tuning heads]({{ site.baseurl }}/fine-tuning) of the gas sensor example, `DenseHead<Q16_16, 32, 6>` and `PrototypeHead<Q16_16, 32, 6>`, on 30 labelled 32-value embeddings (6 classes, 5 each). tinymind (C++)'s figures come from its own benchmark harness and board code running its heads on the same data, gcc `-O3`; every hash matches. tinymind (C++) measured 2026-11-13, the Rust figures 2026-11-14 (Rust 1.100.0).
 
 | Median cycles | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
 |---|---:|---:|---:|---:|
@@ -153,7 +155,7 @@ A whole adaptation, 900 training steps, takes 82 ms on the M4F and 1.41 s on the
 
 ## Quantized FFT
 
-One 256-point forward transform of `int8::QFft1D` on random 16-bit samples, with tinymind (C++)'s twiddle tables; the spectrum's hash equals the one tinymind (C++) computes. tinymind (C++)'s figures come from its own benchmark harness and board code, running `QFFT1D<256>::forward` on the same signal and tables. Measured 2026-11-12, prefetch on.
+One 256-point forward transform of `int8::QFft1D` on random 16-bit samples, with tinymind (C++)'s twiddle tables; the spectrum's hash equals the one tinymind (C++) computes. tinymind (C++)'s figures come from its own benchmark harness and board code, running `QFFT1D<256>::forward` on the same signal and tables. tinymind (C++) measured 2026-11-12, the Rust figures 2026-11-14 (Rust 1.100.0); prefetch on.
 
 | Forward transform, cycles | F411 | L031 |
 |---|---:|---:|
@@ -213,7 +215,7 @@ The crate cannot choose compiler settings for you: `-C target-cpu` and `-C llvm-
 
 - **Set `target-cpu` for your core.** No other column beats it on every int8 network, and leaving it out costs the DS-CNN a third. The KWS-shaped CNN is the exception: it runs faster without it or with top-down scheduling (the int8 MLP is 1% faster top-down too).
 - **Part of that third is this crate's own code shape.** Pointwise layers with 32 or more input channels run two filters at two pixels at a time. Their inner loop keeps four running sums, and it fits in the registers only when LLVM schedules instructions before allocating registers, which `target-cpu=cortex-m4` turns on and the generic tuning does not. So that kernel makes the DS-CNN 9% faster with `target-cpu` and 8% slower without it (14,277,919 cycles, against 13,225,965 for the one-filter loop it replaced; with the generic tuning and `-C llvm-args=-enable-misched=true`, 13,379,028). Smaller layers, such as the KWS-shaped CNN's 8-channel pointwise layer, keep the one-filter loop.
-- **The exception is small fixed-point (Q16.16) networks.** With `cortex-m4` (and `cortex-m3`, `cortex-m33`, `cortex-m35p`, which share its scheduling model) LLVM's instruction scheduler starts all of a small, fully unrolled layer's 64-bit products before narrowing any of them, and the products spill to the stack; this is [llvm/llvm-project#241851](https://github.com/llvm/llvm-project/issues/241851). If a network like the anomaly demo dominates your program, measure the scheduler-off setting: it recovers most of the anomaly demo's loss and costs the int8 networks above 1-6%. Top-down scheduling recovers the demo's detection but only 4% of its training step.
+- **The exception is small fixed-point (Q16.16) networks.** With `cortex-m4` (and `cortex-m3`, `cortex-m33`, `cortex-m35p`, which share its scheduling model) LLVM's instruction scheduler starts all of a small, fully unrolled layer's 64-bit products before narrowing any of them, and the products spill to the stack; this is [llvm/llvm-project#241851](https://github.com/llvm/llvm-project/issues/241851). If a network like the anomaly demo dominates your program, measure the scheduler-off setting: it recovers most of the anomaly demo's loss and costs the int8 networks above 1-6%. Top-down scheduling recovers the demo's detection but takes only 3.6% off its training step.
 - **`-C llvm-args` options are LLVM internals**, with no stability promise: the top-down option was named `-misched-topdown` in older LLVM versions, and rustc rejects an option its LLVM does not know, so a Rust update can break a build that uses one. Measure on your own model before relying on one, and recheck when you update Rust.
 - On the Cortex-M0+ none of this applies: `cortex-m0plus` does not run that scheduler, and the L031 images were identical with and without the top-down option.
 
