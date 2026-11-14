@@ -1,6 +1,8 @@
 // tinymind's NeuralNetwork with one, two and three hidden layers (HiddenLayers<...>),
 // trained with its default SGD with momentum, plus two regressions with a linear
-// output and gradient clipping, and runs with the Adam and RMSprop optimizers. Weights are initialised from
+// output and gradient clipping, runs with the Adam and RMSprop optimizers, and
+// runs with L2 weight decay, a step-decay learning-rate schedule and early
+// stopping. Weights are initialised from
 // glibc rand() as tinymind's examples do; samples come from an LCG. After every
 // training step an FNV-1a hash absorbs every weight, so any difference at any
 // step changes the printed hashes. tests/golden/deep_mlp/stdout.txt is this
@@ -18,6 +20,9 @@
 #include "gradientClipping.hpp"
 #include "adam.hpp"
 #include "rmsprop.hpp"
+#include "weightDecay.hpp"
+#include "learningRateSchedule.hpp"
+#include "earlyStopping.hpp"
 
 static uint32_t gState;
 
@@ -249,6 +254,59 @@ static void runAdaptive(const char* name, const size_t (&sizes)[L], const unsign
     }
 }
 
+// run() with a weight-decay policy, a learning-rate schedule and an optimizer,
+// an explicit learning rate in raw units, and an EarlyStopping<_, 150> fed
+// every step's error (before training; the run never stops). Prints the
+// learning rate at each checkpoint, and at the end the first step at which
+// shouldStop() returned true, how many steps it did, and the best error.
+template<typename ValueType, template<typename> class Hidden, size_t IN, typename HL, size_t L, size_t OUT,
+         typename Decay, typename Schedule, typename Opt>
+static void runPolicies(const char* name, const size_t (&sizes)[L], const unsigned seed, const int steps, const int lrRaw)
+{
+    typedef typename ValueType::FullWidthValueType Raw;
+    typedef tinymind::FixedPointTransferFunctions<ValueType, RandomWeights<ValueType>, Hidden<ValueType>,
+                                                  tinymind::SigmoidActivationPolicy<ValueType>, OUT,
+                                                  tinymind::DefaultNetworkInitializer<ValueType>,
+                                                  tinymind::MeanSquaredErrorCalculator<ValueType, OUT>,
+                                                  tinymind::ZeroToleranceCalculator<ValueType>,
+                                                  tinymind::NullGradientClippingPolicy<ValueType>,
+                                                  Decay, Schedule, Opt> TF;
+    typedef tinymind::NeuralNetwork<ValueType, IN, HL, OUT, TF> NN;
+    const int one = static_cast<int>(tinymind::Constants<ValueType>::one().getValue());
+
+    srand(seed);
+    static NN nn;
+    nn.setLearningRate(ValueType(static_cast<Raw>(lrRaw)));
+    tinymind::EarlyStopping<ValueType, 150> stopper;
+    int firstStop = 0;
+    int stopCount = 0;
+    gState = seed;
+    uint32_t hash = 0x811C9DC5u;
+    ValueType x[IN];
+    ValueType t[OUT];
+    for (int step = 1; step <= steps; ++step)
+    {
+        sample<ValueType, IN, OUT>(x, t, one);
+        nn.feedForward(x);
+        const ValueType error = nn.calculateError(t);
+        if (stopper.shouldStop(error))
+        {
+            if (firstStop == 0)
+                firstStop = step;
+            ++stopCount;
+        }
+        nn.trainNetwork(t);
+        absorbWeights<NN, ValueType, IN, L>(nn, hash, sizes, OUT);
+        if (step % 500 == 0)
+        {
+            std::printf("%s step=%d error=%d lr=%d hash=0x%08X\n", name, step, static_cast<int>(error.getValue()),
+                        static_cast<int>(nn.getLearningRate().getValue()), hash);
+        }
+    }
+    std::printf("%s stop first=%d count=%d best=%d\n", name, firstStop, stopCount,
+                static_cast<int>(stopper.getBestError().getValue()));
+}
+
 int main()
 {
     typedef tinymind::QValue<16, 16, true> Q16;
@@ -285,5 +343,25 @@ int main()
         "q8.8 4-8-6-3 rmsprop", deep2, 10, 2000, 8);
     runRegression<Q16, 3, tinymind::HiddenLayers<6, 4>, 2, 2, tinymind::GradientClipByValue<Q16>, Adam16>(
         "q16.16 3-6-4-2 linear clip[-1,1] adam", reg2, 11, 2000);
+
+    // Weight decay, step-decay schedule and early stopping. Lambda and factor
+    // are raw LSBs: 655/65536 = 0.01, 52429/65536 = 0.8, 192/256 = 0.75,
+    // 1311/65536 = 0.02, 62259/65536 = 0.95; the defaulted ones are
+    // tinymind's (L2WeightDecay<Q16> 66, L2WeightDecay<Q8> 1, factor 0.9).
+    runPolicies<Q16, tinymind::TanhActivationPolicy, 2, tinymind::HiddenLayers<4, 4>, 2, 1,
+                tinymind::L2WeightDecay<Q16, 0, 655>, tinymind::StepDecaySchedule<Q16, 300, 0, 52429>,
+                tinymind::NullOptimizerPolicy<Q16> >("q16.16 2-4-4-1 decay schedule", xorSizes, 13, 2000, 1 << 14);
+    runPolicies<Q8, tinymind::ReluActivationPolicy, 4, tinymind::HiddenLayers<8, 6>, 2, 3,
+                tinymind::L2WeightDecay<Q8>, tinymind::StepDecaySchedule<Q8, 250, 0, 192>,
+                tinymind::NullOptimizerPolicy<Q8> >("q8.8 4-8-6-3 decay schedule", deep2, 14, 2000, 64);
+    runPolicies<Q16, tinymind::ReluActivationPolicy, 4, tinymind::HiddenLayers<8, 6, 5>, 3, 3,
+                tinymind::L2WeightDecay<Q16>, tinymind::StepDecaySchedule<Q16, 400>, Adam16>(
+        "q16.16 4-8-6-5-3 adam decay schedule", deep3, 15, 2000, 1 << 11);
+    runPolicies<Q16, tinymind::TanhActivationPolicy, 2, tinymind::HiddenLayers<4, 4>, 2, 1,
+                tinymind::L2WeightDecay<Q16, 0, 655>, tinymind::StepDecaySchedule<Q16, 300, 0, 52429>,
+                RmsProp16>("q16.16 2-4-4-1 rmsprop decay schedule", xorSizes, 17, 2000, 1 << 10);
+    runPolicies<Q16, tinymind::TanhActivationPolicy, 2, tinymind::HiddenLayers<4>, 1, 1,
+                tinymind::L2WeightDecay<Q16, 0, 1311>, tinymind::StepDecaySchedule<Q16, 200, 0, 62259>,
+                tinymind::NullOptimizerPolicy<Q16> >("q16.16 2-4-1 decay schedule", one4, 16, 2000, 1 << 14);
     return 0;
 }

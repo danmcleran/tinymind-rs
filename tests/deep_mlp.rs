@@ -1,6 +1,8 @@
 // NeuralNetwork with two and three hidden layers against tinymind's
 // NeuralNetwork<..., HiddenLayers<...>, ...>, two regressions with a linear
-// output and gradient clipping, and runs with the Adam and RMSprop optimizers. tests/golden/deep_mlp/stdout.txt is
+// output and gradient clipping, runs with the Adam and RMSprop optimizers, and
+// runs with weight decay, a step-decay schedule and early stopping.
+// tests/golden/deep_mlp/stdout.txt is
 // the output of scripts/cpp/deep_mlp.cpp: the same initial weights (glibc
 // rand(), as tinymind's examples draw them), the same samples, and an FNV-1a
 // hash of every weight after every training step. scripts/compare-with-cpp.sh
@@ -9,9 +11,10 @@
 use std::fmt::Write;
 
 use tinymind::rand::GlibcRand;
+use tinymind::training::{EarlyStopping, Scheduled, StepDecay, WeightDecay};
 use tinymind::{
     Adam, Dense, Layers, Linear, MultilayerPerceptron, NeuralNetwork, Q8_8, Q16_16, Relu, RmsProp,
-    Scalar, Sigmoid, Tanh,
+    Scalar, Sgd, Sigmoid, Tanh,
 };
 
 struct Lcg(u32);
@@ -194,6 +197,55 @@ macro_rules! run_adaptive {
     }};
 }
 
+/// The C++ runPolicies: run_adaptive! with weight decay (lambda, raw), a
+/// step-decay schedule (interval, factor raw) and an EarlyStopping with
+/// patience 150 fed every step's error.
+macro_rules! run_policies {
+    ($out:expr, $name:expr, $v:ty, $in:expr, $outn:expr, $layers:ty, [$($idx:tt),+], $opt:expr, $seed:expr, $steps:expr, $lr:expr, $lambda:expr, $interval:expr, $factor:expr) => {{
+        let one = <$v as Raw>::ONE_RAW;
+        let half = one / 2;
+        let mut rng = GlibcRand::new($seed);
+        let optimizer = Scheduled::new(
+            WeightDecay::new($opt, <$v>::from_raw_i32($lambda)),
+            StepDecay::new($interval, <$v>::from_raw_i32($factor)),
+        );
+        let mut nn = NeuralNetwork::<$layers, _>::with_optimizer(
+            || <$v>::from_raw_i32(rng.next_i32() % (2 * half + 1) - half),
+            optimizer,
+        );
+        nn.set_learning_rate(<$v>::from_raw_i32($lr));
+        let mut stopper = EarlyStopping::new(150);
+        let (mut first_stop, mut stop_count) = (0, 0);
+        let mut lcg = Lcg($seed);
+        let mut hash: u32 = 0x811C_9DC5;
+        for step in 1..=$steps {
+            let (x, t) = sample::<$v, $in, $outn>(&mut lcg);
+            nn.feed_forward(&x);
+            let error = nn.calculate_error(&t);
+            if stopper.should_stop(error) {
+                if first_stop == 0 {
+                    first_stop = step;
+                }
+                stop_count += 1;
+            }
+            nn.train(&t);
+            absorb_layers!(&mut hash, nn, $($idx),+);
+            if step % 500 == 0 {
+                writeln!(
+                    $out,
+                    "{} step={step} error={} lr={} hash=0x{hash:08X}",
+                    $name,
+                    error.to_raw_i32(),
+                    nn.learning_rate().to_raw_i32()
+                )
+                .unwrap();
+            }
+        }
+        let best = stopper.best_error().map_or(0, |e: $v| e.to_raw_i32());
+        writeln!($out, "{} stop first={first_stop} count={stop_count} best={best}", $name).unwrap();
+    }};
+}
+
 fn assert_layers<L: Layers>() {}
 
 #[test]
@@ -356,6 +408,75 @@ fn deep_mlp_matches_cpp() {
         adam16
     );
 
+    // Weight decay, step-decay schedule and early stopping (C++ runPolicies).
+    // tinymind's defaults: L2WeightDecay<Q16> lambda 66, L2WeightDecay<Q8> 1,
+    // StepDecaySchedule factor 0.9 (58982).
+    run_policies!(
+        out,
+        "q16.16 2-4-4-1 decay schedule",
+        Q16_16,
+        2,
+        1,
+        Xor16,
+        [0, 1, 2],
+        tinymind::Sgd,
+        13,
+        2000,
+        1 << 14,
+        655,
+        300,
+        52429
+    );
+    run_policies!(
+        out,
+        "q8.8 4-8-6-3 decay schedule",
+        Q8_8,
+        4,
+        3,
+        Deep8,
+        [0, 1, 2],
+        tinymind::Sgd,
+        14,
+        2000,
+        64,
+        1,
+        250,
+        192
+    );
+    run_policies!(
+        out,
+        "q16.16 4-8-6-5-3 adam decay schedule",
+        Q16_16,
+        4,
+        3,
+        Deep16,
+        [0, 1, 2, 3],
+        adam16,
+        15,
+        2000,
+        1 << 11,
+        66,
+        400,
+        58982
+    );
+    run_policies!(
+        out,
+        "q16.16 2-4-4-1 rmsprop decay schedule",
+        Q16_16,
+        2,
+        1,
+        Xor16,
+        [0, 1, 2],
+        rmsprop16,
+        17,
+        2000,
+        1 << 10,
+        655,
+        300,
+        52429
+    );
+    one_hidden_policies(&mut out);
+
     let golden = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/golden/deep_mlp/stdout.txt"
@@ -410,4 +531,69 @@ fn one_hidden_adam(out: &mut String, adam: Adam<Q16_16>) {
             .unwrap();
         }
     }
+}
+
+/// The C++ one-hidden-layer run with weight decay and a schedule
+/// (`HiddenLayers<4>`), here with MultilayerPerceptron.
+fn one_hidden_policies(out: &mut String) {
+    let name = "q16.16 2-4-1 decay schedule";
+    let half = Q16_16::ONE_RAW / 2;
+    let mut rng = GlibcRand::new(16);
+    // Schedule outside, decay inside: the other nesting from run_policies!.
+    let optimizer = WeightDecay::new(
+        Scheduled::new(Sgd, StepDecay::new(200, Q16_16::from_raw(62259))),
+        Q16_16::from_raw(1311),
+    );
+    let mut nn = MultilayerPerceptron::<Q16_16, Tanh, Sigmoid, 2, 4, 1, _>::with_optimizer(
+        || Q16_16::from_raw(rng.next_i32() % (2 * half + 1) - half),
+        optimizer,
+    );
+    nn.set_learning_rate(Q16_16::from_raw(1 << 14));
+    let mut stopper = EarlyStopping::new(150);
+    let (mut first_stop, mut stop_count) = (0, 0);
+    let mut lcg = Lcg(16);
+    let mut hash: u32 = 0x811C_9DC5;
+    for step in 1..=2000 {
+        let (x, t) = sample::<Q16_16, 2, 1>(&mut lcg);
+        nn.feed_forward(&x);
+        let error = nn.calculate_error(&t);
+        if stopper.should_stop(error) {
+            if first_stop == 0 {
+                first_stop = step;
+            }
+            stop_count += 1;
+        }
+        nn.train(&t);
+        for row in nn.input_weights() {
+            for w in row {
+                absorb(&mut hash, w.raw());
+            }
+        }
+        for w in nn.input_bias_weights() {
+            absorb(&mut hash, w.raw());
+        }
+        for row in nn.hidden_weights() {
+            for w in row {
+                absorb(&mut hash, w.raw());
+            }
+        }
+        for w in nn.hidden_bias_weights() {
+            absorb(&mut hash, w.raw());
+        }
+        if step % 500 == 0 {
+            writeln!(
+                out,
+                "{name} step={step} error={} lr={} hash=0x{hash:08X}",
+                error.raw(),
+                nn.learning_rate().raw()
+            )
+            .unwrap();
+        }
+    }
+    let best = stopper.best_error().map_or(0, |e| e.raw());
+    writeln!(
+        out,
+        "{name} stop first={first_stop} count={stop_count} best={best}"
+    )
+    .unwrap();
 }

@@ -81,6 +81,7 @@ use crate::activation::{Activation, Sigmoid, Tanh};
 use crate::neuralnet::{Connection, Neuron};
 use crate::optimizer::{Optimizer, Sgd, update_all};
 use crate::qformat::Scalar;
+use crate::training::decay_weights;
 
 /// The number of gates of an LSTM cell.
 pub const LSTM_GATES: usize = 4;
@@ -316,6 +317,13 @@ where
         self.gradient_clip = range;
     }
 
+    /// The learning rate the next training step will use: the one set with
+    /// [`set_learning_rate`](Self::set_learning_rate), as a
+    /// [`Scheduled`](crate::training::Scheduled) optimizer has decayed it so far.
+    pub fn learning_rate(&self) -> V {
+        self.learning_rate
+    }
+
     /// Clear the recurrent state: every cell's output h and state c become 0,
     /// so the next [`feed_forward`](Self::feed_forward) starts a new sequence
     /// (C++ `resetState`). Weights and optimizer state are kept.
@@ -453,6 +461,8 @@ where
         self.calculate_deltas(targets);
         self.calculate_gradients();
         self.update_weights();
+        // C++ stepLearningRate, after the update.
+        self.learning_rate = self.optimizer.next_learning_rate(self.learning_rate);
     }
 
     fn calculate_deltas(&mut self, targets: &[V; OUT]) {
@@ -518,6 +528,22 @@ where
             self.acceleration_rate,
         );
         let clip = self.gradient_clip;
+
+        // Weight decay on every weight but the bias weights (input, recurrent
+        // and hidden->output alike, as the C++ gated and plain updaters do),
+        // before the steps: no update reads the weight.
+        if let Some(lambda) = self.optimizer.weight_decay() {
+            let factor = self.learning_rate * lambda;
+            for cell in &mut self.hidden {
+                decay_weights(&mut cell.connections, factor);
+            }
+            for r in &mut self.recurrent {
+                decay_weights(r.connections.as_flattened_mut(), factor);
+            }
+            for n in &mut self.input {
+                decay_weights(n.connections.as_flattened_mut(), factor);
+            }
+        }
 
         // One optimizer step (C++ `beginTrainingStep`), then layer by layer
         // as the C++ does (output, recurrent, input). Each connection's update

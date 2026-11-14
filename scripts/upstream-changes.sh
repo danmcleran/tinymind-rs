@@ -31,6 +31,9 @@ PORTED=(
   cpp/gradientClipping.hpp
   cpp/weightDecay.hpp
   cpp/adam.hpp
+  cpp/weightDecay.hpp
+  cpp/learningRateSchedule.hpp
+  cpp/earlyStopping.hpp
   cpp/rmsprop.hpp
   cpp/densehead.hpp
   cpp/prototypehead.hpp

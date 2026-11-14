@@ -7,6 +7,7 @@ use core::fmt::Write;
 use tinymind::optimizer::Optimizer;
 use tinymind::rand::GlibcRand;
 use tinymind::recurrent::LstmNetwork;
+use tinymind::training::{Scheduled, StepDecay, WeightDecay};
 use tinymind::{Activation, Adam, Linear, Q8_8, Q16_16, Relu, Scalar, Sgd, Sigmoid, Tanh};
 
 struct Lcg(u32);
@@ -258,5 +259,34 @@ pub fn report(out: &mut impl Write) {
         1,
         None,
         adam16,
+    );
+    // Weight decay and a step-decay schedule: lambda 655/65536 = 0.01 and
+    // 0.8 every 300 steps; tinymind's L2WeightDecay<Q16> (66) with 0.9 every
+    // 400 under Adam.
+    run::<Q16_16, Tanh, Sigmoid, 2, 6, 3, _>(
+        out,
+        "q16.16 2-6-3 tanh/sigmoid decay schedule",
+        8,
+        2000,
+        0,
+        1,
+        None,
+        Scheduled::new(
+            WeightDecay::new(Sgd, Q16_16::from_raw(655)),
+            StepDecay::new(300, Q16_16::from_raw(52429)),
+        ),
+    );
+    run::<Q16_16, Tanh, Sigmoid, 2, 4, 2, _>(
+        out,
+        "q16.16 2-4-2 tanh/sigmoid adam decay schedule",
+        9,
+        2000,
+        1 << 11,
+        1,
+        None,
+        Scheduled::new(
+            WeightDecay::new(adam16, Q16_16::from_raw(66)),
+            StepDecay::new(400, Q16_16::from_raw(58982)),
+        ),
     );
 }

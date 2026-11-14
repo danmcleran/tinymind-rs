@@ -12,6 +12,17 @@ what to port next, and update it when a step is done.
   opt 3 41,991 / 91,430, opt s 44,255 / 96,784. **Open:** a bit-reversal table (~5K of the L031's ~9.3K reversal cycles, 512 B
   at N=256). Notes in `.claude/rules/int8.md`.
 
+- **Training controls (done, 2026-11-14):** `tinymind::training`: L2 weight
+  decay (`WeightDecay`) and step-decay schedule (`Scheduled` + `StepDecay`) as
+  optimizer wrappers, and `EarlyStopping` (C++ `weightDecay.hpp`,
+  `learningRateSchedule.hpp`, `earlyStopping.hpp`). Chosen as the highest-ROI
+  next port (2026-11-14): small, strengthens the on-device training story. It
+  unblocks the early-stopping half of `air_quality` and `lstm_sinusoid`
+  (both also need `teacherForcing.hpp`; `lstm_sinusoid` also `RoundUpPolicy`).
+  Other candidates from that review, in order: `predictive_maintenance` and
+  `optical_digits` (plain Q16.16 MLPs, API already there), the PyTorch
+  importer emitting the int8 LSTM, `QTreeCompactEval`, trainable GRU/Elman.
+
 - **Head-only fine-tuning (done, 2026-11-13):** tinymind #277 added
   `DenseHead`/`PrototypeHead` and the gas_sensor_drift adaptation; ported as
   `tinymind::head` and `examples/gas_sensor_drift.rs` (notes in

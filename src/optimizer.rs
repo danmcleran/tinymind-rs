@@ -7,7 +7,8 @@
 //! `RmsPropFloat` (C++ `AdamOptimizerFloat`, `RmsPropOptimizerFloat`; feature
 //! `std` or `libm`). Pass an adaptive optimizer with its hyperparameters to
 //! `with_optimizer` on [`NeuralNetwork`](crate::NeuralNetwork) or
-//! [`MultilayerPerceptron`](crate::MultilayerPerceptron).
+//! [`MultilayerPerceptron`](crate::MultilayerPerceptron). Weight decay and a
+//! learning-rate schedule wrap any of them ([`training`](crate::training)).
 //!
 //! Every optimizer updates the bias weights as it updates the other weights,
 //! and the network's gradient clipping applies to both. Adam's step count `t`
@@ -140,7 +141,7 @@ impl Default for RmsProp<crate::Q8_8> {
     }
 }
 
-mod sealed {
+pub(crate) mod sealed {
     use super::*;
 
     /// What a network needs from its optimizer. Sealed: the crate implements it
@@ -153,11 +154,27 @@ mod sealed {
         /// `clip` if set). Since tinymind (C++) #264 every optimizer updates
         /// bias weights by the same rule as the other weights.
         fn update_weight(&self, c: &mut Connection<V>, rates: (V, V, V), clip: Option<(V, V)>);
+        /// L2 weight-decay lambda (C++ `WeightDecayPolicy`), or `None` for
+        /// none (`NullWeightDecayPolicy`, every optimizer but
+        /// [`WeightDecay`](crate::training::WeightDecay)). A constant for
+        /// those, so a network without decay compiles no decay code.
+        fn weight_decay(&self) -> Option<V> {
+            None
+        }
+        /// C++ `stepLearningRate`: called once after each update with the
+        /// rate that update used; returns the rate for the next one. The
+        /// identity (`FixedLearningRatePolicy`) for every optimizer but
+        /// [`Scheduled`](crate::training::Scheduled).
+        fn next_learning_rate(&mut self, rate: V) -> V {
+            rate
+        }
     }
 }
 
 /// An optimizer a trainable network can use: [`Sgd`], [`Adam`] or [`RmsProp`],
-/// and for floating-point networks `AdamFloat` or `RmsPropFloat`.
+/// and for floating-point networks `AdamFloat` or `RmsPropFloat`; any of them
+/// wrapped in [`WeightDecay`](crate::training::WeightDecay) or
+/// [`Scheduled`](crate::training::Scheduled).
 pub trait Optimizer<V>: sealed::OptimizerImpl<V> {}
 
 impl<V, T: sealed::OptimizerImpl<V>> Optimizer<V> for T {}
