@@ -133,8 +133,9 @@ scheduler on, as the C++ build's settings do. A project dominated by small
 Q16.16 layers can measure both settings. The spills are reported upstream as
 [llvm/llvm-project#241851](https://github.com/llvm/llvm-project/issues/241851)
 (cortex-m3, m4, m33 and m35p share the scheduling model). Scheduling top-down
-instead (`-C llvm-args=-misched-prera-direction=topdown`) avoids most of them,
-but it is no general fix either. On the F411 (2026-11-12, every hash matching)
+instead (`-C llvm-args=-misched-prera-direction=topdown`) avoided most of them on
+2026-11-12 (no longer for the training step since 2026-11-13, below), but it
+is no general fix either. On the F411 (2026-11-12, every hash matching)
 the anomaly step took 6,518 cycles and detection 1,326, the KWS-shaped network
 175,319 (-7.3%) and the trees 0.3-2.4% less, while the MLPerf DS-CNN took
 11,875,413 (+10.1%), ResNet-8 59,614,538 (+1.4%) and the int8 MLP 20,835

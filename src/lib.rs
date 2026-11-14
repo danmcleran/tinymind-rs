@@ -1,5 +1,5 @@
-//! Rust port of the tinymind (C++) neural network library. The networks run on
-//! fixed-point Q formats or, like tinymind (C++)'s, on `f32` and `f64`.
+//! Rust port of the tinymind (C++) neural network library. Both libraries run
+//! networks in fixed point (Q formats) and in floating point (`f32` and `f64`).
 //!
 //! Scope: Q16.16 and Q8.8 arithmetic and a fixed-point square root ([`Sqrt`]); ReLU, [`Linear`] and the tanh and sigmoid
 //! lookup-table activations; `f32` and `f64` as network value types (their
