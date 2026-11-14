@@ -45,14 +45,14 @@ The boards run the same program and print the same report. Its hash covers every
 
 | | NUCLEO-F411RE (Cortex-M4F, 100 MHz) | NUCLEO-L031K6 (Cortex-M0+, 32 MHz) |
 |---|---:|---:|
-| Training, 3,000 steps (signal generation included) | 0.28 s | 4.6 s |
-| One training step | 8,811 cycles (88 µs) | 39,763 cycles (1.2 ms) |
+| Training, 3,000 steps (signal generation included) | 0.27 s | 4.5 s |
+| One training step | 8,489 cycles (85 µs) | 38,569 cycles (1.2 ms) |
 | One detection (forward pass and error) | 1,611 cycles (16 µs) | 8,096 cycles (253 µs) |
-| Stack, over the empty harness | 3.8 KB | 3.7 KB |
-| Flash, over the empty harness | 18.7 KB | 18.0 KB |
+| Stack, over the empty harness | 3.8 KB | 3.6 KB |
+| Flash, over the empty harness | 18.6 KB | 18.3 KB |
 
-The F411 figures are built with `-C target-cpu=cortex-m4`, like the other on-board results. Without it a training step takes 6,437 cycles and a detection 1,332: with that setting, LLVM's instruction scheduler moves the demo's small layers' products to the stack ([Settings for your own build]({{ site.baseurl }}/benchmarks#settings-for-your-own-build) has the options and what they cost other networks).
+The F411 figures are built with `-C target-cpu=cortex-m4`, like the other on-board results. Without it a training step takes 6,279 cycles and a detection 1,332: with that setting, LLVM's instruction scheduler moves the demo's small layers' products to the stack ([Settings for your own build]({{ site.baseurl }}/benchmarks#settings-for-your-own-build) has the options and what they cost other networks).
 
-The flash figures include the demo's signal generator and its text report, not only the network. The L031 image leaves about 2.3 KB of its 32 KB of flash free.
+The flash figures include the demo's signal generator and its text report, not only the network. The L031 image leaves about 2.0 KB of its 32 KB of flash free.
 
 [Source on GitHub](https://github.com/danmcleran/tinymind-rs/blob/master/examples/common/anomaly_demo.rs)

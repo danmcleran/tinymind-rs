@@ -7,6 +7,21 @@ break the API).
 
 ## [Unreleased]
 
+### Changed
+
+- `QValue::mul_round_nearest`, the rounding of the SGD step and of
+  `DenseHead`'s update, takes fewer instructions: it adds half an LSB plus the
+  product's sign word and floors, instead of rounding the magnitude and
+  restoring the sign. Results are unchanged (a Kani proof covers every input
+  of six Q formats, and every golden and board hash still matches).
+  `DenseHead::update` updates each weight row in a function of its own, so
+  LLVM does not unroll the six rows at `opt-level = 3`. On the boards, a
+  `DenseHead` training step takes 7.5% fewer cycles on the Cortex-M4F and 2.2%
+  fewer on the Cortex-M0+, and the anomaly example's training step 3.7% and
+  3.0% fewer; xor training is within 1%. At `opt-level = 3` the bench images
+  grow by up to 216 B (heads), 340 B (anomaly, Cortex-M0+) and 768 B (xor),
+  as LLVM now keeps two copies of the anomaly and xor update loops.
+
 ## [0.3.4] - 2026-11-13
 
 ### Added
