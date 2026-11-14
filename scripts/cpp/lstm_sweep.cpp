@@ -1,6 +1,7 @@
 // tinymind's LstmNeuralNetwork (one LSTM hidden layer) trained on short
 // sequences, in Q16.16 and Q8.8, with tanh or ReLU cell candidates, sigmoid or
-// linear outputs, gradient clipping and the Adam optimizer. Weights come from
+// linear outputs, gradient clipping, the Adam optimizer, and L2 weight decay
+// with a step-decay learning-rate schedule. Weights come from
 // glibc rand() as tinymind's examples draw them; inputs from an LCG.
 //
 // Each run feeds sequences of 1 to 12 steps, calling resetState() before each
@@ -22,6 +23,8 @@
 #include "neuralnet.hpp"
 #include "gradientClipping.hpp"
 #include "adam.hpp"
+#include "weightDecay.hpp"
+#include "learningRateSchedule.hpp"
 
 static uint32_t gState;
 
@@ -124,7 +127,9 @@ static void sample(ValueType (&x)[IN], ValueType (&t)[OUT], int& previous, const
 }
 
 template<typename ValueType, template<typename> class Hidden, template<typename> class Output, size_t IN, size_t HID,
-         size_t OUT, typename Clip, typename Opt = tinymind::NullOptimizerPolicy<ValueType> >
+         size_t OUT, typename Clip, typename Opt = tinymind::NullOptimizerPolicy<ValueType>,
+         typename Decay = tinymind::NullWeightDecayPolicy<ValueType>,
+         typename Schedule = tinymind::FixedLearningRatePolicy<ValueType> >
 static void run(const char* name, const unsigned seed, const int steps, const int lrRaw, const int targetScale)
 {
     typedef typename ValueType::FullWidthValueType Raw;
@@ -133,8 +138,7 @@ static void run(const char* name, const unsigned seed, const int steps, const in
                                                   tinymind::DefaultNetworkInitializer<ValueType>,
                                                   tinymind::MeanSquaredErrorCalculator<ValueType, OUT>,
                                                   tinymind::ZeroToleranceCalculator<ValueType>, Clip,
-                                                  tinymind::NullWeightDecayPolicy<ValueType>,
-                                                  tinymind::FixedLearningRatePolicy<ValueType>, Opt> TF;
+                                                  Decay, Schedule, Opt> TF;
     typedef tinymind::LstmNeuralNetwork<ValueType, IN, tinymind::HiddenLayers<HID>, OUT, TF> NN;
     const int one = static_cast<int>(tinymind::Constants<ValueType>::one().getValue());
 
@@ -201,5 +205,15 @@ int main()
         tinymind::NullGradientClippingPolicy<Q16> >("q16.16 1-1-1 tanh/sigmoid", 6, 1000, 0, 1);
     run<Q16, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 2, 4, 2,
         tinymind::NullGradientClippingPolicy<Q16>, Adam16>("q16.16 2-4-2 tanh/sigmoid adam", 7, 2000, 1 << 11, 1);
+    // Weight decay and a step-decay schedule: lambda 655/65536 = 0.01 and 0.8
+    // every 300 steps; tinymind's L2WeightDecay<Q16> (66) with 0.9 every 400
+    // under Adam.
+    run<Q16, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 2, 6, 3,
+        tinymind::NullGradientClippingPolicy<Q16>, tinymind::NullOptimizerPolicy<Q16>,
+        tinymind::L2WeightDecay<Q16, 0, 655>, tinymind::StepDecaySchedule<Q16, 300, 0, 52429> >(
+        "q16.16 2-6-3 tanh/sigmoid decay schedule", 8, 2000, 0, 1);
+    run<Q16, tinymind::TanhActivationPolicy, tinymind::SigmoidActivationPolicy, 2, 4, 2,
+        tinymind::NullGradientClippingPolicy<Q16>, Adam16, tinymind::L2WeightDecay<Q16>,
+        tinymind::StepDecaySchedule<Q16, 400> >("q16.16 2-4-2 tanh/sigmoid adam decay schedule", 9, 2000, 1 << 11, 1);
     return 0;
 }

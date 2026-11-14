@@ -74,3 +74,28 @@ q16.16 3-6-4-2 linear clip[-1,1] adam step=500 error=3804 hash=0xD1F2FA83
 q16.16 3-6-4-2 linear clip[-1,1] adam step=1000 error=55368 hash=0x5A8FF620
 q16.16 3-6-4-2 linear clip[-1,1] adam step=1500 error=126550 hash=0xF3DA7499
 q16.16 3-6-4-2 linear clip[-1,1] adam step=2000 error=47875 hash=0x6E5DCA0C
+q16.16 2-4-4-1 decay schedule step=500 error=11436 lr=13107 hash=0xAA068672
+q16.16 2-4-4-1 decay schedule step=1000 error=20337 lr=8388 hash=0x15428900
+q16.16 2-4-4-1 decay schedule step=1500 error=19329 lr=5368 hash=0x76D63713
+q16.16 2-4-4-1 decay schedule step=2000 error=17037 lr=4294 hash=0x362E3F33
+q16.16 2-4-4-1 decay schedule stop first=305 count=1540 best=6835
+q8.8 4-8-6-3 decay schedule step=500 error=15 lr=36 hash=0xDFA30CAE
+q8.8 4-8-6-3 decay schedule step=1000 error=59 lr=20 hash=0x15E417C0
+q8.8 4-8-6-3 decay schedule step=1500 error=1 lr=11 hash=0x0DC4EAC2
+q8.8 4-8-6-3 decay schedule step=2000 error=0 lr=6 hash=0xEAE8B9CD
+q8.8 4-8-6-3 decay schedule stop first=652 count=1349 best=0
+q16.16 4-8-6-5-3 adam decay schedule step=500 error=21738 lr=1843 hash=0xA976A2D1
+q16.16 4-8-6-5-3 adam decay schedule step=1000 error=21737 lr=1658 hash=0xF0BF096B
+q16.16 4-8-6-5-3 adam decay schedule step=1500 error=43285 lr=1492 hash=0x6401CAC3
+q16.16 4-8-6-5-3 adam decay schedule step=2000 error=21548 lr=1207 hash=0x47CE6077
+q16.16 4-8-6-5-3 adam decay schedule stop first=156 count=1845 best=0
+q16.16 2-4-4-1 rmsprop decay schedule step=500 error=0 lr=819 hash=0xBFC1F10B
+q16.16 2-4-4-1 rmsprop decay schedule step=1000 error=0 lr=524 hash=0x1F20BA95
+q16.16 2-4-4-1 rmsprop decay schedule step=1500 error=0 lr=335 hash=0x706042D3
+q16.16 2-4-4-1 rmsprop decay schedule step=2000 error=64357 lr=268 hash=0x90FB5384
+q16.16 2-4-4-1 rmsprop decay schedule stop first=504 count=1497 best=0
+q16.16 2-4-1 decay schedule step=500 error=11242 lr=14785 hash=0x9FE364AE
+q16.16 2-4-1 decay schedule step=1000 error=11745 lr=12674 hash=0xCB55E124
+q16.16 2-4-1 decay schedule step=1500 error=12833 lr=11437 hash=0xEC684EFE
+q16.16 2-4-1 decay schedule step=2000 error=10704 lr=9804 hash=0xD4A1FC8D
+q16.16 2-4-1 decay schedule stop first=207 count=1338 best=7994

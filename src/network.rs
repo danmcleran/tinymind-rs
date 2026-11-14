@@ -77,6 +77,7 @@ use crate::activation::Activation;
 use crate::neuralnet::Connection;
 use crate::optimizer::{Optimizer, Sgd};
 use crate::qformat::Scalar;
+use crate::training::decay_weights;
 
 /// A fully connected layer: `IN` inputs (plus a bias) to `OUT` neurons with
 /// activation `A`, and the training state of every connection.
@@ -220,8 +221,15 @@ impl<V: Scalar, A: Activation<V>, const IN: usize, const OUT: usize> Dense<V, A,
         &mut self,
         rates: (V, V, V),
         clip: Option<(V, V)>,
+        decay: Option<V>,
         optimizer: &mut Opt,
     ) {
+        // Weight decay (`decay` = learning rate * lambda) on the weights, not
+        // the bias weights, before the step: the C++ decays each weight just
+        // before adding its step, and no update reads the weight.
+        if let Some(factor) = decay {
+            decay_weights(self.weights.as_flattened_mut(), factor);
+        }
         crate::optimizer::update_all(optimizer, self.weights.as_flattened_mut(), rates, clip);
         crate::optimizer::update_all(optimizer, &mut self.bias, rates, clip);
     }
@@ -314,6 +322,7 @@ mod sealed {
             targets: &Self::Outputs,
             rates: (Self::Value, Self::Value, Self::Value),
             clip: Option<(Self::Value, Self::Value)>,
+            decay: Option<Self::Value>,
             optimizer: &mut Opt,
         );
         /// Number of output neurons: each owns one unused C++ connection whose
@@ -408,6 +417,7 @@ macro_rules! impl_layers {
                 targets: &[V; $dn],
                 rates: (V, V, V),
                 clip: Option<(V, V)>,
+                decay: Option<V>,
                 optimizer: &mut Opt,
             ) {
                 // Deltas from the output back (C++ ChainNetworkDeltasCalculator),
@@ -423,8 +433,8 @@ macro_rules! impl_layers {
                 self.$first.gradients(inputs);
                 $(self.$next.gradients(&self.$prev.outputs);)*
                 optimizer.begin_step();
-                self.$last.update(rates, clip, optimizer);
-                $(self.$lo.update(rates, clip, optimizer);)*
+                self.$last.update(rates, clip, decay, optimizer);
+                $(self.$lo.update(rates, clip, decay, optimizer);)*
             }
 
             type Inference = ($(InferenceDense<V, $act, $din, $dout>,)+);
@@ -558,6 +568,13 @@ impl<V: Scalar, L: Layers<Value = V>, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
         self.gradient_clip = range;
     }
 
+    /// The learning rate the next training step will use: the one set with
+    /// [`set_learning_rate`](Self::set_learning_rate), as a
+    /// [`Scheduled`](crate::training::Scheduled) optimizer has decayed it so far.
+    pub fn learning_rate(&self) -> V {
+        self.learning_rate
+    }
+
     /// Run one forward pass. Read the result with
     /// [`learned_values`](Self::learned_values).
     pub fn feed_forward(&mut self, inputs: &L::Inputs) {
@@ -589,8 +606,13 @@ impl<V: Scalar, L: Layers<Value = V>, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
             targets,
             rates,
             self.gradient_clip,
+            self.optimizer
+                .weight_decay()
+                .map(|lambda| self.learning_rate * lambda),
             &mut self.optimizer,
         );
+        // C++ stepLearningRate, after the update.
+        self.learning_rate = self.optimizer.next_learning_rate(self.learning_rate);
     }
 
     /// The layers, to read their weights (`nn.layers().0.weights()`).

@@ -149,6 +149,7 @@ The third column is the notes file in `.claude/rules/`.
 | (same, `QNetwork`), `examples/dqn_maze.rs`, `examples/common/dqn_maze_driver.rs` | `cpp/qlearn.hpp` (`QValueNeuralNetworkPolicy`), `examples/dqn_maze` | `qlearn.md` |
 | `src/recurrent.rs`, `examples/har_activity.rs`, `examples/common/har_driver.rs` | `cpp/neuralnet.hpp` (`LstmNeuralNetwork`, `LstmHiddenLayer`, `TrainableLstmHiddenLayerNeuron`, `ChainBackPropagationThruTimePolicy` and the recurrent chain calculators), `examples/har_activity` | `recurrent.md` |
 | `src/head.rs`, `examples/gas_sensor_drift.rs`, `examples/common/gas_driver.rs`, `tests/head_sweep.rs`, `scripts/cpp/head_sweep.cpp` | `cpp/densehead.hpp`, `cpp/prototypehead.hpp`, `examples/gas_sensor_drift` | `core.md` |
+| `src/training.rs` | `cpp/weightDecay.hpp`, `cpp/learningRateSchedule.hpp`, `cpp/earlyStopping.hpp` | `core.md` |
 | `src/rand.rs` | (glibc) | `core.md` |
 | `examples/xor.rs`, `examples/common/xor_driver.rs` | `examples/xor/xor.cpp`, `xornet.h` | `core.md` |
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`, `cpp/include/simd/simd_dispatch.hpp` (scalar dot) | `int8.md` |

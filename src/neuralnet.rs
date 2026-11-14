@@ -21,6 +21,7 @@ use core::marker::PhantomData;
 use crate::activation::Activation;
 use crate::optimizer::{Optimizer, Sgd};
 use crate::qformat::Scalar;
+use crate::training::decay_weights;
 
 /// One weighted edge to a neuron in the next layer (C++ `TrainableConnection`).
 #[derive(Clone, Copy, Debug, Default)]
@@ -189,6 +190,13 @@ where
         self.gradient_clip = range;
     }
 
+    /// The learning rate the next training step will use: the one set with
+    /// [`set_learning_rate`](Self::set_learning_rate), as a
+    /// [`Scheduled`](crate::training::Scheduled) optimizer has decayed it so far.
+    pub fn learning_rate(&self) -> V {
+        self.learning_rate
+    }
+
     /// Run one forward pass: load `inputs`, then compute the hidden and output
     /// activations. Read the result with [`learned_values`](Self::learned_values).
     pub fn feed_forward(&mut self, inputs: &[V; IN]) {
@@ -272,7 +280,9 @@ where
         self.calculate_node_deltas(targets);
         self.calculate_gradients();
         self.update_weights();
-        // FixedLearningRatePolicy::step is the identity, so there is no LR step.
+        // C++ stepLearningRate, after the update (FixedLearningRatePolicy,
+        // the default, leaves the rate alone).
+        self.learning_rate = self.optimizer.next_learning_rate(self.learning_rate);
     }
 
     fn calculate_node_deltas(&mut self, targets: &[V; OUT]) {
@@ -343,6 +353,20 @@ where
             self.input_bias.connections.iter_mut().for_each(clip);
         }
         let clip = None;
+
+        // Weight decay (C++ `WeightDecayPolicy::applyDecay`) on every weight
+        // but the bias weights. The C++ decays each weight just before adding
+        // its step; no update reads the weight, so decaying them all first
+        // gives the same results and keeps the update loops unchanged.
+        if let Some(lambda) = self.optimizer.weight_decay() {
+            let factor = self.learning_rate * lambda;
+            for n in &mut self.hidden {
+                decay_weights(&mut n.connections, factor);
+            }
+            for n in &mut self.input {
+                decay_weights(&mut n.connections, factor);
+            }
+        }
 
         // One optimizer step (C++ `beginTrainingStep`), then the output layer
         // and the hidden layer, each neuron's incoming connections followed by

@@ -20,7 +20,8 @@ lookup-table tanh and sigmoid activations, floating-point (`f32`, `f64`) network
 trained with SGD or tinymind (C++)'s floating-point Adam and RMSprop (tanh,
 sigmoid, `pow` and `sqrt` from the math library: feature `std`, or `libm`
 without std), trainable networks with up to seven hidden layers (SGD with
-momentum, Adam or RMSprop, optional gradient clipping) and inference-only
+momentum, Adam or RMSprop, optional gradient clipping, L2 weight decay and a
+step-decay learning-rate schedule, plus early stopping for the training loop) and inference-only
 networks of the same depths that are just their weights, int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
@@ -178,6 +179,7 @@ set.
 | `src/neuralnet.rs` | `cpp/neuralnet.hpp`, `cpp/gradientClipping.hpp`: one-hidden-layer MLP (`MultilayerPerceptron`), SGD with momentum, Adam or RMSprop, optional gradient clipping, batch size 1; and its inference-only form (`InferencePerceptron`, `IsTrainable = false`) |
 | `src/network.rs` | `cpp/neuralnet.hpp` (`NeuralNetwork<..., HiddenLayers<...>>`): up to seven hidden layers as a tuple of 1 to 8 `Dense` layers, same training; and its inference-only form (`InferenceNetwork` over `InferenceDense` layers, `IsTrainable = false`) |
 | `src/optimizer.rs` | `cpp/adam.hpp`, `cpp/rmsprop.hpp`: the `Sgd` (default), `Adam` and `RmsProp` optimizers for both trainable networks; for `f32`/`f64` networks `AdamFloat` and `RmsPropFloat` (`AdamOptimizerFloat`, `RmsPropOptimizerFloat`) |
+| `src/training.rs` | `cpp/weightDecay.hpp`, `cpp/learningRateSchedule.hpp`, `cpp/earlyStopping.hpp`: L2 weight decay (`WeightDecay`, `L2WeightDecay`) and a step-decay learning-rate schedule (`Scheduled` with `StepDecay`, `StepDecaySchedule`), both wrapping any optimizer of the three trainable networks, and early stopping (`EarlyStopping`) |
 | `src/rand.rs` | a re-implementation of glibc `rand()`, which the C++ examples use for weight init and sampling |
 | `examples/xor.rs` | `examples/xor/xor.cpp` |
 | `examples/iris.rs` | `examples/iris/iris.cpp` |
@@ -237,7 +239,8 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `tests/deep_mlp.rs` checks networks with one, two and three hidden layers
   against tinymind (C++)'s `NeuralNetwork` (every weight after every training step,
   both formats), trained with SGD, Adam and RMSprop, with and without gradient
-  clipping.
+  clipping, and with L2 weight decay and a step-decay schedule (the learning
+  rate and an early-stopping report printed too).
 - `tests/anomaly_golden.rs` pins the anomaly example's output and hash. The
   demo has no tinymind (C++) counterpart, so this golden is the crate's own output, a
   regression check; its parts are each checked against tinymind (C++) above.
@@ -307,8 +310,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   rewards, states with zero, one, two or more valid actions, and learning
   rates, discount factors and exploration rates the setters must reject.
 - `tests/lstm_sweep.rs` checks the LSTM network against tinymind (C++)'s
-  `LstmNeuralNetwork` in seven configurations (Q16.16 and Q8.8; tanh or ReLU
-  cells; sigmoid or linear outputs; gradient clipping; Adam), hashing the
+  `LstmNeuralNetwork` in nine configurations (Q16.16 and Q8.8; tanh or ReLU
+  cells; sigmoid or linear outputs; gradient clipping; Adam; weight decay and
+  a step-decay schedule), hashing the
   outputs and every weight after every step of sequences with state resets;
   `tests/float_mlp.rs` does the same for four `f32` and `f64` LSTM networks.
 - The TFLite translator (`tools/import_tflite`, run by

@@ -48,3 +48,19 @@ q16.16 2-4-2 tanh/sigmoid adam step=1250 trained=790 error=32606 hash=0xC3D542FC
 q16.16 2-4-2 tanh/sigmoid adam step=1500 trained=956 error=65190 hash=0x8FC9A167
 q16.16 2-4-2 tanh/sigmoid adam step=1750 trained=1108 error=0 hash=0x642D810D
 q16.16 2-4-2 tanh/sigmoid adam step=2000 trained=1275 error=65212 hash=0x5ABCB4EC
+q16.16 2-6-3 tanh/sigmoid decay schedule step=250 trained=215 error=12956 hash=0x536EFE8A
+q16.16 2-6-3 tanh/sigmoid decay schedule step=500 trained=429 error=17074 hash=0x8470D0B1
+q16.16 2-6-3 tanh/sigmoid decay schedule step=750 trained=643 error=11442 hash=0x8C3ACFB2
+q16.16 2-6-3 tanh/sigmoid decay schedule step=1000 trained=858 error=15542 hash=0xFDC6A529
+q16.16 2-6-3 tanh/sigmoid decay schedule step=1250 trained=1072 error=17433 hash=0x701B7286
+q16.16 2-6-3 tanh/sigmoid decay schedule step=1500 trained=1286 error=18022 hash=0xA8D5F109
+q16.16 2-6-3 tanh/sigmoid decay schedule step=1750 trained=1500 error=20269 hash=0xC8DA8AF9
+q16.16 2-6-3 tanh/sigmoid decay schedule step=2000 trained=1715 error=16324 hash=0x59512A89
+q16.16 2-4-2 tanh/sigmoid adam decay schedule step=250 trained=149 error=0 hash=0x6A44F6F9
+q16.16 2-4-2 tanh/sigmoid adam decay schedule step=500 trained=298 error=0 hash=0xBBB7914E
+q16.16 2-4-2 tanh/sigmoid adam decay schedule step=750 trained=455 error=32606 hash=0x41A4FFC0
+q16.16 2-4-2 tanh/sigmoid adam decay schedule step=1000 trained=604 error=0 hash=0x62E1F9F0
+q16.16 2-4-2 tanh/sigmoid adam decay schedule step=1250 trained=765 error=32606 hash=0x84144B67
+q16.16 2-4-2 tanh/sigmoid adam decay schedule step=1500 trained=912 error=65190 hash=0x460281E7
+q16.16 2-4-2 tanh/sigmoid adam decay schedule step=1750 trained=1057 error=32584 hash=0x0CEA91CD
+q16.16 2-4-2 tanh/sigmoid adam decay schedule step=2000 trained=1208 error=32606 hash=0x8FC4F178

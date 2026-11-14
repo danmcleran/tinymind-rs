@@ -1070,3 +1070,70 @@ mod head {
         assert!(head.count(0) <= head.maximum_count() && head.count(1) <= head.maximum_count());
     }
 }
+
+/// The training controls (`crate::training`).
+mod training {
+    use crate::neuralnet::Connection;
+    use crate::qformat::{Q8_8, Q16_16, Scalar};
+    use crate::training::{EarlyStopping, StepDecay, decay_weights};
+
+    /// Weight decay with lambda 0 leaves every weight as it is, for any
+    /// learning rate: the networks store "off" as lambda 0, so this is what
+    /// makes off and `Some(0)` the same, and off the same as the C++
+    /// `NullWeightDecayPolicy`.
+    #[kani::proof]
+    fn zero_weight_decay_is_identity_q16_16() {
+        let w = Q16_16::from_raw(kani::any());
+        let lr = Q16_16::from_raw(kani::any());
+        let mut c = [Connection {
+            weight: w,
+            ..Connection::default()
+        }];
+        decay_weights(&mut c, lr * Q16_16::ZERO);
+        assert!(c[0].weight == w);
+    }
+
+    #[kani::proof]
+    fn zero_weight_decay_is_identity_q8_8() {
+        let w = Q8_8::from_raw(kani::any());
+        let lr = Q8_8::from_raw(kani::any());
+        let mut c = [Connection {
+            weight: w,
+            ..Connection::default()
+        }];
+        decay_weights(&mut c, lr * Q8_8::ZERO);
+        assert!(c[0].weight == w);
+    }
+
+    /// The schedule never panics, returns the rate or the rate times the
+    /// factor, and the count it keeps never reaches the interval (or is 0).
+    #[kani::proof]
+    fn step_decay_never_panics() {
+        let mut s = StepDecay::new(kani::any(), Q16_16::from_raw(kani::any()));
+        s.count = kani::any();
+        let before = s.count;
+        let rate = Q16_16::from_raw(kani::any());
+        let next = s.step(rate);
+        if s.count == 0 {
+            assert!(next == rate * s.factor);
+        } else {
+            assert!(next == rate && s.count == before + 1 && s.count < s.interval);
+        }
+    }
+
+    /// Early stopping never panics, and says stop only when the count has
+    /// reached the patience.
+    #[kani::proof]
+    fn early_stopping_never_panics() {
+        let mut e = EarlyStopping::new(kani::any());
+        e.counter = kani::any();
+        if kani::any() {
+            e.best = Some(Q8_8::from_raw(kani::any()));
+        }
+        for _ in 0..3 {
+            let stop = e.should_stop(Q8_8::from_raw(kani::any()));
+            assert!(!stop || e.counter >= e.patience);
+            assert!(e.best.is_some());
+        }
+    }
+}

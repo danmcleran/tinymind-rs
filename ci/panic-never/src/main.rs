@@ -20,6 +20,7 @@ use tinymind::int8::{
 use tinymind::qlearn;
 use tinymind::rand::GlibcRand;
 use tinymind::recurrent::LstmNetwork;
+use tinymind::training::{EarlyStopping, Scheduled, StepDecay, WeightDecay};
 use tinymind::tree::{self, QDecisionTree, QGbdt, QTreeNode};
 
 use tinymind::{
@@ -99,16 +100,21 @@ where
     nn.set_momentum_rate(raw(black_box(4096)));
     nn.set_acceleration_rate(raw(black_box(2048)));
     nn.set_gradient_clip(black_box(Some((raw(-4096), raw(4096)))));
+    let mut stopper = EarlyStopping::new(black_box(2));
     for _ in 0..black_box(10) {
         let input = [raw(black_box(1)); IN];
         let target = [raw(black_box(2)); OUT];
         nn.feed_forward(&input);
         let error = nn.calculate_error(&target);
+        if stopper.should_stop(error) {
+            stopper.reset();
+        }
         if black_box(error) != V::ZERO {
             nn.train(&target);
         }
     }
-    black_box((nn.learned_values(), nn.hidden_values()));
+    black_box((stopper.best_error(), stopper.patience_counter()));
+    black_box((nn.learned_values(), nn.hidden_values(), nn.learning_rate()));
     black_box((nn.input_weights(), nn.input_bias_weights()));
     black_box((nn.hidden_weights(), nn.hidden_bias_weights()));
 
@@ -143,7 +149,7 @@ fn deep_network<V: Scalar, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V
             nn.train(&target);
         }
     }
-    black_box(nn.learned_values());
+    black_box((nn.learned_values(), nn.learning_rate()));
     let layers = nn.layers_mut();
     black_box((
         layers.0.weights(),
@@ -211,7 +217,18 @@ where
             Dense<V, Sigmoid, 6, 3>,
         ),
         _,
-    >::with_optimizer(|| raw(rng.next_i32()), rmsprop);
+    >::with_optimizer(
+        || raw(rng.next_i32()),
+        WeightDecay::new(rmsprop, raw(black_box(1))),
+    );
+    // SGD with weight decay and a schedule.
+    let mut decayed = MultilayerPerceptron::<V, Relu, Linear, 4, 8, 3, _>::with_optimizer(
+        || raw(rng.next_i32()),
+        Scheduled::new(
+            WeightDecay::new(Sgd, raw(black_box(66))),
+            StepDecay::new(black_box(3), raw(black_box(58982))),
+        ),
+    );
     mlp.set_gradient_clip(black_box(Some((raw(-4096), raw(4096)))));
     deep.set_gradient_clip(black_box(Some((raw(-4096), raw(4096)))));
     for _ in 0..black_box(10) {
@@ -221,7 +238,10 @@ where
         mlp.train(&t);
         deep.feed_forward(&x);
         deep.train(&t);
+        decayed.feed_forward(&x);
+        decayed.train(&t);
     }
+    black_box((decayed.learned_values(), decayed.learning_rate()));
     black_box((
         mlp.learned_values(),
         deep.learned_values(),
@@ -854,8 +874,23 @@ pub extern "C" fn _start() -> ! {
             Q16_16::from_raw(black_box(16)),
         ),
     );
+    lstm::<Q16_16, Tanh, Sigmoid, 2, 4, 2, _>(
+        Q16_16::from_raw,
+        Scheduled::new(
+            WeightDecay::new(Sgd, Q16_16::from_raw(black_box(66))),
+            StepDecay::new(black_box(400), Q16_16::from_raw(black_box(58982))),
+        ),
+    );
     lstm::<f32, Tanh, Sigmoid, 2, 3, 1, _>(|r| r as f32 / 65536.0, Sgd);
     lstm::<f64, Relu, Linear, 2, 3, 2, _>(|r| f64::from(r) / 65536.0, AdamFloat::default());
+    // Floating point with weight decay under AdamFloat and a schedule.
+    lstm::<f32, Tanh, Sigmoid, 2, 3, 1, _>(
+        |r| r as f32 / 65536.0,
+        Scheduled::new(
+            WeightDecay::new(AdamFloat::default(), black_box(0.001f32)),
+            StepDecay::new(black_box(100), black_box(0.9f32)),
+        ),
+    );
     q_learning::<Q16_16>(Q16_16::from_raw);
     q_learning::<Q8_8>(|r| Q8_8::from_raw(r as i16));
     q_learning::<f32>(|r| r as f32 / 65536.0);

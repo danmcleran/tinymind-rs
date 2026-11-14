@@ -7,6 +7,23 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- `training`: training controls ported from tinymind (C++)'s
+  `cpp/weightDecay.hpp`, `cpp/learningRateSchedule.hpp` and
+  `cpp/earlyStopping.hpp`. `WeightDecay` (L2, C++ `L2WeightDecay`) and
+  `Scheduled` with a `StepDecay` schedule (C++ `StepDecaySchedule`) wrap any
+  optimizer and are passed to `with_optimizer` on `MultilayerPerceptron`,
+  `NeuralNetwork` and `LstmNetwork`; results are bit-identical to the C++
+  networks built with those policies, under SGD, Adam and RMSprop. Weight
+  decay shrinks connection weights, not bias weights, before each update
+  (decoupled weight decay, as AdamW, under the adaptive optimizers).
+  `EarlyStopping` (C++ `EarlyStopping`) reports when an error has not
+  improved for `patience` checks. A network built without the wrappers
+  compiles to the same code as before: no bench image changed size.
+- `learning_rate()` on `MultilayerPerceptron`, `NeuralNetwork` and
+  `LstmNetwork`, the rate the next step will use (C++ `getLearningRate`).
+
 ## [0.3.5] - 2026-11-14
 
 ### Changed
