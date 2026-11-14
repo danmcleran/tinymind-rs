@@ -22,8 +22,8 @@ break the API).
   fewer on the Cortex-M0+, and the anomaly example's training step 3.7% and
   3.0% fewer; xor training is within 1%. At `opt-level = 3` the `DenseHead`
   bench images grow by 176-216 B, and the anomaly image on the Cortex-M0+ by
-  about 340 B: LLVM now keeps two copies of `NeuralNetwork`'s update loop, one
-  per gradient-clipping setting.
+  about 340 B, where LLVM now keeps two copies of `NeuralNetwork`'s update
+  loop, one per gradient-clipping setting.
 - `MultilayerPerceptron` clips its gradients in a pass of its own before the
   update, instead of inside it, with the same results. The cheaper multiply
   above had made LLVM compile its whole update twice at `opt-level = 3`, once
