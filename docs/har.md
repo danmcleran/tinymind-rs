@@ -44,7 +44,7 @@ The figure is drawn from this port's output with tinymind (C++)'s plotting style
 ## How it is checked
 
 - `tests/har_golden.rs` runs the example and compares its stdout and all three CSV files with the C++ example's; `scripts/compare-with-cpp.sh` also compares a `--readout-only` run with the C++ one.
-- `tests/lstm_sweep.rs` hashes the outputs and every weight after every step and compares them with tinymind (C++)'s `LstmNeuralNetwork` in seven configurations: this example's network, other shapes, Q8.8, ReLU cells, linear outputs, gradient clipping and the Adam optimizer, on sequences of 1 to 12 steps with the state reset between them and some steps not trained. `tests/float_mlp.rs` does the same for four `f32` and `f64` LSTM networks.
+- `tests/lstm_sweep.rs` hashes the outputs and every weight after every step and compares them with tinymind (C++)'s `LstmNeuralNetwork` in nine configurations: this example's network, other shapes, Q8.8, ReLU cells, linear outputs, gradient clipping, the Adam optimizer, and L2 weight decay with a step-decay learning-rate schedule, on sequences of 1 to 12 steps with the state reset between them and some steps not trained. `tests/float_mlp.rs` does the same for four `f32` and `f64` LSTM networks.
 - A Kani proof shows the network never panics, whatever its weights, rates, clipping range, inputs and targets.
 
 tinymind (C++)'s trainable GRU and Elman networks are not ported yet. Its int8 LSTM and GRU cells, for inference, are: see [Int8 inference]({{ site.baseurl }}/int8#recurrent-cells).

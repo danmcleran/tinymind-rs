@@ -6,8 +6,9 @@
 //! [`Adam`] or [`RmsProp`], or for `f32` and `f64` networks `AdamFloat` and
 //! `RmsPropFloat` (C++ `AdamOptimizerFloat`, `RmsPropOptimizerFloat`; feature
 //! `std` or `libm`). Pass an adaptive optimizer with its hyperparameters to
-//! `with_optimizer` on [`NeuralNetwork`](crate::NeuralNetwork) or
-//! [`MultilayerPerceptron`](crate::MultilayerPerceptron). Weight decay and a
+//! `with_optimizer` on [`NeuralNetwork`](crate::NeuralNetwork),
+//! [`MultilayerPerceptron`](crate::MultilayerPerceptron) or
+//! [`LstmNetwork`](crate::recurrent::LstmNetwork). Weight decay and a
 //! learning-rate schedule wrap any of them ([`training`](crate::training)).
 //!
 //! Every optimizer updates the bias weights as it updates the other weights,

@@ -4,10 +4,11 @@
 //!
 //! - **[`WeightDecay`]** (L2) shrinks every connection weight, but no bias
 //!   weight, by `learning rate * lambda * weight` before each update. With
-//!   SGD this is an L2 penalty `(lambda / 2) * w^2` in the loss; under Adam
-//!   and RMSprop the same shrink comes before the adaptive step, which makes
-//!   it decoupled weight decay (AdamW). In fixed point it keeps weights from
-//!   growing until they overflow.
+//!   plain SGD (no momentum) this is the gradient step of an L2 penalty
+//!   `(lambda / 2) * w^2`; the shrink does not enter the momentum terms, so
+//!   with momentum, and under Adam and RMSprop, it is decoupled weight decay
+//!   (AdamW). In fixed point it keeps weights from growing until they
+//!   overflow.
 //! - **[`Scheduled`]** with a [`StepDecay`] multiplies the learning rate by a
 //!   factor every `interval` training steps. Read the current rate with the
 //!   network's `learning_rate()`. Any other schedule is a call to
@@ -23,8 +24,14 @@
 //! [`LstmNetwork`](crate::recurrent::LstmNetwork), as tinymind (C++) takes
 //! `L2WeightDecay` and `StepDecaySchedule` as policies. A network built
 //! without them compiles no decay or schedule code and stores nothing for
-//! them. With them, results are bit-identical to the C++ network built with
-//! the same policies.
+//! them. With them, fixed-point results are bit-identical to the C++ network
+//! built with the same policies. tinymind (C++)'s policies are fixed-point
+//! only, so for `f32` and `f64` there is no C++ counterpart to compare with.
+//!
+//! The wrappers are part of the network's optimizer, which is fixed when the
+//! network is built: to change `lambda` or the schedule, build the wrapper
+//! with the values wanted, or adjust the rate between steps with
+//! `set_learning_rate`.
 //!
 //! ```
 //! use tinymind::training::{Scheduled, StepDecay, WeightDecay};
@@ -219,6 +226,8 @@ impl Default for StepDecay<crate::Q8_8> {
 /// a floating-point NaN) adds one to the count, and
 /// [`should_stop`](Self::should_stop) returns `true` once the count reaches
 /// `patience`, and keeps returning `true` until an error improves on the best.
+/// A NaN as the first error becomes the best, and no error is below it, so
+/// check floating-point errors for NaN before passing them in.
 ///
 /// The default patience is 100, tinymind (C++)'s default.
 ///

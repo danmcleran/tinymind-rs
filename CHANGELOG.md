@@ -14,13 +14,17 @@ break the API).
   `cpp/earlyStopping.hpp`. `WeightDecay` (L2, C++ `L2WeightDecay`) and
   `Scheduled` with a `StepDecay` schedule (C++ `StepDecaySchedule`) wrap any
   optimizer and are passed to `with_optimizer` on `MultilayerPerceptron`,
-  `NeuralNetwork` and `LstmNetwork`; results are bit-identical to the C++
-  networks built with those policies, under SGD, Adam and RMSprop. Weight
-  decay shrinks connection weights, not bias weights, before each update
-  (decoupled weight decay, as AdamW, under the adaptive optimizers).
-  `EarlyStopping` (C++ `EarlyStopping`) reports when an error has not
-  improved for `patience` checks. A network built without the wrappers
-  compiles to the same code as before: no bench image changed size.
+  `NeuralNetwork` and `LstmNetwork`. In fixed point, results are
+  bit-identical to the C++ networks built with those policies (checked for
+  `NeuralNetwork` under SGD, Adam and RMSprop, `MultilayerPerceptron` under
+  SGD and `LstmNetwork` under SGD and Adam); tinymind (C++)'s policies are
+  fixed-point only, so the `f32`/`f64` decay and schedule have no C++
+  counterpart. Weight decay shrinks connection weights, not bias weights,
+  before each update, outside the momentum terms (decoupled weight decay, as
+  AdamW, under the adaptive optimizers). `EarlyStopping` (C++
+  `EarlyStopping`) reports when an error has not improved for `patience`
+  checks. A network built without the wrappers compiles to the same code as
+  before: no benchmark workload's image changed size.
 - `learning_rate()` on `MultilayerPerceptron`, `NeuralNetwork` and
   `LstmNetwork`, the rate the next step will use (C++ `getLearningRate`).
 

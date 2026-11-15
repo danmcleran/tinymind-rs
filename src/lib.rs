@@ -10,7 +10,8 @@
 //! ([`NeuralNetwork`] over [`Dense`] layers, trained with SGD and momentum,
 //! [`Adam`] or [`RmsProp`], with optional gradient clipping, L2 weight decay
 //! and a step-decay learning-rate schedule ([`training`], which also has
-//! early stopping)) and their
+//! early stopping; the decay and the schedule also apply to
+//! [`MultilayerPerceptron`] and [`recurrent::LstmNetwork`])) and their
 //! inference-only form ([`InferenceNetwork`] over [`InferenceDense`] layers:
 //! the weights only, tinymind (C++)'s `IsTrainable = false`); a one-hidden-layer
 //! perceptron that

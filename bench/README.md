@@ -626,10 +626,15 @@ Some of the host's report is not reproduced on the device:
 The image is large, and the LSTM sweep needs 73 KB of stack, so
 `qemu-bench.sh` gives the microbit 2 MB of flash and 256 KB of RAM (`-global
 nrf51-soc.flash-size`, `sram-size`; `memory-qemu-m0.x`); only the instruction
-set is under test there. On the F411 it fits only at opt-level s (424,448 B
+set is under test there. On the F411 it fits only at opt-level s (435,108 B
 of flash, 2026-11-14; at 3 it exceeds the 512 KB): `OPT=s
-WORKLOADS=sweeps bench/run.sh f411` matches on every sweep, in 351,627,680
-cycles (3.5 s), with 73 KB of stack. It does not fit the L031. Planted defects that
+WORKLOADS=sweeps bench/run.sh f411` matches on every sweep, in 4,969,033,191
+cycles (49.7 s), with 73 KB of stack. Most of that is the softmax sweep
+(2,854,448,321 cycles) and the LSTM sweep (1,326,788,950); each sweep reports
+its own `<sweep>_cycles=`. The total is summed per sweep in 64 bits: the
+cycle counter is 32 bits wide and wraps every 43 s, and earlier figures here,
+taken as one difference of two readings, were the total modulo 2^32 (351,627,680
+for 0.3.5, really 4,646,594,976). It does not fit the L031. Planted defects that
 fail it: the trees' `<=` as `<` (`tree_match=0`), a rounding Q-format
 multiply (the oracle, the LSTM and Q-learning sweeps), a positive number
 divided by zero giving max - 1 (only the oracle), addition subtracting a's

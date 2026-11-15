@@ -346,9 +346,10 @@ the int8 quantization tiers, SIMD backends, and so on.
   network never panic, that small Q8.8 fine-tuning heads never panic and keep every
   class count within its cap, that the softmax's exp stays in [0, 1] and is 0
   at or below -6, that pooling's divide rounds half away from zero, that the FFT's
-  Q1.15 multiply floors and its magnitudes saturate only where they must, and
-  that the FFT's saturation skip on cores without a saturating instruction
-  changes no output.
+  Q1.15 multiply floors and its magnitudes saturate only where they must,
+  that the learning-rate schedule and early stopping never panic and weight
+  decay with lambda 0 changes no weight, and that the FFT's saturation skip on
+  cores without a saturating instruction changes no output.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
   and whose panic handler is an undefined symbol, so CI fails to link it if any
   panic path survives optimisation (M0+ and M4F, three optimisation levels).
