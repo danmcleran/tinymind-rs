@@ -1,0 +1,26 @@
+total=0 seed=7 | step=0 ratio=0.000000 truths=0 | step=0 ratio=0.000000 truths=0 truths=0 end=0 next_rand=1045618677
+total=0 reset step=0 ratio=0.000000
+total=1 seed=7 | step=0 ratio=1.000000 truths=1 | step=1 ratio=0.000000 truths=0 | step=1 ratio=0.000000 truths=0 end=1 next_rand=1863967299
+total=1 reset step=0 ratio=1.000000
+total=7 seed=3 | step=0 ratio=1.000000 truths=2 | step=3 ratio=0.571429 truths=2 | step=6 ratio=0.142857 truths=1 | step=7 ratio=0.000000 truths=0 end=7 next_rand=1856883376
+total=7 reset step=0 ratio=1.000000
+total=100 seed=11 | step=0 ratio=1.000000 truths=22 | step=27 ratio=0.730000 truths=15 | step=54 ratio=0.460000 truths=6 | step=81 ratio=0.190000 truths=4 end=100 next_rand=1030478023
+total=100 reset step=0 ratio=1.000000
+total=999 seed=5 | step=0 ratio=1.000000 truths=227 | step=251 ratio=0.748749 truths=152 | step=502 ratio=0.497497 truths=96 | step=753 ratio=0.246246 truths=34 end=999 next_rand=1206662369
+total=999 reset step=0 ratio=1.000000
+total=1000 seed=5 | step=0 ratio=1.000000 truths=227 | step=252 ratio=0.748000 truths=153 | step=504 ratio=0.496000 truths=95 | step=756 ratio=0.244000 truths=35 end=1000 next_rand=321822539
+total=1000 reset step=0 ratio=1.000000
+total=1001 seed=5 | step=0 ratio=1.000000 truths=227 | step=252 ratio=0.748252 truths=153 | step=504 ratio=0.496503 truths=95 | step=756 ratio=0.244755 truths=35 end=1001 next_rand=1284832853
+total=1001 reset step=0 ratio=1.000000
+total=4321 seed=13 | step=0 ratio=1.000000 truths=938 | step=1082 ratio=0.749595 truths=688 | step=2164 ratio=0.499190 truths=401 | step=3246 ratio=0.248785 truths=148 end=4321 next_rand=1521892193
+total=4321 reset step=0 ratio=1.000000
+lstm decay=3000 step=600 truths=521 trained=572 error=11421 hash=0x34DA8DBC
+lstm decay=3000 step=1200 truths=927 trained=1079 error=8851 hash=0xF095F8ED
+lstm decay=3000 step=1800 truths=1208 trained=1585 error=12892 hash=0x682AC252
+lstm decay=3000 step=2400 truths=1375 trained=2099 error=12917 hash=0x00F4F088
+lstm decay=3000 step=3000 truths=1440 trained=2628 error=13072 hash=0xD2291E60
+lstm decay=3000 step=3600 truths=1440 trained=3191 error=12854 hash=0x7A2462C2
+lstm decay=3000 step=4200 truths=1440 trained=3740 error=12814 hash=0xF6C64AA4
+lstm decay=3000 step=4800 truths=1440 trained=4283 error=12767 hash=0x643729A3
+lstm decay=3000 step=5400 truths=1440 trained=4824 error=12767 hash=0x3983B0E3
+lstm decay=3000 step=6000 truths=1440 trained=5381 error=12749 hash=0x6DFE5C5A

@@ -1,6 +1,6 @@
 //! Training controls for the trainable networks, ported from tinymind (C++)
-//! `cpp/weightDecay.hpp`, `cpp/learningRateSchedule.hpp` and
-//! `cpp/earlyStopping.hpp`.
+//! `cpp/weightDecay.hpp`, `cpp/learningRateSchedule.hpp`,
+//! `cpp/earlyStopping.hpp` and `cpp/teacherForcing.hpp`.
 //!
 //! - **[`WeightDecay`]** (L2) shrinks every connection weight, but no bias
 //!   weight, by `learning rate * lambda * weight` before each update. With
@@ -16,6 +16,11 @@
 //! - **[`EarlyStopping`]** watches an error (training or validation) and says
 //!   when it has not improved for `patience` checks in a row. It is not tied
 //!   to a network; the training loop asks it.
+//! - **[`ScheduledSampling`]** picks, for each step of a sequence, whether a
+//!   recurrent network's next input is the true value or its own previous
+//!   prediction, moving from always-true to always-prediction over a number
+//!   of training steps (teacher forcing with a decaying ratio). Like
+//!   [`EarlyStopping`], the training loop asks it.
 //!
 //! [`WeightDecay`] and [`Scheduled`] wrap an optimizer ([`Sgd`](crate::Sgd),
 //! [`Adam`](crate::Adam), ...) and are passed to `with_optimizer` on
@@ -309,6 +314,109 @@ impl<V> Default for EarlyStopping<V> {
     }
 }
 
+/// Scheduled sampling for training a recurrent network on its own outputs
+/// (C++ `ScheduledSampling`, `cpp/teacherForcing.hpp`).
+///
+/// When a network is trained to predict a sequence one step ahead, each
+/// step's input can be the true value (teacher forcing) or the network's own
+/// previous prediction. Training only on true values leaves the network
+/// unprepared for its own errors when it later runs free; scheduled sampling
+/// starts with the true value every time and, over `total_decay_steps`
+/// training steps, moves linearly to the prediction every time.
+///
+/// [`select_input`](Self::select_input) picks one of the two. Inside the
+/// decay window it rolls `draw() % 1000` and returns the true value when the
+/// roll is below `(total - step) * 1000 / total`; from step `total` on it
+/// returns the prediction without calling `draw`. tinymind (C++) rolls with
+/// `rand()`; pass the same generator, for example
+/// `|| rng.next_i32() as u32` with [`GlibcRand`](crate::rand::GlibcRand), to
+/// reproduce a C++ run. Call [`step`](Self::step) once per training step.
+///
+/// ```
+/// use tinymind::rand::GlibcRand;
+/// use tinymind::training::ScheduledSampling;
+///
+/// let mut rng = GlibcRand::new(7);
+/// let mut sampler = ScheduledSampling::new(1000);
+/// let (truth, prediction) = (1.0, 0.5);
+/// // Step 0: the ratio is 1, so the true value always wins.
+/// assert_eq!(sampler.select_input(truth, prediction, || rng.next_i32() as u32), truth);
+/// for _ in 0..1000 {
+///     sampler.step();
+/// }
+/// // After the decay window, always the prediction.
+/// assert_eq!(sampler.teacher_forcing_ratio(), 0.0);
+/// assert_eq!(sampler.select_input(truth, prediction, || unreachable!()), prediction);
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ScheduledSampling {
+    pub(crate) total_decay_steps: usize,
+    pub(crate) current_step: usize,
+}
+
+impl ScheduledSampling {
+    /// A schedule that decays from always-true to always-prediction over
+    /// `total_decay_steps` training steps. With 0 it returns the prediction
+    /// from the start.
+    pub const fn new(total_decay_steps: usize) -> Self {
+        Self {
+            total_decay_steps,
+            current_step: 0,
+        }
+    }
+
+    /// Return `ground_truth` or `prediction` for the next input, as described
+    /// on the type. `draw` is called once inside the decay window and never
+    /// after it.
+    pub fn select_input<V>(&self, ground_truth: V, prediction: V, draw: impl FnOnce() -> u32) -> V {
+        let remaining = match self.total_decay_steps.checked_sub(self.current_step) {
+            Some(r) if r > 0 => r,
+            _ => return prediction,
+        };
+        // C++: ((total - step) * 1000U) / total in size_t, then unsigned.
+        let threshold = remaining
+            .wrapping_mul(1000)
+            .checked_div(self.total_decay_steps)
+            .unwrap_or(0) as u32;
+        if draw() % 1000 < threshold {
+            ground_truth
+        } else {
+            prediction
+        }
+    }
+
+    /// Advance one training step (no further than `total_decay_steps`).
+    pub fn step(&mut self) {
+        if self.current_step < self.total_decay_steps {
+            self.current_step += 1;
+        }
+    }
+
+    /// Back to step 0: the true value every time.
+    pub fn reset(&mut self) {
+        self.current_step = 0;
+    }
+
+    /// The share of inputs that are true values: 1 at step 0, falling
+    /// linearly to 0 at `total_decay_steps`.
+    pub fn teacher_forcing_ratio(&self) -> f64 {
+        if self.current_step >= self.total_decay_steps {
+            return 0.0;
+        }
+        (self.total_decay_steps - self.current_step) as f64 / self.total_decay_steps as f64
+    }
+
+    /// Training steps taken so far, at most `total_decay_steps`.
+    pub fn current_step(&self) -> usize {
+        self.current_step
+    }
+
+    /// The length of the decay window.
+    pub fn total_decay_steps(&self) -> usize {
+        self.total_decay_steps
+    }
+}
+
 /// C++ `L2WeightDecay::applyDecay` on every connection of `connections`:
 /// `w - (learning rate * lambda) * w`, where `factor` is the product
 /// `learning rate * lambda` (the C++ evaluates it left to right, so it is the
@@ -351,6 +459,30 @@ mod tests {
             [65_536, 65_536, 32_768, 32_768, 32_768, 16_384, 16_384]
         );
         assert_eq!(s.steps_since_decay(), 1);
+    }
+
+    /// tinymind (C++)'s `test_case_teacher_forcing`: the ratio falls
+    /// linearly, the prediction wins after the window, `reset` starts over.
+    #[test]
+    fn scheduled_sampling_decays_linearly() {
+        let mut s = ScheduledSampling::new(100);
+        assert_eq!(s.teacher_forcing_ratio(), 1.0);
+        for _ in 0..50 {
+            s.step();
+        }
+        assert_eq!(s.teacher_forcing_ratio(), 0.5);
+        // Halfway: the threshold is 500, so a roll of 499 keeps the truth
+        // and 500 takes the prediction.
+        assert_eq!(s.select_input(1.0, 0.5, || 1499), 1.0);
+        assert_eq!(s.select_input(1.0, 0.5, || 500), 0.5);
+        for _ in 0..60 {
+            s.step();
+        }
+        assert_eq!((s.current_step(), s.teacher_forcing_ratio()), (100, 0.0));
+        assert_eq!(s.select_input(1.0, 0.5, || 0), 0.5);
+        s.reset();
+        assert_eq!((s.current_step(), s.teacher_forcing_ratio()), (0, 1.0));
+        assert_eq!(ScheduledSampling::new(0).select_input(1, 2, || 0), 2);
     }
 
     #[test]

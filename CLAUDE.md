@@ -109,6 +109,7 @@ cargo build --release --examples
 cargo run --release --example xor       # writes output/ (gitignored); args: [--format q16.16|q8.8] [out_dir] [lr] [momentum]
 cargo run --release --example iris      # args: [out_dir] [data file, default data/iris.data]
 cargo run --release --example optical_digits   # args: [out_dir] [data dir, default data/]
+cargo run --release --example air_quality      # args: [out_dir] [epochs, default 15000 (~20 s)] [learning rate]
 cargo run --release --features std --example int8_xor   # args: [out_dir]
 cargo test --all-features           # unit tests + golden tests against the C++ outputs (int8 needs std)
 cargo clippy --all-targets --all-features -- -D warnings
@@ -149,8 +150,9 @@ The third column is the notes file in `.claude/rules/`.
 | `src/qlearn.rs`, `examples/maze.rs`, `examples/common/maze_driver.rs` | `cpp/qlearn.hpp` (`QLearner`, `QValueTablePolicy`, `ArgMaxPolicy`, `DefaultLearningPolicy`, `QLearningEnvironment`), `examples/maze` | `qlearn.md` |
 | (same, `QNetwork`), `examples/dqn_maze.rs`, `examples/common/dqn_maze_driver.rs` | `cpp/qlearn.hpp` (`QValueNeuralNetworkPolicy`), `examples/dqn_maze` | `qlearn.md` |
 | `src/recurrent.rs`, `examples/har_activity.rs`, `examples/common/har_driver.rs` | `cpp/neuralnet.hpp` (`LstmNeuralNetwork`, `LstmHiddenLayer`, `TrainableLstmHiddenLayerNeuron`, `ChainBackPropagationThruTimePolicy` and the recurrent chain calculators), `examples/har_activity` | `recurrent.md` |
+| `examples/air_quality.rs`, `examples/common/airq_driver.rs`, `tests/airq_golden.rs` | `examples/air_quality/air_quality.cpp` | `recurrent.md` |
 | `src/head.rs`, `examples/gas_sensor_drift.rs`, `examples/common/gas_driver.rs`, `tests/head_sweep.rs`, `scripts/cpp/head_sweep.cpp` | `cpp/densehead.hpp`, `cpp/prototypehead.hpp`, `examples/gas_sensor_drift` | `core.md` |
-| `src/training.rs` | `cpp/weightDecay.hpp`, `cpp/learningRateSchedule.hpp`, `cpp/earlyStopping.hpp` | `core.md` |
+| `src/training.rs`, `tests/scheduled_sampling.rs`, `scripts/cpp/scheduled_sampling.cpp` | `cpp/weightDecay.hpp`, `cpp/learningRateSchedule.hpp`, `cpp/earlyStopping.hpp`, `cpp/teacherForcing.hpp` | `core.md` |
 | `src/rand.rs` | (glibc) | `core.md` |
 | `examples/xor.rs`, `examples/common/xor_driver.rs` | `examples/xor/xor.cpp`, `xornet.h` | `core.md` |
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qactivations.hpp`, `cpp/include/simd/simd_dispatch.hpp` (scalar dot) | `int8.md` |

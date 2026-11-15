@@ -16,6 +16,19 @@ break the API).
   accuracy). The two data files (`data/optdigits.tra`, `data/optdigits.tes`,
   CC BY 4.0) are in the repository but not in the published crate; run the
   example from a clone.
+- `training::ScheduledSampling`, ported from tinymind (C++)'s
+  `cpp/teacherForcing.hpp`: for training a recurrent network on its own
+  outputs, it picks whether each step's input is the true value or the
+  network's previous prediction, moving linearly from always-true to
+  always-prediction over a number of steps. The random draw is a closure, so
+  any generator works; with `rand::GlibcRand` its choices are those of the
+  C++ with glibc `rand()` (checked step by step, and while training an LSTM
+  network).
+- Example `air_quality`, a port of tinymind (C++)'s hourly pollutant
+  forecaster: a 1-16-1 Q16.16 LSTM network trained on a synthetic hourly
+  series (or the UCI Air Quality dataset's CO(GT) column, when
+  `AirQualityUCI.csv` is in the output directory) that forecasts the last 200
+  hours one step ahead. Its output is byte-identical to the C++ example's.
 
 ## [0.3.6] - 2026-11-14
 

@@ -1,7 +1,7 @@
 ---
 title: Fine-tuning on the device
 layout: default
-nav_order: 10
+nav_order: 11
 ---
 
 # Fine-tuning on the device

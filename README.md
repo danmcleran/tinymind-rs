@@ -21,7 +21,7 @@ trained with SGD or tinymind (C++)'s floating-point Adam and RMSprop (tanh,
 sigmoid, `pow` and `sqrt` from the math library: feature `std`, or `libm`
 without std), trainable networks with up to seven hidden layers (SGD with
 momentum, Adam or RMSprop, optional gradient clipping, L2 weight decay and a
-step-decay learning-rate schedule, plus early stopping for the training loop) and inference-only
+step-decay learning-rate schedule, plus early stopping and scheduled sampling for the training loop) and inference-only
 networks of the same depths that are just their weights, int8
 affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
@@ -109,6 +109,7 @@ cargo run --release --example imported_trees                 # scikit-learn tree
 cargo run --release --example maze -- output                 # Q-learning: find the way out of a six-room maze
 cargo run --release --example dqn_maze -- output             # the same maze, learned by a deep Q-network
 cargo run --release --example har_activity -- output         # LSTM: classify accelerometer windows into four activities
+cargo run --release --example air_quality -- output          # LSTM: forecast the next hour of a pollutant series
 cargo run --release --example gas_sensor_drift -- output     # sensor drift, then on-device fine-tuning from a few samples
 cargo test --all-features                                # unit, doc and golden tests against the C++ output
 PYTHON=<python with the packages below> scripts/compare-with-cpp.sh   # rebuild the C++ side and diff everything
@@ -145,6 +146,12 @@ in the order of their samples); it writes `har_samples.csv`,
 `har_loss.csv` and `har_confusion.csv`, reads `har.csv` instead of
 synthesizing when the second argument names one in the C++ example's format,
 and with `--readout-only` first trains only the output weights. The
+`air_quality` example trains a 1-16-1 LSTM network to forecast the next hour
+of a synthetic hourly pollutant series (or the CO(GT) column of the UCI Air
+Quality dataset's `AirQualityUCI.csv`, if the output directory holds it), then
+forecasts the last 200 hours one step ahead; it takes an optional output
+directory, number of epochs (default 15000, about 20 seconds) and learning
+rate, and writes `airq_loss.csv` and `airq_forecast.csv`. The
 `gas_sensor_drift` example trains a 128-32-6 Q16.16 network on the first of 10
 batches of a synthetic 16-sensor gas array whose sensors drift, shows the
 accuracy falling batch by batch, then splits the network into a frozen
@@ -185,7 +192,7 @@ set.
 | `src/neuralnet.rs` | `cpp/neuralnet.hpp`, `cpp/gradientClipping.hpp`: one-hidden-layer MLP (`MultilayerPerceptron`), SGD with momentum, Adam or RMSprop, optional gradient clipping, batch size 1; and its inference-only form (`InferencePerceptron`, `IsTrainable = false`) |
 | `src/network.rs` | `cpp/neuralnet.hpp` (`NeuralNetwork<..., HiddenLayers<...>>`): up to seven hidden layers as a tuple of 1 to 8 `Dense` layers, same training; and its inference-only form (`InferenceNetwork` over `InferenceDense` layers, `IsTrainable = false`) |
 | `src/optimizer.rs` | `cpp/adam.hpp`, `cpp/rmsprop.hpp`: the `Sgd` (default), `Adam` and `RmsProp` optimizers for both trainable networks; for `f32`/`f64` networks `AdamFloat` and `RmsPropFloat` (`AdamOptimizerFloat`, `RmsPropOptimizerFloat`) |
-| `src/training.rs` | `cpp/weightDecay.hpp`, `cpp/learningRateSchedule.hpp`, `cpp/earlyStopping.hpp`: L2 weight decay (`WeightDecay`, `L2WeightDecay`) and a step-decay learning-rate schedule (`Scheduled` with `StepDecay`, `StepDecaySchedule`), both wrapping any optimizer of the three trainable networks, and early stopping (`EarlyStopping`) |
+| `src/training.rs` | `cpp/weightDecay.hpp`, `cpp/learningRateSchedule.hpp`, `cpp/earlyStopping.hpp`, `cpp/teacherForcing.hpp`: L2 weight decay (`WeightDecay`, `L2WeightDecay`) and a step-decay learning-rate schedule (`Scheduled` with `StepDecay`, `StepDecaySchedule`), both wrapping any optimizer of the three trainable networks, early stopping (`EarlyStopping`) and scheduled sampling for training a recurrent network on its own predictions (`ScheduledSampling`) |
 | `src/rand.rs` | a re-implementation of glibc `rand()`, which the C++ examples use for weight init and sampling |
 | `examples/xor.rs` | `examples/xor/xor.cpp` |
 | `examples/iris.rs` | `examples/iris/iris.cpp` |
@@ -196,6 +203,7 @@ set.
 | `examples/dqn_maze.rs` | `examples/dqn_maze/dqn_maze.cpp`, `dqn_mazelearner.h` |
 | `src/recurrent.rs` | `cpp/neuralnet.hpp` (`LstmNeuralNetwork`): an LSTM network with one hidden layer (`LstmNetwork`), trained one step back in time with SGD with momentum, Adam or RMSprop and optional gradient clipping |
 | `examples/har_activity.rs` | `examples/har_activity/har_activity.cpp` |
+| `examples/air_quality.rs` | `examples/air_quality/air_quality.cpp` |
 | `src/head.rs` | `cpp/densehead.hpp`, `cpp/prototypehead.hpp`: head-only fine-tuning, a trainable dense head (`DenseHead`, softmax cross-entropy or squared error) and a nearest-class-mean head (`PrototypeHead`, squared Euclidean or Manhattan distance) on top of a frozen model |
 | `examples/gas_sensor_drift.rs` | `examples/gas_sensor_drift/gas_sensor_drift.cpp` |
 | `examples/anomaly.rs` | no counterpart: an on-device anomaly-detection demo built from the ported parts |
@@ -236,7 +244,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   for energy_efficiency against `tests/golden/energy/`, `tests/maze_golden.rs`
   for the maze against `tests/golden/maze/`, `tests/dqn_maze_golden.rs` for
   the deep Q-network maze against `tests/golden/dqn_maze/`, `tests/har_golden.rs` for
-  har_activity against `tests/golden/har/`, `tests/gas_golden.rs` for
+  har_activity against `tests/golden/har/`, `tests/airq_golden.rs` for
+  air_quality (100 epochs; the compare script checks all 15000) against
+  `tests/golden/airq/`, `tests/gas_golden.rs` for
   gas_sensor_drift (training, the drift curve and every adaptation method)
   against `tests/golden/gas/`, and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`,
@@ -323,6 +333,11 @@ the int8 quantization tiers, SIMD backends, and so on.
   a step-decay schedule), hashing the
   outputs and every weight after every step of sequences with state resets;
   `tests/float_mlp.rs` does the same for four `f32` and `f64` LSTM networks.
+- `tests/scheduled_sampling.rs` checks `ScheduledSampling` against
+  tinymind (C++)'s on eight decay lengths (which input it picks at every step,
+  the ratio, and that it draws no random number after the window), and while
+  training an LSTM network on its own predictions, every weight hashed after
+  every step.
 - The TFLite translator (`tools/import_tflite`, run by
   `scripts/compare-with-cpp.sh`): `mlperf.py kws` and `mlperf.py ic` translate
   the MLPerf Tiny DS-CNN and ResNet-8 and compare the output hash over 8 seeded
@@ -331,9 +346,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   tinymind (C++)'s on 504 and 48 calibrations; `test_ops.py` checks PAD, MUL and
   CONCATENATION on generated models against TFLite's reference kernels (LiteRT).
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
-  (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, gas_sensor_drift, int8 xor, GBDT) with the flags their
+  (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (96 checks today, including
+  example does, runs both sides, and compares every output file (101 checks today, including
   that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
@@ -355,7 +370,7 @@ the int8 quantization tiers, SIMD backends, and so on.
   class count within its cap, that the softmax's exp stays in [0, 1] and is 0
   at or below -6, that pooling's divide rounds half away from zero, that the FFT's
   Q1.15 multiply floors and its magnitudes saturate only where they must,
-  that the learning-rate schedule and early stopping never panic and weight
+  that the learning-rate schedule, early stopping and scheduled sampling never panic and weight
   decay with lambda 0 changes no weight, and that the FFT's saturation skip on
   cores without a saturating instruction changes no output.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function

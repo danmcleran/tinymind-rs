@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Render the example plots for the docs site: xor in both formats, iris,
 the handwritten digits, energy efficiency, anomaly detection, the int8 GBDT, the Q-learning and deep
-Q-network mazes, the LSTM activity classifier and the gas sensor drift example.
+Q-network mazes, the LSTM activity classifier, the air-quality forecaster and
+the gas sensor drift example.
 
 Runs the Rust `xor`, `iris`, `optical_digits`, `energy_efficiency`, `anomaly`, `gbdt_tabular_int8`, `maze`,
-`dqn_maze`, `har_activity` and `gas_sensor_drift`
+`dqn_maze`, `har_activity`, `air_quality` and `gas_sensor_drift`
 examples (which, except anomaly, write byte-identical output to the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
 from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
@@ -38,6 +39,7 @@ GBDT = os.path.join(ROOT, "target", "release", "examples", "gbdt_tabular_int8")
 MAZE = os.path.join(ROOT, "target", "release", "examples", "maze")
 DQN_MAZE = os.path.join(ROOT, "target", "release", "examples", "dqn_maze")
 HAR = os.path.join(ROOT, "target", "release", "examples", "har_activity")
+AIRQ = os.path.join(ROOT, "target", "release", "examples", "air_quality")
 GAS = os.path.join(ROOT, "target", "release", "examples", "gas_sensor_drift")
 GAS_NAMES = ["Ethanol", "Ethylene", "Ammonia", "Acetaldehyde", "Acetone", "Toluene"]
 HAR_NAMES = ["walking", "upstairs", "downstairs", "sitting"]
@@ -141,6 +143,31 @@ def digits(out_dir, png, grid_png):
     gfig.tight_layout(rect=(0, 0, 1, 0.95))
     gfig.savefig(grid_png)
     tp.plt.close(gfig)
+
+
+def air_quality(out_dir, png):
+    """The figure tinymind's examples/air_quality/plot.py draws: loss and the
+    one-step forecast over the held-out hours."""
+    loss, _ = tp.read_csv(os.path.join(out_dir, "airq_loss.csv"))
+    fc, _ = tp.read_csv(os.path.join(out_dir, "airq_forecast.csv"))
+    true, pred = fc["true"], fc["predicted"]
+    mae = sum(abs(t - p) for t, p in zip(true, pred)) / len(true) if true else 0.0
+    tp.apply_style()
+    fig, (ax1, ax2) = tp.plt.subplots(1, 2, figsize=(13, 4.6))
+    fig.suptitle("tinymind-rs: hourly air-quality LSTM forecaster (Q16.16, 1-16-1)",
+                 fontsize=14, fontweight="bold")
+    # Epochs counted from 1 so epoch 0 has a place on the log axis.
+    tp.line(ax1, [e + 1 for e in loss["epoch"]], {"avg |error|": loss["avg_err"]},
+            xlabel="epoch (from 1)", ylabel="average |error|")
+    ax1.set_xscale("log")
+    ax1.set_title("training loss (log epoch axis)", fontsize=10, color=tp.MUTED)
+    tp.line(ax2, fc["hour"], {"true": true, "predicted": pred},
+            xlabel="hour", ylabel="CO concentration (series units)")
+    ax2.set_title("one-step-ahead forecast over the held-out hours  (MAE=%.3f)" % mae,
+                  fontsize=10, color=tp.MUTED)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(png)
+    tp.plt.close(fig)
 
 
 def iris(out_dir, png):
@@ -525,7 +552,7 @@ def gas_adapt(out_dir, png):
 
 
 def main():
-    if not all(os.path.exists(p) for p in (XOR, IRIS, DIGITS, ENERGY, ANOMALY, GBDT, MAZE, DQN_MAZE, HAR, GAS)):
+    if not all(os.path.exists(p) for p in (XOR, IRIS, DIGITS, ENERGY, ANOMALY, GBDT, MAZE, DQN_MAZE, HAR, AIRQ, GAS)):
         sys.exit("build first: cargo build --release --examples --features std")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
@@ -583,6 +610,11 @@ def main():
         subprocess.run([HAR, tmp, os.path.join(tmp, "har.csv")], check=True, stdout=subprocess.DEVNULL)
         png = os.path.join(OUT, "har_activity.png")
         har(tmp, png)
+        print("wrote", os.path.relpath(png, ROOT))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([AIRQ, tmp], check=True, stdout=subprocess.DEVNULL)
+        png = os.path.join(OUT, "air_quality.png")
+        air_quality(tmp, png)
         print("wrote", os.path.relpath(png, ROOT))
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run([GAS, tmp], check=True, stdout=subprocess.DEVNULL)

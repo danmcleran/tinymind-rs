@@ -1075,7 +1075,7 @@ mod head {
 mod training {
     use crate::neuralnet::Connection;
     use crate::qformat::{Q8_8, Q16_16, Scalar};
-    use crate::training::{EarlyStopping, StepDecay, decay_weights};
+    use crate::training::{EarlyStopping, ScheduledSampling, StepDecay, decay_weights};
 
     /// Weight decay with lambda 0 leaves every weight as it is, for any
     /// learning rate: `WeightDecay::new(opt, 0)` trains exactly as `opt`
@@ -1134,5 +1134,29 @@ mod training {
             assert!(!stop || e.counter >= e.patience);
             assert!(e.best.is_some());
         }
+    }
+
+    /// Scheduled sampling never panics for any window and step (the
+    /// threshold's `* 1000` wraps as the C++ `size_t` does), returns one of
+    /// its two inputs, makes no draw once the window is over, and stepping
+    /// never passes the end of the window.
+    #[kani::proof]
+    fn scheduled_sampling_never_panics() {
+        let mut s = ScheduledSampling::new(kani::any());
+        s.current_step = kani::any();
+        kani::assume(s.current_step <= s.total_decay_steps);
+        let roll: u32 = kani::any();
+        let mut drew = false;
+        let picked = s.select_input(1u8, 2u8, || {
+            drew = true;
+            roll
+        });
+        assert!(picked == 1 || picked == 2);
+        assert!(drew == (s.current_step < s.total_decay_steps));
+        if !drew {
+            assert!(picked == 2);
+        }
+        s.step();
+        assert!(s.current_step <= s.total_decay_steps);
     }
 }

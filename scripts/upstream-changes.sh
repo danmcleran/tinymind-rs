@@ -34,6 +34,7 @@ PORTED=(
   cpp/weightDecay.hpp
   cpp/learningRateSchedule.hpp
   cpp/earlyStopping.hpp
+  cpp/teacherForcing.hpp
   cpp/rmsprop.hpp
   cpp/densehead.hpp
   cpp/prototypehead.hpp
@@ -48,6 +49,7 @@ PORTED=(
   examples/maze
   examples/dqn_maze
   examples/har_activity
+  examples/air_quality
   examples/gas_sensor_drift
   examples/pytorch_quant/xor
   apps/import_pytorch
