@@ -8,7 +8,9 @@
 //! keeps only what the default MLP configuration actually executes
 //! (`FixedPointTransferFunctions` with default policies, or tinymind (C++)'s
 //! floating-point bundle for `f32`/`f64`, plus optional
-//! `GradientClipByValue` and an optional Adam or RMSprop optimizer; batch size 1, no recurrence, one hidden layer; for more
+//! `GradientClipByValue`, an optional Adam or RMSprop optimizer, and optional L2
+//! weight decay and a step-decay learning-rate schedule ([`crate::training`],
+//! wrapping the optimizer); batch size 1, no recurrence, one hidden layer; for more
 //! hidden layers see [`NeuralNetwork`](crate::NeuralNetwork)) and stores everything
 //! in plain fixed-size arrays:
 //! no heap, so the crate stays `#![no_std]`.

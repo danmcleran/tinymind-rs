@@ -1078,9 +1078,8 @@ mod training {
     use crate::training::{EarlyStopping, StepDecay, decay_weights};
 
     /// Weight decay with lambda 0 leaves every weight as it is, for any
-    /// learning rate: the networks store "off" as lambda 0, so this is what
-    /// makes off and `Some(0)` the same, and off the same as the C++
-    /// `NullWeightDecayPolicy`.
+    /// learning rate: `WeightDecay::new(opt, 0)` trains exactly as `opt`
+    /// alone, as the C++ `NullWeightDecayPolicy` does.
     #[kani::proof]
     fn zero_weight_decay_is_identity_q16_16() {
         let w = Q16_16::from_raw(kani::any());

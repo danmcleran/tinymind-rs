@@ -135,6 +135,15 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   at s; `OPT=s WORKLOADS=sweeps bench/run.sh f411` all match, 293,084,567
   cycles, 72 KB stack. With the FFT sweep (2026-11-12): 411 KB at s, all match,
   355,889,556 cycles, 73,280 B stack. QEMU 6 sweep runs ~2 min.
+  **Those cycle totals were all modulo 2^32** (found 2026-11-14, release
+  0.3.6 audit): DWT_CYCCNT is 32 bits and the run takes ~50 s at 100 MHz, so
+  `end - start` lost one wrap (0.3.5's 351,627,680 was 4,646,594,976).
+  sweeps.rs now sums per-sweep laps in u64 (`Laps`) and prints
+  `<sweep>_cycles=`; 0.3.6: 4,969,033,191 total, softmax 2,854,448,321 (66%
+  of 2^32: one sweep past 2^32 would wrap again unseen), lstm 1,326,788,950,
+  add 492,388,819, the rest < 100M each; 435,108 B, 73,288 B stack. Shown by
+  per-section instrumentation summing to the wrapped total + 2^32, and by
+  wall clock (63 s for build check, flash and run).
 - **Not done yet:** a coverage report. The sweeps on Cortex-M were first meant
   as the prerequisite for an opt-in `unsafe` DSP feature; Dan ruled `unsafe`
   out in any form (2026-11-11, CLAUDE.md), so they guard Arm code generation

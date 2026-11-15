@@ -70,7 +70,9 @@
 //! The value type is any [`Scalar`] for which [`Tanh`] and [`Sigmoid`] are
 //! implemented: `Q16_16`, `Q8_8`, and `f32`/`f64` with the `std` or `libm`
 //! feature. Training is SGD with momentum by default, or Adam or RMSprop
-//! ([`crate::optimizer`]), with optional gradient clipping; every result is
+//! ([`crate::optimizer`]), with optional gradient clipping and optional L2
+//! weight decay and a step-decay learning-rate schedule ([`crate::training`],
+//! wrapping the optimizer; fixed point only on the C++ side); every result is
 //! bit-identical to the C++ network with the same initial weights.
 //!
 //! tinymind (C++)'s GRU and Elman networks are not ported yet.

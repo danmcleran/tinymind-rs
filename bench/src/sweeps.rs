@@ -376,18 +376,48 @@ impl recurrent_int8::Calibrate for NoCalibration {
     }
 }
 
+/// Cycles per sweep, summed in 64 bits. The F411's cycle counter (DWT_CYCCNT)
+/// is 32 bits wide and wraps every 2^32 cycles (43 s at 100 MHz); the whole
+/// run takes longer than that, so a single difference of two readings would
+/// be the total modulo 2^32. Each sweep must stay under 2^32 cycles (the
+/// longest, softmax, took 2.9e9 on 2026-11-14). UART output between sweeps is
+/// not counted.
+struct Laps {
+    start: u32,
+    total: u64,
+}
+
+impl Laps {
+    fn start() -> Self {
+        Laps {
+            start: board::cycles(),
+            total: 0,
+        }
+    }
+
+    /// Report `<name>_cycles=`, the cycles since the last report (or the
+    /// start), then restart the count once `report` has written its lines.
+    fn lap(&mut self, out: &mut Uart, name: &str, report: impl FnOnce(&mut Uart)) {
+        let cycles = board::cycles().wrapping_sub(self.start);
+        self.total += u64::from(cycles);
+        report(out);
+        let _ = writeln!(out, "{name}_cycles={cycles}");
+        self.start = board::cycles();
+    }
+}
+
 pub fn run(out: &mut Uart) {
     let _ = writeln!(out, "name=sweeps");
-    let start = board::cycles();
+    let mut laps = Laps::start();
 
     let mut e = Expect::new(include_str!("../../tests/golden/conv/stdout.txt"));
     conv::run(&mut e);
-    e.report(out, "conv");
+    laps.lap(out, "conv", |out| e.report(out, "conv"));
 
     const ADD: &str = include_str!("../../tests/golden/add/stdout.txt");
     let mut e = Expect::new(ADD);
     add::report(&mut e, &mut AddParams(GoldenLines::new(ADD, "calibrated ")));
-    e.report(out, "add");
+    laps.lap(out, "add", |out| e.report(out, "add"));
 
     const COMPOSE: &str = include_str!("../../tests/golden/compose/stdout.txt");
     let mut e = Expect::new(COMPOSE);
@@ -398,43 +428,43 @@ pub fn run(out: &mut Uart) {
         next: 0,
     };
     compose::report(&mut e, &mut cal);
-    e.report(out, "compose");
+    laps.lap(out, "compose", |out| e.report(out, "compose"));
 
     const SOFTMAX: &str = include_str!("../../tests/golden/softmax/stdout.txt");
     let mut e = Expect::new(SOFTMAX);
     softmax::report(&mut e, &mut SoftmaxParams(GoldenLines::new(SOFTMAX, "e=")));
-    e.report(out, "softmax");
+    laps.lap(out, "softmax", |out| e.report(out, "softmax"));
 
     const FFT: &str = include_str!("../../tests/golden/fft/stdout.txt");
     let mut e = Expect::new(FFT);
     fft::report(&mut e, &mut FftTwiddles(GoldenLines::new(FFT, "twiddles ")));
-    e.report(out, "fft");
+    laps.lap(out, "fft", |out| e.report(out, "fft"));
 
     let mut e = Expect::keeping(
         include_str!("../../tests/golden/recurrent_int8/stdout.txt"),
         |l| !l.contains(" calibrated "),
     );
     recurrent_int8::report(&mut e, &mut NoCalibration);
-    e.report(out, "recurrent_int8");
+    laps.lap(out, "recurrent_int8", |out| e.report(out, "recurrent_int8"));
 
     let mut e = Expect::new(include_str!("../../tests/golden/lstm/stdout.txt"));
     lstm::report(&mut e);
-    e.report(out, "lstm");
+    laps.lap(out, "lstm", |out| e.report(out, "lstm"));
 
     let mut e = Expect::new(include_str!("../../tests/golden/tree/stdout.txt"));
     tree::report(&mut e);
-    e.report(out, "tree");
+    laps.lap(out, "tree", |out| e.report(out, "tree"));
 
     // The maze (the golden's first line) runs on the host only.
     let mut e = Expect::keeping(include_str!("../../tests/golden/qlearn/stdout.txt"), |l| {
         !l.starts_with("maze ")
     });
     qlearn::report(&mut e);
-    e.report(out, "qlearn");
+    laps.lap(out, "qlearn", |out| e.report(out, "qlearn"));
 
     // The Q-format oracle checks itself (an exact reference in the same
     // program): every check must pass, and all of the default sample must run.
-    for (name, t, expected) in [
+    let oracles = [
         (
             "oracle_16bit",
             oracle::run_16bit(0, 1),
@@ -445,7 +475,9 @@ pub fn run(out: &mut Uart) {
             oracle::run_32bit(0, 1),
             oracle::CHECKS_32BIT,
         ),
-    ] {
+    ];
+    laps.lap(out, "oracle", |_| {});
+    for (name, t, expected) in oracles {
         let _ = writeln!(out, "{name}_checks={}", t.checks);
         let _ = writeln!(out, "{name}_failures={}", t.failures);
         for failure in t.first_failures() {
@@ -455,5 +487,5 @@ pub fn run(out: &mut Uart) {
         let _ = writeln!(out, "{name}_match={}", u8::from(ok));
     }
     // All of the above, on a board (0 under QEMU, which has no cycle counter).
-    let _ = writeln!(out, "cycles={}", board::cycles().wrapping_sub(start));
+    let _ = writeln!(out, "cycles={}", laps.total);
 }

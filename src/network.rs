@@ -40,7 +40,9 @@
 //!
 //! Training is SGD with momentum by default, or Adam or RMSprop ([`crate::optimizer`],
 //! through [`NeuralNetwork::with_optimizer`]), with optional gradient clipping
-//! ([`NeuralNetwork::set_gradient_clip`]), and every result is bit-identical to the C++
+//! ([`NeuralNetwork::set_gradient_clip`]) and optional L2 weight decay and a
+//! step-decay learning-rate schedule ([`crate::training`], wrapping the
+//! optimizer; fixed point only on the C++ side), and every result is bit-identical to the C++
 //! network with the same layer sizes, activations and initial weights (and to
 //! [`MultilayerPerceptron`](crate::MultilayerPerceptron) for one hidden layer).
 //!
