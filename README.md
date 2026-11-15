@@ -27,7 +27,7 @@ affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
 (for residual connections) and multiplication, padding, concatenation, quantized
 ReLU, activation tables, a softmax that is bit-exact with TFLite's, LSTM and
-GRU cells, and a radix-2 FFT on 16-bit samples), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`), and head-only fine-tuning: a trainable dense head and a nearest-class-mean head that adapt a frozen model on the device from a few labelled samples. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
+GRU cells, and radix-2 FFTs on 16-bit samples, complex or real-input), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`), and head-only fine-tuning: a trainable dense head and a nearest-class-mean head that adapt a frozen model on the device from a few labelled samples. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -53,7 +53,8 @@ built for the same boards with the same models, inputs and compiler settings:
   and 588 ms, 31% fewer cycles than the C++'s portable build for each.
 - A 256-point int8 FFT gives tinymind (C++)'s spectrum hash, in 41,991 cycles
   on the M4F and 91,430 on the M0+: about half and 10% fewer than the best
-  gcc `-O3` build of the C++.
+  gcc `-O3` build of the C++. The real-input FFT of 256 real samples takes
+  23,083 and 55,823.
 - XOR trained on the board reproduces the desktop weight trajectory bit for bit.
 - Head-only fine-tuning: a `DenseHead` adapts to 30 labelled samples (30
   epochs) in 82 ms on the M4F and 1.41 s on the M0+, with tinymind (C++)'s
@@ -152,7 +153,8 @@ and with `--readout-only` first trains only the output weights. The
 of a synthetic hourly pollutant series (or the CO(GT) column of the UCI Air
 Quality dataset's `AirQualityUCI.csv`, if the output directory holds it), then
 forecasts the last 200 hours one step ahead; it takes an optional output
-directory, number of epochs (default 15000, about 20 seconds) and learning
+directory, epoch limit (default 15000; on the synthetic series training
+stops after 28, once no sample is outside the zero-tolerance band) and learning
 rate, and writes `airq_loss.csv` and `airq_forecast.csv`. The
 `gas_sensor_drift` example trains a 128-32-6 Q16.16 network on the first of 10
 batches of a synthetic 16-sensor gas array whose sensors drift, shows the
@@ -213,7 +215,7 @@ set.
 | `src/int8/conv.rs` | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`: int8 2D convolution (per-tensor and per-channel), depthwise and pointwise convolution, with zero-point padding |
 | `src/int8/pool.rs` | `cpp/qpool2d.hpp`: int8 max, average and global average pooling |
 | `src/int8/add.rs` | `cpp/qadd.hpp`: int8 elementwise addition (TFLite ADD), for residual connections |
-| `src/int8/fft.rs` | `cpp/qfft1d.hpp`, `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp`: radix-2 FFT on int16 samples with Q1.15 twiddle tables (forward scaled by 1/N, inverse, bin magnitudes), and its twiddle-table builder |
+| `src/int8/fft.rs` | `cpp/qfft1d.hpp`, `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp`: radix-2 FFT on int16 samples with Q1.15 twiddle tables (forward scaled by 1/N, inverse, bin magnitudes), the real-input FFT `QRFft1D` (`QRFFT1D`: N real samples to N/2 + 1 bins with an N/2-point inner transform, from the same tables), and the twiddle-table builder |
 | `src/int8/compose.rs` | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`: int8 elementwise multiplication (TFLite MUL), explicit padding (PAD) and channel concatenation (CONCATENATION) |
 | `src/int8/recurrent.rs` | `cpp/qlstm.hpp`, `cpp/qgru.hpp`: int8 LSTM cell (int8 or int16 cell state) and GRU cell, one time step at a time |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
@@ -226,7 +228,7 @@ set.
 | `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer, emitting Rust |
 | `examples/imported_trees.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
 | `examples/imported_cnn.rs` | two convolutional models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
-| `examples/imported_lstm.rs` | two LSTM sequence models written by the PyTorch importer (tinymind (C++)'s importer has no LSTM), checked against tinymind (C++)'s calibration functions + `QLSTMCell` |
+| `examples/imported_lstm.rs` | two LSTM sequence models written by the PyTorch importer, checked against tinymind (C++)'s importer (identical parameters) and its calibration functions + `QLSTMCell` |
 | `examples/imported_mlp.rs` | two models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 
 Everything else in tinymind (C++) is not ported: other Q
@@ -248,7 +250,7 @@ the int8 quantization tiers, SIMD backends, and so on.
   for the maze against `tests/golden/maze/`, `tests/dqn_maze_golden.rs` for
   the deep Q-network maze against `tests/golden/dqn_maze/`, `tests/har_golden.rs` for
   har_activity against `tests/golden/har/`, `tests/airq_golden.rs` for
-  air_quality (100 epochs; the compare script checks all 15000) against
+  air_quality against
   `tests/golden/airq/`, `tests/gas_golden.rs` for
   gas_sensor_drift (training, the drift curve and every adaptation method)
   against `tests/golden/gas/`, and
@@ -283,11 +285,13 @@ the int8 quantization tiers, SIMD backends, and so on.
   reference kernel's outputs (tinymind (C++)'s unit-test goldens and sweep hashes), and
   `tests/softmax_sweep.rs` against the tinymind (C++) softmax and its calibration
   over 504 calibrations and row lengths 1 to 511.
-- `tests/fft_sweep.rs` checks the FFT and its twiddle-table builder against
-  tinymind (C++)'s `QFFT1D` and `buildQFFTTwiddles` for every power-of-two
+- `tests/fft_sweep.rs` checks the FFTs and the twiddle-table builder against
+  tinymind (C++)'s `QFFT1D`, `QRFFT1D` and `buildQFFTTwiddles` for every power-of-two
   length from 2 to 1024: the tables, then nine signals (impulses, DC, tones, random samples,
   full-scale values that saturate) through the forward and inverse transforms,
-  the round trip and the bin magnitudes, on the built tables and on random ones.
+  the round trip and the bin magnitudes, and the real FFT of each signal's real
+  part, on the built tables and on random ones. It also checks every bin of the
+  real FFT against an exact DFT for lengths 4 to 256.
 - `tests/head_sweep.rs` checks the fine-tuning heads against tinymind (C++)'s
   `DenseHead` and `PrototypeHead`: nine dense heads (Q16.16, Q8.8, `f64` and
   `f32`; both losses; logits far beyond the exp table; sums that wrap in Q8.8)
@@ -367,7 +371,7 @@ the int8 quantization tiers, SIMD backends, and so on.
   requantizer's fast path equals gemmlowp's two-step rounding, and that the
   requantizer, the int8 dense layers, convolutions, pooling, addition,
   multiplication, padding and concatenation, the
-  tables, the softmax, the int8 LSTM and GRU cells, the FFT (for any samples
+  tables, the softmax, the int8 LSTM and GRU cells, both FFTs (for any samples
   and twiddle tables), the trees, the Q-learner, the deep Q-network and the LSTM
   network never panic, that small Q8.8 fine-tuning heads never panic and keep every
   class count within its cap, that the softmax's exp stays in [0, 1] and is 0

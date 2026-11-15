@@ -1,7 +1,8 @@
-// tinymind's QFFT1D and buildQFFTTwiddles over lengths 2 to 1024. Per length:
-// the twiddle tables, then for each test signal FNV-1a hashes of forward,
-// magnitudeSquared (of the input and of the spectrum), inverse and inverse
-// after forward; then the same on random twiddle tables, which reach the
+// tinymind's QFFT1D, QRFFT1D and buildQFFTTwiddles over lengths 2 to 1024. Per
+// length: the twiddle tables, then for each test signal FNV-1a hashes of
+// forward, magnitudeSquared (of the input and of the spectrum), inverse and
+// inverse after forward, and of QRFFT1D's forward and magnitudeSquared on the
+// signal's real part; then the same on random twiddle tables, which reach the
 // products and sums that buildQFFTTwiddles' tables never produce.
 // tests/golden/fft/stdout.txt is this program's output, and tests/fft_sweep.rs
 // computes the same in Rust.
@@ -138,8 +139,8 @@ static void makeSignal(const std::size_t s, const int16_t* c, const int16_t* sn,
 }
 
 template<std::size_t N>
-static void runSignal(const tinymind::QFFT1D<N>& fft, const char* label, const std::size_t s,
-                      const int16_t* c, const int16_t* sn)
+static void runSignal(const tinymind::QFFT1D<N>& fft, const tinymind::QRFFT1D<N>& rfft,
+                      const char* label, const std::size_t s, const int16_t* c, const int16_t* sn)
 {
     static int16_t re[N], im[N], x[N], y[N];
     static int32_t mag[N];
@@ -167,6 +168,16 @@ static void runSignal(const tinymind::QFFT1D<N>& fft, const char* label, const s
                 "roundtrip=0x%08X inverse=0x%08X\n",
                 static_cast<unsigned>(N), label, kSignals[s], hInput, hMagIn, hForward, hMag,
                 hRoundTrip, hInverse);
+
+    // The real FFT of the signal's real part.
+    static int16_t rre[N / 2 + 1], rim[N / 2 + 1];
+    static int32_t rmag[N / 2 + 1];
+    rfft.forward(x, rre, rim);
+    const uint32_t hRForward = hash16(rim, N / 2 + 1, hash16(rre, N / 2 + 1, 0x811C9DC5u));
+    tinymind::QRFFT1D<N>::magnitudeSquared(rre, rim, rmag);
+    const uint32_t hRMag = hash32(rmag, N / 2 + 1, 0x811C9DC5u);
+    std::printf("n=%u %s rfft signal=%s forward=0x%08X mag=0x%08X\n", static_cast<unsigned>(N),
+                label, kSignals[s], hRForward, hRMag);
 }
 
 template<std::size_t N>
@@ -193,9 +204,12 @@ static void sweep()
     tinymind::QFFT1D<N> fft;
     fft.twiddle_cos = c;
     fft.twiddle_sin = sn;
+    tinymind::QRFFT1D<N> rfft;
+    rfft.twiddle_cos = c;
+    rfft.twiddle_sin = sn;
     for (std::size_t s = 0; s < kNumSignals; ++s)
     {
-        runSignal<N>(fft, "built", s, c, sn);
+        runSignal<N>(fft, rfft, "built", s, c, sn);
     }
 
     // Random twiddles, -32768 included; the test signals still use the built
@@ -211,9 +225,12 @@ static void sweep()
     tinymind::QFFT1D<N> randomFft;
     randomFft.twiddle_cos = rc;
     randomFft.twiddle_sin = rs;
+    tinymind::QRFFT1D<N> randomRfft;
+    randomRfft.twiddle_cos = rc;
+    randomRfft.twiddle_sin = rs;
     for (std::size_t s = 0; s < kNumSignals; ++s)
     {
-        runSignal<N>(randomFft, "random-twiddles", s, c, sn);
+        runSignal<N>(randomFft, randomRfft, "random-twiddles", s, c, sn);
     }
 }
 

@@ -20,8 +20,8 @@
 //! affine-quantized inference ([`int8`]: dense layers, 2D convolutions (standard,
 //! depthwise and pointwise), pooling, elementwise addition and multiplication,
 //! padding, concatenation, quantized activations,
-//! a TFLite-exact softmax, LSTM and GRU cells, and a radix-2 FFT on 16-bit
-//! samples), quantized decision trees and gradient-boosted
+//! a TFLite-exact softmax, LSTM and GRU cells, and radix-2 FFTs on 16-bit
+//! samples, complex or real-input), quantized decision trees and gradient-boosted
 //! ensembles ([`tree`]), Q-learning, tabular or with a deep Q-network
 //! ([`qlearn`]), LSTM recurrent
 //! networks ([`recurrent::LstmNetwork`]), and head-only fine-tuning ([`head`]:

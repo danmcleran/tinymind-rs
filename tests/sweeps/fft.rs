@@ -1,4 +1,4 @@
-// The quantized FFT sweep, shared by tests/fft_sweep.rs (on the host, against
+// The quantized FFT sweep (complex and real-input), shared by tests/fft_sweep.rs (on the host, against
 // tinymind (C++)'s output, with build_fft_twiddles' tables) and
 // bench/src/sweeps.rs (on Cortex-M, against the same golden, with the C++'s
 // tables read from it). no_std and allocation-free. The C++ is
@@ -6,7 +6,7 @@
 
 use core::fmt::Write;
 
-use tinymind::int8::QFft1D;
+use tinymind::int8::{QFft1D, QRFft1D};
 
 /// What the sweep needs from `int8::calibration` (std only): on the host the
 /// real `build_fft_twiddles`, on the device the C++'s tables read from the
@@ -126,9 +126,10 @@ fn make_signal<const N: usize>(
     (re, im)
 }
 
-fn run_signal<const N: usize, const HALF: usize>(
+fn run_signal<const N: usize, const HALF: usize, const BINS: usize>(
     out: &mut impl Write,
     fft: &QFft1D<'_, N, HALF>,
+    rfft: &QRFft1D<'_, N, HALF>,
     label: &str,
     s: usize,
     (c, sn): (&[i16], &[i16]),
@@ -159,6 +160,20 @@ fn run_signal<const N: usize, const HALF: usize>(
          inverse=0x{h_inverse:08X}",
         SIGNALS[s]
     );
+
+    // The real FFT of the signal's real part.
+    let mut re = [0i16; BINS];
+    let mut im = [0i16; BINS];
+    rfft.forward(&x, &mut re, &mut im);
+    let h_rforward = hash16(&im, hash16(&re, FNV_OFFSET));
+    let mut rmag = [0i32; BINS];
+    rfft.magnitude_squared(&re, &im, &mut rmag);
+    let h_rmag = hash32(&rmag, FNV_OFFSET);
+    let _ = writeln!(
+        out,
+        "n={N} {label} rfft signal={} forward=0x{h_rforward:08X} mag=0x{h_rmag:08X}",
+        SIGNALS[s]
+    );
 }
 
 fn write_list(out: &mut impl Write, values: &[i16]) {
@@ -171,7 +186,10 @@ fn write_list(out: &mut impl Write, values: &[i16]) {
     }
 }
 
-fn sweep<const N: usize, const HALF: usize>(out: &mut impl Write, tw: &mut impl Twiddles) {
+fn sweep<const N: usize, const HALF: usize, const BINS: usize>(
+    out: &mut impl Write,
+    tw: &mut impl Twiddles,
+) {
     let (c, sn) = tw.twiddles::<N, HALF>();
     for (chunk, (cc, sc)) in c.chunks(16).zip(sn.chunks(16)).enumerate() {
         let k = chunk * 16;
@@ -187,8 +205,12 @@ fn sweep<const N: usize, const HALF: usize>(out: &mut impl Write, tw: &mut impl 
         twiddle_cos: &c,
         twiddle_sin: &sn,
     };
+    let rfft: QRFft1D<'_, N, HALF> = QRFft1D {
+        twiddle_cos: &c,
+        twiddle_sin: &sn,
+    };
     for s in 0..SIGNALS.len() {
-        run_signal(out, &fft, "built", s, (&c, &sn), &mut rng);
+        run_signal::<N, HALF, BINS>(out, &fft, &rfft, "built", s, (&c, &sn), &mut rng);
     }
 
     // Random twiddles, -32768 included; the test signals still use the built
@@ -205,21 +227,33 @@ fn sweep<const N: usize, const HALF: usize>(out: &mut impl Write, tw: &mut impl 
         twiddle_cos: &rc,
         twiddle_sin: &rs,
     };
+    let rrandom: QRFft1D<'_, N, HALF> = QRFft1D {
+        twiddle_cos: &rc,
+        twiddle_sin: &rs,
+    };
     for s in 0..SIGNALS.len() {
-        run_signal(out, &random, "random-twiddles", s, (&c, &sn), &mut rng);
+        run_signal::<N, HALF, BINS>(
+            out,
+            &random,
+            &rrandom,
+            "random-twiddles",
+            s,
+            (&c, &sn),
+            &mut rng,
+        );
     }
 }
 
 /// Write the sweep's report (tests/golden/fft/stdout.txt).
 pub fn report(out: &mut impl Write, tw: &mut impl Twiddles) {
-    sweep::<2, 1>(out, tw);
-    sweep::<4, 2>(out, tw);
-    sweep::<8, 4>(out, tw);
-    sweep::<16, 8>(out, tw);
-    sweep::<32, 16>(out, tw);
-    sweep::<64, 32>(out, tw);
-    sweep::<128, 64>(out, tw);
-    sweep::<256, 128>(out, tw);
-    sweep::<512, 256>(out, tw);
-    sweep::<1024, 512>(out, tw);
+    sweep::<2, 1, 2>(out, tw);
+    sweep::<4, 2, 3>(out, tw);
+    sweep::<8, 4, 5>(out, tw);
+    sweep::<16, 8, 9>(out, tw);
+    sweep::<32, 16, 17>(out, tw);
+    sweep::<64, 32, 33>(out, tw);
+    sweep::<128, 64, 65>(out, tw);
+    sweep::<256, 128, 129>(out, tw);
+    sweep::<512, 256, 257>(out, tw);
+    sweep::<1024, 512, 513>(out, tw);
 }

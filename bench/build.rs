@@ -49,7 +49,8 @@ fn head_expect() -> String {
 
 /// `static COS` and `static SIN` for length `n`, from the golden's `twiddles
 /// n=<n> k=<k> cos=<list> sin=<list>` lines, and `FORWARD_HASH`, the hash
-/// tinymind (C++) printed for the forward transform of the random signal.
+/// tinymind (C++) printed for the forward transform of the random signal, and
+/// `RFORWARD_HASH`, the one it printed for the real FFT of its real part.
 fn fft_twiddles(n: usize) -> String {
     let golden = fs::read_to_string("../tests/golden/fft/stdout.txt").unwrap();
     let prefix = format!("twiddles n={n} ");
@@ -75,9 +76,16 @@ fn fft_twiddles(n: usize) -> String {
         .find(|l| l.starts_with(&random))
         .and_then(|l| l.split(' ').find_map(|f| f.strip_prefix("forward=")))
         .expect("the random signal's forward hash in the golden");
+    // The real FFT's hash on the same signal's real part.
+    let rrandom = format!("n={n} built rfft signal=random ");
+    let rforward = golden
+        .lines()
+        .find(|l| l.starts_with(&rrandom))
+        .and_then(|l| l.split(' ').find_map(|f| f.strip_prefix("forward=")))
+        .expect("the random signal's real FFT hash in the golden");
     format!(
         "pub static COS: [i16; {h}] = [{}];\npub static SIN: [i16; {h}] = [{}];\n\
-         pub const FORWARD_HASH: u32 = {forward};\n",
+         pub const FORWARD_HASH: u32 = {forward};\npub const RFORWARD_HASH: u32 = {rforward};\n",
         list(&cos),
         list(&sin),
         h = n / 2

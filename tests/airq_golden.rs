@@ -3,10 +3,9 @@
 // The goldens in tests/golden/airq/ come from tinymind's C++
 // `examples/air_quality`, built with its Makefile's flags plus
 // -ffp-contract=off (the series is synthesized in double arithmetic, and a
-// compiler that fused multiply-adds would change it), run as `air_quality 100`:
-// 100 epochs instead of 15000, so the test stays fast in a debug build.
-// `scripts/compare-with-cpp.sh` diffs the full 15000-epoch run and checks
-// these goldens against a fresh C++ run.
+// compiler that fused multiply-adds would change it), run with its defaults:
+// up to 15000 epochs, stopping after 28 once no sample trains.
+// `scripts/compare-with-cpp.sh` checks these goldens against a fresh C++ run.
 
 mod common;
 
@@ -29,7 +28,7 @@ fn airq_matches_cpp_golden() {
     airq_driver::run(
         &dir,
         &dir.join("AirQualityUCI.csv"),
-        100,
+        airq_driver::TRAINING_EPOCHS,
         airq_driver::LEARNING_RATE,
         &mut stdout,
     )

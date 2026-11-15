@@ -408,14 +408,18 @@ def lstm_ref(layer: LSTM, seq: np.ndarray) -> tuple[list, list]:
     """Float reference of an LSTM over one sequence `[step][feature]` from
     zero state: (hidden states, cell states), one float32 vector per step. The
     matrix products accumulate in float64 without BLAS and round to float32
-    (dense_ref), the gates use the C library's exp and tanh through Python's
+    (dense_ref), the bias is added to them in float64, the gates use the C library's exp and tanh through Python's
     math module, so the result does not depend on the CPU."""
     hid = layer.hidden_size
+    bias = (layer.bias if layer.bias is not None
+            else np.zeros(4 * hid, np.float32)).astype(np.float64)
     h = np.zeros(hid, np.float32)
     c = np.zeros(hid, np.float32)
     hs, cs = [], []
     for x in np.asarray(seq, np.float32):
-        pre = (dense_ref(x, layer.weight_ih, layer.bias).astype(np.float64)
+        # As tinymind's lstm_float_forward: each product rounded to float32,
+        # the bias added in float64.
+        pre = (dense_ref(x, layer.weight_ih, None).astype(np.float64) + bias
                + dense_ref(h, layer.weight_hh, None).astype(np.float64))
         nh, nc = np.empty(hid, np.float32), np.empty(hid, np.float32)
         for u in range(hid):

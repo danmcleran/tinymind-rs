@@ -9,6 +9,15 @@ break the API).
 
 ### Added
 
+- `int8::QRFft1D`, ported from tinymind (C++)'s `QRFFT1D`: a real-input FFT
+  that takes `N` real 16-bit samples and computes the `N / 2 + 1` bins that
+  are not redundant, scaled by 1/N, from the same twiddle tables as
+  `QFft1D<N>`. It runs an `N / 2`-point complex transform and a split step (at
+  `N = 256`, 448 butterflies instead of 1,024) and takes its headroom in the
+  first inner stage, so no input saturates an intermediate value. A 256-point
+  transform takes 23,083 cycles on a Cortex-M4F and 55,823 on a Cortex-M0+,
+  45% and 39% fewer than `QFft1D` on the same samples; its largest error
+  against an exact DFT is a few LSB, about 1.3 to 1.7 times `QFft1D`'s.
 - Example `optical_digits`, a port of tinymind (C++)'s handwritten-digit
   classifier: a 64-32-10 Q16.16 perceptron (ReLU hidden, sigmoid output)
   trained on the UCI Optical Recognition of Handwritten Digits dataset (8x8
@@ -30,17 +39,30 @@ break the API).
   The LSTM becomes an `int8::QLstmCell` (int16 cell state by default, int8
   with `cell_bits=8`), and the generated module's `forward` runs a whole
   sequence while `head` runs the rest of the network on one hidden state, for
-  streaming. tinymind (C++)'s importer has no LSTM; the cell's parameters
-  follow its `buildQLSTMParams` and `quantizeQLSTMBiases`, and the new
-  `imported_lstm` example's two models are byte-identical to tinymind (C++)'s
-  runtime given the same float scales. `nn.GRU` is rejected with the reason:
+  streaming. The cell's parameters follow tinymind (C++)'s `buildQLSTMParams`
+  and `quantizeQLSTMBiases`, and the new `imported_lstm` example's two models
+  are byte-identical to tinymind (C++)'s runtime given the same float scales.
+  tinymind (C++)'s importer now imports the same models too, and on both the
+  two importers compute identical scales, int8 weights and int32 biases. `nn.GRU` is rejected with the reason:
   PyTorch applies its reset gate after the recurrent product, `QGruCell`
   before it.
 - Example `air_quality`, a port of tinymind (C++)'s hourly pollutant
   forecaster: a 1-16-1 Q16.16 LSTM network trained on a synthetic hourly
   series (or the UCI Air Quality dataset's CO(GT) column, when
   `AirQualityUCI.csv` is in the output directory) that forecasts the last 200
-  hours one step ahead. Its output is byte-identical to the C++ example's.
+  hours one step ahead. Training stops at the first epoch in which no sample
+  is outside the zero-tolerance band (after 28 epochs on the synthetic
+  series), since any later epoch would repeat it. Its output is
+  byte-identical to the C++ example's.
+
+### Changed
+
+- The PyTorch importer's float LSTM reference adds the gate bias in double
+  precision after rounding the input product, as tinymind (C++)'s importer
+  (which now imports LSTMs too) does, so both compute the same calibration
+  ranges. A model's calibrated scales can move by one float32 rounding; the
+  `imported_lstm` example's regressor changed one requantizer multiplier and
+  none of its outputs.
 
 ## [0.3.6] - 2026-11-14
 

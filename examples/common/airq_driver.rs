@@ -22,9 +22,7 @@ use tinymind::{Q16_16, Sigmoid, Tanh};
 mod cppfmt;
 use cppfmt::fmt_g;
 
-/// C++ `TRAINING_EPOCHS`, the default number of epochs. (The golden test
-/// runs fewer, so only the example reads it.)
-#[allow(dead_code)]
+/// C++ `TRAINING_EPOCHS`, the default upper bound on the number of epochs.
 pub const TRAINING_EPOCHS: u32 = 15_000;
 /// C++ `LEARNING_RATE`, the default learning rate.
 pub const LEARNING_RATE: f64 = 0.5;
@@ -118,15 +116,22 @@ pub fn run(
 
     writeln!(
         stdout,
-        "Training LSTM forecaster: {epochs} epochs over {} sequential pairs (holdout={holdout} hours)...",
+        "Training LSTM forecaster: up to {epochs} epochs over {} sequential pairs (holdout={holdout} hours)...",
         train_end - 1
     )?;
 
     let mut loss_csv = BufWriter::new(File::create(out_dir.join("airq_loss.csv"))?);
     writeln!(loss_csv, "epoch,avg_err")?;
+    // Training stops at the first epoch in which no sample trains: every
+    // error is inside the zero-tolerance band (1/128 of full scale), so the
+    // weights did not move. The state is reset at the start of every epoch and
+    // nothing else changes between epochs, so every later epoch would repeat
+    // that one exactly; `epochs` is only an upper bound.
+    let mut epochs_run = 0;
     for epoch in 0..epochs {
         let mut abs_err = 0.0;
         let mut count = 0usize;
+        let mut trained = 0usize;
         nn.reset_state();
         for t in 0..train_end - 1 {
             if t > 0 && t % TRAIN_WINDOW == 0 {
@@ -139,6 +144,7 @@ pub fn run(
             count += 1;
             if !error.is_within_zero_tolerance() {
                 nn.train(&target);
+                trained += 1;
             }
         }
         let avg = if count > 0 {
@@ -147,9 +153,20 @@ pub fn run(
             0.0
         };
         writeln!(loss_csv, "{epoch},{}", fmt_g(avg))?;
+        epochs_run = epoch + 1;
+        if trained == 0 {
+            break;
+        }
     }
     loss_csv.flush()?;
-    writeln!(stdout, "Training complete.")?;
+    write!(stdout, "Training complete after {epochs_run} epochs")?;
+    if epochs_run < epochs {
+        write!(
+            stdout,
+            " (every error inside the zero-tolerance band; further epochs would not change the weights)"
+        )?;
+    }
+    writeln!(stdout, ".")?;
 
     // One-step-ahead forecast over the held-out tail: warm the state on the
     // day before it, then predict each held-out hour from the true current one.

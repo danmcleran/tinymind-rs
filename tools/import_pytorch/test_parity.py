@@ -5,7 +5,9 @@
 scale, and every int8 weight and int32 bias must be identical. The models are
 dense chains, and the convolutional examples of example_cnn.py (tinymind's
 importer has no pooling or flatten layers, so there each one runs inside the
-next layer's float forward, as example_cnn.py --cpp does). Also: the softmax
+next layer's float forward, as example_cnn.py --cpp does), and the LSTM
+models of example_lstm.py (hidden and cell scales, per-gate weight scales,
+int8 weights and int32 gate biases too). Also: the softmax
 parameters it bakes equal tinymind's C++ buildQSoftmaxFixedPointParams on the
 504 calibrations of tests/golden/softmax/stdout.txt.
 
@@ -98,6 +100,7 @@ def main():
         print(f"case {i} {case[0]} final={case[2]}: {'IDENTICAL' if same else 'DIFFERENT'}"
               f" ({len(a[0])} tensors, {sum(len(d[2]) * len(d[2][0]) for d in a[1])} weights)")
     failures += not conv_models_match(ours, theirs)
+    failures += not lstm_models_match(ours, theirs)
     failures += not softmax_params_match(ours)
     sys.exit(1 if failures else 0)
 
@@ -129,6 +132,56 @@ def conv_models_match(ours, theirs):
         n = sum(len(np.array(w[1]).reshape(-1)) for w in a_w.values())
         print(f"case {name}: {'IDENTICAL' if same else 'DIFFERENT'} ({len(b_ranges)} tensors, "
               f"{n} weights, {len(a_w)} conv/dense layers)")
+    return ok
+
+
+class _TheirLstm:
+    """tinymind's importer module with example_lstm.py's builders' spelling:
+    its LSTM takes bias_ih and bias_hh where ours takes their sum, and the
+    float dense reference is ours (plain float arithmetic, no quantization)."""
+
+    def __init__(self, theirs, ours):
+        self._theirs, self.dense_ref = theirs, ours.dense_ref
+
+    def __getattr__(self, name):
+        return getattr(self._theirs, name)
+
+    def LSTM(self, bias, **kwargs):
+        return self._theirs.LSTM(bias_ih=bias, bias_hh=None, **kwargs)
+
+
+def lstm_models_match(ours, theirs):
+    """example_lstm.py's models (int16 and int8 cell state): the same ranges,
+    LSTM cell scale, per-gate input and recurrent weight scales, int8 weights
+    and int32 gate biases, and the same weights for every Dense after it."""
+    ex = load(os.path.join(HERE, "example_lstm.py"), "example_lstm")
+    shim = _TheirLstm(theirs, ours)
+    ok = True
+    for name, (build, steps, features) in sorted(ex.MODELS.items()):
+        data = ex.calibration_set(steps, features)
+        a_layers, b_layers = build(ours), build(shim)
+        a_ranges = ours.calibrate(a_layers, "input", ours.MinMaxObserver(), data)
+        ours.quantize_weights(a_layers, a_ranges)
+        b_ranges = theirs.calibrate(b_layers, "input", theirs.MinMaxObserver(), data)
+        theirs.quantize_weights(b_layers, b_ranges)
+
+        def params(layers):
+            out = {}
+            for l in layers:
+                kind = type(l).__name__
+                if kind == "LSTM":
+                    out[l.name] = (l.cell_scale, list(l.input_weight_scales),
+                                   list(l.recurrent_weight_scales), l.q_weight_ih.tolist(),
+                                   l.q_weight_hh.tolist(), [int(v) for v in np.ravel(l.q_bias)])
+                elif kind == "Dense":
+                    out[l.name] = (l.weight_scale, l.q_weight.tolist(), l.q_bias.tolist())
+            return out
+
+        a_p, b_p = params(a_layers), params(b_layers)
+        same = a_ranges == b_ranges and a_p == b_p
+        ok &= same
+        print(f"case {name}: {'IDENTICAL' if same else 'DIFFERENT'} ({len(b_ranges)} tensors, "
+              f"{len(a_p)} LSTM/dense layers)")
     return ok
 
 

@@ -4,8 +4,9 @@
 //! cell state, a dense layer and softmax; `examples/common/imported_lstm_model.rs`)
 //! and a sequence regressor (10 steps of 2 features, 5 units with an int8 cell
 //! state, two dense layers and tanh; `examples/common/imported_lstm_i8_model.rs`).
-//! tinymind (C++)'s importer has no LSTM, so the check is against its runtime:
-//! `scripts/cpp/imported_lstm.cpp` builds every integer parameter with
+//! tinymind (C++)'s importer computes the same scales, int8 weights and int32
+//! biases for both (`tools/import_pytorch/test_parity.py`), and the outputs
+//! are checked against its runtime: `scripts/cpp/imported_lstm.cpp` builds every integer parameter with
 //! tinymind (C++)'s calibration functions from the same float scales and runs
 //! the models on its `QLSTMCell` and `QDense`, and the output is
 //! byte-identical (`scripts/compare-with-cpp.sh`).

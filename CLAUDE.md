@@ -109,7 +109,7 @@ cargo build --release --examples
 cargo run --release --example xor       # writes output/ (gitignored); args: [--format q16.16|q8.8] [out_dir] [lr] [momentum]
 cargo run --release --example iris      # args: [out_dir] [data file, default data/iris.data]
 cargo run --release --example optical_digits   # args: [out_dir] [data dir, default data/]
-cargo run --release --example air_quality      # args: [out_dir] [epochs, default 15000 (~20 s)] [learning rate]
+cargo run --release --example air_quality      # args: [out_dir] [epoch limit, default 15000; stops after 28] [learning rate]
 cargo run --release --features std --example int8_xor   # args: [out_dir]
 cargo test --all-features           # unit tests + golden tests against the C++ outputs (int8 needs std)
 cargo clippy --all-targets --all-features -- -D warnings
@@ -161,7 +161,7 @@ The third column is the notes file in `.claude/rules/`.
 | (same, `QDensePerChannel`) | `cpp/qpointwiseconv2d.hpp` (1x1, per channel) | `int8.md` |
 | `src/int8/conv.rs`, `src/int8/pool.rs` (re-exported from `int8`) | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp` | `int8.md` |
 | `src/int8/add.rs` (re-exported from `int8`) | `cpp/qadd.hpp`, `buildQAddParams` in `cpp/include/qcalibration.hpp` | `int8.md` |
-| `src/int8/fft.rs` (re-exported from `int8`), `tests/sweeps/fft.rs`, `scripts/cpp/fft_sweep.cpp` | `cpp/qfft1d.hpp`, `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp` | `int8.md` |
+| `src/int8/fft.rs` (re-exported from `int8`), `tests/sweeps/fft.rs`, `scripts/cpp/fft_sweep.cpp` | `cpp/qfft1d.hpp` (`QFFT1D`, `QRFFT1D`), `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp` | `int8.md` |
 | `src/int8/compose.rs` (re-exported from `int8`) | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `buildQMulRequantizer`/`buildRescaler` | `int8.md` |
 | `src/int8/recurrent.rs` (re-exported from `int8`) | `cpp/qlstm.hpp`, `cpp/qgru.hpp`, `buildQLSTMParams`/`buildQGRUParams`/`quantizeQLSTMBiases`/`quantizeQGRUBiases` in `cpp/include/qcalibration.hpp` | `int8.md` |
 | `examples/kws_cortex_m_int8.rs`, `examples/common/kws_int8_driver.rs`, `examples/common/std_random.rs`, `scripts/cpp/kws_int8_dump.cpp` | `examples/kws_cortex_m_int8/kws_cortex_m_int8.cpp` | `int8.md` |

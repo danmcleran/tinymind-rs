@@ -907,12 +907,12 @@ mod recurrent {
 }
 
 /// The quantized FFT: the Q1.15 multiply floors, the saturation clamps, and the
-/// transforms never panic or overflow for any samples and any twiddle tables
+/// transforms (complex and real-input) never panic or overflow for any samples and any twiddle tables
 /// (`-32768` included), which the built-in overflow checks cover; magnitudes
 /// saturate only at the both-rails bin.
 mod fft {
-    use crate::int8::QFft1D;
     use crate::int8::fft::{q15_mul, saturate_i16};
+    use crate::int8::{QFft1D, QRFft1D};
 
     /// `q15_mul(a, b)` is `floor(a * b / 2^15)`: the only `q` with
     /// `q * 2^15 <= a * b < (q + 1) * 2^15`.
@@ -973,6 +973,47 @@ mod fft {
         fft.transform::<true, true>(&mut r1, &mut i1);
         // Element by element: `==` on arrays is a memcmp loop.
         assert!(r0[0] == r1[0] && r0[1] == r1[1] && i0[0] == i1[0] && i0[1] == i1[1]);
+    }
+
+    /// The real FFT never panics or overflows for any samples and any
+    /// twiddles: N = 4 (one fused first stage, a split bin that is its own
+    /// mirror) and N = 8 (an inner stage after the fused one, a split pair).
+    #[kani::proof]
+    #[kani::unwind(5)]
+    fn rfft_forward_never_panics_4() {
+        let (c, s): ([i16; 2], [i16; 2]) = (kani::any(), kani::any());
+        let input: [i16; 4] = kani::any();
+        let fft: QRFft1D<'_, 4, 2> = QRFft1D {
+            twiddle_cos: &c,
+            twiddle_sin: &s,
+        };
+        let (mut re, mut im) = ([0i16; 3], [0i16; 3]);
+        fft.forward(&input, &mut re, &mut im);
+        assert!(im[0] == 0 && im[2] == 0);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(9)]
+    fn rfft_forward_never_panics_8() {
+        let (c, s): ([i16; 4], [i16; 4]) = (kani::any(), kani::any());
+        let input: [i16; 8] = kani::any();
+        let fft: QRFft1D<'_, 8, 4> = QRFft1D {
+            twiddle_cos: &c,
+            twiddle_sin: &s,
+        };
+        let (mut re, mut im) = ([0i16; 5], [0i16; 5]);
+        fft.forward(&input, &mut re, &mut im);
+    }
+
+    /// The fused first stage's `(a ± b) >> 2` fits in `i16` for any two
+    /// samples, so its plain casts lose nothing.
+    #[kani::proof]
+    fn rfft_first_stage_fits() {
+        let (a, b): (i16, i16) = (kani::any(), kani::any());
+        let (a, b) = (i32::from(a), i32::from(b));
+        for v in [(a + b) >> 2, (a - b) >> 2] {
+            assert!(v >= -32768 && v <= 32767);
+        }
     }
 
     /// `magnitude_squared` is `min(r^2 + i^2, i32::MAX)`, spec in i128.

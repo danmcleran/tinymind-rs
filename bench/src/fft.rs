@@ -1,13 +1,14 @@
 //! The quantized FFT on the board: one 256-point forward transform and the
 //! magnitudes of its bins, on the FFT sweep's random signal, with the twiddle
-//! tables of tinymind (C++). The spectrum's hash must equal the forward hash
-//! that tinymind (C++) printed for the same signal (tests/golden/fft/stdout.txt,
-//! read by build.rs).
+//! tables of tinymind (C++), then the 256-point real FFT of the signal's real
+//! part. Each spectrum's hash must equal the forward hash that tinymind (C++)
+//! printed for the same signal (tests/golden/fft/stdout.txt, read by
+//! build.rs).
 
 use core::fmt::Write;
 use core::hint::black_box;
 
-use tinymind::int8::QFft1D;
+use tinymind::int8::{QFft1D, QRFft1D};
 
 use crate::board::{self, Uart};
 use crate::{REPS, median};
@@ -23,6 +24,15 @@ static FFT: QFft1D<'static, N, { N / 2 }> = QFft1D {
     twiddle_cos: &twiddles::COS,
     twiddle_sin: &twiddles::SIN,
 };
+
+#[cfg(not(feature = "fft-runtime"))]
+static RFFT: QRFft1D<'static, N, { N / 2 }> = QRFft1D {
+    twiddle_cos: &twiddles::COS,
+    twiddle_sin: &twiddles::SIN,
+};
+
+/// The real FFT's number of bins.
+const BINS: usize = N / 2 + 1;
 
 /// The FFT sweep's `random` signal (tests/sweeps/fft.rs): interleaved draws
 /// for the real and imaginary parts from its generator, seeded with `N`.
@@ -41,7 +51,7 @@ fn random_signal() -> ([i16; N], [i16; N]) {
 }
 
 /// FNV-1a over the bytes of `re`, then `im`, little-endian (the sweep's hash).
-fn hash_spectrum(re: &[i16; N], im: &[i16; N]) -> u32 {
+fn hash_spectrum(re: &[i16], im: &[i16]) -> u32 {
     re.iter()
         .chain(im)
         .flat_map(|v| v.to_le_bytes())
@@ -60,7 +70,11 @@ pub fn run(out: &mut Uart) {
     });
     #[cfg(not(feature = "fft-runtime"))]
     let fft = &FFT;
-    let shape = if cfg!(feature = "fft-runtime") { "runtime" } else { "static" };
+    let shape = if cfg!(feature = "fft-runtime") {
+        "runtime"
+    } else {
+        "static"
+    };
     let _ = writeln!(out, "name=fft\nfft_n={N}\nfft_layer={shape}");
     let (x, y) = random_signal();
 
@@ -100,5 +114,35 @@ pub fn run(out: &mut Uart) {
     let _ = writeln!(
         out,
         "magnitude_min={min}\nmagnitude_med={med}\nmagnitude_max={max}"
+    );
+
+    // The real FFT of the signal's real part.
+    #[cfg(feature = "fft-runtime")]
+    let rfft: &QRFft1D<'_, N, { N / 2 }> = &black_box(QRFft1D {
+        twiddle_cos: black_box(&twiddles::COS),
+        twiddle_sin: black_box(&twiddles::SIN),
+    });
+    #[cfg(not(feature = "fft-runtime"))]
+    let rfft = &RFFT;
+    let (mut rre, mut rim) = ([0i16; BINS], [0i16; BINS]);
+    rfft.forward(&x, &mut rre, &mut rim);
+    let hash = hash_spectrum(&rre, &rim);
+    let expect = twiddles::RFORWARD_HASH;
+    let _ = writeln!(
+        out,
+        "rfft_hash=0x{hash:08X}\nrfft_expect_hash=0x{expect:08X}\nrfft_hash_match={}",
+        u32::from(hash == expect)
+    );
+    for slot in t.iter_mut() {
+        let input = black_box(&x);
+        let a = board::cycles();
+        rfft.forward(input, &mut rre, &mut rim);
+        *slot = board::cycles().wrapping_sub(a);
+        black_box((&rre, &rim));
+    }
+    let (min, med, max) = median(t);
+    let _ = writeln!(
+        out,
+        "rfft_forward_min={min}\nrfft_forward_med={med}\nrfft_forward_max={max}"
     );
 }

@@ -13,9 +13,12 @@
 //! `AirQualityUCI.csv` from the UCI Air Quality dataset is found in the output
 //! directory, as the C++ looks for it in its working directory.
 //!
+//! Training stops at the first epoch in which no sample trains (every error
+//! inside the zero-tolerance band, so the weights did not move and any later
+//! epoch would repeat it); on the synthetic series that is after 28 epochs.
+//!
 //! Run: `cargo run --release --example air_quality -- [output_dir] [epochs]
-//! [learning_rate]` (defaults `output`, 15000 and 0.5, as in the C++). The
-//! full run takes about 20 seconds.
+//! [learning_rate]` (defaults `output`, at most 15000 and 0.5, as in the C++).
 
 use std::fs;
 use std::io::{self, BufWriter};
