@@ -8,7 +8,9 @@ no float math and no setup on the device.
 It is a port of tinymind (C++)'s [`apps/import_pytorch`](https://github.com/danmcleran/tinymind/tree/master/apps/import_pytorch).
 Calibration and quantization are tinymind (C++)'s code, unchanged, so a model imported
 here has the same int8 numbers as the same model imported with tinymind (C++); only the
-output is Rust instead of a C++ header. tinymind (C++)'s importer leaves the layer types to
+output is Rust instead of a C++ header. The LSTM path was written here first;
+tinymind (C++)'s importer, which has imported LSTMs since, computes the same
+parameters (checked by `test_parity.py`). tinymind (C++)'s importer leaves the layer types to
 hand-written C++; this one also writes the network itself, so it tracks each
 layer's shape, stride and padding.
 

@@ -33,7 +33,7 @@ It takes well under a second. Two optional arguments after the output directory 
 
 ![Air-quality training loss and one-step forecast over the held-out hours]({{ site.baseurl }}/assets/plots/air_quality.png)
 
-The mean error per step falls from 0.0151 in the first epoch to 0.00156 by epoch 27; in epoch 28 every error is inside the band and training stops. Over the 200 held-out hours the forecast follows both daily peaks with a mean absolute error of 0.070, on a series that ranges from 1.34 to 3.01; its largest misses are at the sharpest peaks and troughs.
+The mean error per step falls from 0.0151 in the first epoch to 0.00156 in the 28th, in which every error is inside the band, so training stops there. Over the 200 held-out hours the forecast follows both daily peaks with a mean absolute error of 0.070, on a series that ranges from 1.34 to 3.01; its largest misses are at the sharpest peaks and troughs.
 
 The figure is drawn from this port's output with tinymind (C++)'s plotting style (`scripts/plot-examples.py`).
 

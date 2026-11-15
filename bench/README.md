@@ -83,7 +83,8 @@ samples, so the numbers sit next to the tinymind (C++) ones.
 ## Results
 
 Every Rust figure in the tables was re-measured on both boards on 2026-11-14
-with Rust 1.100.0 (LLVM 23.1.5) and the build settings below; a section that
+with Rust 1.100.0 (LLVM 23.1.5) and the build settings below (the real-input
+FFT rows on 2026-11-15, with the same compiler); a section that
 gives an earlier date is describing how a figure got there. C++ figures are tinymind (C++)'s own
 (`docs/benchmarks.md`, gcc 13.2.1 `-O3`), measured on these same boards.
 

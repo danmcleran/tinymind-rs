@@ -12,17 +12,17 @@ The port has one rule that shapes everything else: **every ported path produces 
 
 ## What is in the crate
 
-As of 0.3.6:
+As of 0.3.7:
 
 - Q16.16 and Q8.8 fixed-point arithmetic (`QValue<i32, 16>`, `QValue<i16, 8>`), with ReLU, linear, and lookup-table tanh and sigmoid activations; the same networks also run on `f32` and `f64`.
 - Networks that train on the device with SGD and momentum, Adam or RMSprop (optionally with gradient clipping; for `f32`/`f64` also tinymind (C++)'s floating-point Adam and RMSprop, `AdamFloat` and `RmsPropFloat`): up to seven hidden layers (`NeuralNetwork` over `Dense` layers), and a one-hidden-layer perceptron (`MultilayerPerceptron`), each with an inference-only version that holds nothing but its weights (`InferenceNetwork`, `InferencePerceptron`).
-- Training controls (module `training`): L2 weight decay and a step-decay learning-rate schedule that wrap the optimizer of any of the trainable networks, and early stopping.
-- int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), 2D convolutions (standard, depthwise and pointwise), pooling, residual addition, multiplication, padding, concatenation, quantized ReLU, activation tables, a softmax that is bit-exact with TFLite's, and LSTM and GRU cells; and a radix-2 FFT on 16-bit samples (`QFft1D`, with a host-side twiddle-table builder).
+- Training controls (module `training`): L2 weight decay and a step-decay learning-rate schedule that wrap the optimizer of any of the trainable networks, early stopping, and scheduled sampling for training a recurrent network on its own predictions.
+- int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), 2D convolutions (standard, depthwise and pointwise), pooling, residual addition, multiplication, padding, concatenation, quantized ReLU, activation tables, a softmax that is bit-exact with TFLite's, and LSTM and GRU cells; and radix-2 FFTs on 16-bit samples, complex (`QFft1D`) and real-input (`QRFft1D`), with a host-side twiddle-table builder.
 - Q-learning (`QLearner`, module `qlearn`) over a `QTable` or a deep Q-network (`QNetwork`), with tinymind (C++)'s maze and deep Q-network maze examples.
-- LSTM networks with one hidden layer (`LstmNetwork`, module `recurrent`), trained one step back in time, in fixed or floating point, with tinymind (C++)'s activity-recognition example.
+- LSTM networks with one hidden layer (`LstmNetwork`, module `recurrent`), trained one step back in time, in fixed or floating point, with tinymind (C++)'s activity-recognition and air-quality forecasting examples.
 - Head-only fine-tuning (module `head`): a trainable dense head (`DenseHead`) and a nearest-class-mean head (`PrototypeHead`) that adapt a frozen model on the device, with tinymind (C++)'s gas sensor drift example.
 - Quantized decision trees and gradient-boosted ensembles (`QDecisionTree`, `QGbdt`) over a node pool that can live in flash, with int8, uint8 or int16 thresholds.
-- Three tools (in the repository, not the crate) that write `no_std` Rust modules: an importer for a trained PyTorch `nn.Sequential` (dense and convolutional), one for scikit-learn, XGBoost and LightGBM tree models, and a translator for int8 TensorFlow Lite models.
+- Three tools (in the repository, not the crate) that write `no_std` Rust modules: an importer for a trained PyTorch `nn.Sequential` (dense, convolutional, or starting with an `nn.LSTM`), one for scikit-learn, XGBoost and LightGBM tree models, and a translator for int8 TensorFlow Lite models.
 
 The library is `no_std`, allocation-free, has no required dependencies (`libm` is optional), and is `#![forbid(unsafe_code)]`.
 
@@ -48,7 +48,7 @@ The examples only exercise the paths they use, so the arithmetic gets more:
 
 - **A differential oracle**, ported from tinymind (C++)'s, checks every Q-format operation against an exact 64-bit reference. For Q8.8 it is exhaustive: every pair of values, about four billion, in roughly fifteen seconds.
 - **Overflow checks on, in release.** Rust overflow is not undefined behaviour, but release builds wrap silently, so a plain `+` that should have been `wrapping_add` gives the right answer and passes. The exhaustive run is built with `overflow-checks = true`, which turns that mistake into a panic. I planted one to make sure: it passed with checks off and failed with them on.
-- **Kani proofs** (107 harnesses) for every input rather than a sample: add and subtract wrap, multiply floors then wraps, and the round-toward-zero and round-to-nearest multiplies SGD uses, for six Q formats; the int8 requantizer's single-rounding fast path equals gemmlowp's two-step rounding wherever it is used; and the requantizer, dense layers, convolutions, pooling, addition, multiplication, padding, concatenation, tables, softmax, the LSTM and GRU cells and both FFTs never panic, whatever their parameters; the FFT's Q1.15 multiply floors and its magnitudes saturate only where both parts are -32768; the decision trees never panic for any field values of small node pools, the Q-learner, the deep Q-network, the LSTM network and small Q8.8 fine-tuning heads never panic for any parameters, and the heads keep every class count within its cap; the learning-rate schedule and early stopping never panic, and weight decay with lambda 0 leaves every weight as it is; and the FFT's saturation skip on cores without a saturating instruction changes no output.
+- **Kani proofs** (107 harnesses) for every input rather than a sample: add and subtract wrap, multiply floors then wraps, and the round-toward-zero and round-to-nearest multiplies SGD uses, for six Q formats; the int8 requantizer's single-rounding fast path equals gemmlowp's two-step rounding wherever it is used; and the requantizer, dense layers, convolutions, pooling, addition, multiplication, padding, concatenation, tables, softmax, the LSTM and GRU cells and both FFTs never panic, whatever their parameters; the FFT's Q1.15 multiply floors and its magnitudes saturate only where both parts are -32768; the decision trees never panic for any field values of small node pools, the Q-learner, the deep Q-network, the LSTM network and small Q8.8 fine-tuning heads never panic for any parameters, and the heads keep every class count within its cap; the learning-rate schedule, early stopping and scheduled sampling never panic, and weight decay with lambda 0 leaves every weight as it is; and the FFT's saturation skip on cores without a saturating instruction changes no output.
 
 One thing Kani could not do: prove that 64-bit fixed-point division truncates toward zero. The symbolic division timed out after five minutes with two different SAT solvers. That property is covered by the oracle instead, exhaustively for Q8.8.
 
@@ -71,7 +71,7 @@ Keeping that gate green changed the API in small ways:
 
 ## On real hardware
 
-The port runs on an STM32F411 (Cortex-M4F at 100 MHz) and an STM32L031 (Cortex-M0+ at 32 MHz, 32 KB of flash). On both, the Rust port of tinymind (C++)'s int8 digits classifier (64-32-16-10) produces the same output hash as the C++ build, and XOR trained on the board reproduces the desktop weight trajectory bit for bit, in both formats. An autoencoder trained on the board for anomaly detection (8-4-8, Q16.16) makes every decision bit for bit as on the desktop, even on the 32 KB L031 ([Anomaly detection]({{ site.baseurl }}/anomaly)). A 256-point int8 FFT gives tinymind (C++)'s spectrum hash in 41,991 cycles on the F411 and 91,430 on the L031: about half and 10% fewer than the best gcc `-O3` build of the C++.
+The port runs on an STM32F411 (Cortex-M4F at 100 MHz) and an STM32L031 (Cortex-M0+ at 32 MHz, 32 KB of flash). On both, the Rust port of tinymind (C++)'s int8 digits classifier (64-32-16-10) produces the same output hash as the C++ build, and XOR trained on the board reproduces the desktop weight trajectory bit for bit, in both formats. An autoencoder trained on the board for anomaly detection (8-4-8, Q16.16) makes every decision bit for bit as on the desktop, even on the 32 KB L031 ([Anomaly detection]({{ site.baseurl }}/anomaly)). A 256-point 16-bit FFT gives tinymind (C++)'s spectrum hash in 41,991 cycles on the F411 and 91,430 on the L031: about half and 10% fewer than the best gcc `-O3` build of the C++. The real-input FFT of 256 real samples takes 23,083 and 55,823 cycles.
 
 int8 MLP, one inference:
 
@@ -116,7 +116,8 @@ For int8 models, the importer runs tinymind (C++)'s own calibration and quantiza
 ```python
 import tinymind_import as ti
 
-layers = ti.from_torch(net, input_shape=(1, 12, 12))   # Linear, Conv2d, BatchNorm2d, pools, ReLU, ... (input_shape for conv nets)
+layers = ti.from_torch(net, input_shape=(1, 12, 12))   # Linear, Conv2d, BatchNorm2d, pools, ReLU, ... (input_shape for conv nets;
+                                                       # sequence_length for a model that starts with an nn.LSTM)
 ti.import_pytorch_model(layers, "input", ti.MinMaxObserver(), calibration_inputs,
                         "my_model.rs", "my_model")
 ```
