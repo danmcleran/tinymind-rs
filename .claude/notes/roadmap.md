@@ -5,6 +5,20 @@ what to port next, and update it when a step is done.
 
 ## Next steps
 
+- **optical_digits, air_quality + ScheduledSampling, LSTM import (done,
+  2026-11-14):** the three highest-ROI items after the training controls
+  (Dan: "1, 2, and 3 before we create the next release"). `optical_digits`
+  (iris scaled up; data excluded from the crate), `air_quality` (plain 1-16-1
+  LSTM; the C++ includes `teacherForcing.hpp`/`earlyStopping.hpp` but uses
+  neither; its loss is flat from epoch 27) with `training::ScheduledSampling`
+  checked by its own C++ program (no C++ example uses it), and the PyTorch
+  importer emitting `QLstmCell` (no C++ importer counterpart: checked against
+  tinymind's calibration functions + runtime). Left from that review:
+  `predictive_maintenance` (needs libstdc++'s mt19937/normal/shuffle/
+  uniform_int/bernoulli reimplemented for its synthetic data; low value),
+  `QTreeCompactEval`, trainable GRU/Elman (`RoundUpPolicy`, an API break),
+  and a GRU importer (needs a reset-after cell, tinymind first).
+
 - **FFT speed (done, 2026-11-12):** C++ timed on both boards (a scratch
   backend in tinymind's harness; gcc's -O3 code depends on the caller, best
   found): gcc -O3 F411 ~82,900, L031 ~101,600; -Os ~85,200 / 142,482. Rust

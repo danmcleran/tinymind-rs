@@ -2,7 +2,7 @@
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
 # iris, optical_digits, energy_efficiency, gas_sensor_drift, air_quality, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
-# fine-tuning heads, the int8 softmax and FFT sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# fine-tuning heads, the int8 softmax and FFT sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included) and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -713,6 +713,40 @@ for model in cnn cnn_flat; do
   fi
 done
 
+echo "== imported_lstm (PyTorch importer, LSTM models)"
+# tinymind's importer has no LSTM: example_lstm.py --cpp writes the float scales,
+# float LSTM biases and int8 weights, and imported_lstm.cpp builds every integer
+# parameter with tinymind's calibration functions and runs its QLSTMCell.
+mkdir -p "$TMP/lstm_import"
+for model in lstm lstm_i8; do
+  "$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_lstm.py" --model "$model" --cpp "$TMP/lstm_import/$model.hpp" >/dev/null
+done
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/lstm_import/imported_lstm" "$ROOT/scripts/cpp/imported_lstm.cpp" \
+  -I"$TMP/lstm_import" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+"$TMP/lstm_import/imported_lstm" > "$TMP/lstm_import/cpp.txt"
+"$ROOT/target/release/examples/imported_lstm" > "$TMP/lstm_import/rust.txt"
+if cmp -s "$TMP/lstm_import/cpp.txt" "$TMP/lstm_import/rust.txt"; then
+  same "imported_lstm stdout.txt"
+else
+  echo "DIFFERENT  imported_lstm stdout.txt"
+  status=1
+fi
+if ! cmp -s "$TMP/lstm_import/cpp.txt" "$ROOT/tests/golden/imported_lstm/stdout.txt"; then
+  echo "DIFFERENT  imported_lstm stdout.txt (C++ vs tests/golden/imported_lstm)"
+  status=1
+fi
+# The committed generated modules are exactly what this repo's importer writes.
+for model in lstm lstm_i8; do
+  "$PYTHON" -I -B "$ROOT/tools/import_pytorch/example_lstm.py" --model "$model" --rust "$TMP/lstm_import/$model.rs" >/dev/null
+  if cmp -s "$TMP/lstm_import/$model.rs" "$ROOT/examples/common/imported_${model}_model.rs"; then
+    same "imported_lstm examples/common/imported_${model}_model.rs (regenerated)"
+  else
+    echo "DIFFERENT  imported_lstm examples/common/imported_${model}_model.rs (regenerated)"
+    status=1
+  fi
+done
+
 echo "== import_tflite (TFLite translator)"
 # Needs tflite and flatbuffers in PYTHON. The MLPerf Tiny keyword-spotting and
 # image-classification models are downloaded at tinymind's pinned commit
@@ -846,6 +880,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/kws_int8/tensors.txt" "$KEEP_CPP_OUTPUT/kws_int8/tensors.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/imported_cnn"
   cp "$TMP/cnn/cpp.txt" "$KEEP_CPP_OUTPUT/imported_cnn/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/imported_lstm"
+  cp "$TMP/lstm_import/cpp.txt" "$KEEP_CPP_OUTPUT/imported_lstm/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/conv"
   cp "$TMP/conv/stdout.txt" "$KEEP_CPP_OUTPUT/conv/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/compose"

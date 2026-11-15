@@ -63,6 +63,14 @@ required-features = ["std"]
 name = "imported_cnn_golden"
 required-features = ["std"]
 
+[[example]]
+name = "imported_lstm"
+required-features = ["std"]
+
+[[test]]
+name = "imported_lstm_golden"
+required-features = ["std"]
+
 [[test]]
 name = "kws_int8_golden"
 required-features = ["std"]

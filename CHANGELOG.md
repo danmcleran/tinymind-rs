@@ -24,6 +24,18 @@ break the API).
   any generator works; with `rand::GlibcRand` its choices are those of the
   C++ with glibc `rand()` (checked step by step, and while training an LSTM
   network).
+- The PyTorch importer (`tools/import_pytorch`) imports sequence models that
+  start with one `nn.LSTM` layer: `from_torch(model, sequence_length=T)`
+  (an `nn.Sequential(lstm, head...)`, of which only the parameters are read).
+  The LSTM becomes an `int8::QLstmCell` (int16 cell state by default, int8
+  with `cell_bits=8`), and the generated module's `forward` runs a whole
+  sequence while `head` runs the rest of the network on one hidden state, for
+  streaming. tinymind (C++)'s importer has no LSTM; the cell's parameters
+  follow its `buildQLSTMParams` and `quantizeQLSTMBiases`, and the new
+  `imported_lstm` example's two models are byte-identical to tinymind (C++)'s
+  runtime given the same float scales. `nn.GRU` is rejected with the reason:
+  PyTorch applies its reset gate after the recurrent product, `QGruCell`
+  before it.
 - Example `air_quality`, a port of tinymind (C++)'s hourly pollutant
   forecaster: a 1-16-1 Q16.16 LSTM network trained on a synthetic hourly
   series (or the UCI Air Quality dataset's CO(GT) column, when

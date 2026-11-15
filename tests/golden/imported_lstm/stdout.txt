@@ -1,0 +1,41 @@
+lstm lstm in=1616928960,10;1616928960,10;1616928960,10;1616928960,10 rec=1658546560,11;1658546560,11;1658546560,11;1658546560,11 fc=1073741824,7 ig=1316091209,0 ct=1738351114,10 out=1390279335,7 cell=-32768,32767
+lstm lstm biases=0x605BD531 luts=0x884E312F
+lstm fc1 rq=1908652645,7,-61
+lstm softmax=1880775168,19,-3968
+lstm s=0 states=0xE49ECCA5 probs=-27,-76,-92,-61
+lstm s=1 states=0x249FF5E6 probs=-80,-16,-80,-80
+lstm s=2 states=0x65621AE4 probs=-8,-84,-91,-74
+lstm s=3 states=0xB8528BDE probs=-8,-79,-91,-77
+lstm s=4 states=0x166B4078 probs=-23,-72,-95,-66
+lstm s=5 states=0x7B67B462 probs=-28,-74,-86,-68
+lstm s=6 states=0x25A83BE0 probs=6,-91,-98,-73
+lstm s=7 states=0xE93B0F7A probs=-64,-36,-89,-66
+lstm s=8 states=0x728D6C65 probs=-6,-87,-92,-71
+lstm s=9 states=0xB417E8F6 probs=-19,-73,-94,-69
+lstm s=10 states=0x0BA30CD4 probs=15,-92,-99,-81
+lstm s=11 states=0x8B0936BD probs=-62,-39,-88,-67
+lstm s=12 states=0xADBE0900 probs=8,-94,-91,-78
+lstm s=13 states=0xB204FECE probs=-24,-70,-88,-73
+lstm s=14 states=0x0552F7E1 probs=-59,-46,-85,-66
+lstm s=15 states=0x3C7FDD00 probs=-37,-68,-87,-65
+lstm_i8 lstm in=1077952640,9;1077952640,9;1077952640,9;1886417120,10 rec=1700912512,11;1700912512,11;1700912512,11;1700912512,11 fc=1073741824,7 ig=1468642639,9 ct=1557784419,1 out=1355650566,7 cell=-128,127
+lstm_i8 lstm biases=0x1F7E585D luts=0x884E312F
+lstm_i8 fc1 rq=2134775719,6,-128
+lstm_i8 fc2 rq=2037554330,6,93
+lstm_i8 tanh lut=0xC5F14630
+lstm_i8 s=0 states=0x995D760D out=-10
+lstm_i8 s=1 states=0x5FE235C4 out=-20
+lstm_i8 s=2 states=0xF338F5DC out=-6
+lstm_i8 s=3 states=0xDF9EB775 out=-6
+lstm_i8 s=4 states=0x0DC5A4CD out=-11
+lstm_i8 s=5 states=0xAD4E3516 out=-8
+lstm_i8 s=6 states=0x50F2D682 out=-13
+lstm_i8 s=7 states=0x5DC78148 out=-9
+lstm_i8 s=8 states=0xFFA6B5F9 out=-6
+lstm_i8 s=9 states=0x22C84935 out=-12
+lstm_i8 s=10 states=0x6E61E650 out=-19
+lstm_i8 s=11 states=0xE4139B96 out=-10
+lstm_i8 s=12 states=0xFA111329 out=-15
+lstm_i8 s=13 states=0x072E5895 out=-13
+lstm_i8 s=14 states=0xC835077D out=-15
+lstm_i8 s=15 states=0xC2C9E415 out=-6
