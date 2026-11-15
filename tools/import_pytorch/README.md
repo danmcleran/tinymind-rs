@@ -134,9 +134,9 @@ layers will come as the crate gains them.
 ## How it is checked
 
 - `test_parity.py`: on five dense models (layer sizes, observers, activations
-  including softmax, input ranges) and the two convolutional examples, every
-  scale, zero point, weight and bias equals what tinymind (C++)'s importer
-  computes. tinymind (C++)'s importer has no pooling or flatten layers, so for it
+  including softmax, input ranges), the two convolutional examples and the two
+  LSTM examples, every scale, zero point, weight and bias equals what
+  tinymind (C++)'s importer computes. tinymind (C++)'s importer has no pooling or flatten layers, so for it
   each one runs inside the next layer's float forward; since they keep their
   input's grid here, the calibrated ranges are the same.
 - `example_mlp.py` defines two models: a 3-8-4-2 MLP that uses all three
@@ -168,8 +168,9 @@ layers will come as the crate gains them.
 - `example_lstm.py` defines two LSTM models: a classifier (12 steps of 3
   features, 8 units, int16 cell state, dense and softmax) and a regressor (10
   steps of 2 features, 5 units, int8 cell state, two dense layers with ReLU and
-  tanh). tinymind (C++)'s importer has no LSTM, so `--cpp` writes what it
-  would hand the C++ runtime (float scales, the float LSTM biases, int8
+  tanh). `test_parity.py` checks that tinymind (C++)'s importer computes the
+  same ranges, cell scale, per-gate weight scales, int8 weights and int32 gate
+  biases for both. `--cpp` writes what the C++ runtime is handed (float scales, the float LSTM biases, int8
   weights, int32 dense biases), and `scripts/cpp/imported_lstm.cpp` builds
   every integer parameter from that with tinymind (C++)'s
   `buildQLSTMParams`, `quantizeQLSTMBiases`, table builders,

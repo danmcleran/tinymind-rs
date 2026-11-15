@@ -26,6 +26,7 @@ The Rust figures on this page were measured with Rust 1.100.0 (LLVM 23.1.5) on 2
 | imported decision trees: every score and class on the 54 Wine samples equals the host run | match | match |
 | int8 KWS-shaped CNN (convolutions): output hash equals tinymind (C++)'s | match | match |
 | 256-point FFT, forward transform: spectrum hash equals tinymind (C++)'s | match | match |
+| 256-point real-input FFT: spectrum hash equals tinymind (C++)'s | match | match |
 | fine-tuning heads: a dense training step and prediction, a prototype update and prediction, and a whole adaptation: hashes equal tinymind (C++)'s | match | match |
 | MLPerf Tiny keyword spotting (DS-CNN), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 | MLPerf Tiny image classification (ResNet-8), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
@@ -163,8 +164,12 @@ One 256-point forward transform of `int8::QFft1D` on random 16-bit samples, with
 | **tinymind-rs**, `opt-level = "s"` | **44,255** | **96,784** |
 | tinymind (C++), gcc `-O3`, best measured | about 82,900 | about 101,600 |
 | tinymind (C++), gcc `-Os`, best measured | about 85,200 | 142,482 |
+| **tinymind-rs** real-input FFT (`QRFft1D`, 256 real samples), `opt-level = 3` | **23,083** | **55,823** |
+| **tinymind-rs** real-input FFT, `opt-level = "s"` | **27,124** | **60,428** |
 
 On the Cortex-M0+ the Rust transform takes about 10% fewer cycles than the best gcc `-O3` build of tinymind (C++), and 32% fewer than its best `-Os` build. On the Cortex-M4F it takes about half the cycles of either. Its code is 2,056 B at `opt-level = "s"` and 3,808 B at 3 on the M0+, where the C++'s is 392 B and 584 B plus a 1 KB bit-reversal table that the Rust transform does without. The squared magnitudes of the 256 bins take 2,731 and 4,895 cycles. The transform works in the caller's buffers with no memory of its own.
+
+For real samples, `QRFft1D` computes the 129 bins that are not redundant from the same twiddle tables (Rust figures 2026-11-15) in 45% fewer cycles than the complex transform on the M4F and 39% fewer on the M0+; its spectrum's hash equals the one tinymind (C++)'s `QRFFT1D` computes. Its code on the M0+ is 2,208 B at `opt-level = "s"` and 3,524 B at 3. It was not timed against the C++ on the boards.
 
 gcc's code for tinymind (C++)'s FFT loop depends on the function it is inlined into: on the M0+ at `-O3` the same source measured from 101,600 to 193,277 cycles in different callers, from a loop that keeps its state in registers to one that spills it and reloads constants every butterfly. The table gives the best caller found; the details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
 

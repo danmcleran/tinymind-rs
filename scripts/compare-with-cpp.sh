@@ -389,7 +389,7 @@ for f in stdout.txt har_loss.csv har_confusion.csv; do
 done
 
 echo "== air_quality"
-mkdir -p "$TMP/airq/cpp" "$TMP/airq/rust" "$TMP/airq/cpp100"
+mkdir -p "$TMP/airq/cpp" "$TMP/airq/rust"
 # Flags from examples/air_quality/Makefile's release target, plus
 # -ffp-contract=off: the example synthesizes its series in double arithmetic,
 # and a compiler that fuses multiply-adds changes it.
@@ -398,13 +398,10 @@ g++ -g -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/airq/air_
   -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include/" \
   -DTINYMIND_ENABLE_OSTREAMS=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 \
   -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_TANH_16_16=1
-# The full 15000-epoch run (about 20 s each side, run in parallel), compared
-# live; the golden test runs 100 epochs, so check those goldens against the C++
-# too.
-(cd "$TMP/airq/cpp" && ../air_quality > stdout.txt) &
-"$ROOT/target/release/examples/air_quality" "$TMP/airq/rust" > "$TMP/airq/rust/stdout.txt" &
-(cd "$TMP/airq/cpp100" && ../air_quality 100 > stdout.txt) &
-wait
+# The default run (up to 15000 epochs; it stops once no sample trains), compared
+# live and against the goldens the golden test reads.
+(cd "$TMP/airq/cpp" && ../air_quality > stdout.txt)
+"$ROOT/target/release/examples/air_quality" "$TMP/airq/rust" > "$TMP/airq/rust/stdout.txt"
 for f in stdout.txt airq_loss.csv airq_forecast.csv; do
   if cmp -s "$TMP/airq/cpp/$f" "$TMP/airq/rust/$f"; then
     same "air_quality $f"
@@ -412,8 +409,8 @@ for f in stdout.txt airq_loss.csv airq_forecast.csv; do
     echo "DIFFERENT  air_quality $f"
     status=1
   fi
-  if ! cmp -s "$TMP/airq/cpp100/$f" "$ROOT/tests/golden/airq/$f"; then
-    echo "DIFFERENT  air_quality 100 epochs $f (C++ vs tests/golden/airq)"
+  if ! cmp -s "$TMP/airq/cpp/$f" "$ROOT/tests/golden/airq/$f"; then
+    echo "DIFFERENT  air_quality $f (C++ vs tests/golden/airq)"
     status=1
   fi
 done
@@ -867,7 +864,7 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/qlearn/stdout.txt" "$KEEP_CPP_OUTPUT/qlearn/stdout.txt"
   cp -r "$TMP/har/cpp" "$KEEP_CPP_OUTPUT/har"
   cp -r "$TMP/gas/cpp" "$KEEP_CPP_OUTPUT/gas"
-  cp -r "$TMP/airq/cpp100" "$KEEP_CPP_OUTPUT/airq"
+  cp -r "$TMP/airq/cpp" "$KEEP_CPP_OUTPUT/airq"
   mkdir -p "$KEEP_CPP_OUTPUT/sampling"
   cp "$TMP/sampling/stdout.txt" "$KEEP_CPP_OUTPUT/sampling/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/head"

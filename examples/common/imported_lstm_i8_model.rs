@@ -34,7 +34,7 @@ pub const RELU1_SCALE: f32 = 0.0031368663;
 /// Zero point of the `relu1` tensor.
 pub const RELU1_ZERO_POINT: i8 = -128;
 /// Scale of the `fc2` tensor.
-pub const FC2_SCALE: f32 = 0.0007289051;
+pub const FC2_SCALE: f32 = 0.000728905;
 /// Zero point of the `fc2` tensor.
 pub const FC2_ZERO_POINT: i8 = 93;
 /// Scale of the `out` tensor.
@@ -199,7 +199,7 @@ pub static FC2: QDense<'static, 6, 1> = QDense {
     biases: Some(&FC2_BIASES),
     input_zero_point: -128,
     requantizer: Requantizer {
-        multiplier: 2037554330,
+        multiplier: 2037554492,
         shift: 6,
         zero_point: 93,
         qmin: -128,

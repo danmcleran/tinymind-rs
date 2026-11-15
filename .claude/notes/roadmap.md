@@ -5,6 +5,14 @@ what to port next, and update it when a step is done.
 
 ## Next steps
 
+- **Upstream sync to `7336296` (done, 2026-11-15):** tinymind #279-#281,
+  from this repo's review handoff: `int8::QRFft1D` (C++ `QRFFT1D`, #281;
+  F411 23,083 / L031 55,823 cycles at N=256 vs QFft1D 41,991 / 91,430),
+  air_quality's early stop (#280: 28 epochs), and the C++ importer's LSTM
+  path (#279), now in `test_parity.py` (our float LSTM reference follows
+  theirs). #280's q15Mul comment and narrowed bit-reversal tables need
+  nothing here (no table). Not timed: C++ `QRFFT1D` on the boards.
+
 - **optical_digits, air_quality + ScheduledSampling, LSTM import (done,
   2026-11-14):** the three highest-ROI items after the training controls
   (Dan: "1, 2, and 3 before we create the next release"). `optical_digits`

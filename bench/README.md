@@ -36,8 +36,10 @@ samples, so the numbers sit next to the tinymind (C++) ones.
   tinymind (C++)'s twiddle tables (`build.rs` reads both, and the hash
   tinymind (C++) printed for that transform, from
   `tests/golden/fft/stdout.txt`). The spectrum's hash must equal the one
-  tinymind (C++) printed. `fft-runtime` is the same with the layer built at
-  run time from tables the compiler cannot see, instead of a `static`.
+  tinymind (C++) printed. Then the 256-point real-input FFT (`QRFft1D`) of the
+  signal's real part, whose hash must equal the one tinymind (C++)'s `QRFFT1D`
+  printed. `fft-runtime` is the same with the layers built at run time from
+  tables the compiler cannot see, instead of `static`s.
 - **`head`**: the fine-tuning heads (`tinymind::head`) on a Q16.16 workload
   shared with the host (`tests/sweeps/head_bench.rs`): 32-value embeddings
   for 6 classes, 5 samples each, and a shipped `DenseHead<Q16_16, 32, 6>`,
@@ -172,6 +174,7 @@ sensitive to placement (see below).
 | anomaly demo: report and hash = host run (`0x7C074DAD`) | match | match |
 | KWS CNN output hash = tinymind (C++)'s (`0x6B1854D3`) | match | match |
 | 256-point FFT, forward: spectrum hash = tinymind (C++)'s (`0xEFABBA1C`) | match | match |
+| 256-point real-input FFT: spectrum hash = tinymind (C++)'s (`0x316EE142`) | match | match |
 | Fine-tuning heads: dense step, prediction, prototype update and prediction, whole adaptation: hashes = tinymind (C++)'s | match | match |
 | MLPerf Tiny DS-CNN (translated from TFLite) output hash = tinymind (C++)'s (`0xF623A166`) | match | - |
 | MLPerf Tiny ResNet-8 (translated from TFLite) output hash = tinymind (C++)'s (`0x8897F6ED`) | match | - |
@@ -316,17 +319,28 @@ and the same output hash in both languages (2026-11-12):
 | tinymind-rs, layer built at run time, `opt-level = "s"` | 43,864 | 98,387 |
 | tinymind (C++), gcc `-O3`, best measured | about 82,900 | about 101,600 |
 | tinymind (C++), gcc `-Os`, best measured | about 85,200 | 142,482 |
+| **tinymind-rs** real-input FFT (`QRFft1D`, 256 real samples, 129 bins), `opt-level = 3` | **23,083** | **55,823** |
+| **tinymind-rs** real-input FFT, `opt-level = "s"` | **27,124** | **60,428** |
+
+The real-input rows (2026-11-15) are the same workload's second half: the
+real FFT of the signal's real part, whose hash must equal the one printed by
+tinymind (C++)'s `QRFFT1D` (`0x316EE142`). It takes 45% fewer cycles than the
+complex transform on the F411 and 39% fewer on the L031; its code on the L031
+is 2,208 B at `"s"` and 3,524 B at 3. It has not been timed against the C++ on
+the boards. In that image the complex transform's figures at 3 are unchanged
+to within 4 cycles; at `"s"` they are 44,241 and 95,758.
 
 On the L031 the Rust transform takes about 10% fewer cycles than the best
 gcc `-O3` build of tinymind (C++) and 32% fewer than its best `-Os` build;
 on the F411 about half the cycles of either. The squared magnitudes of the 256 bins take 2,731 and 4,895
 cycles. Code for the transform (L031): 2,056 B at `"s"` and 3,808 B at 3; the
 C++'s 392 B at `-Os` and 584 B at `-O3` plus its 1 KB bit-reversal table; both
-also read the 512 B of twiddle tables. The workload as a whole adds 2,920 B
-(`"s"`) and 5,052 B (3) of flash on the L031 over the baseline image, with
-the signal generator and the report, and about 4 KB of stack for its own
-buffers (the input kept for 33 timed runs, the working buffers, 1 KB of
-magnitudes); the transform itself needs none.
+also read the 512 B of twiddle tables. The workload as a whole, both
+transforms included, adds 5,608 B (`"s"`) and 9,256 B (3) of flash on the
+L031 over the baseline image, with the signal generator and the report, and
+about 5 KB of stack for its own buffers (the input kept for 33 timed runs,
+the working buffers, 1 KB of magnitudes); the transforms themselves need
+none.
 
 The C++ figures come from tinymind (C++)'s benchmark harness (`fw/harness.cpp`,
 its board code and Makefile flags) with backends that run

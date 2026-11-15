@@ -105,6 +105,9 @@
 //! samples, Q1.15 twiddle tables borrowed from flash, in place on the caller's
 //! real and imaginary buffers. Its bin magnitudes come out in `i32`, ready for a
 //! [`Requantizer`] onto an int8 grid; `calibration` builds the twiddle tables.
+//! [`QRFft1D`] takes real samples, the usual case for sensors: from the same
+//! tables it computes the `N / 2 + 1` bins that are not redundant with about
+//! half the work.
 //!
 //! # Equivalence with tinymind (C++)
 //!
@@ -128,7 +131,7 @@ pub use compose::{QConcat, QMul, QPad2D};
 pub use conv::{
     QConv2D, QConv2DPerChannel, QDepthwiseConv2D, QPointwiseConv2D, QPointwiseConv2DPerChannel,
 };
-pub use fft::QFft1D;
+pub use fft::{QFft1D, QRFft1D};
 pub use pool::{QAvgPool2D, QGlobalAvgPool2D, QMaxPool2D};
 pub use recurrent::{CellStorage, QGruCell, QLstmCell};
 

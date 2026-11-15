@@ -228,6 +228,43 @@ saturation (only from line 55), stride off, no clamp at 32767). Device: bench
 `sweeps` reads the tables from the golden (`twiddles ` lines); bench `fft`
 (N=256 forward on the random signal; tables and expected hash written by
 bench/build.rs from the golden). panic-never: N=2 and N=256
+**QRFft1D** (2026-11-15, tinymind #281 at `7336296`): `QRFft1D<'a, N, HALF>`
+(same fields and tables as QFft1D; `BINS = HALF + 1` assoc const; methods
+generic over `BINS` with `const { check::<BINS>() }`, a wrong length is a
+post-mono error, compile_fail doctest). Output arrays double as the inner
+work space: `split_first_chunk_mut::<HALF>()` + `first_mut()` for the
+Nyquist bin (Option, never None). Load fused with the first stage `(a +- b) >>
+2` (plain `as i16`, exact: Kani `rfft_first_stage_fits`); bit reversal of the
+packed index by reverse-carry over HALF/2 (rev(2m) over log2(HALF) bits =
+rev(m) over one fewer; rev(2m+1) = that + HALF/2). Remaining inner stages are
+QFft1D's: `stage`/`run_stages` became free fns over buffer length L and table
+length T (stride T/H; QFft1D L=N,T=HALF; QRFft L=T=HALF, FIRST=2), with the
+same SKIP_SATURATION. Split = C++ `qrfftSplitBin` (`split_bin`), no halving;
+N=2 halves DC/Nyquist (edge shift). **Inlining trap:** after the refactor LLVM
+inlined `QFft1D::transform` into the bench's main: L031 91,430 -> 103,209,
+F411 41,991 -> 43,604, +4 KB; `#[inline(never)]` on `transform` restores
+master's bytes and cycles exactly (run_stages never-inlined instead: 91,807 /
+42,015). `forward_impl` is `#[inline(never)]` too. Boards (`fft` workload now
+also runs QRFft on the signal's real part, hash 0x316EE142 from the golden's
+`rfft` line): F411 23,083, L031 55,823 at opt 3 (QFft1D 41,989 / 91,426 in
+the same image); opt s 27,124 / 60,428 (QFft1D 44,241 / 95,758; master's
+image 44,255 / 96,784); code L031 3,524 B (3), 2,208 B (s); fft workload
+text L031 21,692 (3, baseline 12,436), 12,884 (s, baseline 7,276). C++ x86
+said 2.3-2.4x; on the boards 1.8x / 1.6x. C++ QRFFT1D not timed on the
+boards. Sweep: each signal's real part through QRFft (forward + magnitude
+hashes, `n=N <label> rfft signal=...` lines, no new rng draws so the 247 old
+lines are unchanged; 427 lines, UBSan+ASan clean, identical at -O1); matched
+first run. Plants failing the sweep: odd sign, mirrored-bin twiddle, Nyquist
+as a sum, N=2 halving dropped, first stage >> 1, inner stride (FIRST=4),
+even/odd swapped, j1 = j ^ 1, split loop short; split without saturation
+passed it (unreachable with built tables), so unit test
+`rfft_split_saturates` (values from C++ qrfftSplitBin). Also
+`tests/fft_sweep.rs::rfft_is_close_to_the_exact_dft` (C++ test bounds: 2
+log2 N + 1 LSB vs f64 DFT/N, log2 N vs QFft1D, N=4..256; DC/Nyquist/impulse);
+the end-halving layout fails it (N=64, 70 LSB). Unit tests: N=2 exact,
+skip/no-skip identical. Kani: `rfft_forward_never_panics_4`, `_8`,
+`rfft_first_stage_fits` (an i16 first-stage plant fails). panic-never N=2, 8,
+256 at 3/s/z.
 
 ## `examples/kws_cortex_m_int8.rs`, `examples/common/kws_int8_driver.rs`, `examples/common/std_random.rs`, `scripts/cpp/kws_int8_dump.cpp`
 
