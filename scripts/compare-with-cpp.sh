@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris, optical_digits, energy_efficiency, gas_sensor_drift, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
+# iris, optical_digits, energy_efficiency, gas_sensor_drift, air_quality, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
-# fine-tuning heads, the int8 softmax and FFT sweeps, the Q-learning and tree sweeps, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# fine-tuning heads, the int8 softmax and FFT sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -387,6 +387,56 @@ for f in stdout.txt har_loss.csv har_confusion.csv; do
     status=1
   fi
 done
+
+echo "== air_quality"
+mkdir -p "$TMP/airq/cpp" "$TMP/airq/rust" "$TMP/airq/cpp100"
+# Flags from examples/air_quality/Makefile's release target, plus
+# -ffp-contract=off: the example synthesizes its series in double arithmetic,
+# and a compiler that fuses multiply-adds changes it.
+g++ -g -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/airq/air_quality" \
+  "$TINYMIND_DIR/examples/air_quality/air_quality.cpp" "$TINYMIND_DIR/cpp/lookupTables.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include/" \
+  -DTINYMIND_ENABLE_OSTREAMS=1 -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 \
+  -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_TANH_16_16=1
+# The full 15000-epoch run (about 20 s each side, run in parallel), compared
+# live; the golden test runs 100 epochs, so check those goldens against the C++
+# too.
+(cd "$TMP/airq/cpp" && ../air_quality > stdout.txt) &
+"$ROOT/target/release/examples/air_quality" "$TMP/airq/rust" > "$TMP/airq/rust/stdout.txt" &
+(cd "$TMP/airq/cpp100" && ../air_quality 100 > stdout.txt) &
+wait
+for f in stdout.txt airq_loss.csv airq_forecast.csv; do
+  if cmp -s "$TMP/airq/cpp/$f" "$TMP/airq/rust/$f"; then
+    same "air_quality $f"
+  else
+    echo "DIFFERENT  air_quality $f"
+    status=1
+  fi
+  if ! cmp -s "$TMP/airq/cpp100/$f" "$ROOT/tests/golden/airq/$f"; then
+    echo "DIFFERENT  air_quality 100 epochs $f (C++ vs tests/golden/airq)"
+    status=1
+  fi
+done
+
+echo "== scheduled sampling"
+# tinymind's ScheduledSampling on its own and while training an LSTM on its own
+# predictions; tests/scheduled_sampling.rs checks the Rust against the
+# committed golden, so the golden must still be what the C++ prints.
+mkdir -p "$TMP/sampling"
+g++ -O2 -Wall -Wextra -Werror -Wpedantic -o "$TMP/sampling/scheduled_sampling" "$ROOT/scripts/cpp/scheduled_sampling.cpp" \
+  "$TINYMIND_DIR/cpp/lookupTables.cpp" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 \
+  -DTINYMIND_USE_SIGMOID_16_16=1 -DTINYMIND_USE_TANH_16_16=1
+"$TMP/sampling/scheduled_sampling" > "$TMP/sampling/stdout.txt"
+if cmp -s "$TMP/sampling/stdout.txt" "$ROOT/tests/golden/sampling/stdout.txt"; then
+  same "scheduled sampling stdout.txt (C++ vs tests/golden/sampling)"
+else
+  echo "DIFFERENT  scheduled sampling stdout.txt (C++ vs tests/golden/sampling)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --test scheduled_sampling >/dev/null 2>&1 \
+  && same "scheduled sampling Rust vs tests/golden/sampling" \
+  || { echo "DIFFERENT  scheduled sampling Rust vs tests/golden/sampling"; status=1; }
 
 echo "== gas_sensor_drift"
 mkdir -p "$TMP/gas/cpp" "$TMP/gas/rust"
@@ -783,6 +833,9 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/qlearn/stdout.txt" "$KEEP_CPP_OUTPUT/qlearn/stdout.txt"
   cp -r "$TMP/har/cpp" "$KEEP_CPP_OUTPUT/har"
   cp -r "$TMP/gas/cpp" "$KEEP_CPP_OUTPUT/gas"
+  cp -r "$TMP/airq/cpp100" "$KEEP_CPP_OUTPUT/airq"
+  mkdir -p "$KEEP_CPP_OUTPUT/sampling"
+  cp "$TMP/sampling/stdout.txt" "$KEEP_CPP_OUTPUT/sampling/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/head"
   cp "$TMP/head/stdout.txt" "$KEEP_CPP_OUTPUT/head/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/lstm"

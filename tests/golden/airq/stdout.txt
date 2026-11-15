@@ -1,0 +1,5 @@
+Using synthetic hourly air-quality series (2400 samples).
+Training LSTM forecaster: 100 epochs over 2199 sequential pairs (holdout=200 hours)...
+Training complete.
+One-step-ahead forecast over 200 held-out hours. MAE = 0.0701141 (real units; series range 1.3397..3.01242).
+Wrote airq_loss.csv and airq_forecast.csv.

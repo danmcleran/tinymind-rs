@@ -20,7 +20,7 @@ use tinymind::int8::{
 use tinymind::qlearn;
 use tinymind::rand::GlibcRand;
 use tinymind::recurrent::LstmNetwork;
-use tinymind::training::{EarlyStopping, Scheduled, StepDecay, WeightDecay};
+use tinymind::training::{EarlyStopping, Scheduled, ScheduledSampling, StepDecay, WeightDecay};
 use tinymind::tree::{self, QDecisionTree, QGbdt, QTreeNode};
 
 use tinymind::{
@@ -114,6 +114,20 @@ where
         }
     }
     black_box((stopper.best_error(), stopper.patience_counter()));
+    let mut sampler = ScheduledSampling::new(black_box(5));
+    let mut picked = raw(0);
+    for _ in 0..black_box(8) {
+        picked = sampler.select_input(raw(black_box(1)), picked, || rng.next_i32() as u32);
+        sampler.step();
+    }
+    black_box((
+        picked,
+        sampler.teacher_forcing_ratio(),
+        sampler.current_step(),
+    ));
+    black_box(sampler.total_decay_steps());
+    sampler.reset();
+    black_box(sampler);
     black_box((nn.learned_values(), nn.hidden_values(), nn.learning_rate()));
     black_box((nn.input_weights(), nn.input_bias_weights()));
     black_box((nn.hidden_weights(), nn.hidden_bias_weights()));

@@ -41,16 +41,16 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-The port covers what eleven of tinymind (C++)'s examples use (XOR, iris, handwritten digits, energy efficiency, the Q-learning maze and its deep Q-network version, LSTM activity recognition, gas sensor drift with on-device fine-tuning, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, weight decay, learning-rate step decay and early stopping, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, int8 LSTM and GRU cells, a 16-bit FFT, and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
+The port covers what twelve of tinymind (C++)'s examples use (XOR, iris, handwritten digits, energy efficiency, the Q-learning maze and its deep Q-network version, LSTM activity recognition and air-quality forecasting, gas sensor drift with on-device fine-tuning, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, weight decay, learning-rate step decay, early stopping and scheduled sampling, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, int8 LSTM and GRU cells, a 16-bit FFT, and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
 
 | Ported | Not yet ported |
 |---|---|
 | Q16.16 (`i32`) and Q8.8 (`i16`) arithmetic, Truncate and Wrap policies | Other Q formats, saturating and rounding policies |
 | ReLU, linear, and tanh and sigmoid via lookup tables; int8 inference (requantizer, dense layers, 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition and multiplication, padding, concatenation, quantized ReLU, int8 activation tables, softmax bit-exact with TFLite's, LSTM and GRU cells, a radix-2 FFT on 16-bit samples); quantized decision trees and gradient-boosted ensembles, with an importer for scikit-learn, XGBoost and LightGBM models | The other activations (capped and leaky ReLU, ...) |
-| Trainable networks with up to seven hidden layers (SGD with momentum, Adam or RMSprop; optional gradient clipping, L2 weight decay and a step-decay learning-rate schedule; early stopping); inference-only networks of the same depths (weights only, can live in flash) | The rest of the int8 family (attention, state-space cells), SIMD |
+| Trainable networks with up to seven hidden layers (SGD with momentum, Adam or RMSprop; optional gradient clipping, L2 weight decay and a step-decay learning-rate schedule; early stopping; scheduled sampling for recurrent networks); inference-only networks of the same depths (weights only, can live in flash) | The rest of the int8 family (attention, state-space cells), SIMD |
 | Floating-point (`f32`, `f64`) networks, trained with SGD or tinymind (C++)'s floating-point Adam and RMSprop | |
 | Q-learning (`QLearner`) over a Q table or a deep Q-network (`QNetwork`), with tinymind (C++)'s maze and deep Q-network maze examples | |
-| LSTM networks with one hidden layer (`LstmNetwork`, in fixed or floating point), with tinymind (C++)'s activity-recognition example | Trainable GRU and Elman networks, recurrent networks with more than one hidden layer |
+| LSTM networks with one hidden layer (`LstmNetwork`, in fixed or floating point), with tinymind (C++)'s activity-recognition and air-quality forecasting examples | Trainable GRU and Elman networks, recurrent networks with more than one hidden layer |
 | Head-only fine-tuning on the device: a trainable dense head (`DenseHead`) and a nearest-class-mean head (`PrototypeHead`) on top of a frozen model, with tinymind (C++)'s gas sensor drift example | |
 
 The crate is on [crates.io](https://crates.io/crates/tinymind); the API is not stable yet (before 1.0, a minor version may break it). tinymind (C++) itself is the full library; this port grows by porting slices of it.
@@ -75,6 +75,7 @@ cargo run --release --example imported_trees                 # scikit-learn tree
 cargo run --release --example maze -- output                 # Q-learning: find the way out of a six-room maze
 cargo run --release --example dqn_maze -- output             # the same maze, learned by a deep Q-network
 cargo run --release --example har_activity -- output         # LSTM: classify accelerometer windows into four activities
+cargo run --release --example air_quality -- output          # LSTM: forecast the next hour of a pollutant series
 cargo run --release --example gas_sensor_drift -- output     # sensor drift, then on-device fine-tuning from a few samples
 cargo test --all-features                                # unit, doc and golden tests
 ```
