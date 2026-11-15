@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-11-14
+
 ### Added
 
 - `training`: training controls ported from tinymind (C++)'s
@@ -519,7 +521,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.2...v0.3.3
