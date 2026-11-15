@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-11-15
+
 ### Added
 
 - `int8::QRFft1D`, ported from tinymind (C++)'s `QRFFT1D`: a real-input FFT
@@ -16,8 +18,9 @@ break the API).
   `N = 256`, 448 butterflies instead of 1,024) and takes its headroom in the
   first inner stage, so no input saturates an intermediate value. A 256-point
   transform takes 23,083 cycles on a Cortex-M4F and 55,823 on a Cortex-M0+,
-  45% and 39% fewer than `QFft1D` on the same samples; its largest error
-  against an exact DFT is a few LSB, about 1.3 to 1.7 times `QFft1D`'s.
+  45% and 39% fewer than `QFft1D` on the same benchmark signal; its largest error
+  against an exact DFT is about 1.3 to 1.7 times `QFft1D`'s (about 9 LSB at
+  `N = 256`, where `QFft1D`'s is about 6).
 - Example `optical_digits`, a port of tinymind (C++)'s handwritten-digit
   classifier: a 64-32-10 Q16.16 perceptron (ReLU hidden, sigmoid output)
   trained on the UCI Optical Recognition of Handwritten Digits dataset (8x8
@@ -31,8 +34,8 @@ break the API).
   network's previous prediction, moving linearly from always-true to
   always-prediction over a number of steps. The random draw is a closure, so
   any generator works; with `rand::GlibcRand` its choices are those of the
-  C++ with glibc `rand()` (checked step by step, and while training an LSTM
-  network).
+  C++ with glibc `rand()` (checked over eight decay windows, and step by
+  step while training an LSTM network).
 - The PyTorch importer (`tools/import_pytorch`) imports sequence models that
   start with one `nn.LSTM` layer: `from_torch(model, sequence_length=T)`
   (an `nn.Sequential(lstm, head...)`, of which only the parameters are read).
@@ -43,7 +46,10 @@ break the API).
   and `quantizeQLSTMBiases`, and the new `imported_lstm` example's two models
   are byte-identical to tinymind (C++)'s runtime given the same float scales.
   tinymind (C++)'s importer now imports the same models too, and on both the
-  two importers compute identical scales, int8 weights and int32 biases. `nn.GRU` is rejected with the reason:
+  two importers compute identical scales, int8 weights and int32 biases (the
+  float LSTM reference adds the gate bias in double precision after rounding
+  the input product, as tinymind (C++)'s does). `nn.GRU` is rejected with the
+  reason:
   PyTorch applies its reset gate after the recurrent product, `QGruCell`
   before it.
 - Example `air_quality`, a port of tinymind (C++)'s hourly pollutant
@@ -54,15 +60,6 @@ break the API).
   is outside the zero-tolerance band (after 28 epochs on the synthetic
   series), since any later epoch would repeat it. Its output is
   byte-identical to the C++ example's.
-
-### Changed
-
-- The PyTorch importer's float LSTM reference adds the gate bias in double
-  precision after rounding the input product, as tinymind (C++)'s importer
-  (which now imports LSTMs too) does, so both compute the same calibration
-  ranges. A model's calibrated scales can move by one float32 rounding; the
-  `imported_lstm` example's regressor changed one requantizer multiplier and
-  none of its outputs.
 
 ## [0.3.6] - 2026-11-14
 
@@ -578,7 +575,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.6...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.7...HEAD
+[0.3.7]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.3...v0.3.4

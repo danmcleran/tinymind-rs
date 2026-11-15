@@ -51,7 +51,7 @@ built for the same boards with the same models, inputs and compiler settings:
 - On the F411, the MLPerf Tiny keyword-spotting and image-classification
   (ResNet-8) models, translated from TFLite: the C++'s output hashes, in 108 ms
   and 588 ms, 31% fewer cycles than the C++'s portable build for each.
-- A 256-point int8 FFT gives tinymind (C++)'s spectrum hash, in 41,991 cycles
+- A 256-point 16-bit FFT (`int8::QFft1D`) gives tinymind (C++)'s spectrum hash, in 41,991 cycles
   on the M4F and 91,430 on the M0+: about half and 10% fewer than the best
   gcc `-O3` build of the C++. The real-input FFT of 256 real samples takes
   23,083 and 55,823.
@@ -76,11 +76,11 @@ the results page lists the settings to measure. Results and method:
 
 ```toml
 [dependencies]
-tinymind = "0.3.6"
+tinymind = "0.3.7"
 # Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat, DenseHead softmax:
-# tinymind = { version = "0.3.6", features = ["std"] }
+# tinymind = { version = "0.3.7", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
-# tinymind = { version = "0.3.6", features = ["libm"] }
+# tinymind = { version = "0.3.7", features = ["libm"] }
 ```
 
 The API reference is on [docs.rs](https://docs.rs/tinymind).
@@ -341,8 +341,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   outputs and every weight after every step of sequences with state resets;
   `tests/float_mlp.rs` does the same for four `f32` and `f64` LSTM networks.
 - `tests/scheduled_sampling.rs` checks `ScheduledSampling` against
-  tinymind (C++)'s on eight decay lengths (which input it picks at every step,
-  the ratio, and that it draws no random number after the window), and while
+  tinymind (C++)'s on eight decay lengths (how often it picks the true value in
+  each quarter of the window, the ratio, and that it draws no random number
+  after the window), and while
   training an LSTM network on its own predictions, every weight hashed after
   every step.
 - The TFLite translator (`tools/import_tflite`, run by

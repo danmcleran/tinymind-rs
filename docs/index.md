@@ -41,7 +41,7 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-The port covers what twelve of tinymind (C++)'s examples use (XOR, iris, handwritten digits, energy efficiency, the Q-learning maze and its deep Q-network version, LSTM activity recognition and air-quality forecasting, gas sensor drift with on-device fine-tuning, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, weight decay, learning-rate step decay, early stopping and scheduled sampling, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, int8 LSTM and GRU cells, a 16-bit FFT, and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
+The port covers what twelve of tinymind (C++)'s examples use (XOR, iris, handwritten digits, energy efficiency, the Q-learning maze and its deep Q-network version, LSTM activity recognition and air-quality forecasting, gas sensor drift with on-device fine-tuning, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, weight decay, learning-rate step decay, early stopping and scheduled sampling, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, int8 LSTM and GRU cells, 16-bit FFTs (complex and real-input), and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
 
 | Ported | Not yet ported |
 |---|---|
@@ -85,11 +85,11 @@ To use the library from another project:
 
 ```toml
 [dependencies]
-tinymind = "0.3.6"
+tinymind = "0.3.7"
 # Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat, DenseHead softmax:
-# tinymind = { version = "0.3.6", features = ["std"] }
+# tinymind = { version = "0.3.7", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
-# tinymind = { version = "0.3.6", features = ["libm"] }
+# tinymind = { version = "0.3.7", features = ["libm"] }
 ```
 
 The [API reference]({{ site.baseurl }}/api/tinymind/) starts with a complete example that trains XOR; it runs as a test on every build.

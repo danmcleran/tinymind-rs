@@ -343,7 +343,8 @@ fn magnitude_squared<const L: usize>(real: &[i16; L], imag: &[i16; L], mag_sq: &
 /// result. No input then saturates an intermediate value; the split step
 /// saturates only where rounding reaches the `i16` rails. The cost is
 /// precision: against an exact DFT divided by `N`, the largest bin error is
-/// about 1.3 to 1.7 times [`QFft1D`]'s on the same real input, a few LSB. Use
+/// about 1.3 to 1.7 times [`QFft1D`]'s on the same real input (about 9 LSB
+/// at `N = 256` on random and full-scale input, where `QFft1D`'s is about 6). Use
 /// `QFft1D` with a zeroed imaginary buffer when that matters more than the
 /// halved work. Rounding is `QFft1D`'s: every shift floors, and every Q1.15
 /// product is `(a * b) >> 15`.

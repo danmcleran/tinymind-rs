@@ -6,7 +6,9 @@
 //! [`feed_forward`](LstmNetwork::feed_forward) takes one input vector, updates
 //! the hidden layer's state from it and from the previous step's outputs, and
 //! produces the outputs for that step. [`reset_state`](LstmNetwork::reset_state)
-//! clears the state between independent sequences.
+//! clears the state between independent sequences. To train a network on
+//! its own predictions, [`ScheduledSampling`](crate::training::ScheduledSampling)
+//! picks each step's input.
 //! [`train`](LstmNetwork::train) back-propagates the current step's error
 //! one step back in time (truncated back-propagation through time, as the C++
 //! does), so it is called after each step's forward pass. The gradient stops at

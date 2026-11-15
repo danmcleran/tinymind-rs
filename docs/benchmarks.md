@@ -13,7 +13,7 @@ The crate has been run on two microcontroller boards, with the same boards, cloc
 | NUCLEO-F411RE | Cortex-M4F | 100 MHz |
 | NUCLEO-L031K6 | Cortex-M0+ (no DSP extension, no hardware divide; 32 KB flash, 8 KB RAM) | 32 MHz |
 
-The Rust figures on this page were measured with Rust 1.100.0 (LLVM 23.1.5) on 2026-11-14.
+The Rust figures on this page were measured with Rust 1.100.0 (LLVM 23.1.5) on 2026-11-14, the real-input FFT's on 2026-11-15 with the same compiler.
 
 ## Exactness
 
