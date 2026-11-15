@@ -1,7 +1,7 @@
 ---
 title: Anomaly detection
 layout: default
-nav_order: 5
+nav_order: 6
 ---
 
 # Anomaly detection, trained on the device

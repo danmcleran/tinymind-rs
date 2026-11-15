@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris, energy_efficiency, gas_sensor_drift, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
+# iris, optical_digits, energy_efficiency, gas_sensor_drift, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
 # fine-tuning heads, the int8 softmax and FFT sweeps, the Q-learning and tree sweeps, the PyTorch and tree importers' models), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
@@ -88,6 +88,35 @@ for f in stdout.txt iris_loss.csv iris_scatter.csv iris_confusion.csv; do
     same "iris $f"
   else
     echo "DIFFERENT  iris $f"
+    status=1
+  fi
+done
+
+echo "== optical_digits"
+# The data files must be tinymind's, byte for byte: both programs read them.
+for f in optdigits.tra optdigits.tes; do
+  if cmp -s "$ROOT/data/$f" "$TINYMIND_DIR/examples/optical_digits/$f"; then
+    same "digits data/$f vs tinymind examples/optical_digits/$f"
+  else
+    echo "DIFFERENT  digits data/$f vs tinymind examples/optical_digits/$f"
+    status=1
+  fi
+done
+mkdir -p "$TMP/digits/cpp" "$TMP/digits/rust"
+# Flags from examples/optical_digits/Makefile's release target.
+g++ -g -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/digits/optical_digits" \
+  "$TINYMIND_DIR/examples/optical_digits/optical_digits.cpp" "$TINYMIND_DIR/cpp/lookupTables.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include/" \
+  -DTINYMIND_ENABLE_STD=1 -DTINYMIND_ENABLE_HOSTED_IO=1 -DTINYMIND_ENABLE_HOSTED_RAND=1 -DTINYMIND_USE_SIGMOID_16_16=1
+cp "$TINYMIND_DIR/examples/optical_digits/optdigits.tra" "$TINYMIND_DIR/examples/optical_digits/optdigits.tes" "$TMP/digits/cpp/"
+(cd "$TMP/digits/cpp" && ../optical_digits > stdout.txt)
+rm "$TMP/digits/cpp/optdigits.tra" "$TMP/digits/cpp/optdigits.tes"
+"$ROOT/target/release/examples/optical_digits" "$TMP/digits/rust" "$ROOT/data" > "$TMP/digits/rust/stdout.txt"
+for f in stdout.txt digits_loss.csv digits_confusion.csv digits_samples.csv; do
+  if cmp -s "$TMP/digits/cpp/$f" "$TMP/digits/rust/$f"; then
+    same "digits $f"
+  else
+    echo "DIFFERENT  digits $f"
     status=1
   fi
 done
@@ -728,6 +757,7 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
     rm "$KEEP_CPP_OUTPUT/$format/xor"
   done
   cp -r "$TMP/iris/cpp" "$KEEP_CPP_OUTPUT/iris"
+  cp -r "$TMP/digits/cpp" "$KEEP_CPP_OUTPUT/digits"
   cp -r "$TMP/int8_xor/cpp" "$KEEP_CPP_OUTPUT/int8_xor"
   cp -r "$TMP/energy/cpp" "$KEEP_CPP_OUTPUT/energy"
   mkdir -p "$KEEP_CPP_OUTPUT/deep_mlp"

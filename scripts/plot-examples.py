@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Render the example plots for the docs site: xor in both formats, iris,
-energy efficiency, anomaly detection, the int8 GBDT, the Q-learning and deep
+the handwritten digits, energy efficiency, anomaly detection, the int8 GBDT, the Q-learning and deep
 Q-network mazes, the LSTM activity classifier and the gas sensor drift example.
 
-Runs the Rust `xor`, `iris`, `energy_efficiency`, `anomaly`, `gbdt_tabular_int8`, `maze`,
+Runs the Rust `xor`, `iris`, `optical_digits`, `energy_efficiency`, `anomaly`, `gbdt_tabular_int8`, `maze`,
 `dqn_maze`, `har_activity` and `gas_sensor_drift`
 examples (which, except anomaly, write byte-identical output to the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
@@ -31,6 +31,7 @@ import tinymind_plot as tp  # noqa: E402
 
 XOR = os.path.join(ROOT, "target", "release", "examples", "xor")
 IRIS = os.path.join(ROOT, "target", "release", "examples", "iris")
+DIGITS = os.path.join(ROOT, "target", "release", "examples", "optical_digits")
 ENERGY = os.path.join(ROOT, "target", "release", "examples", "energy_efficiency")
 ANOMALY = os.path.join(ROOT, "target", "release", "examples", "anomaly")
 GBDT = os.path.join(ROOT, "target", "release", "examples", "gbdt_tabular_int8")
@@ -75,6 +76,71 @@ def decision_surface(csv, label, png):
     ax.set_ylabel("x1")
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="P(XOR=1)")
     tp.finish(fig, png, show=False)
+
+
+def digits(out_dir, png, grid_png):
+    """The two figures tinymind's examples/optical_digits/plot.py draws: loss and
+    confusion, and a grid of sampled test digits."""
+    loss, _ = tp.read_csv(os.path.join(out_dir, "digits_loss.csv"))
+    with open(os.path.join(out_dir, "digits_confusion.csv"), newline="") as f:
+        rows = list(csv.reader(f))
+    mat = [[int(rows[r + 1][c + 1]) for c in range(10)] for r in range(10)]
+    total = sum(sum(r) for r in mat)
+    acc = sum(mat[i][i] for i in range(10)) / total if total else 0.0
+    names = [str(d) for d in range(10)]
+
+    tp.apply_style()
+    fig, (ax1, ax2) = tp.plt.subplots(1, 2, figsize=(13, 5.2))
+    fig.suptitle("tinymind-rs: handwritten digit classifier (Q16.16 MLP 64-32-10)",
+                 fontsize=14, fontweight="bold")
+    tp.line(ax1, loss["iter"], {"avg |error|": loss["avg_err"]},
+            xlabel="training iteration", ylabel="average |error|")
+    ax1.set_title("training loss", fontsize=10, color=tp.MUTED)
+    im = ax2.imshow(mat, cmap="Blues")
+    ax2.set_xticks(range(10))
+    ax2.set_xticklabels(names)
+    ax2.set_yticks(range(10))
+    ax2.set_yticklabels(names)
+    ax2.set_xlabel("predicted digit")
+    ax2.set_ylabel("actual digit")
+    vmax = max(max(r) for r in mat)
+    for r in range(10):
+        for c in range(10):
+            v = mat[r][c]
+            if v:
+                ax2.text(c, r, str(v), ha="center", va="center",
+                         color="white" if v > vmax / 2 else "#222",
+                         fontsize=8, fontweight="bold")
+    ax2.set_title("test confusion  (acc=%.3f)" % acc, fontsize=10, color=tp.MUTED)
+    ax2.grid(False)
+    fig.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(png)
+    tp.plt.close(fig)
+
+    with open(os.path.join(out_dir, "digits_samples.csv"), newline="") as f:
+        srows = list(csv.reader(f))
+    samples = [([int(row[p]) for p in range(64)], int(row[64]), int(row[65]))
+               for row in srows[1:] if len(row) >= 66]
+    gfig, axes = tp.plt.subplots(5, 8, figsize=(11, 7))
+    gfig.suptitle("tinymind-rs: sampled test digits  (red = misclassified)",
+                  fontsize=14, fontweight="bold")
+    for i, ax in enumerate(axes.flat):
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.grid(False)
+        if i >= len(samples):
+            ax.axis("off")
+            continue
+        px, true, pred = samples[i]
+        ax.imshow([px[r * 8:(r + 1) * 8] for r in range(8)], cmap="gray_r", vmin=0, vmax=16)
+        wrong = true != pred
+        ax.set_title("t=%d p=%d" % (true, pred), fontsize=9,
+                     color="#C44E52" if wrong else tp.MUTED,
+                     fontweight="bold" if wrong else "normal")
+    gfig.tight_layout(rect=(0, 0, 1, 0.95))
+    gfig.savefig(grid_png)
+    tp.plt.close(gfig)
 
 
 def iris(out_dir, png):
@@ -459,7 +525,7 @@ def gas_adapt(out_dir, png):
 
 
 def main():
-    if not all(os.path.exists(p) for p in (XOR, IRIS, ENERGY, ANOMALY, GBDT, MAZE, DQN_MAZE, HAR, GAS)):
+    if not all(os.path.exists(p) for p in (XOR, IRIS, DIGITS, ENERGY, ANOMALY, GBDT, MAZE, DQN_MAZE, HAR, GAS)):
         sys.exit("build first: cargo build --release --examples --features std")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
@@ -478,6 +544,14 @@ def main():
         png = os.path.join(OUT, "iris_classifier.png")
         iris(tmp, png)
         print("wrote", os.path.relpath(png, ROOT))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([DIGITS, tmp, os.path.join(ROOT, "data")],
+                       check=True, stdout=subprocess.DEVNULL)
+        png = os.path.join(OUT, "optical_digits.png")
+        grid_png = os.path.join(OUT, "optical_digits_grid.png")
+        digits(tmp, png, grid_png)
+        print("wrote", os.path.relpath(png, ROOT))
+        print("wrote", os.path.relpath(grid_png, ROOT))
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run([ENERGY, tmp, os.path.join(ROOT, "data", "ENB2012_data.csv")],
                        check=True, stdout=subprocess.DEVNULL)

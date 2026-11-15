@@ -40,6 +40,20 @@ this crate's MIT license.
 
 ---
 
+data/optdigits.tra and data/optdigits.tes are the Optical Recognition of
+Handwritten Digits dataset from the UCI Machine Learning Repository, copied
+unchanged from tinymind's examples/optical_digits/:
+
+E. Alpaydin and C. Kaynak. Optical Recognition of Handwritten Digits
+[Dataset]. 1998. UCI Machine Learning Repository.
+https://doi.org/10.24432/C50P49
+
+It is licensed under the Creative Commons Attribution 4.0 International
+license (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/), not under
+this crate's MIT license.
+
+---
+
 data/ENB2012_data.csv is the Energy Efficiency dataset from the UCI Machine
 Learning Repository, copied unchanged from tinymind's
 examples/energy_efficiency/ENB2012_data.csv:

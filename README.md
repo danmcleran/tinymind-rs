@@ -97,6 +97,7 @@ MLPerf Tiny keyword spotter and ResNet-8).
 cargo run --release --example xor -- output                  # Q16.16, output files in ./output
 cargo run --release --example xor -- --format q8.8 output    # the same network in Q8.8
 cargo run --release --example iris -- output                 # iris species classifier (ReLU hidden layer)
+cargo run --release --example optical_digits -- output       # handwritten digit classifier (8x8 images, ten classes)
 cargo run --release --example energy_efficiency -- output    # energy-load regression (linear output, clipped gradients)
 cargo run --release --example anomaly -- output              # anomaly detection: an autoencoder trained on the device
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network
@@ -119,7 +120,12 @@ momentum. It writes `nn_fixed_xor.txt`, `xor_training.csv` and
 `xor_decision_surface.csv` there and prints a summary on stdout. The `iris` example
 takes an optional output directory and data file (default `data/iris.data`, the
 UCI Iris dataset under CC BY 4.0; see `NOTICE`) and writes `iris_loss.csv`,
-`iris_scatter.csv` and `iris_confusion.csv`. The `energy_efficiency` example
+`iris_scatter.csv` and `iris_confusion.csv`. The `optical_digits` example takes
+an optional output directory and data directory (default `data/`, which holds
+the UCI Optical Recognition of Handwritten Digits dataset under CC BY 4.0;
+these two files are not in the published crate, so run it from a clone) and
+writes `digits_loss.csv`, `digits_confusion.csv` and `digits_samples.csv`. The
+`energy_efficiency` example
 reads `data/ENB2012_data.csv` (the UCI Energy Efficiency dataset, CC BY 4.0) the
 same way and writes `energy_loss.csv` and `energy_pred.csv`. The `anomaly`
 example trains an 8-4-8 autoencoder on synthetic normal vibration windows and
@@ -183,6 +189,7 @@ set.
 | `src/rand.rs` | a re-implementation of glibc `rand()`, which the C++ examples use for weight init and sampling |
 | `examples/xor.rs` | `examples/xor/xor.cpp` |
 | `examples/iris.rs` | `examples/iris/iris.cpp` |
+| `examples/optical_digits.rs` | `examples/optical_digits/optical_digits.cpp` |
 | `examples/energy_efficiency.rs` | `examples/energy_efficiency/energy_efficiency.cpp` |
 | `src/qlearn.rs` | `cpp/qlearn.hpp`: Q-learning (`QLearner` with `ArgMaxPolicy` and `DefaultLearningPolicy`), its Q values in a `QTable` (`QValueTablePolicy`) or a deep Q-network, `QNetwork` (`QValueNeuralNetworkPolicy`) |
 | `examples/maze.rs` | `examples/maze/maze.cpp`, `mazelearner.h` |
@@ -224,7 +231,8 @@ the int8 quantization tiers, SIMD backends, and so on.
   length, line count and a 64-bit FNV-1a hash instead of being stored. The goldens
   come from the C++ build: Q16.16 from the example as shipped, Q8.8 from the same
   example with both bit counts in `xornet.h` set to 8. `tests/iris_golden.rs`
-  does the same for iris against `tests/golden/iris/`, `tests/energy_golden.rs`
+  does the same for iris against `tests/golden/iris/`, `tests/digits_golden.rs`
+  for optical_digits against `tests/golden/digits/`, `tests/energy_golden.rs`
   for energy_efficiency against `tests/golden/energy/`, `tests/maze_golden.rs`
   for the maze against `tests/golden/maze/`, `tests/dqn_maze_golden.rs` for
   the deep Q-network maze against `tests/golden/dqn_maze/`, `tests/har_golden.rs` for
@@ -323,10 +331,10 @@ the int8 quantization tiers, SIMD backends, and so on.
   tinymind (C++)'s on 504 and 48 calibrations; `test_ops.py` checks PAD, MUL and
   CONCATENATION on generated models against TFLite's reference kernels (LiteRT).
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
-  (xor in both formats, iris, energy efficiency, maze, dqn_maze, har_activity, gas_sensor_drift, int8 xor, GBDT) with the flags their
+  (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, gas_sensor_drift, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (90 checks today, including
-  that `data/iris.data` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
+  example does, runs both sides, and compares every output file (96 checks today, including
+  that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
   examples draw their weights and samples from it, as tinymind (C++)'s do.

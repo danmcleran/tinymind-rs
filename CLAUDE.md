@@ -108,6 +108,7 @@ sessions.
 cargo build --release --examples
 cargo run --release --example xor       # writes output/ (gitignored); args: [--format q16.16|q8.8] [out_dir] [lr] [momentum]
 cargo run --release --example iris      # args: [out_dir] [data file, default data/iris.data]
+cargo run --release --example optical_digits   # args: [out_dir] [data dir, default data/]
 cargo run --release --features std --example int8_xor   # args: [out_dir]
 cargo test --all-features           # unit tests + golden tests against the C++ outputs (int8 needs std)
 cargo clippy --all-targets --all-features -- -D warnings
@@ -174,6 +175,7 @@ The third column is the notes file in `.claude/rules/`.
 | `src/tree.rs` | `cpp/qtree.hpp` (`QTreeNode`, `walkQTree`, `QDecisionTree`, `QGBDT`) | `trees.md` |
 | `examples/gbdt_tabular_int8.rs`, `examples/common/gbdt_driver.rs` | `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp` | `trees.md` |
 | `examples/iris.rs`, `examples/common/iris_driver.rs`, `data/iris.data` | `examples/iris/iris.cpp`, `iris.data` | `core.md` |
+| `examples/optical_digits.rs`, `examples/common/digits_driver.rs`, `data/optdigits.{tra,tes}` | `examples/optical_digits/optical_digits.cpp`, `optdigits.tra`, `optdigits.tes` | `core.md` |
 | `examples/common/cppfmt.rs` | (C++ iostreams) | `core.md` |
 | `tests/qformat_oracle.rs` | `unit_test/qformat_oracle/qformat_oracle_unit_test.cpp` | `core.md` |
 | `tests/glibc_rand.rs` | (glibc) | `core.md` |

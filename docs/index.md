@@ -41,7 +41,7 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-The port covers what ten of tinymind (C++)'s examples use (XOR, iris, energy efficiency, the Q-learning maze and its deep Q-network version, LSTM activity recognition, gas sensor drift with on-device fine-tuning, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, weight decay, learning-rate step decay and early stopping, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, int8 LSTM and GRU cells, a 16-bit FFT, and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
+The port covers what eleven of tinymind (C++)'s examples use (XOR, iris, handwritten digits, energy efficiency, the Q-learning maze and its deep Q-network version, LSTM activity recognition, gas sensor drift with on-device fine-tuning, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, weight decay, learning-rate step decay and early stopping, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, int8 LSTM and GRU cells, a 16-bit FFT, and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
 
 | Ported | Not yet ported |
 |---|---|
@@ -63,6 +63,7 @@ cd tinymind-rs
 cargo run --release --example xor -- output                  # Q16.16; output files in ./output
 cargo run --release --example xor -- --format q8.8 output    # the same network in Q8.8
 cargo run --release --example iris -- output                 # iris species classifier
+cargo run --release --example optical_digits -- output       # handwritten digit classifier
 cargo run --release --example energy_efficiency -- output    # building energy-load regression
 cargo run --release --example anomaly -- output              # autoencoder trained on the device flags faults
 cargo run --release --features std --example int8_xor -- output   # PyTorch-trained int8 network

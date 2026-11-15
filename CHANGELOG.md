@@ -7,6 +7,16 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- Example `optical_digits`, a port of tinymind (C++)'s handwritten-digit
+  classifier: a 64-32-10 Q16.16 perceptron (ReLU hidden, sigmoid output)
+  trained on the UCI Optical Recognition of Handwritten Digits dataset (8x8
+  images). Its output is byte-identical to the C++ example's (96.2% test
+  accuracy). The two data files (`data/optdigits.tra`, `data/optdigits.tes`,
+  CC BY 4.0) are in the repository but not in the published crate; run the
+  example from a clone.
+
 ## [0.3.6] - 2026-11-14
 
 ### Added
