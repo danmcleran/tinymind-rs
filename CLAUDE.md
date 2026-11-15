@@ -169,6 +169,7 @@ The third column is the notes file in `.claude/rules/`.
 | `tools/import_pytorch/tinymind_import.py` | `apps/import_pytorch/tinymind_import.py` | `importers.md` |
 | `tools/import_tflite/tinymind_import_tflite.py`, `mlperf.py`, `test_translator.py`, `bench/src/mlperf.rs` | `benchmarks/framework_comparison_f411/gen/make_mlperf.py` | `importers.md` |
 | `tools/import_pytorch` conv support (4D), `examples/imported_cnn.rs`, `examples/common/imported_cnn{,_flat}_model.rs`, `examples/common/imported_cnn_driver.rs`, `scripts/cpp/imported_cnn.cpp`, `tools/import_pytorch/{example_cnn,torch_cnn}.py` | (tinymind importer's Conv2D descriptor + C++ runtime) | `importers.md` |
+| `tools/import_pytorch` LSTM support, `examples/imported_lstm.rs`, `examples/common/imported_lstm{,_i8}_model.rs`, `examples/common/imported_lstm_driver.rs`, `scripts/cpp/imported_lstm.cpp`, `tools/import_pytorch/{example_lstm,torch_lstm}.py` | (none in tinymind's importer; checked against `cpp/qlstm.hpp` + `buildQLSTMParams`/`quantizeQLSTMBiases`) | `importers.md` |
 | `examples/imported_mlp.rs`, `examples/common/imported_{mlp,classifier}_model.rs`, `examples/common/imported_mlp_driver.rs`, `scripts/cpp/imported_mlp.cpp` | (tinymind importer + C++ runtime) | `importers.md` |
 | `tools/import_trees/tinymind_import_trees.py` | `apps/import_trees/tinymind_import_trees.py` | `importers.md` |
 | `examples/imported_trees.rs`, `examples/common/imported_trees_{driver,gbdt_model,forest_model,data}.rs`, `scripts/cpp/imported_trees.cpp` | (tinymind tree importer + C++ runtime) | `importers.md` |

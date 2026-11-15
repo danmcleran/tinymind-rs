@@ -334,6 +334,10 @@ mod imported_cnn_flat;
 /// The voting form (one `QDecisionTree` per tree), on `i16` inputs.
 #[path = "../../../examples/common/imported_trees_forest_model.rs"]
 mod imported_forest;
+#[path = "../../../examples/common/imported_lstm_model.rs"]
+mod imported_lstm;
+#[path = "../../../examples/common/imported_lstm_i8_model.rs"]
+mod imported_lstm_i8;
 /// A model written by the tree importer (generated code must be panic-free too).
 #[path = "../../../examples/common/imported_trees_gbdt_model.rs"]
 mod imported_trees;
@@ -850,6 +854,15 @@ pub extern "C" fn _start() -> ! {
     ));
     black_box(imported_cnn::forward(&black_box([[[0i8; 1]; 12]; 12])));
     black_box(imported_cnn_flat::forward(&black_box([[[0i8; 2]; 11]; 9])));
+    black_box(imported_lstm::forward(&black_box(
+        [[0i8; imported_lstm::NUM_FEATURES]; imported_lstm::SEQUENCE_LENGTH],
+    )));
+    black_box(imported_lstm_i8::forward(&black_box(
+        [[0i8; imported_lstm_i8::NUM_FEATURES]; imported_lstm_i8::SEQUENCE_LENGTH],
+    )));
+    black_box(imported_lstm::head(&black_box(
+        [0i8; imported_lstm::LSTM1_HIDDEN],
+    )));
     let f = black_box([0i16; imported_forest::NUM_FEATURES]);
     black_box((
         imported_forest::predict(&f),

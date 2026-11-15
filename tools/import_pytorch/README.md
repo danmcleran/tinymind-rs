@@ -51,6 +51,32 @@ The module's `forward` then takes an `&Input`, a `[[[i8; C]; W]; H]` feature
 map. `from_torch` turns PyTorch's NCHW tensors and OIHW weights into NHWC and
 OHWI, and reorders the columns of a `Linear` that follows a `Flatten` to match.
 
+A sequence model starts with one `nn.LSTM` layer whose last hidden state feeds
+the rest of the network. Put the LSTM and the rest in an `nn.Sequential` (only
+its parameters are read, so it need not run in PyTorch, where an `nn.LSTM`
+returns a tuple), give the sequence length, and calibrate with `[step][feature]`
+arrays:
+
+```python
+seq_model = nn.Sequential(lstm, nn.Linear(16, 4), nn.Softmax(dim=1))
+layers = ti.from_torch(seq_model, sequence_length=32)        # cell_bits=8 for an int8 cell state
+calibration = [x.numpy() for x in representative_sequences]  # each [32][features]
+ti.import_pytorch_model(layers, "input", ti.MinMaxObserver(), calibration,
+                        "my_lstm.rs", "my_lstm")
+```
+
+```rust
+mod my_lstm;
+
+let y = my_lstm::forward(&sequence);   // &[[i8; NUM_FEATURES]; SEQUENCE_LENGTH]
+
+// Or step the cell as samples arrive, and run the rest on the hidden state:
+let mut hidden = [my_lstm::LSTM1_ZERO_POINT; my_lstm::LSTM1_HIDDEN];
+let mut cell = [0i16; my_lstm::LSTM1_HIDDEN];
+my_lstm::LSTM1.forward(&sample, &mut hidden, &mut cell);
+let y = my_lstm::head(&hidden);
+```
+
 Inputs are int8 in the `INPUT` grid and outputs int8 in the `OUTPUT` grid: a
 real value is `SCALE * (q - ZERO_POINT)`, with the constants in the module. On a
 host, `tinymind::int8::calibration::quantize` (feature `std`) converts float
@@ -91,9 +117,16 @@ today.
 | `Flatten` | `nn.Flatten` | a copy of the feature map in NHWC order |
 | `Sigmoid`, `Tanh` (on vectors) | `nn.Sigmoid`, `nn.Tanh` | a 256-entry table |
 | `Softmax` (last axis, on vectors) | `nn.Softmax` | `QSoftmax`, bit-exact with TFLite's int8 softmax; output on the probability grid (scale 1/256, zero point -128) |
+| `LSTM` (first layer only; its last hidden state is the next layer's input) | `nn.LSTM`: one layer, one direction, no projection; `bias_ih + bias_hh` summed | `QLstmCell`, gates i, f, g, o; per-gate symmetric weights; int16 cell state (`cell_bits=16`, default) or int8 |
 
 Pooling and flattening keep their input's scale and zero point, as the crate's
-pooling layers have no requantizer. Anything else is rejected with an error
+pooling layers have no requantizer. An LSTM's hidden and cell states get
+symmetric scales from what the calibration sequences reach (zero point 0, the
+zero initial state), and its gates a fixed pre-activation grid of 8/127: they
+saturate beyond ±8, as in tinymind (C++)'s LSTM tests and TFLite's integer LSTM.
+`nn.GRU` is rejected: PyTorch applies the reset gate after the recurrent
+product, `r * (W_hn h + b_hn)`, and the crate's `QGruCell` before it,
+`W_hn (r * h)`, so a trained GRU's weights would compute something else. Anything else is rejected with an error
 naming the layer, including a batch norm that does not follow a convolution.
 tinymind (C++)'s importer covers more (branches, mixture of experts); those
 layers will come as the crate gains them.
@@ -132,6 +165,31 @@ layers will come as the crate gains them.
   the wrong side, padding axes swapped, the batch-norm scale on the wrong axis,
   the bias folded without the mean, the depthwise flag lost in the fold) each
   fail it.
+- `example_lstm.py` defines two LSTM models: a classifier (12 steps of 3
+  features, 8 units, int16 cell state, dense and softmax) and a regressor (10
+  steps of 2 features, 5 units, int8 cell state, two dense layers with ReLU and
+  tanh). tinymind (C++)'s importer has no LSTM, so `--cpp` writes what it
+  would hand the C++ runtime (float scales, the float LSTM biases, int8
+  weights, int32 dense biases), and `scripts/cpp/imported_lstm.cpp` builds
+  every integer parameter from that with tinymind (C++)'s
+  `buildQLSTMParams`, `quantizeQLSTMBiases`, table builders,
+  `buildRequantizer` and `buildQSoftmaxFixedPointParams`, then runs the models
+  on its `QLSTMCell` and `QDense`. The parameters, a hash of the hidden and
+  cell state after every step of 16 test sequences and the outputs match
+  `examples/imported_lstm.rs` byte for byte (also under UBSan and ASan).
+  Planted mistakes (biases truncated, `i * g` rescaled with the hidden scale,
+  the recurrent rescale with the input scale, the sigmoid table for the cell
+  state, the input zero point dropped) each fail it. On the classifier's test
+  sequences the int8 probabilities are within 0.057 of the float model's
+  (mean 0.011) and pick the same class all 16 times; the regressor's output is
+  within 0.038 (mean 0.009).
+- `torch_lstm.py` (needs PyTorch; not run in CI) checks `from_torch` against
+  PyTorch's `nn.LSTM` on three models (with and without biases, with heads
+  and alone, up to 40 steps), with weights scaled up so the gates leave their
+  linear range: the float model built from the descriptors equals PyTorch to
+  within float rounding. It also checks that a GRU, a two-layer or
+  bidirectional LSTM and an LSTM after another layer are rejected. Planted
+  mistakes (`bias_hh` dropped, gates i and f swapped) fail it.
 - The `cnn` example folds two batch norms (after a convolution and after a
   depthwise one), so the parity and C++ checks cover the fold. The fused layer's
   float forward runs the convolution and then the batch norm, so calibration
@@ -144,7 +202,7 @@ layers will come as the crate gains them.
   library through `ctypes`, as tinymind (C++)'s `buildQSigmoidLUT` and the crate's
   `int8::calibration` builders do, so the three agree (checked on 400 tables);
   without a C library the importer falls back to numpy and warns.
-- The generated modules (one dense, two convolutional) are part of the crate's
-  Cortex-M panic check: they link with no reachable panic.
+- The generated modules (one dense, two convolutional, two LSTM) are part of
+  the crate's Cortex-M panic check: they link with no reachable panic.
 
 If `rustfmt` is installed, the module is formatted as `cargo fmt` would.

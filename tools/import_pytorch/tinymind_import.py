@@ -40,7 +40,11 @@ ReLU, Sigmoid, Tanh and Softmax (over the last axis) on vectors; Conv2D
 (tinymind's descriptor, plus the stride, padding and depthwise flag the
 generated Rust needs), MaxPool2D, AvgPool2D, GlobalAvgPool2D and Flatten on
 NHWC feature maps, and BatchNorm2D directly after a Conv2D (folded into it, as
-tinymind's importer does). A ReLU follows a Dense or Conv2D directly.
+tinymind's importer does). A ReLU follows a Dense or Conv2D directly. An LSTM
+(one layer, PyTorch's nn.LSTM) may come first: it reads a sequence and hands
+its last hidden state to the rest of the chain, on the crate's int8 QLstmCell.
+tinymind's importer has no LSTM; the cell's parameters follow tinymind's
+buildQLSTMParams / quantizeQLSTMBiases and its LUT builders.
 Observers: MinMaxObserver, PercentileObserver, KLDivergenceObserver (per
 tensor).
 
@@ -358,8 +362,84 @@ class Flatten(Layer):
     input_name: str = ""
 
 
+# The LSTM's gates saturate beyond +-8, so its pre-activations (and the LUTs
+# that read them) use a fixed int8 grid of 8/127, as tinymind's QLSTM tests and
+# TFLite's integer LSTM (Q3.12 gates) do.
+LSTM_LUT_INPUT_SCALE = 8.0 / 127.0
+
+
+@dataclass
+class LSTM(Layer):
+    """One LSTM layer (PyTorch nn.LSTM, gates i, f, g, o) run over a sequence
+    of `sequence_length` steps from zero state; `name` is its last hidden
+    state. The input tensor is the whole sequence, `[step][feature]`.
+    `observer` sees every hidden state, `cell_observer` every cell state; both
+    get symmetric scales (zero point 0). `cell_bits` is 16 (int16 cell state,
+    finer, the default) or 8."""
+
+    weight_ih: np.ndarray = None    # [4 * hidden, in]
+    weight_hh: np.ndarray = None    # [4 * hidden, hidden]
+    bias: Optional[np.ndarray] = None  # [4 * hidden]: bias_ih + bias_hh
+    input_name: str = ""
+    sequence_length: int = 0
+    cell_bits: int = 16
+    cell_observer: object = field(default_factory=MinMaxObserver)
+    input_weight_scales: list = None
+    recurrent_weight_scales: list = None
+    q_weight_ih: np.ndarray = None  # [4][hidden][in]
+    q_weight_hh: np.ndarray = None  # [4][hidden][hidden]
+    q_bias: np.ndarray = None       # [4][hidden], in the LUT input grid
+    cell_scale: float = 0.0
+
+    @property
+    def hidden_size(self) -> int:
+        return int(self.weight_hh.shape[1])
+
+    @property
+    def cell_qmax(self) -> int:
+        return 32767 if self.cell_bits == 16 else 127
+
+
+def _sigmoid(v: float) -> float:
+    return 1.0 / (1.0 + math.exp(-v))
+
+
+def lstm_ref(layer: LSTM, seq: np.ndarray) -> tuple[list, list]:
+    """Float reference of an LSTM over one sequence `[step][feature]` from
+    zero state: (hidden states, cell states), one float32 vector per step. The
+    matrix products accumulate in float64 without BLAS and round to float32
+    (dense_ref), the gates use the C library's exp and tanh through Python's
+    math module, so the result does not depend on the CPU."""
+    hid = layer.hidden_size
+    h = np.zeros(hid, np.float32)
+    c = np.zeros(hid, np.float32)
+    hs, cs = [], []
+    for x in np.asarray(seq, np.float32):
+        pre = (dense_ref(x, layer.weight_ih, layer.bias).astype(np.float64)
+               + dense_ref(h, layer.weight_hh, None).astype(np.float64))
+        nh, nc = np.empty(hid, np.float32), np.empty(hid, np.float32)
+        for u in range(hid):
+            i = _sigmoid(pre[u])
+            f = _sigmoid(pre[hid + u])
+            g = math.tanh(pre[2 * hid + u])
+            o = _sigmoid(pre[3 * hid + u])
+            cu = np.float32(f * float(c[u]) + i * g)
+            nc[u] = cu
+            nh[u] = np.float32(o * math.tanh(float(cu)))
+        h, c = nh, nc
+        hs.append(h)
+        cs.append(c)
+    return hs, cs
+
+
+def _symmetric_scale(observer, qmax: int) -> float:
+    lo, hi = observer.range()
+    m = max(abs(lo), abs(hi))
+    return m / qmax if m > 0 else 1.0 / qmax
+
+
 SUPPORTED = (Dense, ReLU, Sigmoid, Tanh, Softmax, Conv2D, MaxPool2D, AvgPool2D,
-             GlobalAvgPool2D, Flatten)
+             GlobalAvgPool2D, Flatten, LSTM)
 PASS_THROUGH = (MaxPool2D, AvgPool2D, GlobalAvgPool2D, Flatten)
 
 
@@ -488,6 +568,8 @@ def _float_step(layer: Layer, parent: np.ndarray) -> np.ndarray:
     """One layer of the float reference model."""
     if isinstance(layer, (Dense, Conv2D)):
         return layer.forward(parent)
+    if isinstance(layer, LSTM):
+        return lstm_ref(layer, parent)[0][-1]
     if isinstance(layer, (MaxPool2D, AvgPool2D)):
         return pool2d_nhwc(parent, layer)
     if isinstance(layer, GlobalAvgPool2D):
@@ -526,6 +608,12 @@ def calibrate(layers: Sequence[Layer], input_name: str, input_observer: object,
         input_observer.observe(x_f)
         per_sample: dict[str, np.ndarray] = {input_name: x_f}
         for layer in layers:
+            if isinstance(layer, LSTM):
+                hs, cs = lstm_ref(layer, per_sample[layer.input_name])
+                layer.observer.observe(np.stack(hs))
+                layer.cell_observer.observe(np.stack(cs))
+                per_sample[layer.name] = hs[-1]
+                continue
             y = _float_step(layer, per_sample[layer.input_name])
             if not isinstance(layer, PASS_THROUGH):
                 layer.observer.observe(y)
@@ -544,6 +632,12 @@ def calibrate(layers: Sequence[Layer], input_name: str, input_observer: object,
         if isinstance(layer, Tanh):
             ranges[layer.name] = (1.0 / 128.0, 0)
             continue
+        if isinstance(layer, LSTM):
+            # Symmetric hidden and cell states (zero point 0, the zero
+            # initial state); the hidden state is the output requantizer's grid.
+            ranges[layer.name] = (_symmetric_scale(layer.observer, 127), 0)
+            layer.cell_scale = _symmetric_scale(layer.cell_observer, layer.cell_qmax)
+            continue
         if isinstance(layer, PASS_THROUGH):
             # Pooling and flattening run in their input's grid (the int8
             # layers have no requantizer); tinymind's importer has no such
@@ -557,6 +651,21 @@ def calibrate(layers: Sequence[Layer], input_name: str, input_observer: object,
 def quantize_weights(layers: Sequence[Layer], ranges: dict[str, tuple[float, int]]) -> None:
     """Symmetric per-tensor weight quantization. Mutates each Dense / Conv2D."""
     for layer in layers:
+        if isinstance(layer, LSTM):
+            # Symmetric per gate, input and recurrent weights separately.
+            hid = layer.hidden_size
+            w_in = layer.weight_ih.reshape(4, hid, -1)
+            w_rec = layer.weight_hh.reshape(4, hid, hid)
+            layer.input_weight_scales = [symmetric_weight_scale(w_in[g]) for g in range(4)]
+            layer.recurrent_weight_scales = [symmetric_weight_scale(w_rec[g]) for g in range(4)]
+            layer.q_weight_ih = np.stack([quantize_symmetric_weights(w_in[g], layer.input_weight_scales[g])
+                                          for g in range(4)])
+            layer.q_weight_hh = np.stack([quantize_symmetric_weights(w_rec[g], layer.recurrent_weight_scales[g])
+                                          for g in range(4)])
+            bias = layer.bias if layer.bias is not None else np.zeros(4 * hid, np.float32)
+            layer.q_bias = np.array(quantize_lstm_biases(bias, LSTM_LUT_INPUT_SCALE),
+                                    dtype=np.int64).reshape(4, hid)
+            continue
         if isinstance(layer, (Dense, Conv2D)):
             layer.weight_scale = symmetric_weight_scale(layer.weight)
             layer.q_weight = quantize_symmetric_weights(layer.weight, layer.weight_scale)
@@ -599,6 +708,42 @@ def build_softmax(input_scale: float, beta: float = 1.0) -> tuple[int, int, int]
                           * float(1 << (31 - input_integer_bits))
                           / math.ldexp(1.0, left_shift))
     return multiplier, left_shift, -int(math.floor(max_input_rescaled))
+
+
+def build_lstm_params(input_scale: float, hidden_scale: float, cell_scale: float,
+                      lut_input_scale: float, input_weight_scales: Sequence[float],
+                      recurrent_weight_scales: Sequence[float]) -> dict:
+    """tinymind buildQLSTMParams on float32 scales (ratios in double): the
+    QLstmCell's multipliers and shifts, by field name."""
+    d = lambda v: float(np.float32(v))  # noqa: E731  (a float32 scale, widened)
+    lut = d(lut_input_scale)
+    p = {"input_to_lut_multiplier": [], "input_to_lut_shift": [],
+         "recurrent_to_lut_multiplier": [], "recurrent_to_lut_shift": []}
+    for g in range(4):
+        m, sh = quantize_multiplier(d(input_scale) * d(input_weight_scales[g]) / lut)
+        p["input_to_lut_multiplier"].append(m)
+        p["input_to_lut_shift"].append(sh)
+        m, sh = quantize_multiplier(d(hidden_scale) * d(recurrent_weight_scales[g]) / lut)
+        p["recurrent_to_lut_multiplier"].append(m)
+        p["recurrent_to_lut_shift"].append(sh)
+    sig, tnh = d(1.0 / 256.0), d(1.0 / 128.0)
+    c, h = d(cell_scale), d(hidden_scale)
+    p["f_times_c_multiplier"], p["f_times_c_shift"] = quantize_multiplier(sig * c / c)
+    p["i_times_g_multiplier"], p["i_times_g_shift"] = quantize_multiplier(sig * tnh / c)
+    p["cell_to_tanh_multiplier"], p["cell_to_tanh_shift"] = quantize_multiplier(c / lut)
+    p["output_multiplier"], p["output_shift"] = quantize_multiplier(sig * tnh / h)
+    return p
+
+
+def quantize_lstm_biases(bias: np.ndarray, lut_input_scale: float) -> list[int]:
+    """tinymind quantizeQLSTMBiases: lround(double(b) / double(lut scale)) of
+    float32 values, then the int32 conversion (which wraps)."""
+    lut = float(np.float32(lut_input_scale))
+    out = []
+    for b in np.asarray(bias, np.float32):
+        q = lround(float(b) / lut) & 0xFFFFFFFF
+        out.append(q - (1 << 32) if q >= 1 << 31 else q)
+    return out
 
 
 def _libm_function(name: str):
@@ -714,8 +859,10 @@ def _plan(layers: Sequence[Layer], input_name: str,
         shape = ("map",) + tuple(int(d) for d in input_shape)
     elif isinstance(first, Dense):
         shape = ("vec", first.weight.shape[1])
+    elif isinstance(first, LSTM):
+        shape = ("seq", int(first.sequence_length), int(first.weight_ih.shape[1]))
     else:
-        raise ValueError("the chain must start with a Dense or Conv2D layer")
+        raise ValueError("the chain must start with a Dense, Conv2D or LSTM layer")
     in_shape = shape
     current = input_name
     steps: list[dict] = []
@@ -726,13 +873,33 @@ def _plan(layers: Sequence[Layer], input_name: str,
             raise NotImplementedError(
                 f"{type(layer).__name__} is not supported by the tinymind crate yet "
                 f"(supported: Dense, Conv2D, ReLU, Sigmoid, Tanh, Softmax, MaxPool2D, "
-                f"AvgPool2D, GlobalAvgPool2D, Flatten)")
+                f"AvgPool2D, GlobalAvgPool2D, Flatten, and LSTM as the first layer)")
         if layer.input_name != current:
             raise ValueError(f"layer {layer.name!r} reads {layer.input_name!r}, but the "
                              f"chain is at {current!r}: only a single chain is supported")
         nxt = layers[i + 1] if i + 1 < len(layers) else None
         relu = nxt if isinstance(nxt, ReLU) and nxt.input_name == layer.name else None
         step = {"layer": layer, "relu": None, "in": shape}
+        if isinstance(layer, LSTM):
+            if shape[0] != "seq":
+                raise ValueError(f"LSTM {layer.name!r} must be the first layer (it reads the "
+                                 f"input sequence)")
+            hid = layer.hidden_size
+            if layer.weight_ih.shape[0] != 4 * hid or layer.weight_hh.shape != (4 * hid, hid):
+                raise ValueError(f"LSTM {layer.name!r}: weights {layer.weight_ih.shape} and "
+                                 f"{layer.weight_hh.shape} are not an LSTM's (4 * hidden rows)")
+            if layer.bias is not None and layer.bias.shape != (4 * hid,):
+                raise ValueError(f"LSTM {layer.name!r}: bias {layer.bias.shape}, expected ({4 * hid},)")
+            if layer.sequence_length < 1:
+                raise ValueError(f"LSTM {layer.name!r}: sequence_length must be at least 1")
+            if layer.cell_bits not in (8, 16):
+                raise ValueError(f"LSTM {layer.name!r}: cell_bits must be 8 or 16")
+            step.update(kind="lstm", out=("vec", hid))
+            steps.append(step)
+            current = layer.name
+            shape = step["out"]
+            i += 1
+            continue
         if isinstance(layer, Dense):
             if shape[0] != "vec" or shape[1] != layer.weight.shape[1]:
                 raise ValueError(f"Dense {layer.name!r} expects {layer.weight.shape[1]} inputs, "
@@ -812,6 +979,7 @@ def emit_rust_module(path: str, model_name: str, layers: Sequence[Layer],
     out_shape = steps[-1]["out"]
     output_name = tensors[-1]
     vector_model = in_shape[0] == "vec"
+    sequence_model = in_shape[0] == "seq"
 
     out: list[str] = []
     out.append(f"//! `{model_name}`: generated by tinymind-rs tools/import_pytorch/tinymind_import.py.")
@@ -819,7 +987,11 @@ def emit_rust_module(path: str, model_name: str, layers: Sequence[Layer],
     out.append("//!")
     out.append("//! Integer-only and `no_std`: int8 inputs in the `INPUT` grid, int8 outputs in the")
     out.append("//! `OUTPUT` grid (real value = `SCALE * (q - ZERO_POINT)`).")
-    if not vector_model:
+    if sequence_model:
+        out.append("//! The input is a sequence, `[step][feature]`; `forward` runs the LSTM over it from")
+        out.append("//! zero state, and `head` runs the rest of the network on a hidden state, for")
+        out.append("//! callers that step the LSTM themselves (streaming).")
+    elif not vector_model:
         out.append("//! Feature maps are NHWC without the batch axis: `[row][column][channel]`.")
     out.append("")
     out.append("// Not every program uses every constant.")
@@ -847,10 +1019,17 @@ def emit_rust_module(path: str, model_name: str, layers: Sequence[Layer],
             uses.append("QMaxPool2D" if isinstance(st["layer"], MaxPool2D) else "QAvgPool2D")
     if "gap" in kinds:
         uses.append("QGlobalAvgPool2D")
+    if "lstm" in kinds:
+        uses += ["QLstmCell", "LUT_SIZE"]
     out.append(f"use tinymind::int8::{{{', '.join(sorted(set(uses)))}}};")
     out.append("")
     if vector_model:
         out.append(f"/// Number of inputs.\npub const NUM_INPUTS: usize = {in_shape[1]};")
+    elif sequence_model:
+        out.append(f"/// Steps in the input sequence.\npub const SEQUENCE_LENGTH: usize = {in_shape[1]};")
+        out.append(f"/// Features per step.\npub const NUM_FEATURES: usize = {in_shape[2]};")
+        out.append("/// The input sequence, `[step][feature]`.")
+        out.append("pub type Input = [[i8; NUM_FEATURES]; SEQUENCE_LENGTH];")
     else:
         h, w, c = in_shape[1:]
         plural = lambda n, word: f"{n} {word}" + ("" if n == 1 else "s")
@@ -886,11 +1065,77 @@ def emit_rust_module(path: str, model_name: str, layers: Sequence[Layer],
     body: list[str] = []
     current = input_name
     var = "input"
+    lstm_info = None
     for st in steps:
         kind, layer, extra = st["kind"], st["layer"], st["relu"]
         ident = _ident(layer.name)
         arg = var if var == "input" else f"&{var}"
         nvar = f"x{len(body)}"
+        if kind == "lstm":
+            hid = layer.hidden_size
+            n_in = layer.weight_ih.shape[1]
+            in_scale, in_zp = ranges[current]
+            h_scale, h_zp = ranges[layer.name]
+            p = build_lstm_params(in_scale, h_scale, layer.cell_scale, LSTM_LUT_INPUT_SCALE,
+                                  layer.input_weight_scales, layer.recurrent_weight_scales)
+            cell_ty = "i16" if layer.cell_bits == 16 else "i8"
+            cell_lo, cell_hi = (-32768, 32767) if layer.cell_bits == 16 else (-128, 127)
+            sig_lut = build_lut("sigmoid", LSTM_LUT_INPUT_SCALE, 0, 1.0 / 256.0, -128)
+            tanh_lut = build_lut("tanh", LSTM_LUT_INPUT_SCALE, 0, 1.0 / 128.0, 0)
+            gates = "gates i, f, g, o"
+            out.append(f"/// `{layer.name}` hidden units.")
+            out.append(f"pub const {ident}_HIDDEN: usize = {hid};")
+            out.append(f"/// `{layer.name}` cell-state scale ({cell_ty}, zero point 0).")
+            out.append(f"pub const {ident}_CELL_SCALE: f32 = {_f32_literal(layer.cell_scale)};")
+            out.append(f"/// Scale of the gates' pre-activation grid (the LUTs' input), fixed at 8/127.")
+            out.append(f"pub const {ident}_LUT_INPUT_SCALE: f32 = {_f32_literal(LSTM_LUT_INPUT_SCALE)};")
+            scales = ", ".join(_f32_literal(v) for v in layer.input_weight_scales)
+            out.append(f"/// `{layer.name}` input weights, `[gate][unit][feature]`, {gates} (weight scales "
+                       f"{scales}).")
+            out.append(f"pub static {ident}_INPUT_WEIGHTS: {_rust_type((4, hid, n_in))} = "
+                       f"{_rust_nested(layer.q_weight_ih)};")
+            scales = ", ".join(_f32_literal(v) for v in layer.recurrent_weight_scales)
+            out.append(f"/// `{layer.name}` recurrent weights, `[gate][unit][previous unit]` (weight "
+                       f"scales {scales}).")
+            out.append(f"pub static {ident}_RECURRENT_WEIGHTS: {_rust_type((4, hid, hid))} = "
+                       f"{_rust_nested(layer.q_weight_hh)};")
+            out.append(f"/// `{layer.name}` biases, `[gate][unit]`, in the pre-activation grid.")
+            out.append(f"pub static {ident}_BIASES: {_rust_type((4, hid), 'i32')} = "
+                       f"{_rust_nested(layer.q_bias)};")
+            out.append(f"/// Sigmoid table for `{layer.name}`'s i, f and o gates (output scale 1/256, zero point -128).")
+            out.append(f"pub static {ident}_SIGMOID_LUT: [i8; LUT_SIZE] = {_rust_array(sig_lut)};")
+            out.append(f"/// Tanh table for `{layer.name}`'s g gate and cell state (output scale 1/128, zero point 0).")
+            out.append(f"pub static {ident}_TANH_LUT: [i8; LUT_SIZE] = {_rust_array(tanh_lut)};")
+            arr = lambda k: "[" + ", ".join(str(v) for v in p[k]) + "]"  # noqa: E731
+            out.append(f"/// `{layer.name}`: an LSTM with {n_in} inputs and {hid} units over `{current}`, "
+                       f"one step per call; its hidden state is `{layer.name}`.")
+            out.append(f"pub static {ident}: QLstmCell<'static, {n_in}, {hid}, {cell_ty}> = QLstmCell {{")
+            out.append(f"    input_weights: &{ident}_INPUT_WEIGHTS,")
+            out.append(f"    recurrent_weights: &{ident}_RECURRENT_WEIGHTS,")
+            out.append(f"    biases: &{ident}_BIASES,")
+            out.append(f"    input_zero_point: {int(in_zp)},")
+            out.append(f"    hidden_zero_point: {int(h_zp)},")
+            out.append("    cell_zero_point: 0,")
+            for k in ("input_to_lut_multiplier", "input_to_lut_shift",
+                      "recurrent_to_lut_multiplier", "recurrent_to_lut_shift"):
+                out.append(f"    {k}: {arr(k)},")
+            out.append(f"    sigmoid_lut: &{ident}_SIGMOID_LUT,")
+            out.append(f"    tanh_lut: &{ident}_TANH_LUT,")
+            for k in ("f_times_c_multiplier", "f_times_c_shift", "i_times_g_multiplier",
+                      "i_times_g_shift"):
+                out.append(f"    {k}: {p[k]},")
+            out.append(f"    cell_qmin: {cell_lo},")
+            out.append(f"    cell_qmax: {cell_hi},")
+            out.append(f"    cell_to_tanh_multiplier: {p['cell_to_tanh_multiplier']},")
+            out.append(f"    cell_to_tanh_shift: {p['cell_to_tanh_shift']},")
+            out.append(f"    tanh_cell_lut: &{ident}_TANH_LUT,")
+            out.append(f"    output_requantizer: Requantizer {{ multiplier: {p['output_multiplier']}, "
+                       f"shift: {p['output_shift']}, zero_point: {int(h_zp)}, qmin: -128, qmax: 127 }},")
+            out.append("};")
+            out.append("")
+            lstm_info = {"ident": ident, "hid": hid, "cell_ty": cell_ty}
+            current = layer.name
+            continue
         if kind == "dense":
             o, i_ = layer.weight.shape
             target = extra.name if extra is not None else layer.name
@@ -1037,18 +1282,37 @@ def emit_rust_module(path: str, model_name: str, layers: Sequence[Layer],
             current = layer.name
         var = nvar
 
-    # The last step is the function's value, not a `let` (clippy::let_and_return).
-    last = body[-1]
-    prefix = f"    let {var} = "
-    if last.startswith(prefix) and last.endswith(";"):
-        body[-1] = "    " + last[len(prefix):-1]
+    if body:
+        # The last step is the function's value, not a `let` (clippy::let_and_return).
+        last = body[-1]
+        prefix = f"    let {var} = "
+        if last.startswith(prefix) and last.endswith(";"):
+            body[-1] = "    " + last[len(prefix):-1]
+        else:
+            body.append(f"    {var}")
+    if lstm_info is not None:
+        ident, hid, cell_ty = lstm_info["ident"], lstm_info["hid"], lstm_info["cell_ty"]
+        if body:
+            out.append(f"/// The network after `{ident}` on one of its hidden states (int8, `{ident}` grid).")
+            out.append(f"pub fn head(input: &[i8; {ident}_HIDDEN]) -> {ret_type} {{")
+            out.extend(body)
+            out.append("}")
+            out.append("")
+        out.append("/// Run the network on an int8 sequence in the `INPUT` grid, from zero state.")
+        out.append(f"pub fn forward(input: &Input) -> {ret_type} {{")
+        out.append(f"    let mut hidden = [{ident}_ZERO_POINT; {ident}_HIDDEN];")
+        out.append(f"    let mut cell = [0{cell_ty}; {ident}_HIDDEN];")
+        out.append("    for step in input {")
+        out.append(f"        {ident}.forward(step, &mut hidden, &mut cell);")
+        out.append("    }")
+        out.append("    head(&hidden)" if body else "    hidden")
+        out.append("}")
     else:
-        body.append(f"    {var}")
-    out.append("/// Run the network on int8 inputs in the `INPUT` grid.")
-    in_type = "[i8; NUM_INPUTS]" if vector_model else "Input"
-    out.append(f"pub fn forward(input: &{in_type}) -> {ret_type} {{")
-    out.extend(body)
-    out.append("}")
+        out.append("/// Run the network on int8 inputs in the `INPUT` grid.")
+        in_type = "[i8; NUM_INPUTS]" if vector_model else "Input"
+        out.append(f"pub fn forward(input: &{in_type}) -> {ret_type} {{")
+        out.extend(body)
+        out.append("}")
     with open(path, "w") as f:
         f.write("\n".join(out) + "\n")
     # Format as `cargo fmt` would, so the file is stable in a formatted crate.
@@ -1088,7 +1352,8 @@ def _pair(v) -> tuple[int, int]:
 
 
 def from_torch(model, input_name: str = "input", observers: Optional[dict] = None,
-               input_shape: Optional[tuple] = None) -> list[Layer]:
+               input_shape: Optional[tuple] = None, sequence_length: Optional[int] = None,
+               cell_bits: int = 16) -> list[Layer]:
     """Describe a torch.nn.Sequential as layer descriptors (names: fc1, conv1,
     relu1, ...). `observers` maps a name to an observer; the default is
     MinMaxObserver.
@@ -1103,7 +1368,19 @@ def from_torch(model, input_name: str = "input", observers: Optional[dict] = Non
     `x.permute(1, 2, 0).numpy()` per sample. A BatchNorm2d directly after a
     Conv2d becomes a BatchNorm2D (its running statistics), which
     import_pytorch_model folds into the convolution; put the model in
-    `eval()` mode."""
+    `eval()` mode.
+
+    Sequences: an nn.LSTM as the first module (one layer, not bidirectional,
+    no projection; batch_first does not matter here) with
+    `sequence_length=T`, followed by the modules that read its last hidden
+    state, e.g. `nn.Sequential(lstm, nn.Linear(hidden, n), nn.Softmax(dim=1))`.
+    Only the modules' parameters are read, so the Sequential need not run in
+    PyTorch (an nn.LSTM returns a tuple). Its gates' biases are summed
+    (bias_ih + bias_hh). `cell_bits` (16 or 8) sets the int8 cell's state
+    width; calibrate with `[step][feature]` arrays. An nn.GRU is rejected:
+    PyTorch's GRU applies the reset gate after the recurrent product
+    (`r * (W_hn h + b_hn)`), the crate's QGruCell before it (`W_hn (r * h)`),
+    so its weights would not compute the same function."""
     import torch  # lazily: only this helper needs PyTorch
 
     observers = observers or {}
@@ -1124,7 +1401,34 @@ def from_torch(model, input_name: str = "input", observers: Optional[dict] = Non
     def observer(name: str):
         return observers.get(name, MinMaxObserver())
 
-    for module in model:
+    for position, module in enumerate(model):
+        if isinstance(module, torch.nn.GRU):
+            raise NotImplementedError(
+                "nn.GRU is not supported: PyTorch's GRU applies the reset gate after the "
+                "recurrent product, r * (W_hn h + b_hn), and the crate's int8 QGruCell before "
+                "it, W_hn (r * h), so the trained weights would not compute the same function")
+        if isinstance(module, torch.nn.LSTM):
+            if position != 0:
+                raise NotImplementedError("an nn.LSTM must be the first module")
+            if module.num_layers != 1 or module.bidirectional or getattr(module, "proj_size", 0):
+                raise NotImplementedError("nn.LSTM: only one layer, one direction and no "
+                                          "projection are supported")
+            if sequence_length is None:
+                raise ValueError("an nn.LSTM needs from_torch(..., sequence_length=T)")
+            hid = module.hidden_size
+            wi = module.weight_ih_l0.detach().cpu().numpy().astype(np.float32)
+            wh = module.weight_hh_l0.detach().cpu().numpy().astype(np.float32)
+            b = None
+            if module.bias:
+                b = (module.bias_ih_l0.detach().cpu().numpy().astype(np.float64)
+                     + module.bias_hh_l0.detach().cpu().numpy().astype(np.float64)).astype(np.float32)
+            name = name_for("lstm")
+            layers.append(LSTM(name=name, weight_ih=wi, weight_hh=wh, bias=b, input_name=current,
+                               sequence_length=int(sequence_length), cell_bits=int(cell_bits),
+                               observer=observer(name)))
+            shape = ("vec", hid)
+            current = name
+            continue
         if isinstance(module, torch.nn.Linear):
             w = module.weight.detach().cpu().numpy().astype(np.float32)
             b = (module.bias.detach().cpu().numpy().astype(np.float32)
