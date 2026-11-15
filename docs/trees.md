@@ -1,7 +1,7 @@
 ---
 title: Decision trees
 layout: default
-nav_order: 6
+nav_order: 7
 ---
 
 # Decision trees and gradient boosting

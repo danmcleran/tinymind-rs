@@ -1,0 +1,33 @@
+Loaded 3823 train rows (optdigits.tra), 1797 test rows (optdigits.tes).
+iter   2000   avg|err| = 0.0199
+iter   4000   avg|err| = 0.0085
+iter   6000   avg|err| = 0.0067
+iter   8000   avg|err| = 0.0053
+iter  10000   avg|err| = 0.0052
+iter  12000   avg|err| = 0.0047
+iter  14000   avg|err| = 0.0041
+iter  16000   avg|err| = 0.0043
+iter  18000   avg|err| = 0.0025
+iter  20000   avg|err| = 0.0023
+iter  22000   avg|err| = 0.0021
+iter  24000   avg|err| = 0.0022
+iter  26000   avg|err| = 0.0019
+iter  28000   avg|err| = 0.0028
+iter  30000   avg|err| = 0.0025
+iter  32000   avg|err| = 0.0016
+iter  34000   avg|err| = 0.0016
+iter  36000   avg|err| = 0.0018
+iter  38000   avg|err| = 0.0016
+iter  40000   avg|err| = 0.0016
+iter  42000   avg|err| = 0.0019
+iter  44000   avg|err| = 0.0015
+iter  46000   avg|err| = 0.0012
+iter  48000   avg|err| = 0.0013
+iter  50000   avg|err| = 0.0015
+iter  52000   avg|err| = 0.0008
+iter  54000   avg|err| = 0.0011
+iter  56000   avg|err| = 0.0012
+iter  58000   avg|err| = 0.0010
+iter  60000   avg|err| = 0.0010
+
+Test accuracy: 0.9622  (1729/1797)

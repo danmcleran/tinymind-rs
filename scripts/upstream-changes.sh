@@ -43,6 +43,7 @@ PORTED=(
   cpp/include/nnproperties.hpp
   examples/xor
   examples/iris
+  examples/optical_digits
   examples/energy_efficiency
   examples/maze
   examples/dqn_maze

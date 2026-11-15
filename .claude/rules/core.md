@@ -11,15 +11,18 @@ paths:
   - "src/rand.rs"
   - "examples/xor.rs"
   - "examples/iris.rs"
+  - "examples/optical_digits.rs"
   - "examples/energy_efficiency.rs"
   - "examples/anomaly.rs"
   - "examples/common/xor_driver.rs"
   - "examples/common/iris_driver.rs"
+  - "examples/common/digits_driver.rs"
   - "examples/common/energy_driver.rs"
   - "examples/common/anomaly_demo.rs"
   - "examples/common/cppfmt.rs"
   - "tests/xor_golden.rs"
   - "tests/iris_golden.rs"
+  - "tests/digits_golden.rs"
   - "tests/energy_golden.rs"
   - "tests/anomaly_golden.rs"
   - "tests/deep_mlp.rs"
@@ -112,6 +115,12 @@ Example `main` (arguments) + driver (the program, generic over the format, `--fo
 C++ source: `examples/iris/iris.cpp`, `iris.data`
 
 4-8-3 MLP, ReLU hidden + sigmoid output, 3 outputs (exercises the MSE `/ OUT` path). Data is the UCI file, CC BY 4.0 (attribution in `NOTICE`), checked against tinymind's copy
+
+## `examples/optical_digits.rs`, `examples/common/digits_driver.rs`, `data/optdigits.{tra,tes}`
+
+C++ source: `examples/optical_digits/optical_digits.cpp`, `optdigits.tra`, `optdigits.tes`
+
+Ported 2026-11-14, bit-exact on the first run (stdout and all three CSVs; 96.22%, 1729/1797). Iris scaled up: 64-32-10, ReLU + sigmoid, 60000 steps, zero-tolerance skip before `train` (the C++ still has it here; energy_efficiency dropped it in #261). No shuffle: the UCI train/test split is used as shipped. The data (828 KB, CC BY 4.0, `NOTICE`) is in `Cargo.toml` `exclude`: the golden test skips when the files are missing *and* there is no `.git` (a crate tarball), and fails in a checkout. A planted `>=` tie-break in the argmax fails it (`digits_confusion.csv` line 4)
 
 ## `examples/energy_efficiency.rs`, `examples/common/energy_driver.rs`, `data/ENB2012_data.csv`
 
