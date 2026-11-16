@@ -7,6 +7,23 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- An ONNX importer in the repository (`tools/import_onnx`, not part of the
+  published crate), ported from tinymind (C++)'s `apps/import_onnx`: it reads
+  an int8 model quantized by ONNX Runtime's `quantize_static` (QDQ or
+  QOperator format, weights per tensor or per channel), so also TensorFlow/Keras
+  and JAX models through ONNX, and writes a `no_std` Rust module with a
+  `forward` function: convolutions (pointwise ones on `QPointwiseConv2D`),
+  dense layers, ReLU folded into the layer before it, sigmoid and tanh tables
+  and a softmax. Its parser is tinymind (C++)'s, unchanged; it refuses what it
+  cannot translate exactly (pooling, residual additions, depthwise
+  convolutions, a model that branches or requantizes a tensor between two
+  layers) with the node's name. The new `imported_onnx` example runs three
+  models quantized by ONNX Runtime, byte-identical to the same models read by
+  tinymind (C++)'s importer and run on its int8 layers, and within one step
+  of ONNX Runtime's own output.
+
 ## [0.3.7] - 2026-11-15
 
 ### Added

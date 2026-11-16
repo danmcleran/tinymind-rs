@@ -89,9 +89,11 @@ To run a model trained in PyTorch, `tools/import_pytorch` in this repository
 turns it into a Rust module (int8 weights, integer requantizers and a `forward`
 function; `no_std`), including sequence models that start with an `nn.LSTM`.
 See its README. `tools/import_trees` does the same for
-scikit-learn, XGBoost and LightGBM tree models, and `tools/import_tflite` for
-int8 TensorFlow Lite models (convolutional and residual networks such as the
-MLPerf Tiny keyword spotter and ResNet-8).
+scikit-learn, XGBoost and LightGBM tree models, `tools/import_onnx` for
+int8 ONNX models quantized by ONNX Runtime (so also TensorFlow/Keras and JAX
+models, through ONNX), and `tools/import_tflite` for int8 TensorFlow Lite
+models (convolutional and residual networks such as the MLPerf Tiny keyword
+spotter and ResNet-8).
 
 ## Quick start
 
@@ -106,6 +108,7 @@ cargo run --release --features std --example int8_xor -- output   # PyTorch-trai
 cargo run --release --features std --example imported_mlp    # two models written by the PyTorch importer
 cargo run --release --features std --example imported_cnn    # two convolutional models written by the PyTorch importer
 cargo run --release --features std --example imported_lstm   # two int8 LSTM sequence models written by the PyTorch importer
+cargo run --release --example imported_onnx                  # three int8 models quantized by ONNX Runtime, via the ONNX importer
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN, per-layer report
 cargo run --release --example imported_trees                 # scikit-learn tree models via the tree importer
@@ -180,7 +183,8 @@ the held-out samples and on random inputs.
 
 `scripts/compare-with-cpp.sh` needs a tinymind (C++) checkout, `g++`, and a Python with
 numpy and scikit-learn for the importer checks (plus XGBoost and LightGBM for
-all of the tree importer's, and `tflite==2.18.0`, `flatbuffers==25.12.19` and
+all of the tree importer's, `onnx` for the ONNX importer's, and
+`tflite==2.18.0`, `flatbuffers==25.12.19` and
 `ai-edge-litert==2.3.0` for the TFLite translator's; those download the
 MLPerf Tiny models, so they need network access once) (set `PYTHON`, for
 example to a virtual environment's interpreter). It looks in `../tinymind` unless `TINYMIND_DIR` is
@@ -224,12 +228,14 @@ set.
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
 | `examples/kws_cortex_m_int8.rs` | `examples/kws_cortex_m_int8/kws_cortex_m_int8.cpp` |
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
+| `tools/import_onnx/` | `apps/import_onnx/tinymind_import_onnx.py`: the ONNX Runtime int8 importer (its parser unchanged), emitting Rust with a `forward` |
 | `tools/import_tflite/` | `benchmarks/framework_comparison_f411/gen/make_mlperf.py`: the int8 TFLite translator, emitting Rust |
 | `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer, emitting Rust |
 | `examples/imported_trees.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
 | `examples/imported_cnn.rs` | two convolutional models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 | `examples/imported_lstm.rs` | two LSTM sequence models written by the PyTorch importer, checked against tinymind (C++)'s importer (identical parameters) and its calibration functions + `QLSTMCell` |
 | `examples/imported_mlp.rs` | two models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
+| `examples/imported_onnx.rs` | three models written by the ONNX importer, checked against tinymind (C++)'s ONNX importer + C++ runtime |
 
 Everything else in tinymind (C++) is not ported: other Q
 formats, unsigned and 8/64-bit storage, the other activations, the trainable GRU
@@ -255,8 +261,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   gas_sensor_drift (training, the drift curve and every adaptation method)
   against `tests/golden/gas/`, and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`,
-  and `tests/imported_mlp_golden.rs`, `tests/imported_cnn_golden.rs` and
-  `tests/imported_lstm_golden.rs` for the PyTorch importer's models. `TINYMIND_REF`
+  `tests/imported_mlp_golden.rs`, `tests/imported_cnn_golden.rs` and
+  `tests/imported_lstm_golden.rs` for the PyTorch importer's models, and
+  `tests/imported_onnx_golden.rs` for the ONNX importer's. `TINYMIND_REF`
   records the tinymind (C++) commit they were last verified against. The int8, GBDT and
   PyTorch-importer tests need the `std` feature: run `cargo test --all-features`.
 - `tests/deep_mlp.rs` checks networks with one, two and three hidden layers
@@ -346,6 +353,12 @@ the int8 quantization tiers, SIMD backends, and so on.
   after the window), and while
   training an LSTM network on its own predictions, every weight hashed after
   every step.
+- The ONNX importer (`tools/import_onnx`): `scripts/compare-with-cpp.sh` runs
+  its three example models through tinymind (C++)'s own ONNX importer and C++
+  layers and compares the outputs byte for byte, and checks that the parser is
+  tinymind (C++)'s unchanged; `test_onnx.py` checks the modules against ONNX
+  Runtime (within one step; softmax probabilities within 2/256) and the
+  importer's refusals.
 - The TFLite translator (`tools/import_tflite`, run by
   `scripts/compare-with-cpp.sh`): `mlperf.py kws` and `mlperf.py ic` translate
   the MLPerf Tiny DS-CNN and ResNet-8 and compare the output hash over 8 seeded
@@ -356,7 +369,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (104 checks today, including
+  example does, runs both sides, and compares every output file (109 checks today, including
   that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

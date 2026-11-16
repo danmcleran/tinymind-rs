@@ -1,0 +1,51 @@
+onnx_cnn input zero_point=-7 scale=0x3cf8185b
+onnx_cnn 0: -114 -101 -60 19
+onnx_cnn 1: -74 -100 -78 -4
+onnx_cnn 2: -109 -96 -55 4
+onnx_cnn 3: -104 -108 -113 68
+onnx_cnn 4: -110 -98 -60 12
+onnx_cnn 5: -99 -109 -115 67
+onnx_cnn 6: -111 -107 -33 -6
+onnx_cnn 7: -84 -107 -88 23
+onnx_cnn 8: -97 -98 -46 -15
+onnx_cnn 9: -103 -110 -112 69
+onnx_cnn 10: -100 -115 -118 77
+onnx_cnn 11: -98 -92 -60 -6
+onnx_cnn 12: -106 -101 -97 48
+onnx_cnn 13: -92 -110 -110 56
+onnx_cnn 14: -85 -106 -76 12
+onnx_cnn 15: -103 -111 -112 70
+onnx_cnn_qop input zero_point=14 scale=0x3cbb11f7
+onnx_cnn_qop 0: 56 27 46
+onnx_cnn_qop 1: 50 52 53
+onnx_cnn_qop 2: 50 15 22
+onnx_cnn_qop 3: 60 62 58
+onnx_cnn_qop 4: 52 41 44
+onnx_cnn_qop 5: 43 46 44
+onnx_cnn_qop 6: 85 91 43
+onnx_cnn_qop 7: 50 50 50
+onnx_cnn_qop 8: 91 44 35
+onnx_cnn_qop 9: 47 48 31
+onnx_cnn_qop 10: 16 19 11
+onnx_cnn_qop 11: 27 36 31
+onnx_cnn_qop 12: 82 21 23
+onnx_cnn_qop 13: 40 48 48
+onnx_cnn_qop 14: 49 17 15
+onnx_cnn_qop 15: 46 50 34
+onnx_mlp input zero_point=7 scale=0x3c98f74f
+onnx_mlp 0: -76 -51 -73 -107 -78
+onnx_mlp 1: -76 -86 -73 -88 -62
+onnx_mlp 2: -83 -69 -72 -104 -56
+onnx_mlp 3: -83 -84 -71 -83 -63
+onnx_mlp 4: -85 -82 -67 -101 -50
+onnx_mlp 5: -73 -80 -56 -97 -78
+onnx_mlp 6: -86 -94 -82 -61 -60
+onnx_mlp 7: -84 -92 -66 -77 -66
+onnx_mlp 8: -85 -98 -69 -63 -69
+onnx_mlp 9: -84 -90 -75 -79 -56
+onnx_mlp 10: -81 -66 -73 -88 -77
+onnx_mlp 11: -79 -70 -65 -99 -71
+onnx_mlp 12: -81 -59 -63 -106 -75
+onnx_mlp 13: -76 -86 -57 -93 -74
+onnx_mlp 14: -83 -55 -69 -105 -73
+onnx_mlp 15: -73 -78 -52 -103 -78

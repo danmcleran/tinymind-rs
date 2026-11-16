@@ -2,7 +2,7 @@
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
 # iris, optical_digits, energy_efficiency, gas_sensor_drift, air_quality, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
-# fine-tuning heads, the int8 softmax and FFT sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included) and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# fine-tuning heads, the int8 softmax and FFT sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included), the ONNX importer's and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -744,6 +744,51 @@ for model in lstm lstm_i8; do
   fi
 done
 
+echo "== imported_onnx (ONNX importer)"
+# Needs onnx in PYTHON. The quantized example models in tools/import_onnx/models
+# go through tinymind's own ONNX importer (from the checkout) into its headers;
+# example_onnx.py --cpp wires its layers into a forward pass reading every
+# constant from them, and imported_onnx.cpp runs the three models.
+mkdir -p "$TMP/onnx"
+for model in cnn cnn_qop mlp; do
+  TINYMIND_DIR="$TINYMIND_DIR" "$PYTHON" -I -B "$ROOT/tools/import_onnx/example_onnx.py" --model "$model" --cpp "$TMP/onnx" >/dev/null
+done
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/onnx/imported_onnx" "$ROOT/scripts/cpp/imported_onnx.cpp" \
+  -I"$TMP/onnx" -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+"$TMP/onnx/imported_onnx" > "$TMP/onnx/cpp.txt"
+"$ROOT/target/release/examples/imported_onnx" > "$TMP/onnx/rust.txt"
+if cmp -s "$TMP/onnx/cpp.txt" "$TMP/onnx/rust.txt"; then
+  same "imported_onnx stdout.txt"
+else
+  echo "DIFFERENT  imported_onnx stdout.txt"
+  status=1
+fi
+if ! cmp -s "$TMP/onnx/cpp.txt" "$ROOT/tests/golden/imported_onnx/stdout.txt"; then
+  echo "DIFFERENT  imported_onnx stdout.txt (C++ vs tests/golden/imported_onnx)"
+  status=1
+fi
+for model in cnn cnn_qop mlp; do
+  "$PYTHON" -I -B "$ROOT/tools/import_onnx/example_onnx.py" --model "$model" --rust "$TMP/onnx/$model.rs" >/dev/null
+  if cmp -s "$TMP/onnx/$model.rs" "$ROOT/examples/common/imported_onnx_${model}_model.rs"; then
+    same "imported_onnx examples/common/imported_onnx_${model}_model.rs (regenerated)"
+  else
+    echo "DIFFERENT  imported_onnx examples/common/imported_onnx_${model}_model.rs (regenerated)"
+    status=1
+  fi
+done
+# The importer's parser is tinymind's, unchanged: everything from its
+# `from __future__` line to the end of parse_onnx_model appears verbatim in ours.
+cpp_onnx="$TINYMIND_DIR/apps/import_onnx/tinymind_import_onnx.py"
+sed -n '/^from __future__/,/^    return layers$/p' "$cpp_onnx" > "$TMP/onnx/parser_cpp.py"
+sed -n '/^from __future__/,/^    return layers$/p' "$ROOT/tools/import_onnx/tinymind_import_onnx.py" > "$TMP/onnx/parser_rs.py"
+if [ -s "$TMP/onnx/parser_cpp.py" ] && cmp -s "$TMP/onnx/parser_cpp.py" "$TMP/onnx/parser_rs.py"; then
+  same "import_onnx parser (tinymind's parse_onnx_model, verbatim)"
+else
+  echo "DIFFERENT  import_onnx parser vs tinymind's apps/import_onnx/tinymind_import_onnx.py"
+  status=1
+fi
+
 echo "== import_tflite (TFLite translator)"
 # Needs tflite and flatbuffers in PYTHON. The MLPerf Tiny keyword-spotting and
 # image-classification models are downloaded at tinymind's pinned commit
@@ -879,6 +924,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/cnn/cpp.txt" "$KEEP_CPP_OUTPUT/imported_cnn/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/imported_lstm"
   cp "$TMP/lstm_import/cpp.txt" "$KEEP_CPP_OUTPUT/imported_lstm/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/imported_onnx"
+  cp "$TMP/onnx/cpp.txt" "$KEEP_CPP_OUTPUT/imported_onnx/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/conv"
   cp "$TMP/conv/stdout.txt" "$KEEP_CPP_OUTPUT/conv/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/compose"

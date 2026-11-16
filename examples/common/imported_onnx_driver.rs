@@ -1,0 +1,100 @@
+//! The imported_onnx example's program, shared by `examples/imported_onnx.rs`
+//! and `tests/imported_onnx_golden.rs` (which runs it in-process against the
+//! C++ output).
+
+use std::io::{self, Write};
+
+#[path = "imported_onnx_cnn_model.rs"]
+mod cnn;
+
+#[path = "imported_onnx_cnn_qop_model.rs"]
+mod cnn_qop;
+
+#[path = "imported_onnx_mlp_model.rs"]
+mod mlp;
+
+/// Test inputs per model: even-numbered ones span the whole int8 range, odd
+/// ones stay within 48 steps of the input's zero point, where the calibrated
+/// ranges are.
+const SAMPLES: usize = 16;
+
+/// The inputs' generator: a 32-bit linear congruential generator
+/// (Numerical Recipes' constants), the same in `scripts/cpp/imported_onnx.cpp`.
+struct Lcg(u32);
+
+impl Lcg {
+    fn next(&mut self) -> u32 {
+        self.0 = self.0.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        self.0 >> 24
+    }
+}
+
+/// Fill `x` with sample `s` of a model whose input zero point is `zp`.
+fn fill(rng: &mut Lcg, s: usize, zp: i8, x: &mut [i8]) {
+    for v in x {
+        let r = rng.next();
+        *v = if s % 2 == 0 {
+            (r as i32 - 128) as i8
+        } else {
+            (i32::from(zp) + (r % 97) as i32 - 48).clamp(-128, 127) as i8
+        };
+    }
+}
+
+fn print(out: &mut dyn Write, model: &str, s: usize, y: &[i8]) -> io::Result<()> {
+    let v: Vec<String> = y.iter().map(i8::to_string).collect();
+    writeln!(out, "{model} {s}: {}", v.join(" "))
+}
+
+/// For each model: its input grid (the scale's bits), then the int8 output of
+/// every test input.
+pub fn run(out: &mut dyn Write) -> io::Result<()> {
+    let mut rng = Lcg(1);
+
+    writeln!(
+        out,
+        "onnx_cnn input zero_point={} scale=0x{:08x}",
+        cnn::INPUT_ZERO_POINT,
+        cnn::INPUT_SCALE.to_bits()
+    )?;
+    for s in 0..SAMPLES {
+        let mut x = cnn::Input::default();
+        fill(
+            &mut rng,
+            s,
+            cnn::INPUT_ZERO_POINT,
+            x.as_flattened_mut().as_flattened_mut(),
+        );
+        print(out, "onnx_cnn", s, &cnn::forward(&x))?;
+    }
+
+    writeln!(
+        out,
+        "onnx_cnn_qop input zero_point={} scale=0x{:08x}",
+        cnn_qop::INPUT_ZERO_POINT,
+        cnn_qop::INPUT_SCALE.to_bits()
+    )?;
+    for s in 0..SAMPLES {
+        let mut x = cnn_qop::Input::default();
+        fill(
+            &mut rng,
+            s,
+            cnn_qop::INPUT_ZERO_POINT,
+            x.as_flattened_mut().as_flattened_mut(),
+        );
+        print(out, "onnx_cnn_qop", s, &cnn_qop::forward(&x))?;
+    }
+
+    writeln!(
+        out,
+        "onnx_mlp input zero_point={} scale=0x{:08x}",
+        mlp::INPUT_ZERO_POINT,
+        mlp::INPUT_SCALE.to_bits()
+    )?;
+    for s in 0..SAMPLES {
+        let mut x = mlp::Input::default();
+        fill(&mut rng, s, mlp::INPUT_ZERO_POINT, &mut x);
+        print(out, "onnx_mlp", s, &mlp::forward(&x))?;
+    }
+    Ok(())
+}
