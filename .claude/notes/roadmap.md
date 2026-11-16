@@ -5,6 +5,21 @@ what to port next, and update it when a step is done.
 
 ## Next steps
 
+- **ONNX importer (done, 2026-11-16):** `tools/import_onnx`, Dan's pick ("#1")
+  from the ROI review after v18.5: tinymind's `apps/import_onnx` parser
+  verbatim plus a Rust back end with a runnable `forward`, three committed
+  ORT-quantized fixtures, byte-identical with tinymind's importer + C++
+  layers. Notes in `.claude/rules/importers.md`. Next in that review: the
+  v18.5 sync (TINYMIND_REF a88af9f: #284/#285 change C++ speed only, outputs
+  identical; docs/benchmarks.md's FFT C++ figures and its "about half" claim
+  are stale: C++ v18.5 `QFFT1D<256>` -O3 F411 50,165 / L031 124,247,
+  `QRFFT1D` 24,103 / 60,255 on its own harness and signal, so re-time on ours
+  first), then a flashable firmware example (sensor -> `QRFft1D` features ->
+  int8 classifier / `DenseHead`), then the int8 attention family. ONNX
+  follow-ups (tinymind's importer first, so both stay matched): pooling /
+  global average pool, depthwise (group = C), Add (residuals),
+  `QLinearSoftmax`, a chain/grid check in tinymind's importer.
+
 - **Upstream sync to `7336296` (done, 2026-11-15):** tinymind #279-#281,
   from this repo's review handoff: `int8::QRFft1D` (C++ `QRFFT1D`, #281;
   F411 23,083 / L031 55,823 cycles at N=256 vs QFft1D 41,991 / 91,430),

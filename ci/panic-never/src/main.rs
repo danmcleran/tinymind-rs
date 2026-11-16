@@ -338,6 +338,15 @@ mod imported_forest;
 mod imported_lstm;
 #[path = "../../../examples/common/imported_lstm_i8_model.rs"]
 mod imported_lstm_i8;
+/// Models written by the ONNX importer: strided, padded and pointwise
+/// convolutions (per channel and per tensor), the flatten view, dense layers,
+/// tanh/sigmoid tables and the softmax.
+#[path = "../../../examples/common/imported_onnx_cnn_model.rs"]
+mod imported_onnx_cnn;
+#[path = "../../../examples/common/imported_onnx_cnn_qop_model.rs"]
+mod imported_onnx_cnn_qop;
+#[path = "../../../examples/common/imported_onnx_mlp_model.rs"]
+mod imported_onnx_mlp;
 /// A model written by the tree importer (generated code must be panic-free too).
 #[path = "../../../examples/common/imported_trees_gbdt_model.rs"]
 mod imported_trees;
@@ -883,6 +892,15 @@ pub extern "C" fn _start() -> ! {
     )));
     black_box(imported_lstm::head(&black_box(
         [0i8; imported_lstm::LSTM1_HIDDEN],
+    )));
+    black_box(imported_onnx_cnn::forward(&black_box(
+        imported_onnx_cnn::Input::default(),
+    )));
+    black_box(imported_onnx_cnn_qop::forward(&black_box(
+        imported_onnx_cnn_qop::Input::default(),
+    )));
+    black_box(imported_onnx_mlp::forward(&black_box(
+        imported_onnx_mlp::Input::default(),
     )));
     let f = black_box([0i16; imported_forest::NUM_FEATURES]);
     black_box((

@@ -41,7 +41,7 @@ How the port is checked, and what Rust's guarantees did and did not buy: [Bit fo
 
 ## Status
 
-The port covers what twelve of tinymind (C++)'s examples use (XOR, iris, handwritten digits, energy efficiency, the Q-learning maze and its deep Q-network version, LSTM activity recognition and air-quality forecasting, gas sensor drift with on-device fine-tuning, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, weight decay, learning-rate step decay, early stopping and scheduled sampling, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, int8 LSTM and GRU cells, 16-bit FFTs (complex and real-input), and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
+The port covers what twelve of tinymind (C++)'s examples use (XOR, iris, handwritten digits, energy efficiency, the Q-learning maze and its deep Q-network version, LSTM activity recognition and air-quality forecasting, gas sensor drift with on-device fine-tuning, an int8 XOR, int8 gradient-boosted trees and a keyword-spotting shaped int8 CNN), plus networks with several hidden layers, inference-only networks, floating-point (`f32`, `f64`) networks, the Adam and RMSprop optimizers, weight decay, learning-rate step decay, early stopping and scheduled sampling, the int8 softmax, convolution and pooling layers, residual addition, multiplication, padding and concatenation, int8 LSTM and GRU cells, 16-bit FFTs (complex and real-input), an ONNX importer and a TFLite translator. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it:
 
 | Ported | Not yet ported |
 |---|---|
@@ -70,6 +70,7 @@ cargo run --release --features std --example int8_xor -- output   # PyTorch-trai
 cargo run --release --features std --example imported_mlp    # models written by the PyTorch importer
 cargo run --release --features std --example imported_cnn    # convolutional models written by the PyTorch importer
 cargo run --release --features std --example imported_lstm   # int8 LSTM sequence models written by the PyTorch importer
+cargo run --release --example imported_onnx                  # int8 models quantized by ONNX Runtime, via the ONNX importer
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN
 cargo run --release --example imported_trees                 # scikit-learn trees via the tree importer

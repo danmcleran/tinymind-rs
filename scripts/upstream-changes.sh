@@ -53,6 +53,7 @@ PORTED=(
   examples/gas_sensor_drift
   examples/pytorch_quant/xor
   apps/import_pytorch
+  apps/import_onnx
   apps/import_trees
   cpp/qaffine.hpp
   cpp/qdense.hpp
