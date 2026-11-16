@@ -19,6 +19,17 @@ what to port next, and update it when a step is done.
   follow-ups (tinymind's importer first, so both stay matched): pooling /
   global average pool, depthwise (group = C), Add (residuals),
   `QLinearSoftmax`, a chain/grid check in tinymind's importer.
+  **Handed off 2026-11-16** (Dan: "close the gaps with tinymind C++"): a
+  tested patch to tinymind's `apps/import_onnx` for all five, in
+  `~/Documents/tinymind/tinymind-rs-findings-2026-11-16/` (README + patch,
+  applies to `a88af9f`, 19 tests pass, 7 plants fail them). Design:
+  `check_layer_graph` + `sources` per record; depthwise -> `DepthwiseConv`
+  ([C][KH][KW]); MaxPool same grid; average pools as a depthwise record with
+  every weight 64 (weight 1 put the requantizer at shift 0-1, where its
+  doubling multiply rounds first: 77% vs 98.6% exact); `Add` with
+  `input_b_*`; `QLinearSoftmax`. Once it lands: bump TINYMIND_REF, re-copy
+  the parser, Rust back end for the new records (needs an arena for the
+  residual branch, as the TFLite translator plans one).
 
 - **Upstream sync to `7336296` (done, 2026-11-15):** tinymind #279-#281,
   from this repo's review handoff: `int8::QRFft1D` (C++ `QRFFT1D`, #281;
