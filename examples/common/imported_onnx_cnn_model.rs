@@ -29,7 +29,7 @@ pub const OUTPUT_SCALE: f32 = 0.00390625;
 /// Zero point of the output tensor.
 pub const OUTPUT_ZERO_POINT: i8 = -128;
 
-/// `c1_Conv` (Conv): 3x2 convolution, stride 1x2, padding 1/1/0/0 (top/bottom/left/right), 8x10x2 -> 8x5x6.
+/// `c1_Conv` (Conv, reads the input): 3x2 convolution, stride 1x2, padding 1/1/0/0 (top/bottom/left/right), 8x10x2 -> 8x5x6.
 static CONV0_WEIGHTS: [[[[i8; 2]; 2]; 3]; 6] = [
     [
         [[70, -28], [-60, 69]],
@@ -114,7 +114,7 @@ static CONV0: QConv2DPerChannel<'static, 2, 3, 2, 6, 1, 2, 1, 1, 0, 0> = QConv2D
     requantizers: &CONV0_REQUANTIZERS,
 };
 
-/// `c2_Conv` (Conv): 1x1 pointwise convolution, stride 1x1, padding 0/0/0/0 (top/bottom/left/right), 8x5x6 -> 8x5x4.
+/// `c2_Conv` (Conv, reads `c1_Conv`): 1x1 pointwise convolution, stride 1x1, padding 0/0/0/0 (top/bottom/left/right), 8x5x6 -> 8x5x4.
 static PW1_WEIGHTS: [[i8; 6]; 4] = [
     [-127, 69, -96, -103, 8, -23],
     [84, -83, -127, 104, -21, 80],
@@ -159,7 +159,7 @@ static PW1: QPointwiseConv2DPerChannel<'static, 6, 4> = QPointwiseConv2DPerChann
     requantizers: &PW1_REQUANTIZERS,
 };
 
-/// `c3_Conv` (Conv): 3x3 convolution, stride 2x2, padding 0/0/0/0 (top/bottom/left/right), 8x5x4 -> 3x2x5.
+/// `c3_Conv` (Conv, reads `c2_Conv`): 3x3 convolution, stride 2x2, padding 0/0/0/0 (top/bottom/left/right), 8x5x4 -> 3x2x5.
 static CONV2_WEIGHTS: [[[[i8; 4]; 3]; 3]; 5] = [
     [
         [[122, 95, 68, 84], [7, 92, -71, 79], [87, 79, -120, 91]],
@@ -240,7 +240,7 @@ static CONV2: QConv2DPerChannel<'static, 4, 3, 3, 5, 2, 2, 0, 0, 0, 0> = QConv2D
     requantizers: &CONV2_REQUANTIZERS,
 };
 
-/// `f1_Gemm` (Dense): fully connected, 30 -> 12.
+/// `f1_Gemm` (Dense, reads `c3_Conv`): fully connected, 30 -> 12.
 static FC3_WEIGHTS: [[i8; 30]; 12] = [
     [
         -83, 2, -34, 116, -127, 73, -74, -17, -21, -45, 73, -72, -49, -33, 79, 7, -19, -118, -122,
@@ -387,7 +387,7 @@ static FC3: QDensePerChannel<'static, 30, 12> = QDensePerChannel {
     requantizers: &FC3_REQUANTIZERS,
 };
 
-/// `Tanh` (Tanh): tanh as a table from the input grid (scale 0.05774089, zero point -17) to the output's (0.007843115, -1).
+/// `Tanh` (Tanh, reads `f1_Gemm`): tanh as a table from the input grid (scale 0.05774089, zero point -17) to the output's (0.007843115, -1).
 static TANH4_LUT: [i8; LUT_SIZE] = [
     -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
     -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
@@ -406,7 +406,7 @@ static TANH4_LUT: [i8; LUT_SIZE] = [
     127, 127, 127, 127,
 ];
 
-/// `f2_Gemm` (Dense): fully connected, 12 -> 8.
+/// `f2_Gemm` (Dense, reads `Tanh`): fully connected, 12 -> 8.
 static FC5_WEIGHTS: [[i8; 12]; 8] = [
     [-126, 94, -37, 124, -93, -127, -103, 59, -15, -127, 25, -9],
     [49, -69, -96, 92, -65, 95, 109, -94, -62, 16, -127, 41],
@@ -483,7 +483,7 @@ static FC5: QDensePerChannel<'static, 12, 8> = QDensePerChannel {
     requantizers: &FC5_REQUANTIZERS,
 };
 
-/// `Sigmoid` (Sigmoid): sigmoid as a table from the input grid (scale 0.02568526, zero point 51) to the output's (0.0034363952, -128).
+/// `Sigmoid` (Sigmoid, reads `f2_Gemm`): sigmoid as a table from the input grid (scale 0.02568526, zero point 51) to the output's (0.0034363952, -128).
 static SIGMOID6_LUT: [i8; LUT_SIZE] = [
     -125, -125, -125, -125, -125, -125, -125, -125, -124, -124, -124, -124, -124, -124, -124, -124,
     -124, -124, -123, -123, -123, -123, -123, -123, -123, -123, -122, -122, -122, -122, -122, -122,
@@ -501,7 +501,7 @@ static SIGMOID6_LUT: [i8; LUT_SIZE] = [
     116, 117, 118, 119, 120, 121, 122, 123, 123, 124, 125, 126, 127,
 ];
 
-/// `f3_Gemm` (Dense): fully connected, 8 -> 4.
+/// `f3_Gemm` (Dense, reads `Sigmoid`): fully connected, 8 -> 4.
 static FC7_WEIGHTS: [[i8; 8]; 4] = [
     [30, -21, 52, -100, 18, -119, 81, 127],
     [-71, 29, -102, -127, -101, -95, 38, -23],
@@ -546,7 +546,7 @@ static FC7: QDensePerChannel<'static, 8, 4> = QDensePerChannel {
     requantizers: &FC7_REQUANTIZERS,
 };
 
-/// `Softmax` (Softmax): softmax over 4 logits, output on the 1/256 grid.
+/// `Softmax` (Softmax, reads `f3_Gemm`): softmax over 4 logits, output on the 1/256 grid.
 static SOFTMAX8: QSoftmax = QSoftmax {
     input_multiplier: 1816099584,
     input_left_shift: 20,
@@ -555,14 +555,14 @@ static SOFTMAX8: QSoftmax = QSoftmax {
 
 /// Run the network on an int8 input in the `INPUT` grid.
 pub fn forward(input: &Input) -> Output {
-    let mut v0 = [[[0i8; 6]; 5]; 8];
-    CONV0.forward(input, &mut v0);
-    let mut v1 = [[[0i8; 4]; 5]; 8];
-    PW1.forward(&v0, &mut v1);
-    let mut v2 = [[[0i8; 5]; 2]; 3];
-    CONV2.forward(&v1, &mut v2);
+    let mut b0 = [[[0i8; 6]; 5]; 8];
+    let mut b1 = [[[0i8; 4]; 5]; 8];
+    let mut b2 = [[[0i8; 5]; 2]; 3];
+    CONV0.forward(input, &mut b0);
+    PW1.forward(&b0, &mut b1);
+    CONV2.forward(&b1, &mut b2);
     let v3 = FC3.forward(
-        v2.as_flattened()
+        b2.as_flattened()
             .as_flattened()
             .first_chunk::<30>()
             .expect("30 values"),

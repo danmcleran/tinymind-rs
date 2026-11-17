@@ -347,6 +347,10 @@ mod imported_onnx_cnn;
 mod imported_onnx_cnn_qop;
 #[path = "../../../examples/common/imported_onnx_mlp_model.rs"]
 mod imported_onnx_mlp;
+#[path = "../../../examples/common/imported_onnx_resnet_model.rs"]
+mod imported_onnx_resnet;
+#[path = "../../../examples/common/imported_onnx_resnet_qop_model.rs"]
+mod imported_onnx_resnet_qop;
 /// A model written by the tree importer (generated code must be panic-free too).
 #[path = "../../../examples/common/imported_trees_gbdt_model.rs"]
 mod imported_trees;
@@ -901,6 +905,12 @@ pub extern "C" fn _start() -> ! {
     )));
     black_box(imported_onnx_mlp::forward(&black_box(
         imported_onnx_mlp::Input::default(),
+    )));
+    black_box(imported_onnx_resnet::forward(&black_box(
+        imported_onnx_resnet::Input::default(),
+    )));
+    black_box(imported_onnx_resnet_qop::forward(&black_box(
+        imported_onnx_resnet_qop::Input::default(),
     )));
     let f = black_box([0i16; imported_forest::NUM_FEATURES]);
     black_box((

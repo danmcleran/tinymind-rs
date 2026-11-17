@@ -28,7 +28,7 @@ pub const OUTPUT_SCALE: f32 = 0.0028052556;
 /// Zero point of the output tensor.
 pub const OUTPUT_ZERO_POINT: i8 = -128;
 
-/// `c1_Conv_quant` (Conv): 3x3 convolution, stride 1x1, padding 1/1/1/1 (top/bottom/left/right), 6x6x1 -> 6x6x4.
+/// `c1_Conv_quant` (Conv, reads the input): 3x3 convolution, stride 1x1, padding 1/1/1/1 (top/bottom/left/right), 6x6x1 -> 6x6x4.
 static CONV0_WEIGHTS: [[[[i8; 1]; 3]; 3]; 4] = [
     [
         [[30], [-31], [36]],
@@ -65,7 +65,7 @@ static CONV0: QConv2D<'static, 1, 3, 3, 4, 1, 1, 1, 1, 1, 1> = QConv2D {
     },
 };
 
-/// `c2_Conv_quant` (Conv): 1x1 pointwise convolution, stride 1x1, padding 0/0/0/0 (top/bottom/left/right), 6x6x4 -> 6x6x3.
+/// `c2_Conv_quant` (Conv, reads `c1_Conv_quant`): 1x1 pointwise convolution, stride 1x1, padding 0/0/0/0 (top/bottom/left/right), 6x6x4 -> 6x6x3.
 static PW1_WEIGHTS: [[i8; 4]; 3] = [[-43, -127, 58, 53], [27, 67, 58, 6], [15, 10, 73, 92]];
 static PW1_BIASES: [i32; 3] = [9032, 7289, -3066];
 static PW1: QPointwiseConv2D<'static, 4, 3> = QPointwiseConv2D {
@@ -81,7 +81,7 @@ static PW1: QPointwiseConv2D<'static, 4, 3> = QPointwiseConv2D {
     },
 };
 
-/// `f1_Gemm_quant` (Dense): fully connected, 108 -> 10.
+/// `f1_Gemm_quant` (Dense, reads `c2_Conv_quant`): fully connected, 108 -> 10.
 static FC2_WEIGHTS: [[i8; 108]; 10] = [
     [
         -6, -89, 87, -26, 78, -124, 74, 10, -111, 14, 76, -86, 118, 68, 40, 64, -98, -52, -109,
@@ -180,7 +180,7 @@ static FC2: QDense<'static, 108, 10> = QDense {
     },
 };
 
-/// `f2_MatMul_quant` (Dense): fully connected, 10 -> 3.
+/// `f2_MatMul_quant` (Dense, reads `f1_Gemm_quant`): fully connected, 10 -> 3.
 static FC3_WEIGHTS: [[i8; 10]; 3] = [
     [-19, 8, -11, 15, 85, 127, 23, -53, -33, -103],
     [-13, 89, 70, -97, 98, -19, -31, 92, 46, -62],
@@ -199,7 +199,7 @@ static FC3: QDense<'static, 10, 3> = QDense {
     },
 };
 
-/// `Sigmoid_quant` (Sigmoid): sigmoid as a table from the input grid (scale 0.0053680753, zero point -45) to the output's (0.0028052556, -128).
+/// `Sigmoid_quant` (Sigmoid, reads `f2_MatMul_quant`): sigmoid as a table from the input grid (scale 0.0053680753, zero point -45) to the output's (0.0028052556, -128).
 static SIGMOID4_LUT: [i8; LUT_SIZE] = [
     11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 19, 20, 20, 21, 21, 22,
     22, 23, 23, 24, 24, 25, 25, 26, 26, 26, 27, 27, 28, 28, 29, 29, 30, 30, 31, 31, 32, 32, 33, 33,
@@ -217,12 +217,12 @@ static SIGMOID4_LUT: [i8; LUT_SIZE] = [
 
 /// Run the network on an int8 input in the `INPUT` grid.
 pub fn forward(input: &Input) -> Output {
-    let mut v0 = [[[0i8; 4]; 6]; 6];
-    CONV0.forward(input, &mut v0);
-    let mut v1 = [[[0i8; 3]; 6]; 6];
-    PW1.forward(&v0, &mut v1);
+    let mut b0 = [[[0i8; 4]; 6]; 6];
+    let mut b1 = [[[0i8; 3]; 6]; 6];
+    CONV0.forward(input, &mut b0);
+    PW1.forward(&b0, &mut b1);
     let v2 = FC2.forward(
-        v1.as_flattened()
+        b1.as_flattened()
             .as_flattened()
             .first_chunk::<108>()
             .expect("108 values"),

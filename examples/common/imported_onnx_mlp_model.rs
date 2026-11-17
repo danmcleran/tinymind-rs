@@ -28,7 +28,7 @@ pub const OUTPUT_SCALE: f32 = 0.00390625;
 /// Zero point of the output tensor.
 pub const OUTPUT_ZERO_POINT: i8 = -128;
 
-/// `MatMul` (Dense): fully connected, 7 -> 9.
+/// `MatMul` (Dense, reads the input): fully connected, 7 -> 9.
 static FC0_WEIGHTS: [[i8; 7]; 9] = [
     [-4, -16, -27, -62, 2, 3, -54],
     [19, 13, -86, 52, -4, 34, -22],
@@ -54,7 +54,7 @@ static FC0: QDense<'static, 7, 9> = QDense {
     },
 };
 
-/// `Tanh` (Tanh): tanh as a table from the input grid (scale 0.02165182, zero point -21) to the output's (0.0077539543, -2).
+/// `Tanh` (Tanh, reads `MatMul`): tanh as a table from the input grid (scale 0.02165182, zero point -21) to the output's (0.0077539543, -2).
 static TANH1_LUT: [i8; LUT_SIZE] = [
     -128, -128, -128, -128, -128, -128, -128, -128, -127, -127, -127, -127, -127, -127, -126, -126,
     -126, -126, -126, -125, -125, -125, -125, -124, -124, -124, -123, -123, -123, -122, -122, -122,
@@ -72,7 +72,7 @@ static TANH1_LUT: [i8; LUT_SIZE] = [
     126, 126, 126, 126, 126, 126, 126, 127, 127, 127,
 ];
 
-/// `f_Gemm` (Dense): fully connected, 9 -> 5.
+/// `f_Gemm` (Dense, reads `Tanh`): fully connected, 9 -> 5.
 static FC2_WEIGHTS: [[i8; 9]; 5] = [
     [-63, 22, 53, 13, -45, 24, -49, -43, -47],
     [76, -89, 55, 66, -85, -97, -85, -108, 107],
@@ -94,7 +94,7 @@ static FC2: QDense<'static, 9, 5> = QDense {
     },
 };
 
-/// `Softmax` (Softmax): softmax over 5 logits, output on the 1/256 grid.
+/// `Softmax` (Softmax, reads `f_Gemm`): softmax over 5 logits, output on the 1/256 grid.
 static SOFTMAX3: QSoftmax = QSoftmax {
     input_multiplier: 1609826432,
     input_left_shift: 19,

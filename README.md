@@ -108,7 +108,7 @@ cargo run --release --features std --example int8_xor -- output   # PyTorch-trai
 cargo run --release --features std --example imported_mlp    # two models written by the PyTorch importer
 cargo run --release --features std --example imported_cnn    # two convolutional models written by the PyTorch importer
 cargo run --release --features std --example imported_lstm   # two int8 LSTM sequence models written by the PyTorch importer
-cargo run --release --example imported_onnx                  # three int8 models quantized by ONNX Runtime, via the ONNX importer
+cargo run --release --example imported_onnx                  # five int8 models quantized by ONNX Runtime (two residual), via the ONNX importer
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN, per-layer report
 cargo run --release --example imported_trees                 # scikit-learn tree models via the tree importer
@@ -235,7 +235,7 @@ set.
 | `examples/imported_cnn.rs` | two convolutional models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 | `examples/imported_lstm.rs` | two LSTM sequence models written by the PyTorch importer, checked against tinymind (C++)'s importer (identical parameters) and its calibration functions + `QLSTMCell` |
 | `examples/imported_mlp.rs` | two models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
-| `examples/imported_onnx.rs` | three models written by the ONNX importer, checked against tinymind (C++)'s ONNX importer + C++ runtime |
+| `examples/imported_onnx.rs` | five models written by the ONNX importer (two residual networks), checked against tinymind (C++)'s ONNX importer + C++ runtime |
 
 Everything else in tinymind (C++) is not ported: other Q
 formats, unsigned and 8/64-bit storage, the other activations, the trainable GRU
@@ -354,9 +354,10 @@ the int8 quantization tiers, SIMD backends, and so on.
   training an LSTM network on its own predictions, every weight hashed after
   every step.
 - The ONNX importer (`tools/import_onnx`): `scripts/compare-with-cpp.sh` runs
-  its three example models through tinymind (C++)'s own ONNX importer and C++
-  layers and compares the outputs byte for byte, and checks that the parser is
-  tinymind (C++)'s unchanged; `test_onnx.py` checks the modules against ONNX
+  its five example models (two residual networks with max, average and global
+  average pooling, a depthwise convolution and an addition) through
+  tinymind (C++)'s own ONNX importer and C++ layers and compares the outputs
+  byte for byte, and checks that the parser is tinymind (C++)'s unchanged; `test_onnx.py` checks the modules against ONNX
   Runtime (within one step; softmax probabilities within 2/256) and the
   importer's refusals.
 - The TFLite translator (`tools/import_tflite`, run by
@@ -369,7 +370,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (109 checks today, including
+  example does, runs both sides, and compares every output file (111 checks today, including
   that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

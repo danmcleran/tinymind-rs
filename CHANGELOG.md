@@ -14,15 +14,20 @@ break the API).
   an int8 model quantized by ONNX Runtime's `quantize_static` (QDQ or
   QOperator format, weights per tensor or per channel), so also TensorFlow/Keras
   and JAX models through ONNX, and writes a `no_std` Rust module with a
-  `forward` function: convolutions (pointwise ones on `QPointwiseConv2D`),
-  dense layers, ReLU folded into the layer before it, sigmoid and tanh tables
-  and a softmax. Its parser is tinymind (C++)'s, unchanged; it refuses what it
-  cannot translate exactly (pooling, residual additions, depthwise
-  convolutions, a model that branches or requantizes a tensor between two
-  layers) with the node's name. The new `imported_onnx` example runs three
-  models quantized by ONNX Runtime, byte-identical to the same models read by
-  tinymind (C++)'s importer and run on its int8 layers, and within one step
-  of ONNX Runtime's own output.
+  `forward` function: convolutions (pointwise ones on `QPointwiseConv2D`,
+  depthwise ones on `QDepthwiseConv2D`), max and average pooling, residual
+  additions (`QAdd`), dense layers, ReLU folded into the layer before it,
+  sigmoid and tanh tables and a softmax (`Softmax` or QOperator's
+  `QLinearSoftmax`). Feature maps live in buffers declared in `forward`, one
+  reused as soon as no later layer reads the map it holds. Its parser is
+  tinymind (C++)'s, unchanged, including its check that every layer reads the
+  model's input or an earlier layer's output in the grid that layer wrote it
+  in; it refuses what it cannot translate exactly (padded pooling,
+  broadcasting, a tensor requantized between two layers, a model with two
+  outputs) with the node's name. The new `imported_onnx` example runs five
+  models quantized by ONNX Runtime, two of them residual networks,
+  byte-identical to the same models read by tinymind (C++)'s importer and run
+  on its int8 layers, and within one step of ONNX Runtime's own output.
 
 ## [0.3.7] - 2026-11-15
 
