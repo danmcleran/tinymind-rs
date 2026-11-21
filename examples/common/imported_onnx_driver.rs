@@ -13,6 +13,12 @@ mod cnn_qop;
 #[path = "imported_onnx_mlp_model.rs"]
 mod mlp;
 
+#[path = "imported_onnx_resnet_model.rs"]
+mod resnet;
+
+#[path = "imported_onnx_resnet_qop_model.rs"]
+mod resnet_qop;
+
 /// Test inputs per model: even-numbered ones span the whole int8 range, odd
 /// ones stay within 48 steps of the input's zero point, where the calibrated
 /// ranges are.
@@ -95,6 +101,40 @@ pub fn run(out: &mut dyn Write) -> io::Result<()> {
         let mut x = mlp::Input::default();
         fill(&mut rng, s, mlp::INPUT_ZERO_POINT, &mut x);
         print(out, "onnx_mlp", s, &mlp::forward(&x))?;
+    }
+
+    writeln!(
+        out,
+        "onnx_resnet input zero_point={} scale=0x{:08x}",
+        resnet::INPUT_ZERO_POINT,
+        resnet::INPUT_SCALE.to_bits()
+    )?;
+    for s in 0..SAMPLES {
+        let mut x = resnet::Input::default();
+        fill(
+            &mut rng,
+            s,
+            resnet::INPUT_ZERO_POINT,
+            x.as_flattened_mut().as_flattened_mut(),
+        );
+        print(out, "onnx_resnet", s, &resnet::forward(&x))?;
+    }
+
+    writeln!(
+        out,
+        "onnx_resnet_qop input zero_point={} scale=0x{:08x}",
+        resnet_qop::INPUT_ZERO_POINT,
+        resnet_qop::INPUT_SCALE.to_bits()
+    )?;
+    for s in 0..SAMPLES {
+        let mut x = resnet_qop::Input::default();
+        fill(
+            &mut rng,
+            s,
+            resnet_qop::INPUT_ZERO_POINT,
+            x.as_flattened_mut().as_flattened_mut(),
+        );
+        print(out, "onnx_resnet_qop", s, &resnet_qop::forward(&x))?;
     }
     Ok(())
 }

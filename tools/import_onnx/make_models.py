@@ -19,6 +19,13 @@ inputs, the way a user quantizes a trained model:
   mlp      QDQ format, per-tensor weights. A MatMul with a separate bias Add
            (which the importer folds into one dense layer) -> Tanh -> Linear
            -> Softmax, on 7 inputs.
+  resnet   QDQ format, per-channel weights. Conv 3x3 (padding 1) + ReLU ->
+           MaxPool 2x2 -> a residual block (depthwise Conv 3x3 + ReLU ->
+           pointwise Conv, added to the Tanh of the block's input) ->
+           Sigmoid -> AvgPool 2x2 -> global average pool -> Linear, on a
+           2 x 8 x 24 input.
+  resnet_qop  The same network in QOperator format, per-tensor weights,
+           ending in a Softmax (QLinearSoftmax).
 
 The quantized models are committed, so regenerating the Rust modules and the
 C++ check needs only the `onnx` package. Rerun this only to change the
@@ -82,6 +89,36 @@ class Mlp(nn.Module):
         return torch.softmax(self.f(h), dim=1)
 
 
+class ResNet(nn.Module):
+    """The residual network of tinymind (C++)'s importer tests (ResNetish in
+    apps/import_onnx/test_import_onnx.py), with two activation tables on
+    feature maps: a tanh of the block's input (which the block still reads
+    after it) as the Add's first operand, and a sigmoid of the sum. Unequal
+    channel counts and a 2x6 map after pooling catch a wrong depthwise layout,
+    swapped Add operands and a wrong pooling window."""
+
+    def __init__(self, softmax=False):
+        super().__init__()
+        self.softmax = softmax
+        self.c1 = nn.Conv2d(2, 5, 3, padding=1)
+        self.dw = nn.Conv2d(5, 5, 3, padding=1, groups=5)
+        self.pw = nn.Conv2d(5, 5, 1)
+        self.f = nn.Linear(5, 4)
+
+    def forward(self, x):
+        h = torch.nn.functional.max_pool2d(torch.relu(self.c1(x)), 2)
+        h = torch.sigmoid(torch.tanh(h) + self.pw(torch.relu(self.dw(h))))
+        h = torch.nn.functional.avg_pool2d(h, 2)
+        h = torch.nn.functional.adaptive_avg_pool2d(h, 1).flatten(1)
+        y = self.f(h)
+        return torch.softmax(y, dim=1) if self.softmax else y
+
+
+class ResNetSoftmax(ResNet):
+    def __init__(self):
+        super().__init__(softmax=True)
+
+
 # name -> (module, input shape, ONNX Runtime format, per-channel weights,
 # gain). PyTorch's default initialization shrinks the signal layer by layer,
 # so the weights are scaled by the gain: otherwise the cnn's softmax gives
@@ -91,6 +128,8 @@ MODELS = {
     "cnn": (Cnn, (1, 2, 8, 10), QuantFormat.QDQ, True, 3.0),
     "cnn_qop": (CnnQop, (1, 1, 6, 6), QuantFormat.QOperator, False, 2.0),
     "mlp": (Mlp, (1, 7), QuantFormat.QDQ, False, 1.0),
+    "resnet": (ResNet, (1, 2, 8, 24), QuantFormat.QDQ, True, 2.0),
+    "resnet_qop": (ResNetSoftmax, (1, 2, 8, 24), QuantFormat.QOperator, False, 2.0),
 }
 
 

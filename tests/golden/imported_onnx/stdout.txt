@@ -49,3 +49,37 @@ onnx_mlp 12: -81 -59 -63 -106 -75
 onnx_mlp 13: -76 -86 -57 -93 -74
 onnx_mlp 14: -83 -55 -69 -105 -73
 onnx_mlp 15: -73 -78 -52 -103 -78
+onnx_resnet input zero_point=-7 scale=0x3cf8185b
+onnx_resnet 0: 57 -108 -39 127
+onnx_resnet 1: 63 -123 -30 118
+onnx_resnet 2: 55 -106 -37 127
+onnx_resnet 3: 62 -122 -28 117
+onnx_resnet 4: 58 -108 -40 127
+onnx_resnet 5: 65 -126 -30 120
+onnx_resnet 6: 59 -110 -39 127
+onnx_resnet 7: 63 -120 -30 116
+onnx_resnet 8: 58 -109 -39 127
+onnx_resnet 9: 64 -122 -31 118
+onnx_resnet 10: 59 -108 -38 127
+onnx_resnet 11: 65 -127 -30 119
+onnx_resnet 12: 58 -109 -39 127
+onnx_resnet 13: 63 -123 -28 116
+onnx_resnet 14: 57 -107 -41 127
+onnx_resnet 15: 65 -124 -30 118
+onnx_resnet_qop input zero_point=-7 scale=0x3cf8185b
+onnx_resnet_qop 0: -120 -114 38 -60
+onnx_resnet_qop 1: -120 -113 37 -59
+onnx_resnet_qop 2: -120 -114 39 -62
+onnx_resnet_qop 3: -120 -113 37 -60
+onnx_resnet_qop 4: -120 -114 39 -61
+onnx_resnet_qop 5: -120 -113 38 -61
+onnx_resnet_qop 6: -120 -114 39 -62
+onnx_resnet_qop 7: -121 -113 38 -60
+onnx_resnet_qop 8: -120 -113 39 -62
+onnx_resnet_qop 9: -121 -113 38 -60
+onnx_resnet_qop 10: -120 -114 39 -62
+onnx_resnet_qop 11: -120 -113 37 -59
+onnx_resnet_qop 12: -120 -113 38 -61
+onnx_resnet_qop 13: -120 -113 37 -59
+onnx_resnet_qop 14: -120 -114 39 -61
+onnx_resnet_qop 15: -120 -113 36 -60

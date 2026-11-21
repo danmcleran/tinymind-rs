@@ -10,13 +10,17 @@ are meant to compute: for each example model, the Rust module's int8 outputs
 the quantized model on the same inputs. ONNX Runtime rounds a few results
 differently (it requantizes in float), so a layer's output may differ by one
 step; the outputs must be within one step of ONNX Runtime's, and most equal.
+(In QDQ form ONNX Runtime averages a pool in float and rounds ties to even,
+where the integer pool rounds them away from zero: tinymind (C++)'s importer
+tests measured up to 3 steps on a residual model without the sigmoid before
+the pools that this one has.)
 A softmax output is compared as a probability: the module's is on TFLite's
 1/256 grid and ONNX Runtime's on 1/255, and the softmax kernels differ, so
 within 2/256.
 
 It also checks that the importer refuses what it cannot translate exactly:
-a model whose layers do not form a chain, and one that requantizes a tensor
-between two layers.
+a model with a second output, one with a layer whose output nothing reads,
+and one that requantizes a tensor between two layers.
 """
 
 import os
@@ -35,6 +39,11 @@ sys.path.insert(0, HERE)
 import tinymind_import_onnx as ti  # noqa: E402
 
 SAMPLES = 16
+
+# model -> (largest difference from ONNX Runtime in steps, least share of
+# outputs equal to its). Softmax models are compared as probabilities.
+TOLERANCE = {"cnn": (1, 0.9), "cnn_qop": (1, 0.9), "mlp": (1, 0.9),
+             "resnet": (1, 0.9), "resnet_qop": (1, 0.9)}
 
 
 class Lcg:
@@ -75,7 +84,8 @@ def check_against_ort():
     got = rust_outputs()
     rng = Lcg(1)
     worst = 0
-    for model in ("cnn", "cnn_qop", "mlp"):
+    worst_steps = {}
+    for model, (steps, share) in TOLERANCE.items():
         path = os.path.join(HERE, "models", f"{model}.onnx")
         layers = ti.parse_onnx_model(path)
         first, last = layers[0], layers[-1]
@@ -100,13 +110,15 @@ def check_against_ort():
             else:
                 ref = np.rint(y / np.float32(last.output_scale)).astype(np.int64) + last.output_zp
                 diff = np.abs(mine - ref)
-                assert diff.max() <= 1, f"{model} sample {s}: {mine} vs ONNX Runtime {ref}"
+                worst_steps[model] = max(worst_steps.get(model, 0), int(diff.max()))
+                assert diff.max() <= steps, f"{model} sample {s}: {mine} vs ONNX Runtime {ref}"
                 exact += int((diff == 0).sum())
                 total += diff.size
         assert len({tuple(v) for v in got[f"onnx_{model}"]}) > SAMPLES // 2, f"{model}: outputs barely vary"
         if total:
-            assert exact / total > 0.9, f"{model}: only {exact}/{total} outputs equal ONNX Runtime's"
-            print(f"  {model}: within 1 step of ONNX Runtime, {exact}/{total} equal")
+            assert exact / total > share, f"{model}: only {exact}/{total} outputs equal ONNX Runtime's"
+            print(f"  {model}: within {steps} step{'s' if steps > 1 else ''} of ONNX Runtime "
+                  f"(largest {worst_steps[model]}), {exact}/{total} equal")
         else:
             print(f"  {model}: probabilities within 2/256 of ONNX Runtime's")
     print(f"  softmax outputs: worst {worst:.2f}/256 from ONNX Runtime's")
@@ -150,7 +162,21 @@ def check_refusals(tmp):
     path = os.path.join(tmp, "two_outputs.onnx")
     onnx.save(model, path)
     refuses(path, "one input and one output")
-    print("  refusals: a requantized tensor between layers, a second output")
+
+    # A dead branch: a second Tanh (and its QuantizeLinear) on the same
+    # input, whose output nothing reads.
+    model = onnx.load(os.path.join(HERE, "models", "mlp.onnx"))
+    g = model.graph
+    tanh = next(n for n in g.node if n.op_type == "Tanh")
+    q = next(n for n in g.node if n.op_type == "QuantizeLinear" and n.input[0] == tanh.output[0])
+    at = list(g.node).index(q) + 1
+    g.node.insert(at, helper.make_node("Tanh", [tanh.input[0]], ["dead_tanh"], name="dead_Tanh"))
+    g.node.insert(at + 1, helper.make_node("QuantizeLinear", ["dead_tanh", q.input[1], q.input[2]],
+                                           ["dead_q"]))
+    path = os.path.join(tmp, "dead_branch.onnx")
+    onnx.save(model, path)
+    refuses(path, "no layer reads its output")
+    print("  refusals: a requantized tensor between layers, a second output, a dead branch")
 
 
 def _toposort(g):

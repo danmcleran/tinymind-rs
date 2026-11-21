@@ -27,9 +27,10 @@ what to port next, and update it when a step is done.
   ([C][KH][KW]); MaxPool same grid; average pools as a depthwise record with
   every weight 64 (weight 1 put the requantizer at shift 0-1, where its
   doubling multiply rounds first: 77% vs 98.6% exact); `Add` with
-  `input_b_*`; `QLinearSoftmax`. Once it lands: bump TINYMIND_REF, re-copy
-  the parser, Rust back end for the new records (needs an arena for the
-  residual branch, as the TFLite translator plans one).
+  `input_b_*`; `QLinearSoftmax`. **Landed** as tinymind #286 (`f63f8ae`);
+  synced here 2026-11-17 (TINYMIND_REF f63f8ae, parser re-copied, Rust back
+  end for depthwise / pools / Add / QLinearSoftmax with liveness-reused map
+  buffers, two residual fixtures; details in `.claude/rules/importers.md`).
 
 - **Upstream sync to `7336296` (done, 2026-11-15):** tinymind #279-#281,
   from this repo's review handoff: `int8::QRFft1D` (C++ `QRFFT1D`, #281;

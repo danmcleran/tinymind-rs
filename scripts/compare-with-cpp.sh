@@ -748,9 +748,10 @@ echo "== imported_onnx (ONNX importer)"
 # Needs onnx in PYTHON. The quantized example models in tools/import_onnx/models
 # go through tinymind's own ONNX importer (from the checkout) into its headers;
 # example_onnx.py --cpp wires its layers into a forward pass reading every
-# constant from them, and imported_onnx.cpp runs the three models.
+# constant from them, wiring each layer to the ones its record's `sources`
+# name, and imported_onnx.cpp runs the five models.
 mkdir -p "$TMP/onnx"
-for model in cnn cnn_qop mlp; do
+for model in cnn cnn_qop mlp resnet resnet_qop; do
   TINYMIND_DIR="$TINYMIND_DIR" "$PYTHON" -I -B "$ROOT/tools/import_onnx/example_onnx.py" --model "$model" --cpp "$TMP/onnx" >/dev/null
 done
 g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/onnx/imported_onnx" "$ROOT/scripts/cpp/imported_onnx.cpp" \
@@ -768,7 +769,7 @@ if ! cmp -s "$TMP/onnx/cpp.txt" "$ROOT/tests/golden/imported_onnx/stdout.txt"; t
   echo "DIFFERENT  imported_onnx stdout.txt (C++ vs tests/golden/imported_onnx)"
   status=1
 fi
-for model in cnn cnn_qop mlp; do
+for model in cnn cnn_qop mlp resnet resnet_qop; do
   "$PYTHON" -I -B "$ROOT/tools/import_onnx/example_onnx.py" --model "$model" --rust "$TMP/onnx/$model.rs" >/dev/null
   if cmp -s "$TMP/onnx/$model.rs" "$ROOT/examples/common/imported_onnx_${model}_model.rs"; then
     same "imported_onnx examples/common/imported_onnx_${model}_model.rs (regenerated)"
@@ -778,12 +779,14 @@ for model in cnn cnn_qop mlp; do
   fi
 done
 # The importer's parser is tinymind's, unchanged: everything from its
-# `from __future__` line to the end of parse_onnx_model appears verbatim in ours.
+# `from __future__` line to the end of check_layer_graph (which
+# parse_onnx_model calls) appears verbatim in ours.
 cpp_onnx="$TINYMIND_DIR/apps/import_onnx/tinymind_import_onnx.py"
-sed -n '/^from __future__/,/^    return layers$/p' "$cpp_onnx" > "$TMP/onnx/parser_cpp.py"
-sed -n '/^from __future__/,/^    return layers$/p' "$ROOT/tools/import_onnx/tinymind_import_onnx.py" > "$TMP/onnx/parser_rs.py"
+parser_end='^        written\[origin(layer.output_name)\] = i$'
+sed -n "/^from __future__/,/$parser_end/p" "$cpp_onnx" > "$TMP/onnx/parser_cpp.py"
+sed -n "/^from __future__/,/$parser_end/p" "$ROOT/tools/import_onnx/tinymind_import_onnx.py" > "$TMP/onnx/parser_rs.py"
 if [ -s "$TMP/onnx/parser_cpp.py" ] && cmp -s "$TMP/onnx/parser_cpp.py" "$TMP/onnx/parser_rs.py"; then
-  same "import_onnx parser (tinymind's parse_onnx_model, verbatim)"
+  same "import_onnx parser (tinymind's parse_onnx_model and check_layer_graph, verbatim)"
 else
   echo "DIFFERENT  import_onnx parser vs tinymind's apps/import_onnx/tinymind_import_onnx.py"
   status=1

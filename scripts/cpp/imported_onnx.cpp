@@ -2,8 +2,9 @@
 // tools/import_onnx/example_onnx.py) on tinymind's C++ int8 runtime: every
 // constant comes from the headers tinymind's own ONNX importer writes
 // (onnx_<model>_weights.hpp), wired into a forward pass over tinymind's
-// layers by example_onnx.py --cpp (onnx_<model>_net.hpp). It runs 16 inputs
-// through each model and prints what examples/imported_onnx.rs prints, so
+// layers by example_onnx.py --cpp (onnx_<model>_net.hpp), each layer reading
+// the buffers its record's `sources` name. It runs 16 inputs through each
+// model and prints what examples/imported_onnx.rs prints, so
 // scripts/compare-with-cpp.sh can byte-compare the two.
 //
 // A ReLU that ONNX Runtime fused into a layer is that layer's output range
@@ -15,13 +16,18 @@
 
 #include "qaffine.hpp"
 #include "qactivations.hpp"
+#include "qadd.hpp"
 #include "qcalibration.hpp"
 #include "qconv2d.hpp"
 #include "qdense.hpp"
+#include "qdepthwiseconv2d.hpp"
+#include "qpool2d.hpp"
 #include "qsoftmax_fixedpoint.hpp"
 #include "onnx_cnn_net.hpp"
 #include "onnx_cnn_qop_net.hpp"
 #include "onnx_mlp_net.hpp"
+#include "onnx_resnet_net.hpp"
+#include "onnx_resnet_qop_net.hpp"
 
 static const int kSamples = 16;
 
@@ -82,5 +88,10 @@ int main()
         "onnx_cnn_qop", onnx_cnn_qop_net::InputZeroPoint, onnx_cnn_qop_net::InputScale, onnx_cnn_qop_net::forward);
     runModel<onnx_mlp_net::InputSize, onnx_mlp_net::OutputSize>(
         "onnx_mlp", onnx_mlp_net::InputZeroPoint, onnx_mlp_net::InputScale, onnx_mlp_net::forward);
+    runModel<onnx_resnet_net::InputSize, onnx_resnet_net::OutputSize>(
+        "onnx_resnet", onnx_resnet_net::InputZeroPoint, onnx_resnet_net::InputScale, onnx_resnet_net::forward);
+    runModel<onnx_resnet_qop_net::InputSize, onnx_resnet_qop_net::OutputSize>(
+        "onnx_resnet_qop", onnx_resnet_qop_net::InputZeroPoint, onnx_resnet_qop_net::InputScale,
+        onnx_resnet_qop_net::forward);
     return 0;
 }
