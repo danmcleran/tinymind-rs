@@ -12,17 +12,17 @@ The port has one rule that shapes everything else: **every ported path produces 
 
 ## What is in the crate
 
-As of 0.3.7:
+As of 0.3.8:
 
 - Q16.16 and Q8.8 fixed-point arithmetic (`QValue<i32, 16>`, `QValue<i16, 8>`), with ReLU, linear, and lookup-table tanh and sigmoid activations; the same networks also run on `f32` and `f64`.
-- Networks that train on the device with SGD and momentum, Adam or RMSprop (optionally with gradient clipping; for `f32`/`f64` also tinymind (C++)'s floating-point Adam and RMSprop, `AdamFloat` and `RmsPropFloat`): up to seven hidden layers (`NeuralNetwork` over `Dense` layers), and a one-hidden-layer perceptron (`MultilayerPerceptron`), each with an inference-only version that holds nothing but its weights (`InferenceNetwork`, `InferencePerceptron`).
+- Networks that train on the device with SGD and momentum, Adam or RMSprop (optionally with gradient clipping; for `f32`/`f64` also tinymind (C++)'s floating-point Adam and RMSprop, `AdamFloat` and `RmsPropFloat`): up to seven hidden layers (`NeuralNetwork` over `Dense` layers), and a one-hidden-layer perceptron (`MultilayerPerceptron`), each with an inference-only version that holds nothing but its weights (`InferenceNetwork`, `InferencePerceptron`). The trainable networks pick a class from the output logits (`predicted_class`), not from the saturating sigmoid outputs.
 - Training controls (module `training`): L2 weight decay and a step-decay learning-rate schedule that wrap the optimizer of any of the trainable networks, early stopping, and scheduled sampling for training a recurrent network on its own predictions.
 - int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), 2D convolutions (standard, depthwise and pointwise), pooling, residual addition, multiplication, padding, concatenation, quantized ReLU, activation tables, a softmax that is bit-exact with TFLite's, and LSTM and GRU cells; and radix-2 FFTs on 16-bit samples, complex (`QFft1D`) and real-input (`QRFft1D`), with a host-side twiddle-table builder.
 - Q-learning (`QLearner`, module `qlearn`) over a `QTable` or a deep Q-network (`QNetwork`), with tinymind (C++)'s maze and deep Q-network maze examples.
 - LSTM networks with one hidden layer (`LstmNetwork`, module `recurrent`), trained one step back in time, in fixed or floating point, with tinymind (C++)'s activity-recognition and air-quality forecasting examples.
 - Head-only fine-tuning (module `head`): a trainable dense head (`DenseHead`) and a nearest-class-mean head (`PrototypeHead`) that adapt a frozen model on the device, with tinymind (C++)'s gas sensor drift example.
 - Quantized decision trees and gradient-boosted ensembles (`QDecisionTree`, `QGbdt`) over a node pool that can live in flash, with int8, uint8 or int16 thresholds.
-- Three tools (in the repository, not the crate) that write `no_std` Rust modules: an importer for a trained PyTorch `nn.Sequential` (dense, convolutional, or starting with an `nn.LSTM`), one for scikit-learn, XGBoost and LightGBM tree models, and a translator for int8 TensorFlow Lite models.
+- Four tools (in the repository, not the crate) that write `no_std` Rust modules: an importer for a trained PyTorch `nn.Sequential` (dense, convolutional, or starting with an `nn.LSTM`), one for int8 ONNX models quantized by ONNX Runtime, one for scikit-learn, XGBoost and LightGBM tree models, and a translator for int8 TensorFlow Lite models.
 
 The library is `no_std`, allocation-free, has no required dependencies (`libm` is optional), and is `#![forbid(unsafe_code)]`.
 
@@ -128,7 +128,7 @@ mod my_model;
 let y = my_model::forward(&input); // [i8; N] -> [i8; M]
 ```
 
-CI imports the same example models with both importers, runs them on the C++ and the Rust runtimes, and checks that the outputs match byte for byte.
+CI imports the same example models with both importers, runs them on the C++ and the Rust runtimes, and checks that the outputs match byte for byte. An int8 model quantized by ONNX Runtime goes through `tools/import_onnx` the same way, and its outputs match tinymind (C++)'s ONNX importer and C++ layers byte for byte.
 
 ## What it is not
 

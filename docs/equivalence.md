@@ -25,6 +25,8 @@ Twelve of tinymind (C++)'s examples are ported, and every file they write must b
 - **Int8 GBDT**: stdout, the predicted class over a 48 x 48 input grid and the compact golden report of a five-tree gradient-boosted ensemble quantized to int8.
 - **Int8 KWS-shaped CNN** (`kws_cortex_m_int8`): its stdout carries host timings, so it is compared tensor by tensor instead (below).
 
+The four classifiers among them (iris, handwritten digits, activity recognition, gas sensor drift) pick their class with `predicted_class()`, as tinymind (C++)'s examples do with `getPredictedClass()`, so these files check it too.
+
 Parts that no tinymind (C++) example exercises are compared through small C++ programs built on tinymind (C++)'s library (in `scripts/cpp/`), whose output must match the Rust port's in the same way:
 
 - **Networks with several hidden layers**: tinymind (C++)'s `NeuralNetwork` with two and three hidden layers, in both formats, trained for thousands of steps, with a hash of every weight after every step; two regressions with a linear output and gradient clipping (one with an asymmetric range), sized so that clipping the weight and bias gradients changes the result; runs with tinymind (C++)'s Adam and RMSprop optimizers on one, two and three hidden layers, in both formats; and five runs with its `L2WeightDecay` and `StepDecaySchedule` policies (SGD, Adam and RMSprop; one to three hidden layers; both formats; tinymind (C++)'s default lambda and decay factor and explicit ones), printing the learning rate as it decays and what its `EarlyStopping` reported over the run.

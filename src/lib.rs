@@ -16,7 +16,9 @@
 //! the weights only, tinymind (C++)'s `IsTrainable = false`); a one-hidden-layer
 //! perceptron that
 //! trains on the device ([`MultilayerPerceptron`]) or only runs trained weights
-//! ([`InferencePerceptron`], tinymind (C++)'s `IsTrainable = false`), int8
+//! ([`InferencePerceptron`], tinymind (C++)'s `IsTrainable = false`); the
+//! trainable networks give a classifier's class from the output logits
+//! (`predicted_class`), which the saturating sigmoid table cannot tie; int8
 //! affine-quantized inference ([`int8`]: dense layers, 2D convolutions (standard,
 //! depthwise and pointwise), pooling, elementwise addition and multiplication,
 //! padding, concatenation, quantized activations,

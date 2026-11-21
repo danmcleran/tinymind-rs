@@ -5,7 +5,7 @@ what to port next, and update it when a step is done.
 
 ## Next steps
 
-- **v18.6 sync (2026-11-20, TINYMIND_REF 65c6160 = tag v18.6):** #293 `getPredictedClass` ported to all three trained networks + 4 examples (goldens: gas, digits); #288/#292 regenerated `src/lut.rs` (Q8.8 exp tail only); #291 (log/sin/cos range reduction) not applicable. Branch `sync-v18.6`, stacked on `onnx-graph` (PR #126).
+- **v18.6 sync (2026-11-20, TINYMIND_REF 65c6160 = tag v18.6):** #293 `getPredictedClass` ported to all three trained networks + 4 examples (goldens: gas, digits); #288/#292 regenerated `src/lut.rs` (Q8.8 exp tail only); #291 (log/sin/cos range reduction) not applicable. Merged as #127; released in 0.3.8.
 - **ONNX importer (done, 2026-11-16):** `tools/import_onnx`, Dan's pick ("#1")
   from the ROI review after v18.5: tinymind's `apps/import_onnx` parser
   verbatim plus a Rust back end with a runnable `forward`, three committed

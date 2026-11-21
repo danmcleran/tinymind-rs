@@ -31,7 +31,12 @@
 //! nn.feed_forward(&x);
 //! let [a, b, c] = nn.learned_values();
 //! assert!(a > b && a > c);
+//! assert_eq!(nn.predicted_class(), 0);
 //! ```
+//!
+//! To pick a class, rank the output logits with `predicted_class()`
+//! (`output_pre_activations()` returns them) rather than `learned_values()`:
+//! the fixed-point sigmoid table is flat beyond ±6, so confident outputs tie.
 //!
 //! Adjacent layers must agree (`Dense<_, _, 4, 8>` then `Dense<_, _, 8, _>`),
 //! which the compiler checks. Each layer has its own activation; tinymind (C++)'s
@@ -619,6 +624,9 @@ impl<V: Scalar, L: Layers<Value = V>, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
     ///
     /// Recomputed from the layer before the output layer with the sum
     /// `feed_forward` forms, so they match it bit for bit and cost no memory.
+    ///
+    /// Call it before [`train`](Self::train): training changes the weights it
+    /// is recomputed from.
     pub fn output_pre_activations(&self) -> L::Outputs {
         self.layers.output_pre_activations(&self.inputs)
     }
@@ -630,6 +638,9 @@ impl<V: Scalar, L: Layers<Value = V>, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
     /// Use it, not an argmax of [`learned_values`](Self::learned_values), to
     /// pick a class: the fixed-point sigmoid table is flat beyond ±6, so
     /// confident outputs tie there and an argmax can only take the first.
+    ///
+    /// Call it before [`train`](Self::train): training changes the weights it
+    /// is recomputed from.
     pub fn predicted_class(&self) -> usize {
         argmax(self.layers.output_pre_activations(&self.inputs).as_ref())
     }

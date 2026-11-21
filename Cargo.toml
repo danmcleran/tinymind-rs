@@ -1,6 +1,6 @@
 [package]
 name = "tinymind"
-version = "0.3.7"
+version = "0.3.8"
 edition = "2024"
 # Edition 2024 needs 1.85. CI runs the tests on this version.
 rust-version = "1.85"
@@ -11,7 +11,7 @@ homepage = "https://danmcleran.github.io/tinymind-rs/"
 documentation = "https://docs.rs/tinymind"
 readme = "README.md"
 keywords = ["neural-network", "fixed-point", "embedded", "no-std", "tinyml"]
-categories = ["embedded", "no-std", "science", "algorithms"]
+categories = ["embedded", "no-std", "no-std::no-alloc", "science", "algorithms"]
 # Not part of the published crate: agent guidance, CI and its link check, the
 # on-board benchmark, the docs site, and maintainer scripts (they need a tinymind checkout). Tests and
 # their goldens stay, so `cargo test` works from the published source.
