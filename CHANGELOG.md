@@ -28,6 +28,31 @@ break the API).
   models quantized by ONNX Runtime, two of them residual networks,
   byte-identical to the same models read by tinymind (C++)'s importer and run
   on its int8 layers, and within one step of ONNX Runtime's own output.
+- `output_pre_activations()` and `predicted_class()` on `MultilayerPerceptron`,
+  `NeuralNetwork` and `recurrent::LstmNetwork`, ported from tinymind (C++)'s
+  `getOutputPreActivations()` and `getPredictedClass()`: the output layer's
+  logits for the latest `feed_forward`, recomputed from the layer before it
+  with the same sum (so they match it bit for bit, with no extra memory), and
+  their argmax, ties to the lower index. Rank these rather than
+  `learned_values()` to pick a class: the fixed-point sigmoid table is flat
+  beyond ±6, so confident outputs tie there and an argmax of them can only
+  take the first.
+
+### Changed
+
+- The `iris`, `optical_digits`, `har_activity` and `gas_sensor_drift`
+  examples pick their class with `predicted_class()`, as tinymind (C++)'s
+  examples now do. `gas_sensor_drift`'s batch-10 accuracy goes from 0.7900 to
+  0.7933, and its network and its backbone-plus-head split now agree on all
+  9000 samples (4 differed). `optical_digits` still classifies 1729 of 1797
+  test images correctly, but the predictions that had tied and all gone to
+  digit 0 are spread to other classes. `iris` and `har_activity` are
+  unchanged.
+- The Q8.8 exp lookup table, used by the fine-tuning heads' softmax, is
+  regenerated from tinymind (C++)'s fixed generator: its last nine entries
+  (inputs 4.875 and above, which overflow Q8.8) are now the format's largest
+  value instead of wrapped values. The softmax only passes it inputs at or
+  below 0, so no output changes.
 
 ## [0.3.7] - 2026-11-15
 

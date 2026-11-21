@@ -115,17 +115,9 @@ pub fn run(out_dir: &Path, data_path: &Path, stdout: &mut dyn Write) -> io::Resu
     let mut correct = 0;
     for s in test {
         nn.feed_forward(&to_input(s, &stats));
-        let learned = nn.learned_values();
-        // First index wins ties, as the C++ strict `>` scan does.
-        let mut pred = 0;
-        let mut best = learned[0].to_f64();
-        for (k, value) in learned.iter().enumerate().skip(1) {
-            let v = value.to_f64();
-            if v > best {
-                best = v;
-                pred = k;
-            }
-        }
+        // Rank the logits, not the sigmoid outputs: the sigmoid table is flat
+        // beyond +/-6, so confident outputs tie there and argmax takes the first.
+        let pred = nn.predicted_class();
         confusion[s.label][pred] += 1;
         if pred == s.label {
             correct += 1;

@@ -129,6 +129,7 @@ where
     sampler.reset();
     black_box(sampler);
     black_box((nn.learned_values(), nn.hidden_values(), nn.learning_rate()));
+    black_box((nn.output_pre_activations(), nn.predicted_class()));
     black_box((nn.input_weights(), nn.input_bias_weights()));
     black_box((nn.hidden_weights(), nn.hidden_bias_weights()));
 
@@ -164,6 +165,7 @@ fn deep_network<V: Scalar, H: Activation<V>, O: Activation<V>>(raw: fn(i32) -> V
         }
     }
     black_box((nn.learned_values(), nn.learning_rate()));
+    black_box((nn.output_pre_activations(), nn.predicted_class()));
     let layers = nn.layers_mut();
     black_box((
         layers.0.weights(),
@@ -295,6 +297,7 @@ fn lstm<V, H, O, const IN: usize, const HID: usize, const OUT: usize, Opt>(
         }
     }
     black_box((nn.learned_values(), nn.hidden_outputs(), nn.cell_states()));
+    black_box((nn.output_pre_activations(), nn.predicted_class()));
     black_box((
         nn.input_weights(),
         nn.input_bias_weights(),

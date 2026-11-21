@@ -251,21 +251,12 @@ pub fn run(out_dir: &Path, stdout: &mut dyn Write) -> io::Result<()> {
     stdout.flush()
 }
 
-/// The predicted class via argmax of the sigmoid outputs (the first one on a
-/// tie, as the C++ strict `>` scan does).
+/// The predicted class: the largest logit, not the largest sigmoid output.
+/// The sigmoid table is flat beyond +/-6, so confident outputs tie there and
+/// an argmax of them can only take the first.
 fn predict_class(nn: &mut NeuralNetwork, s: &Sample, stats: &FeatureStats) -> usize {
     nn.feed_forward(&to_input(s, stats));
-    let learned = nn.learned_values();
-    let mut pred = 0;
-    let mut best = learned[0].to_f64();
-    for (k, value) in learned.iter().enumerate().skip(1) {
-        let v = value.to_f64();
-        if v > best {
-            best = v;
-            pred = k;
-        }
-    }
-    pred
+    nn.predicted_class()
 }
 
 // ---------------------------------------------------------------------------
@@ -429,7 +420,6 @@ fn run_adaptation(
     {
         let mut hidden_mismatches = 0usize;
         let mut argmax_mismatches = 0usize;
-        let mut tied_mismatches = 0usize;
         for (s, p) in data.iter().zip(&pre) {
             nn.feed_forward(&to_input(s, stats));
             let h = embed(p, &backbone.biases);
@@ -439,29 +429,15 @@ fn run_adaptation(
                 .zip(&h)
                 .filter(|(a, b)| a != b)
                 .count();
-            let learned = nn.learned_values();
-            let mut best = 0;
-            for o in 1..NUMBER_OF_OUTPUTS {
-                if learned[o] > learned[best] {
-                    best = o;
-                }
-            }
-            let head_best = shipped.predict(&h);
-            if best != head_best {
+            // Both rank the same logits, so they must pick the same class.
+            if nn.predicted_class() != shipped.predict(&h) {
                 argmax_mismatches += 1;
-                // The sigmoid table saturates, so two confident outputs can
-                // both read 1.0 and the MLP takes the first; the head compares
-                // the logits underneath.
-                if learned[best] == learned[head_best] {
-                    tied_mismatches += 1;
-                }
             }
         }
         writeln!(
             stdout,
             "\nBackbone + DenseHead vs the MLP over {} samples: {hidden_mismatches} hidden \
-             values differ; {argmax_mismatches} predictions differ, {tied_mismatches} of them \
-             where two sigmoid outputs tie.",
+             values differ; {argmax_mismatches} predictions differ.",
             data.len()
         )?;
     }
