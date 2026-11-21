@@ -78,6 +78,10 @@
 //! bit-identical to the C++ network with the same initial weights.
 //!
 //! tinymind (C++)'s GRU and Elman networks are not ported yet.
+//!
+//! To pick a class, rank the output logits with `predicted_class()`
+//! (`output_pre_activations()` returns them) rather than `learned_values()`:
+//! the fixed-point sigmoid table is flat beyond ±6, so confident outputs tie.
 
 use core::marker::PhantomData;
 
@@ -422,6 +426,9 @@ where
     /// [`feed_forward`](Self::feed_forward) (C++ `getOutputPreActivations`):
     /// `bias term + (0 + sum of h * w)`, the sum `feed_forward` forms (it
     /// calls this), recomputed from the hidden outputs at no memory cost.
+    ///
+    /// Call it before [`train`](Self::train): training changes the weights it
+    /// is recomputed from.
     pub fn output_pre_activations(&self) -> [V; OUT] {
         let mut layer_sums = [V::ZERO; OUT];
         for cell in &self.hidden {
@@ -445,6 +452,9 @@ where
     /// Use it, not an argmax of [`learned_values`](Self::learned_values), to
     /// pick a class: the fixed-point sigmoid table is flat beyond ±6, so
     /// confident outputs tie there and an argmax can only take the first.
+    ///
+    /// Call it before [`train`](Self::train): training changes the weights it
+    /// is recomputed from.
     pub fn predicted_class(&self) -> usize {
         argmax(&self.output_pre_activations())
     }

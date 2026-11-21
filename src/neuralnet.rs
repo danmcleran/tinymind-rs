@@ -17,6 +17,10 @@
 //!
 //! Every arithmetic step keeps the C++ operation order, because fixed-point
 //! multiplication truncates and a reordered expression gives different bits.
+//!
+//! To pick a class, rank the output logits with `predicted_class()`
+//! (`output_pre_activations()` returns them) rather than `learned_values()`:
+//! the fixed-point sigmoid table is flat beyond ±6, so confident outputs tie.
 
 use core::marker::PhantomData;
 
@@ -259,6 +263,9 @@ where
     ///
     /// Recomputed from the hidden layer with the sum `feed_forward` forms, so
     /// they match it bit for bit and cost no memory.
+    ///
+    /// Call it before [`train`](Self::train): training changes the weights it
+    /// is recomputed from.
     pub fn output_pre_activations(&self) -> [V; OUT] {
         core::array::from_fn(|o| weighted_sum(&self.hidden_bias, &self.hidden, o))
     }
@@ -270,6 +277,9 @@ where
     /// Use it, not an argmax of [`learned_values`](Self::learned_values), to
     /// pick a class: the fixed-point sigmoid table is flat beyond ±6, so
     /// confident outputs tie there and an argmax can only take the first.
+    ///
+    /// Call it before [`train`](Self::train): training changes the weights it
+    /// is recomputed from.
     pub fn predicted_class(&self) -> usize {
         argmax(&self.output_pre_activations())
     }

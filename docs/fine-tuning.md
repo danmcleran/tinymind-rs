@@ -30,7 +30,7 @@ Metal-oxide gas sensors age: their baseline and gain shift over weeks and months
 
 The network classifies all 180 batch-1 validation samples correctly, and its accuracy falls from batch 4 on, to 79.3% on batch 10.
 
-The example then splits the trained network into a frozen backbone (the 128-to-32 layer) and a head (the 32-to-6 layer); the split reproduces the network's hidden values exactly on all 9,000 samples. On each drifted batch it draws 1, 2, 5, 10 or 20 labelled samples per class and tests on the rest of the batch, averaging over 10 draws, with seven methods, each starting from the shipped model:
+The example then splits the trained network into a frozen backbone (the 128-to-32 layer) and a head (the 32-to-6 layer); the split reproduces the network's hidden values exactly on all 9,000 samples, and picks the same class for each. On each drifted batch it draws 1, 2, 5, 10 or 20 labelled samples per class and tests on the rest of the batch, averaging over 10 draws, with seven methods, each starting from the shipped model:
 
 | Method | What adapts | Batch 10, 1 sample per class | 5 per class | 20 per class |
 |---|---|---|---|---|

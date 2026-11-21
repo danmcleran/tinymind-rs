@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-11-20
+
 ### Added
 
 - An ONNX importer in the repository (`tools/import_onnx`, not part of the
@@ -27,11 +29,13 @@ break the API).
   outputs) with the node's name. The new `imported_onnx` example runs five
   models quantized by ONNX Runtime, two of them residual networks,
   byte-identical to the same models read by tinymind (C++)'s importer and run
-  on its int8 layers, and within one step of ONNX Runtime's own output.
+  on its int8 layers, and within one step of ONNX Runtime's own output
+  (softmax probabilities within 2/256).
 - `output_pre_activations()` and `predicted_class()` on `MultilayerPerceptron`,
   `NeuralNetwork` and `recurrent::LstmNetwork`, ported from tinymind (C++)'s
   `getOutputPreActivations()` and `getPredictedClass()`: the output layer's
-  logits for the latest `feed_forward`, recomputed from the layer before it
+  logits for the latest `feed_forward` (until `train` changes the weights),
+  recomputed from the layer before it
   with the same sum (so they match it bit for bit, with no extra memory), and
   their argmax, ties to the lower index. Rank these rather than
   `learned_values()` to pick a class: the fixed-point sigmoid table is flat
@@ -52,7 +56,9 @@ break the API).
   regenerated from tinymind (C++)'s fixed generator: its last nine entries
   (inputs 4.875 and above, which overflow Q8.8) are now the format's largest
   value instead of wrapped values. The softmax only passes it inputs at or
-  below 0, so no output changes.
+  below 0 (`SoftmaxExp`'s documented range), so no output changes.
+- The crate is listed in the crates.io category `no-std::no-alloc` as well:
+  the library never allocates.
 
 ## [0.3.7] - 2026-11-15
 
@@ -622,7 +628,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.7...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.8...HEAD
+[0.3.8]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.4...v0.3.5
