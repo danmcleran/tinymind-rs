@@ -10,7 +10,7 @@ The `optical_digits` example is a port of tinymind (C++)'s [optical digits examp
 
 ## How it works
 
-- A multilayer perceptron with 64 inputs (one per pixel, row by row), 32 ReLU hidden neurons and 10 sigmoid outputs, one per digit. The prediction is the output with the largest value.
+- A multilayer perceptron with 64 inputs (one per pixel, row by row), 32 ReLU hidden neurons and 10 sigmoid outputs, one per digit. The prediction is the output with the largest logit (its sum before the sigmoid), from `predicted_class()`: the fixed-point sigmoid table is flat beyond ±6, so confident outputs can tie after it, and an argmax of the sigmoid outputs would give every tie to the lower digit.
 - The dataset comes already split: 3,823 training images and 1,797 test images, written by different people. Each pixel is z-score normalised with training-set statistics, then divided by 3 to stay well inside Q16.16's range. Border pixels that are blank in every training image map to a constant 0.
 - 60,000 training steps, each on a training image drawn at random, with SGD and momentum.
 

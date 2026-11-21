@@ -10,7 +10,7 @@ The `iris` example is a port of tinymind (C++)'s [iris example](https://danmcler
 
 ## How it works
 
-- A multilayer perceptron with 4 inputs, 8 ReLU hidden neurons and 3 sigmoid outputs, one per species. The prediction is the output with the largest value.
+- A multilayer perceptron with 4 inputs, 8 ReLU hidden neurons and 3 sigmoid outputs, one per species. The prediction is the output with the largest logit (its sum before the sigmoid), from `predicted_class()`: the fixed-point sigmoid table is flat beyond ±6, so confident outputs can tie after it.
 - The 150 samples are shuffled with a fixed seed and split 80/20 into training and test sets. Each feature is z-score normalised with training-set statistics, then divided by 3 to stay well inside Q16.16's range.
 - 30,000 training steps, each on a training sample drawn at random, with SGD and momentum.
 

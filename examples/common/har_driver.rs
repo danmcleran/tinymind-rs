@@ -299,17 +299,9 @@ fn process_window(
             }
         }
     }
-    let learned = nn.learned_values();
-    let mut pred = 0;
-    let mut best = from_q(learned[0]);
-    for (k, &v) in learned.iter().enumerate().skip(1) {
-        let v = from_q(v);
-        if v > best {
-            best = v;
-            pred = k;
-        }
-    }
-    pred
+    // Rank the logits, not the sigmoid outputs: the sigmoid table is flat
+    // beyond +/-6, so confident outputs tie there and argmax takes the first.
+    nn.predicted_class()
 }
 
 /// The network with the C++ example's initial weights (`rand()` seeded with

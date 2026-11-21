@@ -35,13 +35,13 @@ Drift curve (model trained on batch 1 only):
   batch  6   accuracy = 0.8567
   batch  7   accuracy = 0.8333
   batch  8   accuracy = 0.8267
-  batch  9   accuracy = 0.8133
-  batch 10   accuracy = 0.7900
+  batch  9   accuracy = 0.8144
+  batch 10   accuracy = 0.7933
 
 Batch 1 (val) accuracy: 1.0000
-Batch 10 accuracy:      0.7900   (drift degradation)
+Batch 10 accuracy:      0.7933   (drift degradation)
 
-Backbone + DenseHead vs the MLP over 9000 samples: 0 hidden values differ; 4 predictions differ, 4 of them where two sigmoid outputs tie.
+Backbone + DenseHead vs the MLP over 9000 samples: 0 hidden values differ; 0 predictions differ.
 
 Batch 10 accuracy after adapting on k labelled samples per class (mean of 10 draws):
   method          k=1     k=2     k=5    k=10    k=20

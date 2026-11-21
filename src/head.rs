@@ -59,6 +59,7 @@ use core::marker::PhantomData;
 
 use crate::activation::lookup;
 use crate::lut::{EXP_Q8_8, EXP_Q16_16};
+use crate::neuralnet::argmax;
 use crate::qformat::{Q8_8, Q16_16, Scalar};
 
 /// `exp(x)` for the softmax's shifted logits, `x <= 0` (C++
@@ -381,17 +382,6 @@ fn update_row<V: Scalar, const IN: usize>(
     for (w, &x) in row.iter_mut().zip(input) {
         *w += learning_rate.mul_round_nearest(delta * x);
     }
-}
-
-/// The first index of the largest value; 0 for an empty slice.
-fn argmax<V: PartialOrd>(values: &[V]) -> usize {
-    let mut best = 0;
-    for (o, v) in values.iter().enumerate().skip(1) {
-        if values.get(best).is_some_and(|b| v > b) {
-            best = o;
-        }
-    }
-    best
 }
 
 /// The distance a [`PrototypeHead`] compares embeddings with.

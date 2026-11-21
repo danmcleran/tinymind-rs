@@ -254,6 +254,26 @@ where
         self.output.map(|n| n.output)
     }
 
+    /// The output layer's pre-activations (the logits) for the latest
+    /// [`feed_forward`](Self::feed_forward) (C++ `getOutputPreActivations`).
+    ///
+    /// Recomputed from the hidden layer with the sum `feed_forward` forms, so
+    /// they match it bit for bit and cost no memory.
+    pub fn output_pre_activations(&self) -> [V; OUT] {
+        core::array::from_fn(|o| weighted_sum(&self.hidden_bias, &self.hidden, o))
+    }
+
+    /// The index of the largest [output pre-activation](Self::output_pre_activations)
+    /// for the latest [`feed_forward`](Self::feed_forward), ties to the lower
+    /// index (C++ `getPredictedClass`).
+    ///
+    /// Use it, not an argmax of [`learned_values`](Self::learned_values), to
+    /// pick a class: the fixed-point sigmoid table is flat beyond ±6, so
+    /// confident outputs tie there and an argmax can only take the first.
+    pub fn predicted_class(&self) -> usize {
+        argmax(&self.output_pre_activations())
+    }
+
     /// The hidden-layer activations from the latest
     /// [`feed_forward`](Self::feed_forward) (C++
     /// `getLastHiddenLayer().getOutputValueForNeuron`): the embedding, when
@@ -655,6 +675,18 @@ fn weighted_sum<V: Scalar, const N: usize, const C: usize>(
     sum
 }
 
+/// The first index of the largest value (later equal values lose, as in C++
+/// `getPredictedClass`); 0 for an empty slice. A NaN never wins a comparison.
+pub(crate) fn argmax<V: PartialOrd>(values: &[V]) -> usize {
+    let mut best = 0;
+    for (o, v) in values.iter().enumerate().skip(1) {
+        if values.get(best).is_some_and(|b| v > b) {
+            best = o;
+        }
+    }
+    best
+}
+
 /// SGD with momentum and "acceleration" (C++ `updateConnectionWeightsImpl`, SGD path):
 /// `dw = lr * g + momentum * dw[t-1] + acceleration * dw[t-2]`, `w += dw`, the
 /// step `lr * g` rounded to nearest and the two momentum products toward zero.
@@ -729,6 +761,11 @@ mod tests {
                     "trial {trial}"
                 );
                 assert_eq!(evaluated, nn.learned_values(), "trial {trial}");
+                // The pre-activations reproduce the output layer bit for bit,
+                // and the predicted class is their argmax.
+                let pre = nn.output_pre_activations();
+                assert_eq!(pre.map(O::activate), nn.learned_values(), "trial {trial}");
+                assert_eq!(nn.predicted_class(), argmax(&pre), "trial {trial}");
             }
         }
     }
@@ -746,6 +783,36 @@ mod tests {
         same_outputs::<Q16_16, Relu, Sigmoid, 4, 8, 3>(small_q, 2);
         same_outputs::<Q16_16, Tanh, Sigmoid, 2, 4, 1>(wide_q, 3);
         same_outputs::<Q16_16, Relu, Sigmoid, 4, 8, 3>(wide_q, 4);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn inference_matches_trainable_f64() {
+        let small_f = |r: i32| f64::from(small(r, 1 << 16)) / 65536.0;
+        same_outputs::<f64, Relu, Sigmoid, 2, 4, 3>(small_f, 9);
+        same_outputs::<f64, Tanh, Sigmoid, 4, 8, 3>(small_f, 10);
+    }
+
+    /// One hidden unit at ReLU(1) = 1 drives logits of 7, 9 and 0. The sigmoid
+    /// table is flat beyond 5.875, so outputs 0 and 1 read the same value and
+    /// an argmax over them takes output 0; the logits say 1 (C++
+    /// `predicted_class_separates_outputs_the_sigmoid_table_ties`).
+    #[test]
+    fn predicted_class_separates_outputs_the_sigmoid_table_ties() {
+        let q = Q16_16::from_int;
+        let mut nn = MultilayerPerceptron::<Q16_16, Relu, Sigmoid, 2, 4, 3>::new(|| q(0));
+        nn.set_input_weights(&[[q(0); 4]; 2]);
+        nn.set_input_bias_weights(&[q(1), q(0), q(0), q(0)]);
+        nn.set_hidden_weights(&[[q(7), q(9), q(0)], [q(0); 3], [q(0); 3], [q(0); 3]]);
+        nn.set_hidden_bias_weights(&[q(0); 3]);
+
+        nn.feed_forward(&[Q16_16::from_raw(1 << 15), Q16_16::from_raw(-(1 << 15))]);
+
+        let learned = nn.learned_values();
+        assert_eq!(nn.output_pre_activations(), [q(7), q(9), q(0)]);
+        assert_eq!(learned[0], learned[1]);
+        assert_eq!(argmax(&learned), 0);
+        assert_eq!(nn.predicted_class(), 1);
     }
 
     #[test]

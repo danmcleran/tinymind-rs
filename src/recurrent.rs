@@ -82,7 +82,7 @@
 use core::marker::PhantomData;
 
 use crate::activation::{Activation, Sigmoid, Tanh};
-use crate::neuralnet::{Connection, Neuron};
+use crate::neuralnet::{Connection, Neuron, argmax};
 use crate::optimizer::{Optimizer, Sgd, update_all};
 use crate::qformat::Scalar;
 use crate::training::decay_weights;
@@ -406,22 +406,8 @@ where
             cell.output = Tanh::activate(state) * output_gate;
         }
 
-        // Output layer: bias term + (0 + sum of h * w).
-        let mut layer_sums = [V::ZERO; OUT];
-        for cell in &self.hidden {
-            for (sum, c) in layer_sums.iter_mut().zip(&cell.connections) {
-                *sum += cell.output * c.weight;
-            }
-        }
-        let bias = self.hidden_bias.output;
-        for ((neuron, c), &layer_sum) in self
-            .output
-            .iter_mut()
-            .zip(&self.hidden_bias.connections)
-            .zip(&layer_sums)
-        {
-            let mut sum = bias * c.weight;
-            sum += layer_sum;
+        let sums = self.output_pre_activations();
+        for (neuron, sum) in self.output.iter_mut().zip(sums) {
             neuron.output = O::activate(sum);
         }
     }
@@ -430,6 +416,37 @@ where
     /// [`feed_forward`](Self::feed_forward).
     pub fn learned_values(&self) -> [V; OUT] {
         self.output.map(|n| n.output)
+    }
+
+    /// The output layer's pre-activations (the logits) for the latest
+    /// [`feed_forward`](Self::feed_forward) (C++ `getOutputPreActivations`):
+    /// `bias term + (0 + sum of h * w)`, the sum `feed_forward` forms (it
+    /// calls this), recomputed from the hidden outputs at no memory cost.
+    pub fn output_pre_activations(&self) -> [V; OUT] {
+        let mut layer_sums = [V::ZERO; OUT];
+        for cell in &self.hidden {
+            for (sum, c) in layer_sums.iter_mut().zip(&cell.connections) {
+                *sum += cell.output * c.weight;
+            }
+        }
+        let bias = self.hidden_bias.output;
+        for (sum, c) in layer_sums.iter_mut().zip(&self.hidden_bias.connections) {
+            let mut total = bias * c.weight;
+            total += *sum;
+            *sum = total;
+        }
+        layer_sums
+    }
+
+    /// The index of the largest [output pre-activation](Self::output_pre_activations)
+    /// for the latest [`feed_forward`](Self::feed_forward), ties to the lower
+    /// index (C++ `getPredictedClass`).
+    ///
+    /// Use it, not an argmax of [`learned_values`](Self::learned_values), to
+    /// pick a class: the fixed-point sigmoid table is flat beyond ±6, so
+    /// confident outputs tie there and an argmax can only take the first.
+    pub fn predicted_class(&self) -> usize {
+        argmax(&self.output_pre_activations())
     }
 
     /// The hidden cells' outputs h from the latest
@@ -645,5 +662,46 @@ impl<V: Scalar, H, O, const IN: usize, const HID: usize, const OUT: usize, Opt>
         for (c, &w) in self.hidden_bias.connections.iter_mut().zip(weights) {
             c.weight = w;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rand::GlibcRand;
+    use crate::{Q8_8, Q16_16};
+
+    /// Over a trained sequence, the output activation applied to the
+    /// pre-activations gives `learned_values`, and the predicted class is
+    /// their argmax (`har_golden` checks the classes against the C++).
+    fn pre_activations_reproduce_outputs<V>(raw: impl Fn(i32) -> V, seed: u32)
+    where
+        V: Scalar + PartialEq + core::fmt::Debug,
+        Tanh: Activation<V>,
+        Sigmoid: Activation<V>,
+    {
+        let mut w = GlibcRand::new(seed);
+        let mut nn = LstmNetwork::<V, Tanh, Sigmoid, 3, 5, 4>::new(|| raw(w.next_i32()));
+        let mut x = GlibcRand::new(seed + 1);
+        for step in 0..300 {
+            if step % 12 == 0 {
+                nn.reset_state();
+            }
+            nn.feed_forward(&core::array::from_fn(|_| raw(x.next_i32())));
+            let pre = nn.output_pre_activations();
+            assert_eq!(
+                pre.map(Sigmoid::activate),
+                nn.learned_values(),
+                "step {step}"
+            );
+            assert_eq!(nn.predicted_class(), argmax(&pre), "step {step}");
+            nn.train(&core::array::from_fn(|_| raw(x.next_i32())));
+        }
+    }
+
+    #[test]
+    fn lstm_pre_activations_reproduce_outputs() {
+        pre_activations_reproduce_outputs(|r| Q16_16::from_raw(r % (3 << 16)), 31);
+        pre_activations_reproduce_outputs(|r| Q8_8::from_raw((r % (3 << 8)) as i16), 32);
     }
 }

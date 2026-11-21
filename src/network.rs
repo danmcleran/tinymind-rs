@@ -76,7 +76,7 @@
 use core::marker::PhantomData;
 
 use crate::activation::Activation;
-use crate::neuralnet::Connection;
+use crate::neuralnet::{Connection, argmax};
 use crate::optimizer::{Optimizer, Sgd};
 use crate::qformat::Scalar;
 use crate::training::decay_weights;
@@ -165,15 +165,28 @@ impl<V: Scalar, A: Activation<V>, const IN: usize, const OUT: usize> Dense<V, A,
     /// `out[o] = A(1 * bias[o] + (0 + in[0] * w[0][o] + in[1] * w[1][o] + ...))`,
     /// the C++ sum order.
     fn forward(&mut self, input: &[V; IN]) {
-        for (o, out) in self.outputs.iter_mut().enumerate() {
-            let mut sum = V::ONE * self.bias[o].weight;
-            let mut layer_sum = V::ZERO;
-            for (&x, row) in input.iter().zip(&self.weights) {
-                layer_sum += x * row[o].weight;
+        for o in 0..OUT {
+            let sum = self.pre_activation(input, o);
+            if let Some(out) = self.outputs.get_mut(o) {
+                *out = A::activate(sum);
             }
-            sum += layer_sum;
-            *out = A::activate(sum);
         }
+    }
+
+    /// Neuron `o`'s sum before the activation, `1 * bias[o] + (0 + in[0] *
+    /// w[0][o] + ...)`. Shared by [`forward`](Self::forward) and
+    /// [`NeuralNetwork::output_pre_activations`], so the two agree bit for bit.
+    fn pre_activation(&self, input: &[V; IN], o: usize) -> V {
+        // Callers pass o < OUT; the lookups are total anyway so that no
+        // bounds-check panic survives when this is not inlined.
+        let weight = |c: Option<&Connection<V>>| c.map_or(V::ZERO, |c| c.weight);
+        let mut sum = V::ONE * weight(self.bias.get(o));
+        let mut layer_sum = V::ZERO;
+        for (&x, row) in input.iter().zip(&self.weights) {
+            layer_sum += x * weight(row.get(o));
+        }
+        sum += layer_sum;
+        sum
     }
 
     /// Output-layer deltas: `(target - out) * A'(out)`.
@@ -311,12 +324,15 @@ mod sealed {
     pub trait LayersImpl {
         type Value: Copy;
         type Inputs: Copy;
-        type Outputs: Copy;
+        type Outputs: Copy + AsRef<[Self::Value]>;
 
         fn zero_inputs() -> Self::Inputs;
         fn initialize(&mut self, random_weight: &mut dyn FnMut() -> Self::Value);
         fn feed_forward(&mut self, inputs: &Self::Inputs);
         fn outputs(&self) -> Self::Outputs;
+        /// The last layer's sums before its activation, for the latest
+        /// `feed_forward` of `inputs`.
+        fn output_pre_activations(&self, inputs: &Self::Inputs) -> Self::Outputs;
         fn calculate_error(&self, targets: &Self::Outputs) -> Self::Value;
         fn train<Opt: crate::optimizer::Optimizer<Self::Value>>(
             &mut self,
@@ -407,6 +423,15 @@ macro_rules! impl_layers {
 
             fn outputs(&self) -> [V; $dn] {
                 self.$last.outputs
+            }
+
+            fn output_pre_activations(&self, inputs: &[V; $d0]) -> [V; $dn] {
+                // The last layer's input: the network inputs, shadowed by each
+                // layer's outputs in turn, so the last binding is the layer
+                // before the output layer (or the inputs for one layer).
+                let _input = inputs;
+                $(let _input = &self.$prev.outputs;)*
+                core::array::from_fn(|o| self.$last.pre_activation(_input, o))
             }
 
             fn calculate_error(&self, targets: &[V; $dn]) -> V {
@@ -589,6 +614,26 @@ impl<V: Scalar, L: Layers<Value = V>, Opt: Optimizer<V>> NeuralNetwork<L, Opt> {
         self.layers.outputs()
     }
 
+    /// The output layer's pre-activations (the logits) for the latest
+    /// [`feed_forward`](Self::feed_forward) (C++ `getOutputPreActivations`).
+    ///
+    /// Recomputed from the layer before the output layer with the sum
+    /// `feed_forward` forms, so they match it bit for bit and cost no memory.
+    pub fn output_pre_activations(&self) -> L::Outputs {
+        self.layers.output_pre_activations(&self.inputs)
+    }
+
+    /// The index of the largest [output pre-activation](Self::output_pre_activations)
+    /// for the latest [`feed_forward`](Self::feed_forward), ties to the lower
+    /// index (C++ `getPredictedClass`).
+    ///
+    /// Use it, not an argmax of [`learned_values`](Self::learned_values), to
+    /// pick a class: the fixed-point sigmoid table is flat beyond ±6, so
+    /// confident outputs tie there and an argmax can only take the first.
+    pub fn predicted_class(&self) -> usize {
+        argmax(self.layers.output_pre_activations(&self.inputs).as_ref())
+    }
+
     /// Mean-squared error of the latest forward pass against `targets` (C++
     /// `MeanSquaredErrorCalculator`).
     pub fn calculate_error(&self, targets: &L::Outputs) -> V {
@@ -733,6 +778,8 @@ mod tests {
             net.feed_forward(&input);
             assert_eq!(net.learned_values(), mlp.learned_values(), "step {step}");
             assert_eq!(net.calculate_error(&target), mlp.calculate_error(&target));
+            assert_eq!(net.output_pre_activations(), mlp.output_pre_activations());
+            assert_eq!(net.predicted_class(), mlp.predicted_class());
             mlp.train(&target);
             net.train(&target);
             let (l0, l1) = net.layers();
@@ -798,6 +845,59 @@ mod tests {
                 "step {step}"
             );
         }
+    }
+
+    /// The output layer's activation `O` applied to the pre-activations gives
+    /// `learned_values` bit for bit, and the predicted class is their argmax.
+    fn pre_activations_reproduce_outputs<V, O, L, const N: usize>(
+        mut net: NeuralNetwork<L>,
+        mut input: impl FnMut() -> L::Inputs,
+    ) where
+        V: Scalar + PartialEq + core::fmt::Debug,
+        O: Activation<V>,
+        L: Layers<Value = V, Outputs = [V; N]>,
+    {
+        for sample in 0..200 {
+            net.feed_forward(&input());
+            let pre = net.output_pre_activations();
+            assert_eq!(
+                pre.map(O::activate),
+                net.learned_values(),
+                "sample {sample}"
+            );
+            assert_eq!(net.predicted_class(), argmax(&pre), "sample {sample}");
+        }
+    }
+
+    #[test]
+    fn pre_activations_reproduce_outputs_for_every_depth() {
+        // Weights over the whole storage range, so the sums wrap.
+        let wide = |r: i32| Q16_16::from_raw(r.wrapping_mul(2_654_435_761u32 as i32));
+        let q8 = |r: i32| Q8_8::from_raw(unit(r, 4 << 8) as i16);
+        let mut w = GlibcRand::new(21);
+        let mut x = GlibcRand::new(22);
+
+        let one = NeuralNetwork::<(Dense<Q16_16, Sigmoid, 3, 4>,)>::new(|| wide(w.next_i32()));
+        pre_activations_reproduce_outputs::<_, Sigmoid, _, 4>(one, || {
+            core::array::from_fn(|_| wide(x.next_i32()))
+        });
+
+        let three = NeuralNetwork::<(
+            Dense<Q8_8, Relu, 2, 5>,
+            Dense<Q8_8, Tanh, 5, 4>,
+            Dense<Q8_8, Sigmoid, 4, 3>,
+        )>::new(|| q8(w.next_i32()));
+        pre_activations_reproduce_outputs::<_, Sigmoid, _, 3>(three, || {
+            core::array::from_fn(|_| q8(x.next_i32()))
+        });
+
+        let linear =
+            NeuralNetwork::<(Dense<Q16_16, Relu, 2, 6>, Dense<Q16_16, Linear, 6, 2>)>::new(|| {
+                wide(w.next_i32())
+            });
+        pre_activations_reproduce_outputs::<_, Linear, _, 2>(linear, || {
+            core::array::from_fn(|_| wide(x.next_i32()))
+        });
     }
 
     #[test]

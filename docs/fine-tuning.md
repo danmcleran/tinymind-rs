@@ -24,11 +24,11 @@ The [API reference]({{ site.baseurl }}/api/tinymind/head/) has an example of eac
 
 ## The gas sensor drift example
 
-Metal-oxide gas sensors age: their baseline and gain shift over weeks and months, and a classifier trained on fresh data loses accuracy on later measurements of the same gases. The example synthesizes a 16-sensor, 8-feature (128-value) array response for six gases over 10 batches (months), each later batch with a larger per-feature gain and offset, inspired by the UCI Gas Sensor Array Drift Dataset. A 128-32-6 Q16.16 network (ReLU hidden layer, sigmoid outputs) is trained on batch 1 only, then scored on every batch:
+Metal-oxide gas sensors age: their baseline and gain shift over weeks and months, and a classifier trained on fresh data loses accuracy on later measurements of the same gases. The example synthesizes a 16-sensor, 8-feature (128-value) array response for six gases over 10 batches (months), each later batch with a larger per-feature gain and offset, inspired by the UCI Gas Sensor Array Drift Dataset. A 128-32-6 Q16.16 network (ReLU hidden layer, sigmoid outputs) is trained on batch 1 only, then scored on every batch. It picks the class with the largest logit (`predicted_class()`), not the largest sigmoid output: the fixed-point sigmoid table is flat beyond ±6, and ranking its tied outputs gave each tie to the lower class.
 
 ![Training loss, the drift curve and the batch-1 confusion matrix]({{ site.baseurl }}/assets/plots/gas_drift.png)
 
-The network classifies all 180 batch-1 validation samples correctly, and its accuracy falls from batch 4 on, to 79.0% on batch 10.
+The network classifies all 180 batch-1 validation samples correctly, and its accuracy falls from batch 4 on, to 79.3% on batch 10.
 
 The example then splits the trained network into a frozen backbone (the 128-to-32 layer) and a head (the 32-to-6 layer); the split reproduces the network's hidden values exactly on all 9,000 samples. On each drifted batch it draws 1, 2, 5, 10 or 20 labelled samples per class and tests on the rest of the batch, averaging over 10 draws, with seven methods, each starting from the shipped model:
 
@@ -71,7 +71,7 @@ The program writes the same files the C++ example writes, byte for byte:
 
 | File | Contents |
 |---|---|
-| stdout | The training log, the drift curve, the check that backbone plus head reproduces the network's hidden values (predictions differ only where two sigmoid outputs tie), and the batch 10 table above |
+| stdout | The training log, the drift curve, the check that backbone plus head reproduces the network's hidden values and picks the same class for every sample, and the batch 10 table above |
 | `gas_loss.csv` | Mean \|error\| every 2,000 training steps |
 | `gas_confusion.csv` | The batch-1 validation confusion matrix |
 | `gas_drift.csv` | Accuracy on each batch |
