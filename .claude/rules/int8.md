@@ -12,6 +12,16 @@ paths:
   - "tests/compose_sweep.rs"
   - "tests/recurrent_int8_sweep.rs"
   - "tests/softmax_sweep.rs"
+  - "tests/mel_sweep.rs"
+  - "tests/logmel_golden.rs"
+  - "tests/vibration_golden.rs"
+  - "examples/logmel_vibration.rs"
+  - "examples/vibration_anomaly.rs"
+  - "examples/common/logmel_driver.rs"
+  - "examples/common/vibration_driver.rs"
+  - "tests/qanomaly_sweep.rs"
+  - "scripts/cpp/mel_sweep.cpp"
+  - "scripts/cpp/anomaly_sweep.cpp"
   - "tests/softmax_tflite.rs"
   - "tests/kws_int8_golden.rs"
   - "tests/int8_xor_golden.rs"
@@ -265,6 +275,111 @@ the end-halving layout fails it (N=64, 70 LSB). Unit tests: N=2 exact,
 skip/no-skip identical. Kani: `rfft_forward_never_panics_4`, `_8`,
 `rfft_first_stage_fits` (an i16 first-stage plant fails). panic-never N=2, 8,
 256 at 3/s/z.
+
+## `src/int8/mel.rs` (re-exported from `int8`)
+
+C++ source: `cpp/qmel.hpp` (tinymind #296, v19.0)
+
+2026-11-25 at `cf3e9ef`. `QLogMelSpectrogram<'a, N, HALF, BANDS, LOG_FRAC_BITS: u32 = 8>`
+(HALF as QRFft1D's; `forward::<BINS>` with `const { check::<BINS>() }`: N >= 4
+power of two, HALF = N/2, BINS = HALF+1 <= 65535, BANDS > 0, FRAC <= 14),
+`QMelWorkspace<N, BINS>` (pub arrays, `const fn new`), `QMfcc<'a, BANDS,
+COEFFS> { dct: &[[i16; BANDS]; COEFFS] }` (const assert 1..=BANDS coeffs;
+panic-never's first try with BANDS 1 / 2 coeffs did not compile, as meant).
+`weights: &'a [u16]` (variable total); band tables that reach past the bins or
+the weights (UB in the C++) sum only what exists (`get(..).unwrap_or(&[])` +
+zip/take). Arithmetic as the C++: z = (x*2^15 - a*prev)*w exact in i64, shift
+in -14..=31, `z << -shift` for quiet frames, offset `(2 log2 N - 106 + 2r) <<
+30`, log2 via the 33-entry Q2.30 table (pub(crate) `log2_q30`,
+`natural_log_from_log2_q30`), clamps `max(floor).min(32767)` (no `clamp`,
+which panics if min > max). Builders in `calibration` (std):
+`build_hann_window::<N>(periodic)`, `mel_filter_weight` (pub, C++
+`qmelFilterWeight`), `build_mel_filterbank::<N, BANDS, CAP>(sr, fmin, fmax) ->
+Option<MelFilterbank>` (C++ returns 0 used when out of room; here None; tables
++ `weight_storage: [u16; CAP]` + `len`, `weights()` slice),
+`build_dct_matrix::<BANDS, COEFFS>()`. `10f64.powf`/`log10`/`cos` reach glibc
+like the C++: matched on the first run. Checked by `tests/mel_sweep.rs`
+(golden from `scripts/cpp/mel_sweep.cpp`, 269 lines, UBSan+ASan clean,
+identical at -O1/-O3): N 4/64/128/256/512/1024, bands leaving 7 empty
+(n128-narrow), FRAC 0/8/14, floors -32768..32767, symmetric window once;
+10 integer signals (no libm) x pre-emphasis 0 / 31785 (/ -32768 with prev
+32767, / 1 with prev 1 = tiny silent frame for the negative block shift); two
+random-table configs (rand16 has w[0] = 100 so pre 1 gives a frame below 2^14
+in Q8; in Q14 it hit the floor and hid the shift). Plants that fail it: block
+shift -13, pre-emphasis from x not prev, no interpolation, log truncated,
+weights not advancing, floor dropped, MFCC truncated, offset -105, symmetric =
+periodic, DCT row 0 scaled as the rest, `z << (-shift - 1)`. Equivalent or
+unreached (pass): mel_to_hz via `exp(x ln 10)` (ulps never flip a rounded
+weight), band edge `> 1` instead of `> 0`, weight clamp 65534 (no weight
+rounds to exactly 1/65536 or 65536 in these configs). panic-never N=4 (2
+bands) and N=256 (32 bands), a short weights slice; planted `LOG2_TABLE[x >>
+58]` fails the M0+ link. Kani `mod mel`: `log2_q30_brackets`,
+`natural_log_never_overflows` (|arg| < 200 << 30), `log_mel_never_panics` (N=4,
+every field symbolic, unwind 6).
+
+## `src/int8/anomaly.rs` (re-exported from `int8`)
+
+C++ source: `cpp/qanomaly.hpp` (tinymind #297, v19.0)
+
+2026-11-25 at `cf3e9ef`. `QKMeansAnomaly<'a, F, K> { centroids: &[[i8; F]; K],
+inv_radius_sq: &[u32; K], feature_weight: Option<&[u16; F]> }`,
+`QDiagGaussianAnomaly<'a, F, K> { means, precision: &[[u32; F]; K], bias: &[i32;
+K] }`, `QKMeansAnomalyTrainer<F, K>` (`const fn new`, `Default`; C++ index
+getters became whole-array getters `learn_counts`, `calibration_counts`,
+`centroids`, `feature_weights`; `reset` keeps cap and weighting as the C++).
+`check::<F, K>()` = C++ static_asserts (F, K > 0, F <= 65536). Sums the C++
+does in unsigned wrap (`wrapping_add`); UB made total: `rounded_divide` b <= 0
+-> 0 and saturating on i32::MIN; a calibration count wrapped to 0 leaves the
+radius (checked_div); freeze's `numerator*256 + d/2` wraps as the C++
+unsigned. Host builder `calibration::build_diag_gaussian_anomaly(&[[f64; F];
+K], &[[f64; F]; K], &[f64; K], scale: f32, zp, floor) -> (means, precision,
+bias)` (lround -> `round() as i64`, saturating where the C++ is UB). Checked by
+`tests/qanomaly_sweep.rs` (golden from `scripts/cpp/anomaly_sweep.cpp`, 138
+lines, UBSan+ASan clean, -O1 = -O3): direct k-means (inv 0 / MAX / small <
+1024 so d2 > 2^32 still scores below MAX / any; weights null or random or
+65535), trainers 1x1, 4x3, 7x2, 32x8, 600x2 x 9 runs (caps 65535/0/5/40,
+weighting on/off, K/2 samples only, calibrate-before-learn, learn after
+freeze, run 8 a constant stream: every distance ties, residuals 0 -> weight
+65535), feature 1 never moves (weight 65535 path), with F >= 512 feature 0
+spread 127 and the rest 1 (weight < 0.5 -> clamp 1); gaussians direct (incl.
+precision MAX, bias MIN) and built from random fits (variances under the
+floor, floor 0.0001). Matched on the first run. Plants that fail it: division
+toward zero, large-distance form dropped (needed the small inv), settled >= 9,
+radius floored, Gaussian not rounded, weight clamp at 0 (needed F = 600),
+`<=` ties in learn and calibrate (needed the constant stream), cap `<=`, zero
+residual -> 1, bias without scale^2, means truncated. **Plant script trap:**
+restoring a file with `mv` from a `cp` backup gives it an mtime older than the
+last build, so cargo keeps the planted binary; `touch` after restoring.
+panic-never F/K 1/1 and 32/8 (planted unchecked `count[seeded]` fails the
+link). Kani `mod anomaly`: `normalize_distance_is_exact` (u128 spec, d2 <
+2^48), score and Gaussian never panic, `trainer_learn_never_panics` (2x2) and
+`trainer_calibrate_never_panics` (1x1, 177 s: the freeze's u64 divisions;
+2x2 learn-or-calibrate took 339 s), both from `any_state()` (a cfg(kani)
+constructor with every field symbolic), `trainer_step_stays_between`. A
+functional `rounded_divide` proof was dropped (395 s even bounded).
+
+## `examples/logmel_vibration.rs`, `examples/vibration_anomaly.rs` (+ `examples/common/{logmel,vibration}_driver.rs`)
+
+C++ source: `examples/logmel_vibration`, `examples/vibration_anomaly` (tinymind #296, #297)
+
+2026-11-25 at `cf3e9ef`. Feature `std`. Both draw from `std::mt19937` +
+`std::normal_distribution<double>`: `std_random.rs` gained `canonical_f64`
+(libstdc++ `generate_canonical<double, 53>`: two draws, `(lo + hi*2^32) /
+2^64`, 1.0 -> nextafter) and `NormalF64` (Marsaglia polar, the second value
+saved for the next call, `ret * stddev + mean`); checked against g++ 13
+libstdc++ on 35 values incl. 20,001 draws (bit patterns), matched first try.
+Signals use glibc sin/cos/pow/fmod (`%` on f64 = fmod) in the C++ expression
+order; compare-with-cpp builds both with `-ffp-contract=off` (as har/airq/gas).
+All outputs byte-identical on the first run, except by design the
+`vibration_anomaly` stdout line "k-means trainer N bytes": C++ 1264 (field
+order + padding), Rust 1248 (rustc reorders); the golden test substitutes it,
+compare-with-cpp masks it with sed. Large CSVs pinned by length/lines/FNV-1a
+in the golden tests (logmel 183 KB + 69 KB, vibration 390 KB); committed:
+stdout + small CSVs. Plants that fail: feature rounding +15, AUC ties not
+halved, normal's saved value dropped, error bucket rounded; `previous_sample`
+off by one passes (pre-emphasis is 0 in that example: equivalent). Plots:
+`scripts/plot-examples.py` `logmel`/`vibration` = tinymind's two plot.py.
+Site pages `docs/logmel.md`, `docs/vibration.md` (nav 12, 13).
 
 ## `examples/kws_cortex_m_int8.rs`, `examples/common/kws_int8_driver.rs`, `examples/common/std_random.rs`, `scripts/cpp/kws_int8_dump.cpp`
 

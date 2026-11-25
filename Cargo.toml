@@ -56,6 +56,22 @@ name = "kws_cortex_m_int8"
 required-features = ["std"]
 
 [[example]]
+name = "logmel_vibration"
+required-features = ["std"]
+
+[[test]]
+name = "logmel_golden"
+required-features = ["std"]
+
+[[example]]
+name = "vibration_anomaly"
+required-features = ["std"]
+
+[[test]]
+name = "vibration_golden"
+required-features = ["std"]
+
+[[example]]
 name = "imported_cnn"
 required-features = ["std"]
 
@@ -89,6 +105,14 @@ required-features = ["std"]
 
 [[test]]
 name = "fft_sweep"
+required-features = ["std"]
+
+[[test]]
+name = "mel_sweep"
+required-features = ["std"]
+
+[[test]]
+name = "qanomaly_sweep"
 required-features = ["std"]
 
 [lints.rust]

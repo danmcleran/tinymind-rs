@@ -1,0 +1,13 @@
+detector,condition,frames,auc,alarm_rate,first_sustained_alarm_severity
+kmeans,normal,3000,,0.0017,
+kmeans,bearing,1500,0.9845,0.9293,0.0820
+kmeans,imbalance,1500,0.9431,0.6900,0.3633
+kmeans,looseness,1500,0.9608,0.8447,0.1640
+euclidean,normal,3000,,0.0007,
+euclidean,bearing,1500,0.9848,0.9187,0.0960
+euclidean,imbalance,1500,0.7611,0.0000,-1.0000
+euclidean,looseness,1500,0.9575,0.8233,0.2060
+gaussian,normal,3000,,0.0013,
+gaussian,bearing,1500,0.9844,0.9267,0.0820
+gaussian,imbalance,1500,0.9457,0.6913,0.3620
+gaussian,looseness,1500,0.9643,0.8553,0.1640

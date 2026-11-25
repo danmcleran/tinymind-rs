@@ -111,6 +111,8 @@ cargo run --release --example iris      # args: [out_dir] [data file, default da
 cargo run --release --example optical_digits   # args: [out_dir] [data dir, default data/]
 cargo run --release --example air_quality      # args: [out_dir] [epoch limit, default 15000; stops after 28] [learning rate]
 cargo run --release --features std --example int8_xor   # args: [out_dir]
+cargo run --release --features std --example logmel_vibration   # args: [out_dir]
+cargo run --release --features std --example vibration_anomaly  # args: [out_dir]
 cargo test --all-features           # unit tests + golden tests against the C++ outputs (int8 needs std)
 cargo clippy --all-targets --all-features -- -D warnings
 cargo fmt --check
@@ -162,6 +164,8 @@ The third column is the notes file in `.claude/rules/`.
 | `src/int8/conv.rs`, `src/int8/pool.rs` (re-exported from `int8`) | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp` | `int8.md` |
 | `src/int8/add.rs` (re-exported from `int8`) | `cpp/qadd.hpp`, `buildQAddParams` in `cpp/include/qcalibration.hpp` | `int8.md` |
 | `src/int8/fft.rs` (re-exported from `int8`), `tests/sweeps/fft.rs`, `scripts/cpp/fft_sweep.cpp` | `cpp/qfft1d.hpp` (`QFFT1D`, `QRFFT1D`), `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp` | `int8.md` |
+| `src/int8/mel.rs` (re-exported from `int8`), `tests/mel_sweep.rs`, `scripts/cpp/mel_sweep.cpp` | `cpp/qmel.hpp` (`QLogMelSpectrogram`, `QMfcc`, `QMelWorkspace`, `buildQHannWindow`, `buildQMelFilterbank`, `buildQDctMatrix`) | `int8.md` |
+| `src/int8/anomaly.rs` (re-exported from `int8`), `tests/qanomaly_sweep.rs`, `scripts/cpp/anomaly_sweep.cpp` | `cpp/qanomaly.hpp` (`QKMeansAnomaly`, `QKMeansAnomalyTrainer`, `QDiagGaussianAnomaly`, `buildQDiagGaussianAnomaly`) | `int8.md` |
 | `src/int8/compose.rs` (re-exported from `int8`) | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `buildQMulRequantizer`/`buildRescaler` | `int8.md` |
 | `src/int8/recurrent.rs` (re-exported from `int8`) | `cpp/qlstm.hpp`, `cpp/qgru.hpp`, `buildQLSTMParams`/`buildQGRUParams`/`quantizeQLSTMBiases`/`quantizeQGRUBiases` in `cpp/include/qcalibration.hpp` | `int8.md` |
 | `examples/kws_cortex_m_int8.rs`, `examples/common/kws_int8_driver.rs`, `examples/common/std_random.rs`, `scripts/cpp/kws_int8_dump.cpp` | `examples/kws_cortex_m_int8/kws_cortex_m_int8.cpp` | `int8.md` |
@@ -174,6 +178,8 @@ The third column is the notes file in `.claude/rules/`.
 | `examples/imported_mlp.rs`, `examples/common/imported_{mlp,classifier}_model.rs`, `examples/common/imported_mlp_driver.rs`, `scripts/cpp/imported_mlp.cpp` | (tinymind importer + C++ runtime) | `importers.md` |
 | `tools/import_trees/tinymind_import_trees.py` | `apps/import_trees/tinymind_import_trees.py` | `importers.md` |
 | `examples/imported_trees.rs`, `examples/common/imported_trees_{driver,gbdt_model,forest_model,data}.rs`, `scripts/cpp/imported_trees.cpp` | (tinymind tree importer + C++ runtime) | `importers.md` |
+| `examples/logmel_vibration.rs`, `examples/common/logmel_driver.rs`, `tests/logmel_golden.rs` | `examples/logmel_vibration/logmel_vibration.cpp` | `int8.md` |
+| `examples/vibration_anomaly.rs`, `examples/common/vibration_driver.rs`, `tests/vibration_golden.rs` | `examples/vibration_anomaly/vibration_anomaly.cpp` | `int8.md` |
 | `examples/energy_efficiency.rs`, `examples/common/energy_driver.rs`, `data/ENB2012_data.csv` | `examples/energy_efficiency/energy_efficiency.cpp`, `ENB2012_data.csv` | `core.md` |
 | `examples/anomaly.rs`, `examples/common/anomaly_demo.rs`, `bench/src/anomaly.rs` | (none) | `core.md` |
 | `src/tree.rs` | `cpp/qtree.hpp` (`QTreeNode`, `walkQTree`, `QDecisionTree`, `QGBDT`) | `trees.md` |

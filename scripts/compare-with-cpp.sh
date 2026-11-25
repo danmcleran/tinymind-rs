@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris, optical_digits, energy_efficiency, gas_sensor_drift, air_quality, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8), plus
+# iris, optical_digits, energy_efficiency, gas_sensor_drift, air_quality, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8, logmel_vibration, vibration_anomaly), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
-# fine-tuning heads, the int8 softmax and FFT sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included), the ONNX importer's and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# fine-tuning heads, the int8 softmax, FFT, log-mel and anomaly sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included), the ONNX importer's and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -269,6 +269,52 @@ for f in stdout.txt gbdt_tabular_int8.csv gbdt_tabular_int8.golden; do
   fi
 done
 
+echo "== logmel_vibration"
+mkdir -p "$TMP/logmel/cpp" "$TMP/logmel/rust"
+# Flags from examples/logmel_vibration/Makefile's release target, plus
+# -ffp-contract=off: the synthetic recording and the float reference are
+# double arithmetic, and a compiler that targets FMA (g++ 15 on Ubuntu 26.04)
+# would contract it.
+g++ -g -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/logmel/logmel_vibration" \
+  "$TINYMIND_DIR/examples/logmel_vibration/logmel_vibration.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+(cd "$TMP/logmel/cpp" && ../logmel_vibration > stdout.txt)
+"$ROOT/target/release/examples/logmel_vibration" "$TMP/logmel/rust" > "$TMP/logmel/rust/stdout.txt"
+for f in stdout.txt logmel_vibration.csv logmel_vibration_mfcc.csv logmel_vibration_error.csv; do
+  if cmp -s "$TMP/logmel/cpp/$f" "$TMP/logmel/rust/$f"; then
+    same "logmel_vibration $f"
+  else
+    echo "DIFFERENT  logmel_vibration $f"
+    status=1
+  fi
+done
+
+echo "== vibration_anomaly"
+mkdir -p "$TMP/vibration/cpp" "$TMP/vibration/rust"
+# Flags from examples/vibration_anomaly/Makefile's release target, plus
+# -ffp-contract=off (as logmel_vibration). The report's last line gives the
+# trainer's size, 1,264 bytes in the C++ and 1,248 in Rust (field order), so
+# stdout is compared with that number masked.
+g++ -g -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/vibration/vibration_anomaly" \
+  "$TINYMIND_DIR/examples/vibration_anomaly/vibration_anomaly.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+(cd "$TMP/vibration/cpp" && ../vibration_anomaly > stdout.txt)
+"$ROOT/target/release/examples/vibration_anomaly" "$TMP/vibration/rust" > "$TMP/vibration/rust/stdout.txt"
+for side in cpp rust; do
+  sed 's/k-means trainer [0-9]* bytes/k-means trainer N bytes/' "$TMP/vibration/$side/stdout.txt" \
+    > "$TMP/vibration/$side/stdout.masked.txt"
+done
+for f in stdout.masked.txt vibration_anomaly.csv vibration_anomaly_summary.csv; do
+  if cmp -s "$TMP/vibration/cpp/$f" "$TMP/vibration/rust/$f"; then
+    same "vibration_anomaly $f"
+  else
+    echo "DIFFERENT  vibration_anomaly $f"
+    status=1
+  fi
+done
+
 echo "== maze"
 mkdir -p "$TMP/maze/cpp" "$TMP/maze/rust"
 # Flags from examples/maze/Makefile's release target, plus -ffp-contract=off:
@@ -516,6 +562,42 @@ fi
 cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test fft_sweep >/dev/null 2>&1 \
   && same "fft Rust vs tests/golden/fft" \
   || { echo "DIFFERENT  fft Rust vs tests/golden/fft"; status=1; }
+
+echo "== qanomaly"
+# tinymind's QKMeansAnomaly, QKMeansAnomalyTrainer, QDiagGaussianAnomaly and
+# buildQDiagGaussianAnomaly on random tables and streams; tests/qanomaly_sweep.rs
+# checks the Rust side against the committed golden.
+mkdir -p "$TMP/qanomaly"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/qanomaly/anomaly_sweep" "$ROOT/scripts/cpp/anomaly_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include"
+"$TMP/qanomaly/anomaly_sweep" > "$TMP/qanomaly/stdout.txt"
+if cmp -s "$TMP/qanomaly/stdout.txt" "$ROOT/tests/golden/qanomaly/stdout.txt"; then
+  same "qanomaly stdout.txt (C++ vs tests/golden/qanomaly)"
+else
+  echo "DIFFERENT  qanomaly stdout.txt (C++ vs tests/golden/qanomaly)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test qanomaly_sweep >/dev/null 2>&1 \
+  && same "qanomaly Rust vs tests/golden/qanomaly" \
+  || { echo "DIFFERENT  qanomaly Rust vs tests/golden/qanomaly"; status=1; }
+
+echo "== mel"
+# tinymind's QLogMelSpectrogram, QMfcc and their table builders over frame
+# lengths 4 to 1024; tests/mel_sweep.rs checks the Rust side against the
+# committed golden.
+mkdir -p "$TMP/mel"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/mel/mel_sweep" "$ROOT/scripts/cpp/mel_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include"
+"$TMP/mel/mel_sweep" > "$TMP/mel/stdout.txt"
+if cmp -s "$TMP/mel/stdout.txt" "$ROOT/tests/golden/mel/stdout.txt"; then
+  same "mel stdout.txt (C++ vs tests/golden/mel)"
+else
+  echo "DIFFERENT  mel stdout.txt (C++ vs tests/golden/mel)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test mel_sweep >/dev/null 2>&1 \
+  && same "mel Rust vs tests/golden/mel" \
+  || { echo "DIFFERENT  mel Rust vs tests/golden/mel"; status=1; }
 
 echo "== head"
 # tinymind's DenseHead and PrototypeHead (Q16.16, Q8.8, f64, f32);
@@ -901,6 +983,12 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/softmax/stdout.txt" "$KEEP_CPP_OUTPUT/softmax/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/fft"
   cp "$TMP/fft/stdout.txt" "$KEEP_CPP_OUTPUT/fft/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/qanomaly" "$KEEP_CPP_OUTPUT/mel"
+  mkdir -p "$KEEP_CPP_OUTPUT/logmel" "$KEEP_CPP_OUTPUT/vibration"
+  cp "$TMP/logmel/cpp/stdout.txt" "$TMP/logmel/cpp/logmel_vibration_error.csv" "$KEEP_CPP_OUTPUT/logmel/"
+  cp "$TMP/vibration/cpp/stdout.txt" "$TMP/vibration/cpp/vibration_anomaly_summary.csv" "$KEEP_CPP_OUTPUT/vibration/"
+  cp "$TMP/qanomaly/stdout.txt" "$KEEP_CPP_OUTPUT/qanomaly/stdout.txt"
+  cp "$TMP/mel/stdout.txt" "$KEEP_CPP_OUTPUT/mel/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/imported_mlp"
   cp "$TMP/imported/cpp.txt" "$KEEP_CPP_OUTPUT/imported_mlp/stdout.txt"
   cp -r "$TMP/gbdt/cpp" "$KEEP_CPP_OUTPUT/gbdt"

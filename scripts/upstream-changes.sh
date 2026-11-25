@@ -51,6 +51,8 @@ PORTED=(
   examples/har_activity
   examples/air_quality
   examples/gas_sensor_drift
+  examples/logmel_vibration
+  examples/vibration_anomaly
   examples/pytorch_quant/xor
   apps/import_pytorch
   apps/import_onnx
@@ -71,6 +73,8 @@ PORTED=(
   cpp/qactivations.hpp
   cpp/qsoftmax_fixedpoint.hpp
   cpp/qfft1d.hpp
+  cpp/qmel.hpp
+  cpp/qanomaly.hpp
   cpp/qtree.hpp
   examples/gbdt_tabular_int8
   examples/kws_cortex_m_int8

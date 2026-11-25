@@ -1,0 +1,14 @@
+learned 8 clusters from 2998 frames; thresholds: k-means 793 and 832 (Q8 radii^2), Gaussian 14051 (Q8 nats)
+kmeans     normal running: 3000 frames, false alarms 0.17%
+kmeans     bearing  : AUC 0.985, alarms on 92.9% of frames, first sustained alarm at severity 0.08
+kmeans     imbalance: AUC 0.943, alarms on 69.0% of frames, first sustained alarm at severity 0.36
+kmeans     looseness: AUC 0.961, alarms on 84.5% of frames, first sustained alarm at severity 0.16
+euclidean  normal running: 3000 frames, false alarms 0.07%
+euclidean  bearing  : AUC 0.985, alarms on 91.9% of frames, first sustained alarm at severity 0.10
+euclidean  imbalance: AUC 0.761, alarms on 0.0% of frames, first sustained alarm at severity -1.00
+euclidean  looseness: AUC 0.958, alarms on 82.3% of frames, first sustained alarm at severity 0.21
+gaussian   normal running: 3000 frames, false alarms 0.13%
+gaussian   bearing  : AUC 0.984, alarms on 92.7% of frames, first sustained alarm at severity 0.08
+gaussian   imbalance: AUC 0.946, alarms on 69.1% of frames, first sustained alarm at severity 0.36
+gaussian   looseness: AUC 0.964, alarms on 85.5% of frames, first sustained alarm at severity 0.16
+on-device state: k-means trainer 1264 bytes, log-mel workspace 1028 bytes

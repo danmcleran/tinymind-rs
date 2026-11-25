@@ -2,8 +2,8 @@
 //! `cpp/qdense.hpp`, `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`,
 //! `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp`, `cpp/qadd.hpp`, `cpp/qmul.hpp`,
 //! `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `cpp/qactivations.hpp`,
-//! `cpp/qsoftmax_fixedpoint.hpp`, `cpp/qlstm.hpp`, `cpp/qgru.hpp` and
-//! `cpp/qfft1d.hpp`.
+//! `cpp/qsoftmax_fixedpoint.hpp`, `cpp/qlstm.hpp`, `cpp/qgru.hpp`,
+//! `cpp/qfft1d.hpp`, `cpp/qmel.hpp` and `cpp/qanomaly.hpp`.
 //!
 //! This is the TFLite / CMSIS-NN quantization model, separate from the Q-format
 //! [`QValue`](crate::QValue) pipeline: a real value is `scale * (q - zero_point)`,
@@ -109,6 +109,23 @@
 //! tables it computes the `N / 2 + 1` bins that are not redundant with about
 //! half the work.
 //!
+//! # Log-mel features and anomaly scores
+//!
+//! [`QLogMelSpectrogram`] turns a frame of 16-bit samples into natural-log mel
+//! energies (torchaudio's `MelSpectrogram` followed by a log) in integer
+//! arithmetic: pre-emphasis, a window, a per-frame block scale that brings
+//! even a quiet frame to the FFT at full scale, [`QRFft1D`], the mel filters
+//! and a table-based log. [`QMfcc`] turns the bands into MFCCs.
+//! `calibration` builds the window, the filters and the DCT.
+//!
+//! [`QKMeansAnomaly`] scores an int8 feature vector (log-mel bands requantized
+//! to int8, a network's embedding, sensor readings) by its distance to the
+//! nearest of `K` centroids, in units of that cluster's radius;
+//! [`QKMeansAnomalyTrainer`] learns the centroids, the feature weights and the
+//! radii on the device, one normal sample at a time, with no float and no
+//! buffered data. [`QDiagGaussianAnomaly`] scores the negative log-likelihood
+//! under a diagonal Gaussian mixture fitted on the host.
+//!
 //! # Equivalence with tinymind (C++)
 //!
 //! Results match tinymind (C++) bit for bit, and through it TFLite's reference
@@ -118,20 +135,24 @@
 //! port wraps or clamps instead, so every function is total and none panics.
 
 pub(crate) mod add;
+pub(crate) mod anomaly;
 #[cfg(feature = "std")]
 pub mod calibration;
 pub(crate) mod compose;
 pub(crate) mod conv;
 pub(crate) mod fft;
+pub(crate) mod mel;
 pub(crate) mod pool;
 pub(crate) mod recurrent;
 
 pub use add::{QAdd, Tensor};
+pub use anomaly::{QDiagGaussianAnomaly, QKMeansAnomaly, QKMeansAnomalyTrainer};
 pub use compose::{QConcat, QMul, QPad2D};
 pub use conv::{
     QConv2D, QConv2DPerChannel, QDepthwiseConv2D, QPointwiseConv2D, QPointwiseConv2DPerChannel,
 };
 pub use fft::{QFft1D, QRFft1D};
+pub use mel::{QLogMelSpectrogram, QMelWorkspace, QMfcc};
 pub use pool::{QAvgPool2D, QGlobalAvgPool2D, QMaxPool2D};
 pub use recurrent::{CellStorage, QGruCell, QLstmCell};
 

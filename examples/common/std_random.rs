@@ -1,4 +1,5 @@
-//! C++ `std::mt19937` and libstdc++'s `std::uniform_real_distribution<float>`,
+//! C++ `std::mt19937`, libstdc++'s `std::uniform_real_distribution<float>` and
+//! `std::normal_distribution<double>`,
 //! for examples whose C++ originals draw from them. Not part of the crate.
 //!
 //! `mt19937` is fully specified by the C++ standard. The distribution is not:
@@ -59,4 +60,61 @@ pub fn uniform_f32(rng: &mut Mt19937, a: f32, b: f32) -> f32 {
         u = f32::from_bits(1.0f32.to_bits() - 1);
     }
     u * (b - a) + a
+}
+
+/// libstdc++'s `std::generate_canonical<double, 53>(rng)` for `mt19937`: two
+/// 32-bit draws, `(lo + hi * 2^32) / 2^64` in `double` (the sum rounded to 53
+/// bits), with a result of 1.0 stepped down to the largest `double` below it.
+#[allow(dead_code)]
+pub fn canonical_f64(rng: &mut Mt19937) -> f64 {
+    let lo = f64::from(rng.next_u32());
+    let hi = f64::from(rng.next_u32());
+    let u = (lo + hi * 4_294_967_296.0) / 18_446_744_073_709_551_616.0;
+    if u >= 1.0 {
+        // std::nextafter(1.0, 0.0)
+        f64::from_bits(1.0f64.to_bits() - 1)
+    } else {
+        u
+    }
+}
+
+/// libstdc++'s `std::normal_distribution<double>(mean, stddev)`: Marsaglia's
+/// polar method on [`canonical_f64`] draws. Each accepted pair gives two
+/// values; the second is kept for the next call, as libstdc++ keeps it.
+#[allow(dead_code)]
+pub struct NormalF64 {
+    mean: f64,
+    stddev: f64,
+    saved: Option<f64>,
+}
+
+#[allow(dead_code)]
+impl NormalF64 {
+    pub fn new(mean: f64, stddev: f64) -> Self {
+        NormalF64 {
+            mean,
+            stddev,
+            saved: None,
+        }
+    }
+
+    pub fn sample(&mut self, rng: &mut Mt19937) -> f64 {
+        let value = match self.saved.take() {
+            Some(v) => v,
+            None => {
+                let (x, y, r2) = loop {
+                    let x = 2.0 * canonical_f64(rng) - 1.0;
+                    let y = 2.0 * canonical_f64(rng) - 1.0;
+                    let r2 = x * x + y * y;
+                    if r2 <= 1.0 && r2 != 0.0 {
+                        break (x, y, r2);
+                    }
+                };
+                let mult = (-2.0 * r2.ln() / r2).sqrt();
+                self.saved = Some(x * mult);
+                y * mult
+            }
+        };
+        value * self.stddev + self.mean
+    }
 }

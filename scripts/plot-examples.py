@@ -2,11 +2,12 @@
 """Render the example plots for the docs site: xor in both formats, iris,
 the handwritten digits, energy efficiency, anomaly detection, the int8 GBDT, the Q-learning and deep
 Q-network mazes, the LSTM activity classifier, the air-quality forecaster and
-the gas sensor drift example.
+the gas sensor drift example, the log-mel front end and the vibration anomaly
+detector.
 
 Runs the Rust `xor`, `iris`, `optical_digits`, `energy_efficiency`, `anomaly`, `gbdt_tabular_int8`, `maze`,
-`dqn_maze`, `har_activity`, `air_quality` and `gas_sensor_drift`
-examples (which, except anomaly, write byte-identical output to the C++ examples), then draws the learning curve and decision surface with tinymind's
+`dqn_maze`, `har_activity`, `air_quality`, `gas_sensor_drift`, `logmel_vibration`
+and `vibration_anomaly` examples (which, except anomaly, write byte-identical output to the C++ examples), then draws the learning curve and decision surface with tinymind's
 own plotting style (`examples/plotting/tinymind_plot.py`, imported read-only
 from TINYMIND_DIR, default ../tinymind). Writes PNGs to docs/assets/plots/.
 
@@ -41,6 +42,8 @@ DQN_MAZE = os.path.join(ROOT, "target", "release", "examples", "dqn_maze")
 HAR = os.path.join(ROOT, "target", "release", "examples", "har_activity")
 AIRQ = os.path.join(ROOT, "target", "release", "examples", "air_quality")
 GAS = os.path.join(ROOT, "target", "release", "examples", "gas_sensor_drift")
+LOGMEL = os.path.join(ROOT, "target", "release", "examples", "logmel_vibration")
+VIBRATION = os.path.join(ROOT, "target", "release", "examples", "vibration_anomaly")
 GAS_NAMES = ["Ethanol", "Ethylene", "Ammonia", "Acetaldehyde", "Acetone", "Toluene"]
 HAR_NAMES = ["walking", "upstairs", "downstairs", "sitting"]
 IRIS_NAMES = ["setosa", "versicolor", "virginica"]
@@ -551,8 +554,168 @@ def gas_adapt(out_dir, png):
     tp.plt.close(fig)
 
 
+def logmel(out_dir, png):
+    """The figure tinymind's examples/logmel_vibration/plot.py draws: the float
+    and fixed-point log-mel spectrograms, their difference, and the error by
+    band level."""
+    with open(os.path.join(out_dir, "logmel_vibration.csv"), newline="") as f:
+        rows = list(csv.DictReader(f))
+    nb = sum(1 for k in rows[0] if k.startswith("fixed_"))
+    times = [float(r["time_s"]) for r in rows]
+    fixed = [[float(r["fixed_%d" % m]) for r in rows] for m in range(nb)]
+    flt = [[float(r["float_%d" % m]) for r in rows] for m in range(nb)]
+    diff = [[a - b for a, b in zip(fa, fb)] for fa, fb in zip(fixed, flt)]
+    fault_start = next(t for t, r in zip(times, rows) if r["fault"] == "1")
+    with open(os.path.join(out_dir, "logmel_vibration_error.csv"), newline="") as f:
+        err = list(csv.DictReader(f))
+
+    tp.apply_style()
+    fig, axes = tp.plt.subplots(2, 2, figsize=(13, 8.4))
+    fig.suptitle("tinymind-rs: fixed-point log-mel front end vs float, synthetic vibration (-50 to -6 dBFS)",
+                 fontsize=14, fontweight="bold")
+    extent = (times[0], times[-1], -0.5, nb - 0.5)
+    lo = min(min(r) for r in flt)
+    hi = max(max(r) for r in flt)
+    for ax, data, title in ((axes[0][0], flt, "float reference: ln(mel energy)"),
+                            (axes[0][1], fixed, "QLogMelSpectrogram, 256 samples, 32 bands (i16, Q8)")):
+        im = ax.imshow(data, aspect="auto", origin="lower", extent=extent, cmap="magma", vmin=lo, vmax=hi)
+        ax.axvline(fault_start, color="white", linestyle="--", linewidth=1.0)
+        ax.text(fault_start + 0.1, nb - 2, "bearing fault starts", color="white", fontsize=8, va="top")
+        ax.set_xlabel("time (s); level rises 44 dB across the run")
+        ax.set_ylabel("mel band (5 to 1,600 Hz)")
+        ax.set_title(title, fontsize=10, color=tp.MUTED)
+        ax.grid(False)
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03, label="nats")
+
+    # Signed error, clipped to +-0.1 nats so the small values show.
+    ax = axes[1][0]
+    im = ax.imshow(diff, aspect="auto", origin="lower", extent=extent, cmap="RdBu_r", vmin=-0.1, vmax=0.1)
+    ax.set_xlabel("time (s)")
+    ax.set_ylabel("mel band")
+    ax.set_title("fixed - float (nats, clipped to +-0.1)", fontsize=10, color=tp.MUTED)
+    ax.grid(False)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03, label="nats")
+
+    ax = axes[1][1]
+    labels = [r["db_below_peak"] + " dB" for r in err]
+    xs = list(range(len(labels)))
+    width = 0.38
+    p99 = [float(r["p99_abs_error"]) for r in err]
+    mx = [float(r["max_abs_error"]) for r in err]
+    ax.bar([x - width / 2 for x in xs], p99, width, color=tp.PALETTE[0], label="99th percentile")
+    ax.bar([x + width / 2 for x in xs], mx, width, color=tp.PALETTE[1], label="max")
+    for x, v in zip(xs, mx):
+        ax.text(x + width / 2, v, "%.3f" % v, ha="center", va="bottom", fontsize=8)
+    ax.set_xticks(xs)
+    ax.set_xticklabels(labels)
+    ax.set_xlabel("band level below the frame's loudest band")
+    ax.set_ylabel("|fixed - float| (nats)")
+    ax.set_title("error grows only where the int16 FFT's floor is reached", fontsize=10, color=tp.MUTED)
+    ax.legend()
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    tp.finish(fig, png)
+
+
+VIBRATION_DETECTORS = [("kmeans", "on-device k-means, weighted"),
+                       ("euclidean", "on-device k-means, Euclidean"),
+                       ("gaussian", "host-fitted diagonal Gaussian")]
+VIBRATION_FAULTS = ["bearing", "imbalance", "looseness"]
+
+
+def vibration(out_dir, png):
+    """The figure tinymind's examples/vibration_anomaly/plot.py draws: score over
+    threshold through the test run, alarm rates, and the severity at the first
+    sustained alarm."""
+    with open(os.path.join(out_dir, "vibration_anomaly.csv"), newline="") as f:
+        rows = list(csv.DictReader(f))
+    with open(os.path.join(out_dir, "vibration_anomaly_summary.csv"), newline="") as f:
+        summary = list(csv.DictReader(f))
+    t0 = float(rows[0]["time_s"])
+    t = [float(r["time_s"]) - t0 for r in rows]
+
+    tp.apply_style()
+    fig = tp.plt.figure(figsize=(13, 8.6))
+    grid = fig.add_gridspec(2, 2, height_ratios=[1.25, 1.0])
+    fig.suptitle("tinymind-rs: on-device vibration anomaly detection, k-means learned frame by frame",
+                 fontsize=14, fontweight="bold")
+
+    ax = fig.add_subplot(grid[0, :])
+    spans = []
+    start = 0
+    for i in range(1, len(rows) + 1):
+        if i == len(rows) or rows[i]["condition"] != rows[start]["condition"]:
+            spans.append((rows[start]["condition"], t[start], t[i - 1]))
+            start = i
+    for name, a, b in spans:
+        if name != "normal":
+            ax.axvspan(a, b, color=tp.PALETTE[VIBRATION_FAULTS.index(name) + 3], alpha=0.18, linewidth=0)
+            ax.text((a + b) / 2, 30, "%s\n(severity 0 to 1)" % name, ha="center", va="top", fontsize=9,
+                    color=tp.FG)
+    # The Gaussian first, thin, so the on-device k-means draws on top.
+    for i, (key, label) in ((2, VIBRATION_DETECTORS[2]), (0, VIBRATION_DETECTORS[0])):
+        ratio = [max(float(r[key + "_score"]) / float(r[key + "_threshold"]), 1e-3) for r in rows]
+        if key == "gaussian":
+            # A log-likelihood: measure it from the bias, as the threshold was.
+            bias = min(float(r["gaussian_score"]) for r in rows)
+            ratio = [max((float(r["gaussian_score"]) - bias) / (float(r["gaussian_threshold"]) - bias), 1e-3)
+                     for r in rows]
+        ax.plot(t, ratio, color=tp.PALETTE[i], linewidth=0.6 if i == 2 else 0.9, alpha=0.6 if i == 2 else 0.9,
+                label=label)
+    ax.axhline(1.0, color=tp.FG, linestyle="--", linewidth=1.0)
+    ax.text(t[-1], 1.05, "alarm threshold", ha="right", va="bottom", fontsize=9, color=tp.FG)
+    ax.set_yscale("log")
+    ax.set_ylim(0.05, 40)
+    ax.set_xlim(t[0], t[-1])
+    ax.set_xlabel("test time (s)")
+    ax.set_ylabel("score / threshold")
+    ax.set_title("normal running, then three faults growing from nothing to full severity", fontsize=10,
+                 color=tp.MUTED)
+    ax.legend(loc="upper left")
+
+    ax = fig.add_subplot(grid[1, 0])
+    width = 0.26
+    for i, (key, label) in enumerate(VIBRATION_DETECTORS):
+        rates = []
+        for fault in VIBRATION_FAULTS:
+            row = next(r for r in summary if r["detector"] == key and r["condition"] == fault)
+            rates.append(100.0 * float(row["alarm_rate"]))
+        xs = [x + (i - 1) * width for x in range(len(VIBRATION_FAULTS))]
+        ax.bar(xs, rates, width, color=tp.PALETTE[i], label=label)
+        for x, v in zip(xs, rates):
+            ax.text(x, v + 1, "%.0f" % v, ha="center", va="bottom", fontsize=8)
+    ax.set_xticks(range(len(VIBRATION_FAULTS)))
+    ax.set_xticklabels(VIBRATION_FAULTS)
+    ax.set_ylim(0, 110)
+    ax.set_ylabel("frames in alarm (%)")
+    false_alarm = {r["detector"]: 100.0 * float(r["alarm_rate"]) for r in summary if r["condition"] == "normal"}
+    ax.set_title("alarm rate over each fault segment (false alarms in normal running: %.2f / %.2f / %.2f%%)"
+                 % (false_alarm["kmeans"], false_alarm["euclidean"], false_alarm["gaussian"]),
+                 fontsize=9, color=tp.MUTED)
+    ax.legend(fontsize=8, loc="upper right")
+
+    ax = fig.add_subplot(grid[1, 1])
+    for i, (key, label) in enumerate(VIBRATION_DETECTORS):
+        sev = []
+        for fault in VIBRATION_FAULTS:
+            row = next(r for r in summary if r["detector"] == key and r["condition"] == fault)
+            v = float(row["first_sustained_alarm_severity"])
+            sev.append(v if v >= 0 else 1.05)
+        xs = [x + (i - 1) * width for x in range(len(VIBRATION_FAULTS))]
+        ax.bar(xs, sev, width, color=tp.PALETTE[i], label=label)
+        for x, v in zip(xs, sev):
+            ax.text(x, v + 0.02, "never" if v > 1.0 else "%.2f" % v, ha="center", va="bottom", fontsize=8)
+    ax.set_xticks(range(len(VIBRATION_FAULTS)))
+    ax.set_xticklabels(VIBRATION_FAULTS)
+    ax.set_ylim(0, 1.25)
+    ax.set_ylabel("fault severity")
+    ax.set_title("severity at the first sustained alarm (lower is earlier)", fontsize=10, color=tp.MUTED)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    tp.finish(fig, png)
+
+
 def main():
-    if not all(os.path.exists(p) for p in (XOR, IRIS, DIGITS, ENERGY, ANOMALY, GBDT, MAZE, DQN_MAZE, HAR, AIRQ, GAS)):
+    if not all(os.path.exists(p) for p in (XOR, IRIS, DIGITS, ENERGY, ANOMALY, GBDT, MAZE, DQN_MAZE, HAR, AIRQ, GAS,
+                                           LOGMEL, VIBRATION)):
         sys.exit("build first: cargo build --release --examples --features std")
     os.makedirs(OUT, exist_ok=True)
     for fmt, label, slug in FORMATS:
@@ -619,6 +782,13 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run([GAS, tmp], check=True, stdout=subprocess.DEVNULL)
         for name, fn in (("gas_drift.png", gas_drift), ("gas_adapt.png", gas_adapt)):
+            png = os.path.join(OUT, name)
+            fn(tmp, png)
+            print("wrote", os.path.relpath(png, ROOT))
+    for exe, name, fn in ((LOGMEL, "logmel_vibration.png", logmel),
+                          (VIBRATION, "vibration_anomaly.png", vibration)):
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run([exe, tmp], check=True, stdout=subprocess.DEVNULL)
             png = os.path.join(OUT, name)
             fn(tmp, png)
             print("wrote", os.path.relpath(png, ROOT))
