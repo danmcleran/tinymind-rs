@@ -33,11 +33,11 @@ what to port next, and update it when a step is done.
      `QRFft1D`; Hann/filterbank/DCT builders use double -> `std`) +
      `logmel_vibration`; IsolationForest export in `tools/import_trees`. Covers
      the old "flashable sensor example" item.
-  2. int4 (`qint4.hpp`: `QDenseInt4`, `QConv2DInt4`, `QDepthwiseConv2DInt4`,
+  2. **Done 2026-11-25 (#132).** int4 (`qint4.hpp`: `QDenseInt4`, `QConv2DInt4`, `QDepthwiseConv2DInt4`,
      pack/unpack, `quantizeInt4PerChannel`). Packed size `(N+1)/2` is a
      generic const expression: caller spells it as a const param, checked at
      compile time; the conv unpack scratch has the same issue.
-  3. 16x8 (likely 0.4.0): i64 requantizer = TFLite 64-bit
+  3. **Done 2026-11-25 (#133, additive after all: 0.3.x).** 16x8: i64 requantizer = TFLite 64-bit
      `MultiplyByQuantizedMultiplier`, `qApplyLUT16` + builders,
      `QSoftmaxInt16` (tables from `qsoftmax16_tables.hpp` by script, never by
      hand), layers over i16. **Dan's call (2026-11-25): a new `int16x8`
@@ -46,7 +46,16 @@ what to port next, and update it when a step is done.
      QSoftmax, apply_lut, ...}`), arithmetic shared with int8 internally;
      additive, can ship in 0.3.x. Not generic int8 layers (inference break
      risk), not suffixed types.
-  4. Importers: ONNX codegen options `int4_dense`/`int4_conv`/
+  4. **Importer options done 2026-11-25** (this PR: verbatim helpers in
+     `tools/import_onnx/tinymind_model_codegen.py`, `tinymind_qat.py`
+     verbatim, four variants checked against tinymind's own generator).
+     **Waiting on Dan:** the `.onnx` models for `onnx_digits_int8`
+     (handoff `~/Documents/tinymind/tinymind-rs-findings-2026-11-25/`:
+     README + `onnx_digits_models.patch`, applies to `cf3e9ef`). Then: port
+     the example against `models/`, and the digits groups of the tier1 bench.
+     Not done: tinymind's greedy arena plan (ours keeps per-shape buffers);
+     PyTorch `generate_model` (our importer already writes the whole model).
+     Original plan: ONNX codegen options `int4_dense`/`int4_conv`/
      `activation_bits=16`, `tinymind_qat.py` (verbatim), maybe the greedy
      arena plan; `onnx_digits_int8` needs the `.onnx` models, which tinymind
      does not commit (only generated headers). **Dan's call (2026-11-25):**
@@ -55,7 +64,11 @@ what to port next, and update it when a step is done.
      port the example against them. PyTorch `generate_model`: check
      ReLU folding against ours.
   5. bench/: tinymind's `benchmarks/tier1_onboard` workloads on both boards,
-     C++ at -O3.
+     C++ at -O3. **Features group done 2026-11-25 (#134)**: every hash
+     matches; log-mel 5-7% behind the C++, MFCC/learning ahead on the M4F.
+     Digits groups (int8/int4/16x8) wait on the models above. Follow-ups:
+     tune log-mel; put the mel/anomaly/int4/16x8 sweeps on the QEMU device
+     sweeps (`bench` `sweeps`); time int4 and 16x8 layers on the boards.
 - **v18.6 sync (2026-11-20, TINYMIND_REF 65c6160 = tag v18.6):** #293 `getPredictedClass` ported to all three trained networks + 4 examples (goldens: gas, digits); #288/#292 regenerated `src/lut.rs` (Q8.8 exp tail only); #291 (log/sin/cos range reduction) not applicable. Merged as #127; released in 0.3.8.
 - **ONNX importer (done, 2026-11-16):** `tools/import_onnx`, Dan's pick ("#1")
   from the ROI review after v18.5: tinymind's `apps/import_onnx` parser

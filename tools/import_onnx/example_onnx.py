@@ -5,6 +5,16 @@
   python3 -I tools/import_onnx/example_onnx.py --model cnn \\
       --rust examples/common/imported_onnx_cnn_model.rs
   python3 -I tools/import_onnx/example_onnx.py --model cnn --cpp DIR
+  python3 -I tools/import_onnx/example_onnx.py --model cnn_int4 \\
+      --rust examples/common/imported_onnx_cnn_int4_model.rs
+
+The variants (cnn_int4, resnet_int4, cnn_16x8, resnet_qop_16x8) run a model
+with tinymind (C++)'s code generator's options: int4 weights for every dense
+and convolution layer (int4_dense, int4_conv), or int16 activations with the
+int8 weights (activation_bits=16). For them, --cpp writes
+DIR/onnx_<variant>.hpp with tinymind (C++)'s own generator
+(apps/import_onnx/tinymind_model_codegen.py), whole: weights, layer objects,
+memory plan and forward().
 
 --rust writes the Rust module with this repository's importer. --cpp writes
 what tinymind (C++) runs for the same model: DIR/onnx_<model>_weights.hpp from
@@ -47,8 +57,36 @@ MODELS = {
 }
 
 
+# variant -> (model, options of emit_rust_module / tinymind (C++)'s
+# emit_model_header, the C++ generator's nested namespace)
+VARIANTS = {
+    "cnn_int4": ("cnn", dict(int4_dense=True, int4_conv=True), "int4"),
+    "resnet_int4": ("resnet", dict(int4_dense=True, int4_conv=True), "int4"),
+    "cnn_16x8": ("cnn", dict(activation_bits=16), "int16x8"),
+    "resnet_qop_16x8": ("resnet_qop", dict(activation_bits=16), "int16x8"),
+}
+
+
 def model_path(model: str) -> str:
     return os.path.join(HERE, "models", f"{model}.onnx")
+
+
+def write_cpp_variant(variant: str, out_dir: str) -> None:
+    """DIR/onnx_<variant>.hpp (and its weights header) from tinymind (C++)'s own
+    code generator, run in a fresh interpreter so its importer module, which
+    shares this one's name, is the checkout's."""
+    import subprocess
+    model, opts, nested = VARIANTS[variant]
+    tm = os.environ.get("TINYMIND_DIR", os.path.join(ROOT, "..", "tinymind"))
+    script = (
+        "import sys\n"
+        f"sys.path.insert(0, {os.path.join(tm, 'apps', 'import_onnx')!r})\n"
+        "import tinymind_model_codegen as cg\n"
+        f"cg.import_onnx_model_with_code({model_path(model)!r}, "
+        f"{os.path.join(out_dir, f'onnx_{variant}_weights.hpp')!r}, "
+        f"{os.path.join(out_dir, f'onnx_{variant}.hpp')!r}, {('onnx_' + variant)!r}, "
+        f"nested_namespace={nested!r}, **{opts!r})\n")
+    subprocess.run([sys.executable, "-I", "-B", "-c", script], check=True)
 
 
 def cpp_importer():
@@ -216,12 +254,25 @@ def write_cpp(model: str, out_dir: str) -> None:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", choices=sorted(MODELS), default="cnn")
+    ap.add_argument("--model", choices=sorted(MODELS) + sorted(VARIANTS), default="cnn")
     ap.add_argument("--rust", help="write the Rust module")
     ap.add_argument("--cpp", help="write tinymind (C++)'s header and the C++ network into this directory")
     args = ap.parse_args()
     if not args.rust and not args.cpp:
         ap.error("give --rust and/or --cpp")
+    if args.model in VARIANTS:
+        model, opts, _ = VARIANTS[args.model]
+        what = ("int4 weights in every dense and convolution layer" if "int4_dense" in opts
+                else "int16 activations with its int8 weights (16x8)")
+        if args.rust:
+            layers = ti.import_onnx_model(model_path(model), args.rust, f"onnx_{args.model}",
+                                          f"The importer's example {model} with {what}:\n" + MODELS[model],
+                                          **opts)
+            print(f"wrote {args.rust}: {', '.join(layer.op_type for layer in layers)}")
+        if args.cpp:
+            write_cpp_variant(args.model, args.cpp)
+            print(f"wrote {args.cpp}/onnx_{args.model}.hpp")
+        return
     if args.rust:
         layers = ti.import_onnx_model(model_path(args.model), args.rust, f"onnx_{args.model}",
                                       "The importer's example " + MODELS[args.model])

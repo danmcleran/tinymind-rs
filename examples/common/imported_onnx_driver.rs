@@ -18,6 +18,16 @@ mod resnet;
 
 #[path = "imported_onnx_resnet_qop_model.rs"]
 mod resnet_qop;
+// The same models with tinymind (C++)'s code generator's options: int4 weights
+// in every dense and convolution layer, or int16 activations (16x8).
+#[path = "imported_onnx_cnn_16x8_model.rs"]
+mod cnn_16x8;
+#[path = "imported_onnx_cnn_int4_model.rs"]
+mod cnn_int4;
+#[path = "imported_onnx_resnet_int4_model.rs"]
+mod resnet_int4;
+#[path = "imported_onnx_resnet_qop_16x8_model.rs"]
+mod resnet_qop_16x8;
 
 /// Test inputs per model: even-numbered ones span the whole int8 range, odd
 /// ones stay within 48 steps of the input's zero point, where the calibrated
@@ -47,8 +57,21 @@ fn fill(rng: &mut Lcg, s: usize, zp: i8, x: &mut [i8]) {
     }
 }
 
-fn print(out: &mut dyn Write, model: &str, s: usize, y: &[i8]) -> io::Result<()> {
-    let v: Vec<String> = y.iter().map(i8::to_string).collect();
+/// Fill `x` with sample `s` of a 16x8 model (input zero point 0): even
+/// samples span the whole int16 range, odd ones stay within 2,000 steps of 0.
+fn fill16(rng: &mut Lcg, s: usize, x: &mut [i16]) {
+    for v in x {
+        let r = (rng.next() << 8) | rng.next();
+        *v = if s % 2 == 0 {
+            (r as i32 - 32768) as i16
+        } else {
+            ((r % 4001) as i32 - 2000) as i16
+        };
+    }
+}
+
+fn print<T: ToString>(out: &mut dyn Write, model: &str, s: usize, y: &[T]) -> io::Result<()> {
+    let v: Vec<String> = y.iter().map(T::to_string).collect();
     writeln!(out, "{model} {s}: {}", v.join(" "))
 }
 
@@ -135,6 +158,65 @@ pub fn run(out: &mut dyn Write) -> io::Result<()> {
             x.as_flattened_mut().as_flattened_mut(),
         );
         print(out, "onnx_resnet_qop", s, &resnet_qop::forward(&x))?;
+    }
+    writeln!(
+        out,
+        "onnx_cnn_int4 input zero_point={} scale=0x{:08x}",
+        cnn_int4::INPUT_ZERO_POINT,
+        cnn_int4::INPUT_SCALE.to_bits()
+    )?;
+    for s in 0..SAMPLES {
+        let mut x = cnn_int4::Input::default();
+        fill(
+            &mut rng,
+            s,
+            cnn_int4::INPUT_ZERO_POINT,
+            x.as_flattened_mut().as_flattened_mut(),
+        );
+        print(out, "onnx_cnn_int4", s, &cnn_int4::forward(&x))?;
+    }
+    writeln!(
+        out,
+        "onnx_resnet_int4 input zero_point={} scale=0x{:08x}",
+        resnet_int4::INPUT_ZERO_POINT,
+        resnet_int4::INPUT_SCALE.to_bits()
+    )?;
+    for s in 0..SAMPLES {
+        let mut x = resnet_int4::Input::default();
+        fill(
+            &mut rng,
+            s,
+            resnet_int4::INPUT_ZERO_POINT,
+            x.as_flattened_mut().as_flattened_mut(),
+        );
+        print(out, "onnx_resnet_int4", s, &resnet_int4::forward(&x))?;
+    }
+    writeln!(
+        out,
+        "onnx_cnn_16x8 input zero_point={} scale=0x{:08x}",
+        cnn_16x8::INPUT_ZERO_POINT,
+        cnn_16x8::INPUT_SCALE.to_bits()
+    )?;
+    for s in 0..SAMPLES {
+        let mut x = cnn_16x8::Input::default();
+        fill16(&mut rng, s, x.as_flattened_mut().as_flattened_mut());
+        print(out, "onnx_cnn_16x8", s, &cnn_16x8::forward(&x))?;
+    }
+    writeln!(
+        out,
+        "onnx_resnet_qop_16x8 input zero_point={} scale=0x{:08x}",
+        resnet_qop_16x8::INPUT_ZERO_POINT,
+        resnet_qop_16x8::INPUT_SCALE.to_bits()
+    )?;
+    for s in 0..SAMPLES {
+        let mut x = resnet_qop_16x8::Input::default();
+        fill16(&mut rng, s, x.as_flattened_mut().as_flattened_mut());
+        print(
+            out,
+            "onnx_resnet_qop_16x8",
+            s,
+            &resnet_qop_16x8::forward(&x),
+        )?;
     }
     Ok(())
 }

@@ -53,6 +53,37 @@ NCHW tensor the ONNX model takes (the importer reorders the weights to
 match). The input's grid is `INPUT_SCALE` and `INPUT_ZERO_POINT`, the output's
 `OUTPUT_SCALE` and `OUTPUT_ZERO_POINT`: real value = `SCALE * (q - ZERO_POINT)`.
 
+### int4 weights and int16 activations
+
+tinymind (C++)'s code generator's options, on the same numbers (its helpers
+are in `tinymind_model_codegen.py`, verbatim):
+
+```python
+import tinymind_import_onnx as ti
+
+ti.import_onnx_model("model_int8.onnx", "model_int4.rs", "model", int4_dense=True, int4_conv=True)
+ti.import_onnx_model("model_int8.onnx", "model_16x8.rs", "model", activation_bits=16)
+```
+
+- `int4_dense`, `int4_conv`: every dense layer, and every convolution and
+  depthwise convolution, runs on its weights requantized to int4 per output
+  channel (scale max |w| / 7, codes -7 to 7) and packed two per byte
+  (`QDenseInt4`, `QConv2DInt4`, `QDepthwiseConv2DInt4`), for half the weight
+  flash. The bias and each requantizer move to the int4 scale; average pools
+  keep their int8 form. For the best accuracy, fine-tune with int4
+  quantization-aware training first (`tinymind_qat.py`, tinymind (C++)'s,
+  needs PyTorch: `prepare_int4_qat(model)`, train, `finalize_int4_qat(model)`,
+  export), so the weights already sit on that grid; over 10 training seeds on
+  tinymind (C++)'s digits model it gained 1.35 points of accuracy on average.
+- `activation_bits=16`: the model runs with int16 activations and its int8
+  weights, TFLite's 16x8 scheme (`tinymind::int16x8`): every activation grid is
+  widened to a symmetric int16 grid over the same real range, weight layers
+  take `i64` biases and 64-bit requantizers, an addition uses TFLite's int16
+  parameters, sigmoid and tanh use 513-entry interpolated int16 tables, and a
+  final softmax becomes TFLite's int16 softmax (output grid 2^-15, zero point
+  0). No recalibration: the int8 model's scales define the grids. `Input` and
+  `Output` are `i16`, `INPUT_ZERO_POINT` and `OUTPUT_ZERO_POINT` 0.
+
 ## What it supports
 
 Layers from the model's one input to its one output, where every layer reads
@@ -103,6 +134,10 @@ Two results differ from ONNX Runtime's by design:
 
 - `tinymind_import_onnx.py`: the importer (`import_onnx_model(model, out, name)`,
   or the command line above).
+- `tinymind_model_codegen.py`: tinymind (C++)'s code generator's int4 and
+  16x8 helpers, verbatim (CI checks they still are).
+- `tinymind_qat.py`: tinymind (C++)'s int4 quantization-aware training for
+  PyTorch models, verbatim (CI checks it still is).
 - `models/*.onnx`: five small example models (`cnn`: QDQ, per-channel
   weights, strided, pointwise and padded convolutions, tanh, sigmoid, softmax;
   `cnn_qop`: QOperator, per-tensor weights, sigmoid; `mlp`: a MatMul with a
@@ -114,7 +149,9 @@ Two results differ from ONNX Runtime's by design:
 - `example_onnx.py`: writes `examples/common/imported_onnx_*_model.rs`
   (`--rust`), or tinymind (C++)'s header for a model plus a C++ forward pass
   over tinymind (C++)'s layers (`--cpp`), which `scripts/cpp/imported_onnx.cpp`
-  runs.
+  runs. Four variants run the models with the options above (`cnn_int4`,
+  `resnet_int4`, `cnn_16x8`, `resnet_qop_16x8`); for them `--cpp` runs
+  tinymind (C++)'s own code generator, which writes the whole C++ model.
 - `test_onnx.py`: checks the example modules against ONNX Runtime and the
   importer's refusals (needs onnxruntime and cargo).
 
@@ -125,7 +162,11 @@ Two results differ from ONNX Runtime's by design:
   its record names) and compares the output with `examples/imported_onnx.rs`
   byte for byte (16 inputs per model), regenerates the five committed modules
   and compares them, and checks that the parser here is tinymind (C++)'s, line
-  for line. `tests/imported_onnx_golden.rs` checks the example against the C++
+  for line. The four variants run through tinymind (C++)'s own code generator
+  with the same options, whole models, and must give the same outputs (int8
+  inputs for the int4 models, int16 inputs for the 16x8 ones); their modules
+  are regenerated and compared too, and the code generator's helpers here
+  must be tinymind (C++)'s, line for line. `tests/imported_onnx_golden.rs` checks the example against the C++
   output in `cargo test`.
 - `test_onnx.py`: on the same inputs, every output of `onnx_cnn_qop` and
   `onnx_resnet` is within one step of ONNX Runtime's (46 of 48 and 61 of 64
@@ -139,5 +180,8 @@ Two results differ from ONNX Runtime's by design:
   20, a table applied in place to a map read again later, the copy before it
   dropped, buffers reused after a map's first read instead of its last) and in
   the parser (no NHWC reordering of the dense weights after a Flatten) each
-  fail both checks. `ci/panic-never` links the five modules' `forward` with no
-  reachable panic.
+  fail both checks; so do, for the variants, the int16 addition's left shift
+  16, the int16 tables not clamped to the output's range, the 64-bit
+  requantizers without the int16 grid's bounds, an int4 layer reading its
+  input at zero point 0, and the 16x8 input grid left at the int8 scale.
+  `ci/panic-never` links all nine modules' `forward` with no reachable panic.

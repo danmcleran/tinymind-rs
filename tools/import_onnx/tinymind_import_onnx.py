@@ -989,8 +989,8 @@ def _rust_type(shape, elem: str = "i8") -> str:
     return t
 
 
-def _zeros(shape) -> str:
-    return _rust_type(shape).replace("[i8;", "[0i8;", 1)
+def _zeros(shape, elem: str = "i8") -> str:
+    return _rust_type(shape, elem).replace(f"[{elem};", f"[0{elem};", 1)
 
 
 def _f32_literal(x: float) -> str:
@@ -1001,9 +1001,20 @@ def _f32_literal(x: float) -> str:
     return s + "0" if s.endswith(".") else s
 
 
-def _rq_literal(multiplier: int, shift: int, zero_point: int) -> str:
-    return (f"Requantizer {{ multiplier: {multiplier}, shift: {shift}, zero_point: {zero_point}, "
-            "qmin: -128, qmax: 127 }")
+def _rq_literal(multiplier: int, shift: int, zero_point: int, qmin: int = -128, qmax: int = 127,
+                type_name: str = "Requantizer") -> str:
+    return (f"{type_name} {{ multiplier: {multiplier}, shift: {shift}, zero_point: {zero_point}, "
+            f"qmin: {qmin}, qmax: {qmax} }}")
+
+
+def _codegen():
+    """tinymind_model_codegen.py beside this file: tinymind (C++)'s int4 and
+    16x8 helpers, verbatim."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import tinymind_model_codegen
+    return tinymind_model_codegen
 
 
 def _shape_text(shape) -> str:
@@ -1011,9 +1022,26 @@ def _shape_text(shape) -> str:
 
 
 def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
-                     model_note: str = "") -> None:
+                     model_note: str = "", int4_dense: bool = False, int4_conv: bool = False,
+                     activation_bits: int = 8) -> None:
     """Write the Rust module for the parsed layers (see check_graph): statics
     for every layer and `forward(&Input) -> Output`.
+
+    The options are tinymind (C++)'s code generator's (emit_model_header), on
+    the same numbers (tinymind_model_codegen.py):
+
+    int4_dense: every Dense record runs as a `QDenseInt4` over packed,
+    per-channel int4 weights (requantize_int4), its int8 weights unused.
+    int4_conv: the same for every Conv record (1x1 ones included), as a
+    `QConv2DInt4`, and every DepthwiseConv record, as a
+    `QDepthwiseConv2DInt4`. Average pools keep their int8 form.
+    activation_bits: 16 runs the model with int16 activations and its int8
+    weights (TFLite's 16x8 scheme, `tinymind::int16x8`): every activation grid
+    is widened to a symmetric int16 grid over the same real range
+    (int16_grid), weight layers take i64 biases and 64-bit requantizers
+    (requantize_16x8), Add uses TFLite's int16 parameters (left shift 15),
+    Sigmoid and Tanh use 513-entry interpolated int16 tables, and a final
+    Softmax becomes TFLite's int16 softmax (output grid 2^-15, zero point 0).
 
     Vectors are values on the stack. Feature maps live in buffers declared at
     the top of `forward`, one per shape at a time: a layer writes into a
@@ -1022,6 +1050,14 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
     that buffer in place. A chain needs a buffer per shape it passes through,
     and a residual block keeps its skip tensor until the Add."""
     import numpy as np
+
+    if activation_bits not in (8, 16):
+        raise ValueError(f"activation_bits must be 8 or 16, not {activation_bits}")
+    wide = activation_bits == 16
+    if wide and (int4_dense or int4_conv):
+        raise ValueError("int4 layers take int8 activations; int4_dense and int4_conv need activation_bits=8")
+    cg = _codegen() if (wide or int4_dense or int4_conv) else None
+    act = "i16" if wide else "i8"
 
     decls: list[str] = []
     body: list[str] = []
@@ -1081,7 +1117,9 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
             geometry = (f"stride {sh}x{sw}, padding {pt}/{pb}/{pl}/{pr} (top/bottom/left/right), "
                         f"{h}x{w}x{c} -> {oh}x{ow}x{f}")
             if layer.op_type == "Conv":
-                pointwise = kh == kw == 1 and sh == sw == 1 and pt == pb == pl == pr == 0
+                # int16x8 has no separate pointwise type: there a 1x1 kernel is a
+                # QConv2D like any other.
+                pointwise = kh == kw == 1 and sh == sw == 1 and pt == pb == pl == pr == 0 and not wide
                 tag = ("PW" if pointwise else "CONV") + str(i)
                 decls.append(f"/// {what}: {kh}x{kw} {'pointwise ' if pointwise else ''}convolution, "
                              f"{geometry}.")
@@ -1146,20 +1184,33 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
             reads(layer, x, shape, "an Add")
             reads(layer, y, shape, "an Add")
             tag = f"ADD{i}"
-            (ma, sa), (mb, sb), (mo, so) = build_qadd_params(layer.input_scale, layer.input_b_scale,
-                                                             layer.output_scale)
-            decls.append(f"/// {what}: elementwise sum, {_shape_text(shape)}; parameters as tinymind "
-                         "(C++)'s\n/// buildQAddParams builds them.")
-            decls.append(f"static {tag}: QAdd = QAdd {{ input_a_zero_point: {layer.input_zp}, "
-                         f"input_b_zero_point: {layer.input_b_zp}, left_shift: 20, input_a_multiplier: {ma}, "
-                         f"input_a_shift: {sa}, input_b_multiplier: {mb}, input_b_shift: {sb}, "
-                         f"output_requantizer: {_rq_literal(mo, so, layer.output_zp)} }};\n")
+            if wide:
+                ga, gb = cg.int16_grid(layer.input_scale, layer.input_zp), cg.int16_grid(layer.input_b_scale,
+                                                                                        layer.input_b_zp)
+                go = cg.int16_grid(layer.output_scale, layer.output_zp)
+                a = cg.qadd_params(ga.scale, gb.scale, go.scale, left_shift=15)
+                decls.append(f"/// {what}: elementwise sum, {_shape_text(shape)}; TFLite's int16 ADD.")
+                decls.append(f"static {tag}: QAdd = QAdd {{ input_a_zero_point: 0, input_b_zero_point: 0, "
+                             f"left_shift: 15, input_a_multiplier: {a['input_a_multiplier']}, "
+                             f"input_a_shift: {a['input_a_shift']}, input_b_multiplier: {a['input_b_multiplier']}, "
+                             f"input_b_shift: {a['input_b_shift']}, output_requantizer: "
+                             + _rq_literal(a['output_multiplier'], a['output_shift'], 0, go.qmin, go.qmax,
+                                           "Requantizer32") + " };\n")
+            else:
+                (ma, sa), (mb, sb), (mo, so) = build_qadd_params(layer.input_scale, layer.input_b_scale,
+                                                                 layer.output_scale)
+                decls.append(f"/// {what}: elementwise sum, {_shape_text(shape)}; parameters as tinymind "
+                             "(C++)'s\n/// buildQAddParams builds them.")
+                decls.append(f"static {tag}: QAdd = QAdd {{ input_a_zero_point: {layer.input_zp}, "
+                             f"input_b_zero_point: {layer.input_b_zp}, left_shift: 20, input_a_multiplier: {ma}, "
+                             f"input_a_shift: {sa}, input_b_multiplier: {mb}, input_b_shift: {sb}, "
+                             f"output_requantizer: {_rq_literal(mo, so, layer.output_zp)} }};\n")
             shapes[i] = shape
             if shape[0] == "map":
                 out = new_buffer(i, shape)
             else:
                 out = f"v{i}"
-                body.append(f"    let mut {out} = {_zeros(shape[1:])};")
+                body.append(f"    let mut {out} = {_zeros(shape[1:], act)};")
             body.append(f"    {tag}.forward({ref(x)}, {ref(y)}, &mut {out});")
             continue
         elif layer.op_type == "Softmax":
@@ -1171,12 +1222,21 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
             if i != n - 1:
                 raise ValueError(f"{layer.name}: a softmax is supported only as the last layer")
             tag = f"SOFTMAX{i}"
+            shapes[i] = s
+            if wide:
+                mult, shift = cg.softmax16_params(cg.int16_grid(layer.input_scale, layer.input_zp).scale)
+                decls.append(f"/// {what}: TFLite's int16 softmax over {s[1]} logits, output on the 2^-15 grid.")
+                decls.append(f"static {tag}: QSoftmax = QSoftmax {{ input_multiplier: {mult}, "
+                             f"input_shift: {shift} }};\n")
+                out_scale, out_zp = cg.SOFTMAX16_OUTPUT_SCALE, 0
+                body.append(f"    let mut v{i} = {_zeros(s[1:], act)};")
+                body.append(f"    {tag}.forward({ref(x)}, &mut v{i});")
+                continue
             mult, left, diff_min = build_softmax(layer.input_scale)
             decls.append(f"/// {what}: softmax over {s[1]} logits, output on the 1/256 grid.")
             decls.append(f"static {tag}: QSoftmax = QSoftmax {{ input_multiplier: {mult}, "
                          f"input_left_shift: {left}, diff_min: {diff_min} }};\n")
             out_scale, out_zp = 1.0 / 256.0, -128
-            shapes[i] = s
             body.append(f"    let v{i} = {tag}.forward({ref(x)});")
             continue
         elif layer.op_type in ("Sigmoid", "Tanh", "Relu"):
@@ -1187,8 +1247,23 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
                         or layer.input_zp != layer.output_zp):
                     raise ValueError(f"{layer.name}: a Relu that requantizes is not supported")
 
-                def fn(v):
-                    return f"qrelu({v}, {layer.input_zp})"
+                if wide:
+                    def fn(v):
+                        return f"({v}).max(0)"
+                else:
+                    def fn(v):
+                        return f"qrelu({v}, {layer.input_zp})"
+            elif wide:
+                tag = f"{layer.op_type.upper()}{i}_LUT"
+                gin = cg.int16_grid(layer.input_scale, layer.input_zp)
+                gout = cg.int16_grid(layer.output_scale, layer.output_zp)
+                lut = [max(gout.qmin, min(gout.qmax, v))
+                       for v in cg.activation_lut16(layer.op_type, gin.scale, 0, gout.scale)]
+                decls.append(f"/// {what}: {layer.op_type.lower()} as a 513-entry interpolated int16 table.")
+                decls.append(f"static {tag}: [i16; LUT_SIZE] = {_rust_nested(np.array(lut))};\n")
+
+                def fn(v, tag=tag):
+                    return f"apply_lut({v}, &{tag})"
             else:
                 tag = f"{layer.op_type.upper()}{i}_LUT"
                 lut = build_lut(layer.op_type, layer.input_scale, layer.input_zp,
@@ -1222,22 +1297,75 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
         # A layer with weights: a convolution, depthwise convolution, average
         # pool or dense layer.
         n_out = layer.weight.shape[0]
-        biases = "None"
-        if layer.bias is not None:
-            decls.append(f"static {tag}_BIASES: [i32; {n_out}] = {_rust_nested(layer.bias)};")
-            biases = f"Some(&{tag}_BIASES)"
-        if layer.per_channel or ty == "QDepthwiseConv2D":
-            if layer.per_channel:
-                rqs = "[" + ", ".join(_rq_literal(m, s, layer.output_zp)
-                                      for m, s in zip(layer.multipliers, layer.shifts)) + "]"
-            else:  # one requantizer for every channel
-                rqs = f"[{_rq_literal(layer.multipliers[0], layer.shifts[0], layer.output_zp)}; {n_out}]"
+        int4_here = ((layer.op_type == "Dense" and int4_dense)
+                     or (layer.op_type in ("Conv", "DepthwiseConv") and int4_conv))
+        if int4_here:
+            q4 = cg.requantize_int4(layer)
+            packed = cg.pack_int4(q4.codes.reshape(-1).tolist())
+            # The int8 weights the layer would have read go unused.
+            decls = [d for d in decls if not d.startswith(f"static {tag}_WEIGHTS:")]
+            decls.append(f"/// int4 per channel: {len(packed)} bytes, against {layer.weight.size} as int8.")
+            decls.append(f"static {tag}_WEIGHTS: [u8; {len(packed)}] = {_rust_nested(np.array(packed))};")
+            biases = "None"
+            if q4.biases is not None:
+                decls.append(f"static {tag}_BIASES: [i32; {n_out}] = {_rust_nested(np.array(q4.biases))};")
+                biases = f"Some(&{tag}_BIASES)"
+            rqs = "[" + ", ".join(_rq_literal(m, s, layer.output_zp) for m, s in zip(q4.multipliers, q4.shifts)) + "]"
             decls.append(f"static {tag}_REQUANTIZERS: [Requantizer; {n_out}] = {rqs};")
-            rq_field = f"requantizers: &{tag}_REQUANTIZERS"
+            if layer.op_type == "Dense":
+                ty, dims = "QDenseInt4", f"{g['NumInputs']}, {g['NumOutputs']}, {len(packed)}"
+            elif layer.op_type == "Conv":
+                ty = "QConv2DInt4"
+                dims = (f"{g['InputChannels']}, {g['KernelHeight']}, {g['KernelWidth']}, {g['NumFilters']}, "
+                        f"{len(packed)}, {g['StrideH']}, {g['StrideW']}, "
+                        f"{g['PadTop']}, {g['PadBottom']}, {g['PadLeft']}, {g['PadRight']}")
+            else:
+                ty = "QDepthwiseConv2DInt4"
+                dims = (f"{g['InputChannels']}, {g['KernelHeight']}, {g['KernelWidth']}, {len(packed)}, "
+                        f"{g['StrideH']}, {g['StrideW']}, "
+                        f"{g['PadTop']}, {g['PadBottom']}, {g['PadLeft']}, {g['PadRight']}")
+            decls.append(f"static {tag}: {ty}<'static, {dims}> = {ty} {{ weights: &{tag}_WEIGHTS, "
+                         f"biases: {biases}, input_zero_point: {layer.input_zp}, "
+                         f"requantizers: &{tag}_REQUANTIZERS }};\n")
+        elif wide:
+            q = cg.requantize_16x8(layer)
+            biases = "None"
+            if q.biases is not None:
+                decls.append(f"static {tag}_BIASES: [i64; {n_out}] = {_rust_nested(np.array(q.biases))};")
+                biases = f"Some(&{tag}_BIASES)"
+            entries = [_rq_literal(m, s, 0, q.qmin, q.qmax) for m, s in zip(q.multipliers, q.shifts)]
+            per_channel = layer.per_channel or layer.op_type in ("DepthwiseConv", "AveragePool")
+            if per_channel:
+                if len(entries) == 1:
+                    entries = entries * n_out
+                decls.append(f"static {tag}_REQUANTIZERS: [Requantizer; {n_out}] = [{', '.join(entries)}];")
+                rq_field = f"requantizers: &{tag}_REQUANTIZERS"
+                if ty == "QConv2D":
+                    ty = "QConv2DPerChannel"
+                elif ty == "QDense":
+                    ty = "QDensePerChannel"
+            else:
+                rq_field = f"requantizer: {entries[0]}"
+                ty = ty.replace("PerChannel", "")
+            decls.append(f"static {tag}: {ty}<'static, {dims}> = {ty} {{ weights: &{tag}_WEIGHTS, "
+                         f"biases: {biases}, input_zero_point: 0, {rq_field} }};\n")
         else:
-            rq_field = f"requantizer: {_rq_literal(layer.multipliers[0], layer.shifts[0], layer.output_zp)}"
-        decls.append(f"static {tag}: {ty}<'static, {dims}> = {ty} {{ weights: &{tag}_WEIGHTS, "
-                     f"biases: {biases}, input_zero_point: {layer.input_zp}, {rq_field} }};\n")
+            biases = "None"
+            if layer.bias is not None:
+                decls.append(f"static {tag}_BIASES: [i32; {n_out}] = {_rust_nested(layer.bias)};")
+                biases = f"Some(&{tag}_BIASES)"
+            if layer.per_channel or ty == "QDepthwiseConv2D":
+                if layer.per_channel:
+                    rqs = "[" + ", ".join(_rq_literal(m, s, layer.output_zp)
+                                          for m, s in zip(layer.multipliers, layer.shifts)) + "]"
+                else:  # one requantizer for every channel
+                    rqs = f"[{_rq_literal(layer.multipliers[0], layer.shifts[0], layer.output_zp)}; {n_out}]"
+                decls.append(f"static {tag}_REQUANTIZERS: [Requantizer; {n_out}] = {rqs};")
+                rq_field = f"requantizers: &{tag}_REQUANTIZERS"
+            else:
+                rq_field = f"requantizer: {_rq_literal(layer.multipliers[0], layer.shifts[0], layer.output_zp)}"
+            decls.append(f"static {tag}: {ty}<'static, {dims}> = {ty} {{ weights: &{tag}_WEIGHTS, "
+                         f"biases: {biases}, input_zero_point: {layer.input_zp}, {rq_field} }};\n")
         shapes[i] = new_shape
         if new_shape[0] == "map":
             out = new_buffer(i, new_shape)
@@ -1251,12 +1379,16 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
         body[-1] = "    " + body[-1][len(f"    let {last} = "):-1]
     else:
         body.append(f"    {last}")
-    body = [f"    let mut b{k} = {_zeros(shape[1:])};" for k, (shape, _) in enumerate(buffers)] + body
+    body = [f"    let mut b{k} = {_zeros(shape[1:], act)};" for k, (shape, _) in enumerate(buffers)] + body
 
     in_shape, shape = shapes[-1], shapes[n - 1]
     first = layers[0]
     in_scale, in_zp = ((first.input_scale, first.input_zp) if first.sources[0] < 0
                        else (first.input_b_scale, first.input_b_zp))
+    if wide:
+        in_scale, in_zp = cg.int16_grid(in_scale, in_zp).scale, 0
+        if layers[-1].op_type != "Softmax":
+            out_scale, out_zp = cg.int16_grid(out_scale, out_zp).scale, 0
     lines = [f"//! `{name}`: generated by tinymind-rs tools/import_onnx/tinymind_import_onnx.py",
              "//! from an int8 ONNX model quantized by ONNX Runtime. Do not edit; regenerate",
              "//! from the model instead."]
@@ -1271,23 +1403,23 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
               "// Not every program uses every constant.",
               "#![allow(dead_code)]",
               "",
-              "use tinymind::int8::*;",
+              "use tinymind::int16x8::*;" if wide else "use tinymind::int8::*;",
               ""]
     if in_shape[0] == "map":
         lines.append(f"/// The input: {_shape_text(in_shape)} (height x width x channels, NHWC).")
     else:
         lines.append("/// The input vector.")
-    lines.append(f"pub type Input = {_rust_type(in_shape[1:])};")
+    lines.append(f"pub type Input = {_rust_type(in_shape[1:], act)};")
     lines.append("/// The output vector." if shape[0] == "vec" else
                  f"/// The output: {_shape_text(shape)} (NHWC).")
-    lines.append(f"pub type Output = {_rust_type(shape[1:])};")
+    lines.append(f"pub type Output = {_rust_type(shape[1:], act)};")
     softmax_note = (" The last layer is a softmax: its output is on TFLite's\n/// probability grid, "
                     "1/256, not on the 1/255 grid ONNX Runtime gives it."
                     if layers[-1].op_type == "Softmax" else "")
     lines += [f"/// Scale of the input tensor.\npub const INPUT_SCALE: f32 = {_f32_literal(in_scale)};",
-              f"/// Zero point of the input tensor.\npub const INPUT_ZERO_POINT: i8 = {in_zp};",
+              f"/// Zero point of the input tensor.\npub const INPUT_ZERO_POINT: {act} = {in_zp};",
               f"/// Scale of the output tensor.{softmax_note}\npub const OUTPUT_SCALE: f32 = {_f32_literal(out_scale)};",
-              f"/// Zero point of the output tensor.\npub const OUTPUT_ZERO_POINT: i8 = {out_zp};",
+              f"/// Zero point of the output tensor.\npub const OUTPUT_ZERO_POINT: {act} = {out_zp};",
               ""]
     lines += decls
     lines += ["/// Run the network on an int8 input in the `INPUT` grid.",
@@ -1303,12 +1435,15 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
 
 
 def import_onnx_model(model_path: str, output_path: str, name: str,
-                      model_note: str = "") -> list[OnnxQuantizedLayer]:
+                      model_note: str = "", int4_dense: bool = False, int4_conv: bool = False,
+                      activation_bits: int = 8) -> list[OnnxQuantizedLayer]:
     """Top level: parse the quantized ONNX model, check its graph, and write
-    the Rust module. Returns the parsed layers."""
+    the Rust module (options as emit_rust_module). Returns the parsed
+    layers."""
     layers = parse_onnx_model(model_path)
     check_graph(model_path, layers)
-    emit_rust_module(output_path, name, layers, model_note)
+    emit_rust_module(output_path, name, layers, model_note, int4_dense=int4_dense, int4_conv=int4_conv,
+                     activation_bits=activation_bits)
     return layers
 
 

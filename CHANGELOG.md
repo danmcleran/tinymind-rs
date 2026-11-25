@@ -62,6 +62,15 @@ break the API).
   need `std` and write byte-identical output to the C++ examples, except the
   trainer's size in `vibration_anomaly`'s last line (1,248 bytes here, 1,264
   in the C++).
+- The ONNX importer (`tools/import_onnx`, in the repository, not the
+  published crate) takes tinymind (C++)'s code generator's options:
+  `int4_dense` and `int4_conv` write the model with per-channel int4 weights
+  (`QDenseInt4`, `QConv2DInt4`, `QDepthwiseConv2DInt4`), and
+  `activation_bits=16` with int16 activations (the `int16x8` layers). Its int4
+  and 16x8 helpers are tinymind (C++)'s, unchanged, and so is
+  `tinymind_qat.py`, int4 quantization-aware training for PyTorch models. The
+  `imported_onnx` example runs four such variants, byte-identical with
+  tinymind (C++)'s own generator.
 - The tree importer (`tools/import_trees`, in the repository, not the
   published crate) exports scikit-learn's `IsolationForest`, as the importer
   of tinymind (C++) does since v19.0: an ensemble whose sum is the forest's total path

@@ -246,7 +246,7 @@ set.
 | `examples/int8_xor.rs` | `examples/pytorch_quant/xor/xor_quant.cpp` |
 | `examples/kws_cortex_m_int8.rs` | `examples/kws_cortex_m_int8/kws_cortex_m_int8.cpp` |
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
-| `tools/import_onnx/` | `apps/import_onnx/tinymind_import_onnx.py`: the ONNX Runtime int8 importer (its parser unchanged), emitting Rust with a `forward` |
+| `tools/import_onnx/` | `apps/import_onnx/tinymind_import_onnx.py`: the ONNX Runtime int8 importer (its parser unchanged), emitting Rust with a `forward`; with `apps/import_onnx/tinymind_model_codegen.py`'s int4 and 16x8 helpers (unchanged), the same model with int4 weights or int16 activations; `apps/import_onnx/tinymind_qat.py` (unchanged), int4 quantization-aware training |
 | `tools/import_tflite/` | `benchmarks/framework_comparison_f411/gen/make_mlperf.py`: the int8 TFLite translator, emitting Rust |
 | `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer (scikit-learn's `IsolationForest` as a path-length ensemble), emitting Rust |
 | `examples/imported_trees.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
@@ -413,7 +413,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   its five example models (two residual networks with max, average and global
   average pooling, a depthwise convolution and an addition) through
   tinymind (C++)'s own ONNX importer and C++ layers and compares the outputs
-  byte for byte, and checks that the parser is tinymind (C++)'s unchanged; `test_onnx.py` checks the modules against ONNX
+  byte for byte, and checks that the parser is tinymind (C++)'s unchanged;
+  four of them also run with int4 weights or int16 activations and must give
+  what tinymind (C++)'s own code generator gives with the same options; `test_onnx.py` checks the modules against ONNX
   Runtime (within one step; softmax probabilities within 2/256) and the
   importer's refusals.
 - The TFLite translator (`tools/import_tflite`, run by
@@ -426,7 +428,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, logmel_vibration, vibration_anomaly, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (128 checks today, including
+  example does, runs both sides, and compares every output file (134 checks today, including
   that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
