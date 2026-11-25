@@ -14,8 +14,9 @@ use tinymind::head::{
 };
 use tinymind::int8::{
     self, QAdd, QAvgPool2D, QConcat, QConv2D, QConv2DPerChannel, QDense, QDensePerChannel,
-    QDepthwiseConv2D, QFft1D, QGlobalAvgPool2D, QGruCell, QLstmCell, QMaxPool2D, QMul, QPad2D,
-    QPointwiseConv2D, QPointwiseConv2DPerChannel, QRFft1D, QSoftmax, Requantizer,
+    QDepthwiseConv2D, QDiagGaussianAnomaly, QFft1D, QGlobalAvgPool2D, QGruCell, QKMeansAnomaly,
+    QKMeansAnomalyTrainer, QLogMelSpectrogram, QLstmCell, QMaxPool2D, QMelWorkspace, QMfcc, QMul,
+    QPad2D, QPointwiseConv2D, QPointwiseConv2DPerChannel, QRFft1D, QSoftmax, Requantizer,
 };
 use tinymind::qlearn;
 use tinymind::rand::GlibcRand;
@@ -438,6 +439,82 @@ fn int8_rfft<const N: usize, const HALF: usize, const BINS: usize>() {
     let mut mag = black_box([0i32; BINS]);
     fft.magnitude_squared(&real, &imag, &mut mag);
     black_box(&mag);
+}
+
+/// The log-mel front end and MFCCs, with every table, field and sample opaque
+/// (band tables that reach past the bins and the weights included).
+fn int8_mel<const N: usize, const HALF: usize, const BINS: usize, const BANDS: usize>() {
+    let window = black_box([black_box(32767i16); N]);
+    let cos = black_box([black_box(32767i16); HALF]);
+    let sin = black_box([black_box(-32768i16); HALF]);
+    let start = black_box([black_box(1u16); BANDS]);
+    let length = black_box([black_box(3u16); BANDS]);
+    let weights = black_box([black_box(65535u16); 4]);
+    let mel: QLogMelSpectrogram<'_, N, HALF, BANDS> = black_box(QLogMelSpectrogram {
+        window: &window,
+        twiddle_cos: &cos,
+        twiddle_sin: &sin,
+        band_start: &start,
+        band_length: &length,
+        weights: black_box(weights.get(..black_box(3)).unwrap_or(&weights)),
+        preemphasis: black_box(31785),
+        log_floor: black_box(-2048),
+    });
+    let frame = black_box([black_box(5i16); N]);
+    let mut workspace = black_box(QMelWorkspace::<N, BINS>::new());
+    let mut out = black_box([0i16; BANDS]);
+    mel.forward(&frame, black_box(-7), &mut out, &mut workspace);
+    let dct = black_box([[black_box(23170i16); BANDS]; 2]);
+    let mfcc: QMfcc<'_, BANDS, 2> = black_box(QMfcc { dct: &dct });
+    let mut coeffs = black_box([0i32; 2]);
+    mfcc.forward(&out, &mut coeffs);
+    black_box(&coeffs);
+}
+
+/// The anomaly scores and the k-means trainer, with every table and sample
+/// opaque.
+fn int8_anomaly<const F: usize, const K: usize>() {
+    let centroids = black_box([[black_box(3i8); F]; K]);
+    let inv = black_box([black_box(1u32 << 20); K]);
+    let weights = black_box([black_box(256u16); F]);
+    let model: QKMeansAnomaly<'_, F, K> = black_box(QKMeansAnomaly {
+        centroids: &centroids,
+        inv_radius_sq: &inv,
+        feature_weight: if black_box(true) {
+            Some(&weights)
+        } else {
+            None
+        },
+    });
+    let x = black_box([black_box(-9i8); F]);
+    black_box(model.score(&x));
+
+    let mut trainer = black_box(QKMeansAnomalyTrainer::<F, K>::new());
+    trainer.set_maximum_count(black_box(40));
+    trainer.set_feature_weighting(black_box(true));
+    for _ in 0..black_box(20) {
+        trainer.learn(&black_box(x));
+    }
+    trainer.calibrate(&black_box(x));
+    black_box((
+        trainer.model().score(&x),
+        trainer.seeded_clusters(),
+        trainer.learn_counts(),
+        trainer.calibration_counts(),
+        trainer.centroids(),
+        trainer.feature_weights(),
+    ));
+    trainer.reset();
+
+    let means = black_box([[black_box(1i8); F]; K]);
+    let precision = black_box([[black_box(u32::MAX); F]; K]);
+    let bias = black_box([black_box(i32::MIN); K]);
+    let gaussian: QDiagGaussianAnomaly<'_, F, K> = black_box(QDiagGaussianAnomaly {
+        means: &means,
+        precision: &precision,
+        bias: &bias,
+    });
+    black_box(gaussian.score(&x));
 }
 
 /// Convolutions and pooling: padded and unpadded, strided, per tensor and per
@@ -875,6 +952,10 @@ pub extern "C" fn _start() -> ! {
     int8_rfft::<2, 1, 2>();
     int8_rfft::<8, 4, 5>();
     int8_rfft::<256, 128, 129>();
+    int8_mel::<4, 2, 3, 2>();
+    int8_mel::<256, 128, 129, 32>();
+    int8_anomaly::<1, 1>();
+    int8_anomaly::<32, 8>();
     // The int8 recurrent cells: both cell-state types, an odd shape and a
     // larger one.
     int8_recurrent::<i8, 3, 16>(black_box(0));

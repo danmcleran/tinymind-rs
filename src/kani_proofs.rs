@@ -1201,3 +1201,152 @@ mod training {
         assert!(s.current_step <= s.total_decay_steps);
     }
 }
+
+/// The anomaly scores and the k-means trainer (`int8::anomaly`).
+mod anomaly {
+    use crate::int8::anomaly::{normalize_distance, rounded_divide};
+    use crate::int8::{QDiagGaussianAnomaly, QKMeansAnomaly, QKMeansAnomalyTrainer};
+
+    /// The normalized distance never overflows: below 2^32 it is
+    /// `(d2 * inv) >> 24`, above it `((d2 >> 16) * inv) >> 8`, both computed
+    /// exactly (for the weighted distances a score can produce, below 2^48).
+    #[kani::proof]
+    fn normalize_distance_is_exact() {
+        let (d2, inv): (u64, u32) = (kani::any(), kani::any());
+        kani::assume(d2 < 1 << 48);
+        let exact = if d2 <= u64::from(u32::MAX) {
+            (u128::from(d2) * u128::from(inv)) >> 24
+        } else {
+            (u128::from(d2 >> 16) * u128::from(inv)) >> 8
+        };
+        assert!(u128::from(normalize_distance(d2, inv)) == exact);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(3)]
+    fn kmeans_score_never_panics() {
+        let centroids: [[i8; 2]; 2] = kani::any();
+        let inv: [u32; 2] = kani::any();
+        let weights: [u16; 2] = kani::any();
+        let model = QKMeansAnomaly {
+            centroids: &centroids,
+            inv_radius_sq: &inv,
+            feature_weight: if kani::any() { Some(&weights) } else { None },
+        };
+        let x: [i8; 2] = kani::any();
+        let score = model.score(&x);
+        assert!(score >= 0);
+    }
+
+    /// `learn` from any reachable state never panics or overflows (the
+    /// centroid update stays within `i16`: see `trainer_step_stays_between`).
+    #[kani::proof]
+    #[kani::unwind(3)]
+    fn trainer_learn_never_panics() {
+        let mut t = QKMeansAnomalyTrainer::<2, 2>::any_state();
+        let x: [i8; 2] = kani::any();
+        t.learn(&x);
+    }
+
+    /// `calibrate` (and the freeze on its first call) from any reachable
+    /// state never panics or overflows, and neither does the model it gives.
+    /// One feature and one cluster: the freeze's 64-bit divisions make a
+    /// larger trainer slow to check.
+    #[kani::proof]
+    #[kani::unwind(11)]
+    fn trainer_calibrate_never_panics() {
+        let mut t = QKMeansAnomalyTrainer::<1, 1>::any_state();
+        let x: [i8; 1] = kani::any();
+        t.calibrate(&x);
+        let y: [i8; 1] = kani::any();
+        t.model().score(&y);
+    }
+
+    /// The step's bound: `|round(r / n)| <= |r|` for every residual a learn
+    /// step can see and every count, so `c + step` stays between `c` and
+    /// `x * 256`.
+    #[kani::proof]
+    fn trainer_step_stays_between() {
+        let (x, c, n): (i8, i16, u16) = (kani::any(), kani::any(), kani::any());
+        kani::assume(n >= 1);
+        let residual = i32::from(x) * 256 - i32::from(c);
+        let next = i32::from(c) + rounded_divide(residual, i32::from(n));
+        let target = i32::from(x) * 256;
+        assert!(next >= i32::from(c).min(target) && next <= i32::from(c).max(target));
+    }
+
+    #[kani::proof]
+    #[kani::unwind(3)]
+    fn gaussian_score_never_panics() {
+        let means: [[i8; 2]; 2] = kani::any();
+        let precision: [[u32; 2]; 2] = kani::any();
+        let bias: [i32; 2] = kani::any();
+        let model = QDiagGaussianAnomaly {
+            means: &means,
+            precision: &precision,
+            bias: &bias,
+        };
+        let x: [i8; 2] = kani::any();
+        model.score(&x);
+    }
+}
+
+/// The log-mel front end (`int8::mel`).
+mod mel {
+    use crate::int8::mel::{log2_q30, natural_log_from_log2_q30};
+    use crate::int8::{QLogMelSpectrogram, QMelWorkspace, QMfcc};
+
+    /// `log2_q30(x)` has integer part `floor(log2 x)` and a fraction in
+    /// `[0, 2^30]`, for every nonzero `x`.
+    #[kani::proof]
+    fn log2_q30_brackets() {
+        let x: u64 = kani::any();
+        kani::assume(x != 0);
+        let msb = i64::from(63 - x.leading_zeros());
+        let l = log2_q30(x);
+        assert!(l >= msb << 30 && l <= (msb + 1) << 30);
+    }
+
+    /// The natural log never overflows over the arguments `forward` can pass
+    /// (a 64-bit energy's log2 plus offsets between -134 and 0, in Q30).
+    #[kani::proof]
+    fn natural_log_never_overflows() {
+        let l: i64 = kani::any();
+        kani::assume(l > -(200i64 << 30) && l < (200i64 << 30));
+        natural_log_from_log2_q30::<0>(l);
+        natural_log_from_log2_q30::<8>(l);
+        natural_log_from_log2_q30::<14>(l);
+    }
+
+    /// One frame of four samples through any tables, band layout (bands that
+    /// reach past the bins and past the weights included), pre-emphasis,
+    /// floor and samples, then the MFCCs: never a panic or an overflow.
+    #[kani::proof]
+    #[kani::unwind(6)]
+    fn log_mel_never_panics() {
+        let window: [i16; 4] = kani::any();
+        let (c, s): ([i16; 2], [i16; 2]) = (kani::any(), kani::any());
+        let start: [u16; 2] = kani::any();
+        let length: [u16; 2] = kani::any();
+        let weights: [u16; 3] = kani::any();
+        let used: usize = kani::any();
+        kani::assume(used <= 3);
+        let mel: QLogMelSpectrogram<'_, 4, 2, 2> = QLogMelSpectrogram {
+            window: &window,
+            twiddle_cos: &c,
+            twiddle_sin: &s,
+            band_start: &start,
+            band_length: &length,
+            weights: &weights[..used],
+            preemphasis: kani::any(),
+            log_floor: kani::any(),
+        };
+        let frame: [i16; 4] = kani::any();
+        let mut ws = QMelWorkspace::<4, 3>::new();
+        let mut out = [0i16; 2];
+        mel.forward(&frame, kani::any(), &mut out, &mut ws);
+        let dct: [[i16; 2]; 2] = kani::any();
+        let mut coeffs = [0i32; 2];
+        QMfcc { dct: &dct }.forward(&out, &mut coeffs);
+    }
+}

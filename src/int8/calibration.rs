@@ -5,9 +5,12 @@
 //! `computeAffineParamsSymmetric`, `computePerChannelSymmetricScales`, the
 //! `RangeObserver`, `buildQAddParams`, `buildRescaler`,
 //! `buildQMulRequantizer`, `buildQLSTMParams`, `buildQGRUParams`,
-//! `quantizeQLSTMBiases`, `quantizeQGRUBiases`, `buildQFFTTwiddles`).
+//! `quantizeQLSTMBiases`, `quantizeQGRUBiases`, `buildQFFTTwiddles`,
+//! `buildQHannWindow`, `buildQMelFilterbank`, `buildQDctMatrix`,
+//! `buildQDiagGaussianAnomaly`).
 //!
-//! Needs the `std` feature, for `exp`, `tanh`, `cos` and `sin`; tinymind (C++) gates the
+//! Needs the `std` feature, for `exp`, `tanh`, `cos`, `sin`, `log`, `log10` and
+//! `pow`; tinymind (C++) gates the
 //! same functions on `TINYMIND_ENABLE_FLOAT && TINYMIND_ENABLE_STD`. On a device,
 //! run these on the host and embed the results as constants. The float
 //! arithmetic follows the C++ step for step, so the tables and requantizers match
@@ -16,7 +19,7 @@
 
 use super::{LUT_SIZE, QAdd, QSoftmax, Requantizer};
 #[cfg(doc)]
-use super::{QFft1D, QGruCell, QLstmCell};
+use super::{QDiagGaussianAnomaly, QFft1D, QGruCell, QLogMelSpectrogram, QLstmCell, QMfcc};
 
 /// C `frexp`: `x = mantissa * 2^exponent` with `|mantissa|` in `[0.5, 1)`.
 /// Zero, infinities and NaN come back unchanged with exponent 0.
@@ -687,6 +690,221 @@ pub fn build_fft_twiddles<const N: usize, const HALF: usize>() -> ([i16; HALF], 
         *s = q15(phase.sin());
     }
     (cos, sin)
+}
+
+/// Hann window of `N` values in Q1.15, 1.0 stored as 32767 (C++
+/// `buildQHannWindow`), for [`QLogMelSpectrogram`]. `periodic` (as
+/// `torch.hann_window`'s default) divides by `N`; symmetric by `N - 1`.
+///
+/// ```
+/// use tinymind::int8::calibration::build_hann_window;
+///
+/// assert_eq!(build_hann_window::<4>(true), [0, 16384, 32767, 16384]);
+/// ```
+pub fn build_hann_window<const N: usize>(periodic: bool) -> [i16; N] {
+    let denominator = if periodic { N } else { N.wrapping_sub(1) } as f64;
+    core::array::from_fn(|i| {
+        let w = 0.5 - 0.5 * (2.0 * core::f64::consts::PI * i as f64 / denominator).cos();
+        // C `lround`, then the C++ clamp at 32767.
+        (w * 32768.0).round().min(32767.0) as i16
+    })
+}
+
+fn hz_to_mel(hz: f64) -> f64 {
+    2595.0 * (1.0 + hz / 700.0).log10()
+}
+
+fn mel_to_hz(mel: f64) -> f64 {
+    700.0 * (10f64.powf(mel / 2595.0) - 1.0)
+}
+
+/// The float weight of FFT bin `bin` in mel band `band` (C++
+/// `qmelFilterWeight`): torchaudio's triangular filters on the HTK mel scale,
+/// unnormalized (`melscale_fbanks` with `norm=None`, `mel_scale="htk"`). Band
+/// `m` rises from mel point `m` to `m + 1` and falls to `m + 2`, the
+/// `bands + 2` points evenly spaced in mel from `f_min` to `f_max`.
+pub fn mel_filter_weight(
+    n_fft: usize,
+    sample_rate: f64,
+    bands: usize,
+    f_min: f64,
+    f_max: f64,
+    band: usize,
+    bin: usize,
+) -> f64 {
+    let mel_min = hz_to_mel(f_min);
+    let mel_max = hz_to_mel(f_max);
+    let step = (mel_max - mel_min) / (bands + 1) as f64;
+    let lower = mel_to_hz(mel_min + step * band as f64);
+    let center = mel_to_hz(mel_min + step * (band + 1) as f64);
+    let upper = mel_to_hz(mel_min + step * (band + 2) as f64);
+    let f = bin as f64 * sample_rate / n_fft as f64;
+    let rising = (f - lower) / (center - lower);
+    let falling = (upper - f) / (upper - center);
+    let w = if rising < falling { rising } else { falling };
+    if w > 0.0 { w } else { 0.0 }
+}
+
+/// The filter tables of a [`QLogMelSpectrogram`] with `BANDS` bands, from
+/// [`build_mel_filterbank`]: borrow `band_start`, `band_length` and
+/// [`weights`](Self::weights) into the layer.
+#[derive(Clone, Debug)]
+pub struct MelFilterbank<const BANDS: usize, const CAP: usize> {
+    /// The first FFT bin of each band.
+    pub band_start: [u16; BANDS],
+    /// How many bins each band covers (0 for a band too narrow to reach a
+    /// bin, which always reads the layer's `log_floor`).
+    pub band_length: [u16; BANDS],
+    /// The Q0.16 weights, band after band; only the first
+    /// [`len`](Self::len) are used.
+    pub weight_storage: [u16; CAP],
+    /// How many entries of `weight_storage` the bands use.
+    pub len: usize,
+}
+
+impl<const BANDS: usize, const CAP: usize> MelFilterbank<BANDS, CAP> {
+    /// The weights the bands use, for [`QLogMelSpectrogram::weights`].
+    pub fn weights(&self) -> &[u16] {
+        self.weight_storage
+            .get(..self.len)
+            .unwrap_or(&self.weight_storage)
+    }
+}
+
+/// Build a [`QLogMelSpectrogram`]'s filter tables for an `N`-point FFT at
+/// `sample_rate` (C++ `buildQMelFilterbank`): `BANDS` triangular filters from
+/// `f_min` to `f_max` Hz ([`mel_filter_weight`]), each covering the bins whose
+/// rounded Q0.16 weight is nonzero. `None` if the weights need more than
+/// `CAP` entries (`2 * (N / 2 + 1)` always suffices: each bin lies in at most
+/// two bands).
+///
+/// ```
+/// use tinymind::int8::calibration::build_mel_filterbank;
+///
+/// // 256-point frames at 16 kHz, 32 bands from 20 Hz to 8 kHz.
+/// let fb = build_mel_filterbank::<256, 32, 258>(16000.0, 20.0, 8000.0).unwrap();
+/// assert_eq!(fb.weights().len(), fb.band_length.iter().map(|&l| usize::from(l)).sum::<usize>());
+/// ```
+pub fn build_mel_filterbank<const N: usize, const BANDS: usize, const CAP: usize>(
+    sample_rate: f64,
+    f_min: f64,
+    f_max: f64,
+) -> Option<MelFilterbank<BANDS, CAP>> {
+    let bins = N / 2 + 1;
+    let weight = |m: usize, k: usize| {
+        (mel_filter_weight(N, sample_rate, BANDS, f_min, f_max, m, k) * 65536.0).round() as i64
+    };
+    let mut fb = MelFilterbank {
+        band_start: [0; BANDS],
+        band_length: [0; BANDS],
+        weight_storage: [0; CAP],
+        len: 0,
+    };
+    for m in 0..BANDS {
+        let mut first = bins;
+        let mut last = 0;
+        for k in 0..bins {
+            if weight(m, k) > 0 {
+                first = first.min(k);
+                last = k;
+            }
+        }
+        if first == bins {
+            continue;
+        }
+        let length = last - first + 1;
+        let slots = fb.weight_storage.get_mut(fb.len..fb.len + length)?;
+        for (slot, k) in slots.iter_mut().zip(first..=last) {
+            *slot = weight(m, k).min(65535) as u16;
+        }
+        fb.band_start[m] = first as u16;
+        fb.band_length[m] = length as u16;
+        fb.len += length;
+    }
+    Some(fb)
+}
+
+/// Orthonormal DCT-II matrix in Q1.15 for [`QMfcc`] (C++ `buildQDctMatrix`):
+/// row `c` is `cos(π / M * (m + 1/2) * c)` times `sqrt(1 / M)` for `c = 0` and
+/// `sqrt(2 / M)` otherwise, `M = BANDS` (torchaudio's `create_dct` with
+/// `norm="ortho"`).
+///
+/// ```
+/// use tinymind::int8::calibration::build_dct_matrix;
+///
+/// assert_eq!(build_dct_matrix::<2, 2>(), [[23170, 23170], [23170, -23170]]);
+/// ```
+pub fn build_dct_matrix<const BANDS: usize, const COEFFS: usize>() -> [[i16; BANDS]; COEFFS] {
+    let m = BANDS as f64;
+    core::array::from_fn(|c| {
+        let scale = (if c == 0 { 1.0 } else { 2.0 } / m).sqrt();
+        core::array::from_fn(|b| {
+            let v = scale * (core::f64::consts::PI / m * (b as f64 + 0.5) * c as f64).cos();
+            (v * 32768.0).round().clamp(-32768.0, 32767.0) as i16
+        })
+    })
+}
+
+/// Build [`QDiagGaussianAnomaly`] tables from a float fit (C++
+/// `buildQDiagGaussianAnomaly`). Returns `(means, precision, bias)`.
+///
+/// - `means`, `variances`: per component and feature, in the features' real
+///   units (scikit-learn: `means_` and `covariances_` with
+///   `covariance_type="diag"`)
+/// - `weights`: the mixture weights `pi_k` (`weights_`)
+/// - `input_scale`, `input_zero_point`: the features' int8 grid,
+///   `real = scale * (q - zero_point)`
+/// - `min_variance_lsb2`: floor on every variance in LSB^2, so a feature that
+///   barely moved in the fit does not dominate the score (0.25, half an LSB,
+///   is a reasonable floor)
+///
+/// Means are rounded onto the grid (so a mean is off by up to half an LSB);
+/// the bias uses the floored variances.
+///
+/// ```
+/// use tinymind::int8::QDiagGaussianAnomaly;
+/// use tinymind::int8::calibration::build_diag_gaussian_anomaly;
+///
+/// let (means, precision, bias) =
+///     build_diag_gaussian_anomaly(&[[0.5]], &[[0.01]], &[1.0], 0.1, 0, 0.25);
+/// assert_eq!(means, [[5]]);
+/// assert_eq!(precision, [[8388608]]); // variance 1 LSB^2
+/// let model = QDiagGaussianAnomaly { means: &means, precision: &precision, bias: &bias };
+/// assert_eq!(model.score(&[5]) - model.score(&[7]), -2 * 256);
+/// ```
+pub fn build_diag_gaussian_anomaly<const F: usize, const K: usize>(
+    means: &[[f64; F]; K],
+    variances: &[[f64; F]; K],
+    weights: &[f64; K],
+    input_scale: f32,
+    input_zero_point: i32,
+    min_variance_lsb2: f64,
+) -> ([[i8; F]; K], [[u32; F]; K], [i32; K]) {
+    let pi = core::f64::consts::PI;
+    let scale = f64::from(input_scale);
+    let mut means_out = [[0i8; F]; K];
+    let mut precision_out = [[0u32; F]; K];
+    let mut bias_out = [0i32; K];
+    for k in 0..K {
+        let mut b = -weights[k].ln();
+        for f in 0..F {
+            // C `lround` (saturating here where the C++ is undefined).
+            let q =
+                ((means[k][f] / scale).round() as i64).saturating_add(i64::from(input_zero_point));
+            means_out[k][f] = q.clamp(-128, 127) as i8;
+
+            let mut variance_lsb = variances[k][f] / (scale * scale);
+            if variance_lsb < min_variance_lsb2 {
+                variance_lsb = min_variance_lsb2;
+            }
+            let p = (16_777_216.0 / (2.0 * variance_lsb)).round();
+            precision_out[k][f] = p.clamp(1.0, 4_294_967_295.0) as u32;
+
+            b += 0.5 * (2.0 * pi * variance_lsb * scale * scale).ln();
+        }
+        bias_out[k] = (b * 256.0).round().clamp(-2_147_483_648.0, 2_147_483_647.0) as i32;
+    }
+    (means_out, precision_out, bias_out)
 }
 
 #[cfg(test)]

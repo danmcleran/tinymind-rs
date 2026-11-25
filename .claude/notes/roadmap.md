@@ -21,7 +21,11 @@ what to port next, and update it when a step is done.
   0. **Done 2026-11-25:** compare-with-cpp at `cf3e9ef` 111/111 identical,
      regenerated importer modules unchanged; `TINYMIND_REF` -> `cf3e9ef`. New
      files go into `PORTED` as they are ported.
-  1. Sensor front end + anomaly (all additive, possible 0.3.9): libstdc++
+  1. **Done 2026-11-25 except IsolationForest** (qmel + qanomaly + both
+     examples, 122 comparisons, 116 Kani harnesses; notes in
+     `.claude/rules/int8.md`). Not done yet: device sweeps for mel/anomaly
+     under QEMU (bench `sweeps`), board timings (phase 5).
+     Sensor front end + anomaly (all additive, possible 0.3.9): libstdc++
      `normal_distribution` (Marsaglia polar) in `examples/common/std_random.rs`,
      checked against compiled C++; `qanomaly.hpp` (`QKMeansAnomaly`,
      `QKMeansAnomalyTrainer`, `QDiagGaussianAnomaly`, host builder under `std`)

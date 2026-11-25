@@ -27,7 +27,7 @@ affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
 (for residual connections) and multiplication, padding, concatenation, quantized
 ReLU, activation tables, a softmax that is bit-exact with TFLite's, LSTM and
-GRU cells, and radix-2 FFTs on 16-bit samples, complex or real-input), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`), and head-only fine-tuning: a trainable dense head and a nearest-class-mean head that adapt a frozen model on the device from a few labelled samples. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
+GRU cells, and radix-2 FFTs on 16-bit samples, complex or real-input), a fixed-point log-mel spectrogram and MFCC front end, int8 anomaly scores (k-means, with a trainer that learns the clusters on the device, and a diagonal Gaussian mixture), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`), and head-only fine-tuning: a trainable dense head and a nearest-class-mean head that adapt a frozen model on the device from a few labelled samples. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -117,6 +117,8 @@ cargo run --release --example dqn_maze -- output             # the same maze, le
 cargo run --release --example har_activity -- output         # LSTM: classify accelerometer windows into four activities
 cargo run --release --example air_quality -- output          # LSTM: forecast the next hour of a pollutant series
 cargo run --release --example gas_sensor_drift -- output     # sensor drift, then on-device fine-tuning from a few samples
+cargo run --release --features std --example logmel_vibration -- output   # fixed-point log-mel and MFCCs of a vibration recording vs float
+cargo run --release --features std --example vibration_anomaly -- output  # learn normal vibration on the device, then flag faults
 cargo test --all-features                                # unit, doc and golden tests against the C++ output
 PYTHON=<python with the packages below> scripts/compare-with-cpp.sh   # rebuild the C++ side and diff everything
 ```
@@ -166,7 +168,17 @@ backbone and a head and compares seven ways to adapt to each drifted batch
 from 1 to 20 labelled samples per class (a `PrototypeHead`, head-only
 fine-tuning with a `DenseHead`, the backbone's biases, re-normalized inputs);
 it writes `gas_loss.csv`, `gas_confusion.csv`, `gas_drift.csv` and
-`gas_adapt.csv`. The `int8_xor` example (feature
+`gas_adapt.csv`. The `logmel_vibration` example (feature `std`) runs a
+synthetic 12-second machine-vibration recording whose level ramps from -50
+dBFS to -6 dBFS through `QLogMelSpectrogram` (256-sample frames, 32 mel bands)
+and `QMfcc`, compares every frame with the float definition and writes
+`logmel_vibration.csv`, `logmel_vibration_mfcc.csv` and
+`logmel_vibration_error.csv`. The `vibration_anomaly` example (feature `std`)
+turns a synthetic machine's stream into int8 log-mel features frame by frame,
+learns normal running on the device with a `QKMeansAnomalyTrainer`, sets an
+alarm threshold, and scores normal running and three growing faults beside a
+Euclidean k-means and a host-fitted Gaussian; it writes
+`vibration_anomaly.csv` and `vibration_anomaly_summary.csv`. The `int8_xor` example (feature
 `std`) runs a PyTorch-trained, int8-quantized 2-4-1 network and writes
 `xor_decision_surface.csv`. The `gbdt_tabular_int8` example (feature `std`)
 quantizes a five-tree ensemble onto an int8 feature grid, compares it with the
@@ -214,12 +226,16 @@ set.
 | `examples/air_quality.rs` | `examples/air_quality/air_quality.cpp` |
 | `src/head.rs` | `cpp/densehead.hpp`, `cpp/prototypehead.hpp`: head-only fine-tuning, a trainable dense head (`DenseHead`, softmax cross-entropy or squared error) and a nearest-class-mean head (`PrototypeHead`, squared Euclidean or Manhattan distance) on top of a frozen model |
 | `examples/gas_sensor_drift.rs` | `examples/gas_sensor_drift/gas_sensor_drift.cpp` |
+| `examples/logmel_vibration.rs` | `examples/logmel_vibration/logmel_vibration.cpp` |
+| `examples/vibration_anomaly.rs` | `examples/vibration_anomaly/vibration_anomaly.cpp` |
 | `examples/anomaly.rs` | no counterpart: an on-device anomaly-detection demo built from the ported parts |
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qactivations.hpp`, `cpp/qsoftmax_fixedpoint.hpp`: requantizer, int8 dense layer (per-tensor and per-channel), quantized ReLU, activation tables, softmax |
 | `src/int8/conv.rs` | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`: int8 2D convolution (per-tensor and per-channel), depthwise and pointwise convolution, with zero-point padding |
 | `src/int8/pool.rs` | `cpp/qpool2d.hpp`: int8 max, average and global average pooling |
 | `src/int8/add.rs` | `cpp/qadd.hpp`: int8 elementwise addition (TFLite ADD), for residual connections |
 | `src/int8/fft.rs` | `cpp/qfft1d.hpp`, `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp`: radix-2 FFT on int16 samples with Q1.15 twiddle tables (forward scaled by 1/N, inverse, bin magnitudes), the real-input FFT `QRFft1D` (`QRFFT1D`: N real samples to N/2 + 1 bins with an N/2-point inner transform, from the same tables), and the twiddle-table builder |
+| `src/int8/mel.rs` | `cpp/qmel.hpp`: log-mel spectrogram of int16 frames (pre-emphasis, window, per-frame block scaling, the real FFT, mel filters, natural log) and MFCCs (`QLogMelSpectrogram`, `QMfcc`), with host-side builders for the Hann window, the mel filters and the DCT |
+| `src/int8/anomaly.rs` | `cpp/qanomaly.hpp`: anomaly scores for int8 feature vectors, k-means distance in units of each cluster's radius (`QKMeansAnomaly`), a trainer that learns the centroids, feature weights and radii on the device one sample at a time (`QKMeansAnomalyTrainer`), and a diagonal Gaussian mixture (`QDiagGaussianAnomaly`, built from a float fit on the host) |
 | `src/int8/compose.rs` | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`: int8 elementwise multiplication (TFLite MUL), explicit padding (PAD) and channel concatenation (CONCATENATION) |
 | `src/int8/recurrent.rs` | `cpp/qlstm.hpp`, `cpp/qgru.hpp`: int8 LSTM cell (int8 or int16 cell state) and GRU cell, one time step at a time |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
@@ -259,7 +275,11 @@ the int8 quantization tiers, SIMD backends, and so on.
   air_quality against
   `tests/golden/airq/`, `tests/gas_golden.rs` for
   gas_sensor_drift (training, the drift curve and every adaptation method)
-  against `tests/golden/gas/`, and
+  against `tests/golden/gas/`, `tests/logmel_golden.rs` for logmel_vibration
+  against `tests/golden/logmel/`, `tests/vibration_golden.rs` for
+  vibration_anomaly against `tests/golden/vibration/` (the trainer's size in
+  the last line of stdout is the one difference by design: 1,248 bytes here,
+  1,264 in the C++, whose field order needs more padding), and
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`,
   `tests/imported_mlp_golden.rs`, `tests/imported_cnn_golden.rs` and
   `tests/imported_lstm_golden.rs` for the PyTorch importer's models, and
@@ -299,6 +319,20 @@ the int8 quantization tiers, SIMD backends, and so on.
   the round trip and the bin magnitudes, and the real FFT of each signal's real
   part, on the built tables and on random ones. It also checks every bin of the
   real FFT against an exact DFT for lengths 4 to 256.
+- `tests/mel_sweep.rs` checks the log-mel spectrogram, the MFCCs and their
+  table builders against tinymind (C++)'s `QLogMelSpectrogram`, `QMfcc`,
+  `buildQHannWindow`, `buildQMelFilterbank` and `buildQDctMatrix` for frame
+  lengths 4 to 1024 and output formats Q0, Q8 and Q14: ten integer test signals
+  (silence, a one-LSB impulse, noise of a few LSB, full-scale noise and rails,
+  a sawtooth, a quiet square wave, DC, a pre-emphasis step) with pre-emphasis
+  off and on, through the built tables and through random ones.
+- `tests/qanomaly_sweep.rs` checks the anomaly scores against tinymind (C++)'s
+  `QKMeansAnomaly`, `QKMeansAnomalyTrainer`, `QDiagGaussianAnomaly` and
+  `buildQDiagGaussianAnomaly`: scores on random tables, and the trainer's
+  centroids, counts, feature weights, radii and scores after clustered sample
+  streams with different step caps, with feature weighting on and off, and in
+  the edge cases (calibrating before learning, fewer samples than clusters, a
+  stream where every distance ties, 600 features).
 - `tests/head_sweep.rs` checks the fine-tuning heads against tinymind (C++)'s
   `DenseHead` and `PrototypeHead`: nine dense heads (Q16.16, Q8.8, `f64` and
   `f32`; both losses; logits far beyond the exp table; sums that wrap in Q8.8)
@@ -368,9 +402,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   tinymind (C++)'s on 504 and 48 calibrations; `test_ops.py` checks PAD, MUL and
   CONCATENATION on generated models against TFLite's reference kernels (LiteRT).
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
-  (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, int8 xor, GBDT) with the flags their
+  (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, logmel_vibration, vibration_anomaly, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (111 checks today, including
+  example does, runs both sides, and compares every output file (122 checks today, including
   that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

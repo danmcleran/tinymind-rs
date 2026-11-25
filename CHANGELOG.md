@@ -7,6 +7,41 @@ break the API).
 
 ## [Unreleased]
 
+### Added
+
+- `int8::QLogMelSpectrogram` and `int8::QMfcc`, ported from tinymind (C++)'s
+  `QLogMelSpectrogram` and `QMfcc` (`cpp/qmel.hpp`): a fixed-point log-mel
+  spectrogram and MFCC front end for audio, vibration and IMU frames. A frame
+  of `N` int16 samples goes through pre-emphasis, a window, a per-frame block
+  scale that brings even a quiet frame to the FFT at full scale, `QRFft1D`,
+  mel filters and a table-based natural log; the result is torchaudio's
+  `MelSpectrogram` (power 2, HTK mel scale) followed by a log, in
+  Q(`LOG_FRAC_BITS`). `int8::QMelWorkspace` is the frame's caller-owned
+  scratch. With `std`, `calibration::build_hann_window`,
+  `build_mel_filterbank` (returning a `MelFilterbank`), `mel_filter_weight`
+  and `build_dct_matrix` build the tables.
+- `int8::QKMeansAnomaly`, `int8::QKMeansAnomalyTrainer` and
+  `int8::QDiagGaussianAnomaly`, ported from tinymind (C++)'s `cpp/qanomaly.hpp`:
+  anomaly scores for int8 feature vectors. The k-means score is the distance
+  to the nearest centroid in units of that cluster's radius; the trainer
+  learns the centroids, the feature weights and the radii on the device, one
+  normal sample at a time, with no float and no buffered data. The Gaussian
+  mixture score is a negative log-likelihood in Q8 nats; with `std`,
+  `calibration::build_diag_gaussian_anomaly` builds its tables from a float
+  fit (for example scikit-learn's `GaussianMixture`).
+- Two examples ported from tinymind (C++): `logmel_vibration` (the log-mel
+  spectrogram and MFCCs of a synthetic vibration recording whose level ramps
+  from -50 dBFS to -6 dBFS, compared frame by frame with the float
+  definition) and `vibration_anomaly` (a sensor-node pipeline that turns a
+  machine's stream into int8 log-mel features, learns normal running on the
+  device with `QKMeansAnomalyTrainer`, and flags three growing faults). Both
+  need `std` and write byte-identical output to the C++ examples, except the
+  trainer's size in `vibration_anomaly`'s last line (1,248 bytes here, 1,264
+  in the C++).
+- `tests/mel_sweep.rs` and `tests/qanomaly_sweep.rs` check both against
+  tinymind (C++) over frame lengths 4 to 1024 and random tables and sample
+  streams.
+
 ## [0.3.8] - 2026-11-20
 
 ### Added
