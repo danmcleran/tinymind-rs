@@ -1427,3 +1427,132 @@ mod int4 {
         layer.forward(&input, &mut output);
     }
 }
+
+/// The 16x8 layers (`int16x8`).
+mod int16x8 {
+    use crate::int16x8::{
+        LUT_SIZE, QAdd, QConv2DPerChannel, QDense, QDepthwiseConv2D, QSoftmax, Requantizer,
+        Requantizer32, apply_lut,
+    };
+
+    fn any_requantizer() -> Requantizer {
+        Requantizer {
+            multiplier: kani::any(),
+            shift: kani::any(),
+            zero_point: kani::any(),
+            qmin: kani::any(),
+            qmax: kani::any(),
+        }
+    }
+
+    /// The 64-bit requantizer never panics or overflows, for any fields and
+    /// accumulator, and lands in `[qmin, qmax]` (in `qmax` when `qmin > qmax`).
+    #[kani::proof]
+    fn requantizer64_stays_in_range() {
+        let rq = any_requantizer();
+        let y = rq.apply(kani::any());
+        if rq.qmin <= rq.qmax {
+            assert!(y >= rq.qmin && y <= rq.qmax);
+        } else {
+            assert!(y == rq.qmax);
+        }
+    }
+
+    /// The table lookup never panics for any table and input, and an
+    /// interval's knot reads its entry exactly.
+    #[kani::proof]
+    fn lut16_never_panics() {
+        let lut: [i16; LUT_SIZE] = kani::any();
+        let x: i16 = kani::any();
+        let y = apply_lut(x, &lut);
+        if (i32::from(x) + 32768) % 128 == 0 {
+            assert!(y == lut[((i32::from(x) + 32768) / 128) as usize]);
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(3)]
+    fn softmax16_never_panics() {
+        let softmax = QSoftmax {
+            input_multiplier: kani::any(),
+            input_shift: kani::any(),
+        };
+        let x: [i16; 2] = kani::any();
+        let mut y = [0i16; 2];
+        softmax.forward(&x, &mut y);
+        assert!(y.iter().all(|&v| v >= 0));
+    }
+
+    #[kani::proof]
+    #[kani::unwind(3)]
+    fn add16_never_panics() {
+        let add = QAdd {
+            input_a_zero_point: kani::any(),
+            input_b_zero_point: kani::any(),
+            left_shift: kani::any(),
+            input_a_multiplier: kani::any(),
+            input_a_shift: kani::any(),
+            input_b_multiplier: kani::any(),
+            input_b_shift: kani::any(),
+            output_requantizer: Requantizer32 {
+                multiplier: kani::any(),
+                shift: kani::any(),
+                zero_point: kani::any(),
+                qmin: kani::any(),
+                qmax: kani::any(),
+            },
+        };
+        let (a, b): ([i16; 2], [i16; 2]) = (kani::any(), kani::any());
+        let mut y = [0i16; 2];
+        add.forward(&a, &b, &mut y);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(3)]
+    fn dense16_never_panics() {
+        let weights: [[i8; 2]; 1] = kani::any();
+        let biases: [i64; 1] = kani::any();
+        let layer: QDense<'_, 2, 1> = QDense {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizer: any_requantizer(),
+        };
+        layer.forward(&kani::any());
+    }
+
+    /// A 2x2 kernel over a 2x2 input, padded so that windows reach into the
+    /// padding.
+    #[kani::proof]
+    #[kani::unwind(3)]
+    fn conv16_never_panics() {
+        let weights: [[[[i8; 1]; 2]; 2]; 1] = kani::any();
+        let biases: [i64; 1] = kani::any();
+        let requantizers = [any_requantizer()];
+        let layer: QConv2DPerChannel<'_, 1, 2, 2, 1, 2, 1, 1, 0, 0, 1> = QConv2DPerChannel {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
+        };
+        let input: [[[i16; 1]; 2]; 2] = kani::any();
+        let mut output = [[[0i16; 1]; 2]; 1];
+        layer.forward(&input, &mut output);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(3)]
+    fn depthwise16_never_panics() {
+        let weights: [[[i8; 2]; 2]; 1] = kani::any();
+        let requantizers = [any_requantizer()];
+        let layer: QDepthwiseConv2D<'_, 1, 2, 2, 1, 1, 1, 0, 0, 1> = QDepthwiseConv2D {
+            weights: &weights,
+            biases: None,
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
+        };
+        let input: [[[i16; 1]; 2]; 2] = kani::any();
+        let mut output = [[[0i16; 1]; 2]; 2];
+        layer.forward(&input, &mut output);
+    }
+}
