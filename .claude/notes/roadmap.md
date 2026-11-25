@@ -5,6 +5,47 @@ what to port next, and update it when a step is done.
 
 ## Next steps
 
+- **v19.0 sync plan (2026-11-25; tinymind v19.0 = `cf3e9ef`, 14 commits
+  #295-#312 since 65c6160).** Read of the diffs: nothing already ported changes
+  output. `qaffine`/`qconv2d`/`qpointwiseconv2d`/`qdepthwiseconv2d`/`qadd`
+  changes are 16x8/int4 generality: `FastRequantizer::init` now refuses a
+  non-int32 accumulator, `initWindow` ignores its extra args for int32, the
+  depthwise `DepthwiseWindow` is the identity unless int16 x int8 x int64;
+  release says int8 workloads unchanged to the cycle. `qactivations`,
+  `qsoftmax_fixedpoint` additions only; the ONNX parser's verbatim range
+  unchanged; PyTorch importer `Conv2D` gains defaulted fields +
+  `generate_model`; tree importer adds IsolationForest. SMLAD/SMLAL perf
+  commits (#303-#306) not portable (no `unsafe`); their safe shapes (int32
+  depthwise window, one-multiply requantizer when the accumulator fits int32)
+  apply once 16x8 exists. Phases (Dan agreed, 2026-11-25):
+  0. **Done 2026-11-25:** compare-with-cpp at `cf3e9ef` 111/111 identical,
+     regenerated importer modules unchanged; `TINYMIND_REF` -> `cf3e9ef`. New
+     files go into `PORTED` as they are ported.
+  1. Sensor front end + anomaly (all additive, possible 0.3.9): libstdc++
+     `normal_distribution` (Marsaglia polar) in `examples/common/std_random.rs`,
+     checked against compiled C++; `qanomaly.hpp` (`QKMeansAnomaly`,
+     `QKMeansAnomalyTrainer`, `QDiagGaussianAnomaly`, host builder under `std`)
+     + `vibration_anomaly`; `qmel.hpp` (`QLogMelSpectrogram`, `QMfcc` on our
+     `QRFft1D`; Hann/filterbank/DCT builders use double -> `std`) +
+     `logmel_vibration`; IsolationForest export in `tools/import_trees`. Covers
+     the old "flashable sensor example" item.
+  2. int4 (`qint4.hpp`: `QDenseInt4`, `QConv2DInt4`, `QDepthwiseConv2DInt4`,
+     pack/unpack, `quantizeInt4PerChannel`). Packed size `(N+1)/2` is a
+     generic const expression: caller spells it as a const param, checked at
+     compile time; the conv unpack scratch has the same issue.
+  3. 16x8 (likely 0.4.0): i64 requantizer = TFLite 64-bit
+     `MultiplyByQuantizedMultiplier`, `qApplyLUT16` + builders,
+     `QSoftmaxInt16` (tables from `qsoftmax16_tables.hpp` by script, never by
+     hand), layers over i16. Open: generic over a sealed activation type with
+     default `i8` (preferred; check with cargo-semver-checks) vs separate types.
+  4. Importers: ONNX codegen options `int4_dense`/`int4_conv`/
+     `activation_bits=16`, `tinymind_qat.py` (verbatim), maybe the greedy
+     arena plan; `onnx_digits_int8` needs the `.onnx` models, which tinymind
+     does not commit (only generated headers): hand off a tinymind change to
+     commit them rather than retrain here. PyTorch `generate_model`: check
+     ReLU folding against ours.
+  5. bench/: tinymind's `benchmarks/tier1_onboard` workloads on both boards,
+     C++ at -O3.
 - **v18.6 sync (2026-11-20, TINYMIND_REF 65c6160 = tag v18.6):** #293 `getPredictedClass` ported to all three trained networks + 4 examples (goldens: gas, digits); #288/#292 regenerated `src/lut.rs` (Q8.8 exp tail only); #291 (log/sin/cos range reduction) not applicable. Merged as #127; released in 0.3.8.
 - **ONNX importer (done, 2026-11-16):** `tools/import_onnx`, Dan's pick ("#1")
   from the ROI review after v18.5: tinymind's `apps/import_onnx` parser
