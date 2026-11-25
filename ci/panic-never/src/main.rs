@@ -349,14 +349,23 @@ mod imported_lstm_i8;
 /// tanh/sigmoid tables and the softmax.
 #[path = "../../../examples/common/imported_onnx_cnn_model.rs"]
 mod imported_onnx_cnn;
+/// The same with int4 weights and with int16 activations (16x8).
+#[path = "../../../examples/common/imported_onnx_cnn_16x8_model.rs"]
+mod imported_onnx_cnn_16x8;
+#[path = "../../../examples/common/imported_onnx_cnn_int4_model.rs"]
+mod imported_onnx_cnn_int4;
 #[path = "../../../examples/common/imported_onnx_cnn_qop_model.rs"]
 mod imported_onnx_cnn_qop;
 #[path = "../../../examples/common/imported_onnx_mlp_model.rs"]
 mod imported_onnx_mlp;
 #[path = "../../../examples/common/imported_onnx_resnet_model.rs"]
 mod imported_onnx_resnet;
+#[path = "../../../examples/common/imported_onnx_resnet_int4_model.rs"]
+mod imported_onnx_resnet_int4;
 #[path = "../../../examples/common/imported_onnx_resnet_qop_model.rs"]
 mod imported_onnx_resnet_qop;
+#[path = "../../../examples/common/imported_onnx_resnet_qop_16x8_model.rs"]
+mod imported_onnx_resnet_qop_16x8;
 /// A model written by the tree importer (generated code must be panic-free too).
 #[path = "../../../examples/common/imported_trees_gbdt_model.rs"]
 mod imported_trees;
@@ -1189,6 +1198,18 @@ pub extern "C" fn _start() -> ! {
     )));
     black_box(imported_onnx_resnet_qop::forward(&black_box(
         imported_onnx_resnet_qop::Input::default(),
+    )));
+    black_box(imported_onnx_cnn_int4::forward(&black_box(
+        imported_onnx_cnn_int4::Input::default(),
+    )));
+    black_box(imported_onnx_resnet_int4::forward(&black_box(
+        imported_onnx_resnet_int4::Input::default(),
+    )));
+    black_box(imported_onnx_cnn_16x8::forward(&black_box(
+        imported_onnx_cnn_16x8::Input::default(),
+    )));
+    black_box(imported_onnx_resnet_qop_16x8::forward(&black_box(
+        imported_onnx_resnet_qop_16x8::Input::default(),
     )));
     let f = black_box([0i16; imported_forest::NUM_FEATURES]);
     black_box((

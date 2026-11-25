@@ -889,7 +889,9 @@ echo "== imported_onnx (ONNX importer)"
 # constant from them, wiring each layer to the ones its record's `sources`
 # name, and imported_onnx.cpp runs the five models.
 mkdir -p "$TMP/onnx"
-for model in cnn cnn_qop mlp resnet resnet_qop; do
+# The variants (int4 weights, int16 activations) come whole from tinymind's
+# own code generator (apps/import_onnx/tinymind_model_codegen.py).
+for model in cnn cnn_qop mlp resnet resnet_qop cnn_int4 resnet_int4 cnn_16x8 resnet_qop_16x8; do
   TINYMIND_DIR="$TINYMIND_DIR" "$PYTHON" -I -B "$ROOT/tools/import_onnx/example_onnx.py" --model "$model" --cpp "$TMP/onnx" >/dev/null
 done
 g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/onnx/imported_onnx" "$ROOT/scripts/cpp/imported_onnx.cpp" \
@@ -907,7 +909,7 @@ if ! cmp -s "$TMP/onnx/cpp.txt" "$ROOT/tests/golden/imported_onnx/stdout.txt"; t
   echo "DIFFERENT  imported_onnx stdout.txt (C++ vs tests/golden/imported_onnx)"
   status=1
 fi
-for model in cnn cnn_qop mlp resnet resnet_qop; do
+for model in cnn cnn_qop mlp resnet resnet_qop cnn_int4 resnet_int4 cnn_16x8 resnet_qop_16x8; do
   "$PYTHON" -I -B "$ROOT/tools/import_onnx/example_onnx.py" --model "$model" --rust "$TMP/onnx/$model.rs" >/dev/null
   if cmp -s "$TMP/onnx/$model.rs" "$ROOT/examples/common/imported_onnx_${model}_model.rs"; then
     same "imported_onnx examples/common/imported_onnx_${model}_model.rs (regenerated)"
@@ -927,6 +929,24 @@ if [ -s "$TMP/onnx/parser_cpp.py" ] && cmp -s "$TMP/onnx/parser_cpp.py" "$TMP/on
   same "import_onnx parser (tinymind's parse_onnx_model and check_layer_graph, verbatim)"
 else
   echo "DIFFERENT  import_onnx parser vs tinymind's apps/import_onnx/tinymind_import_onnx.py"
+  status=1
+fi
+
+# The int4 and 16x8 helpers are tinymind's code generator's, unchanged:
+# everything from `def _f32` to the end of pack_int4.
+cg_range() { awk '/^def _f32/{p=1} p{print} p && /^def pack_int4/{q=1} q && /^    return out$/{exit}' "$1"; }
+if cmp -s <(cg_range "$TINYMIND_DIR/apps/import_onnx/tinymind_model_codegen.py") \
+          <(cg_range "$ROOT/tools/import_onnx/tinymind_model_codegen.py"); then
+  same "import_onnx code generator helpers (tinymind's int4 and 16x8, verbatim)"
+else
+  echo "DIFFERENT  import_onnx code generator helpers (tinymind's int4 and 16x8, verbatim)"
+  status=1
+fi
+# tinymind's int4 quantization-aware training helper, copied whole.
+if cmp -s "$TINYMIND_DIR/apps/import_onnx/tinymind_qat.py" "$ROOT/tools/import_onnx/tinymind_qat.py"; then
+  same "import_onnx tinymind_qat.py (tinymind's int4 QAT, verbatim)"
+else
+  echo "DIFFERENT  import_onnx tinymind_qat.py (tinymind's int4 QAT, verbatim)"
   status=1
 fi
 
