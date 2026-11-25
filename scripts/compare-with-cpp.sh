@@ -2,7 +2,7 @@
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
 # iris, optical_digits, energy_efficiency, gas_sensor_drift, air_quality, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8, logmel_vibration, vibration_anomaly), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
-# fine-tuning heads, the int8 softmax, FFT, log-mel and anomaly sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included), the ONNX importer's and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# fine-tuning heads, the int8 softmax, FFT, int4, log-mel and anomaly sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included), the ONNX importer's and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -563,6 +563,23 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test fft_sweep
   && same "fft Rust vs tests/golden/fft" \
   || { echo "DIFFERENT  fft Rust vs tests/golden/fft"; status=1; }
 
+echo "== int4"
+# tinymind's packed int4 layers and helpers on random tensors;
+# tests/int4_sweep.rs checks the Rust side against the committed golden.
+mkdir -p "$TMP/int4"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/int4/int4_sweep" "$ROOT/scripts/cpp/int4_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" -DTINYMIND_ENABLE_QUANTIZATION=1
+"$TMP/int4/int4_sweep" > "$TMP/int4/stdout.txt"
+if cmp -s "$TMP/int4/stdout.txt" "$ROOT/tests/golden/int4/stdout.txt"; then
+  same "int4 stdout.txt (C++ vs tests/golden/int4)"
+else
+  echo "DIFFERENT  int4 stdout.txt (C++ vs tests/golden/int4)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test int4_sweep >/dev/null 2>&1 \
+  && same "int4 Rust vs tests/golden/int4" \
+  || { echo "DIFFERENT  int4 Rust vs tests/golden/int4"; status=1; }
+
 echo "== qanomaly"
 # tinymind's QKMeansAnomaly, QKMeansAnomalyTrainer, QDiagGaussianAnomaly and
 # buildQDiagGaussianAnomaly on random tables and streams; tests/qanomaly_sweep.rs
@@ -983,6 +1000,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/softmax/stdout.txt" "$KEEP_CPP_OUTPUT/softmax/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/fft"
   cp "$TMP/fft/stdout.txt" "$KEEP_CPP_OUTPUT/fft/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/int4"
+  cp "$TMP/int4/stdout.txt" "$KEEP_CPP_OUTPUT/int4/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/qanomaly" "$KEEP_CPP_OUTPUT/mel"
   mkdir -p "$KEEP_CPP_OUTPUT/logmel" "$KEEP_CPP_OUTPUT/vibration"
   cp "$TMP/logmel/cpp/stdout.txt" "$TMP/logmel/cpp/logmel_vibration_error.csv" "$KEEP_CPP_OUTPUT/logmel/"

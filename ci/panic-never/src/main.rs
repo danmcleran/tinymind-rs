@@ -13,10 +13,11 @@ use tinymind::head::{
     SquaredErrorLoss,
 };
 use tinymind::int8::{
-    self, QAdd, QAvgPool2D, QConcat, QConv2D, QConv2DPerChannel, QDense, QDensePerChannel,
-    QDepthwiseConv2D, QDiagGaussianAnomaly, QFft1D, QGlobalAvgPool2D, QGruCell, QKMeansAnomaly,
-    QKMeansAnomalyTrainer, QLogMelSpectrogram, QLstmCell, QMaxPool2D, QMelWorkspace, QMfcc, QMul,
-    QPad2D, QPointwiseConv2D, QPointwiseConv2DPerChannel, QRFft1D, QSoftmax, Requantizer,
+    self, QAdd, QAvgPool2D, QConcat, QConv2D, QConv2DInt4, QConv2DPerChannel, QDense, QDenseInt4,
+    QDensePerChannel, QDepthwiseConv2D, QDepthwiseConv2DInt4, QDiagGaussianAnomaly, QFft1D,
+    QGlobalAvgPool2D, QGruCell, QKMeansAnomaly, QKMeansAnomalyTrainer, QLogMelSpectrogram,
+    QLstmCell, QMaxPool2D, QMelWorkspace, QMfcc, QMul, QPad2D, QPointwiseConv2D,
+    QPointwiseConv2DPerChannel, QRFft1D, QSoftmax, Requantizer,
 };
 use tinymind::qlearn;
 use tinymind::rand::GlibcRand;
@@ -517,6 +518,100 @@ fn int8_anomaly<const F: usize, const K: usize>() {
     black_box(gaussian.score(&x));
 }
 
+/// The packed int4 layers, on both sides of the unpack threshold, with every
+/// weight, bias, requantizer and input opaque.
+fn int8_int4() {
+    let rq = Requantizer {
+        multiplier: black_box(1 << 30),
+        shift: black_box(7),
+        zero_point: black_box(-3),
+        qmin: black_box(-128),
+        qmax: black_box(127),
+    };
+    let rqs16 = black_box([rq; 16]);
+    let rqs9 = black_box([rq; 9]);
+    let biases16 = black_box([1i32; 16]);
+    let biases9 = black_box([2i32; 9]);
+    let bias16 = || {
+        if black_box(true) {
+            Some(&biases16)
+        } else {
+            None
+        }
+    };
+
+    let w512 = black_box([black_box(0x9Fu8); 512]);
+    let dense: QDenseInt4<'_, 64, 16, 512> = black_box(QDenseInt4 {
+        weights: &w512,
+        biases: bias16(),
+        input_zero_point: black_box(-1),
+        requantizers: &rqs16,
+    });
+    black_box(dense.forward(&black_box([black_box(5i8); 64])));
+    let w5 = black_box([black_box(0x7Fu8); 5]);
+    let rqs3 = black_box([rq; 3]);
+    let odd: QDenseInt4<'_, 3, 3, 5> = black_box(QDenseInt4 {
+        weights: &w5,
+        biases: None,
+        input_zero_point: black_box(4),
+        requantizers: &rqs3,
+    });
+    black_box(odd.forward(&black_box([black_box(-7i8); 3])));
+
+    let map = black_box([[[black_box(9i8); 16]; 6]; 6]);
+    let w288 = black_box([black_box(0x81u8); 288]);
+    let rqs4 = black_box([rq; 4]);
+    let small: QConv2DInt4<'_, 16, 3, 3, 4, 288, 1, 1, 1, 1, 1, 1> = black_box(QConv2DInt4 {
+        weights: &w288,
+        biases: None,
+        input_zero_point: black_box(-2),
+        requantizers: &rqs4,
+    });
+    let mut out_small = black_box([[[0i8; 4]; 6]; 6]);
+    small.forward(&map, &mut out_small);
+    black_box(&out_small);
+    let w648 = black_box([black_box(0x18u8); 648]);
+    let large: QConv2DInt4<'_, 16, 3, 3, 9, 648, 2, 2, 1, 0, 1, 0> = black_box(QConv2DInt4 {
+        weights: &w648,
+        biases: if black_box(true) {
+            Some(&biases9)
+        } else {
+            None
+        },
+        input_zero_point: black_box(-2),
+        requantizers: &rqs9,
+    });
+    let mut out_large = black_box([[[0i8; 9]; 3]; 3]);
+    large.forward(&map, &mut out_large);
+    black_box(&out_large);
+
+    let w72 = black_box([black_box(0xF0u8); 72]);
+    let dw_small: QDepthwiseConv2DInt4<'_, 16, 3, 3, 72, 1, 1, 1, 1, 1, 1> =
+        black_box(QDepthwiseConv2DInt4 {
+            weights: &w72,
+            biases: bias16(),
+            input_zero_point: black_box(1),
+            requantizers: &rqs16,
+        });
+    let mut dw_out = black_box([[[0i8; 16]; 6]; 6]);
+    dw_small.forward(&map, &mut dw_out);
+    black_box(&dw_out);
+    let dw_large: QDepthwiseConv2DInt4<'_, 16, 9, 9, 648, 1, 1, 4, 4, 4, 4> =
+        black_box(QDepthwiseConv2DInt4 {
+            weights: &w648,
+            biases: bias16(),
+            input_zero_point: black_box(1),
+            requantizers: &rqs16,
+        });
+    dw_large.forward(&map, &mut dw_out);
+    black_box(&dw_out);
+    let packed = black_box([0x12u8; 3]);
+    black_box((
+        int8::unpack_int4(&packed, black_box(5)),
+        int8::pack_int4::<5, 3>(&black_box([black_box(-8i8); 5])),
+    ));
+}
+
 /// Convolutions and pooling: padded and unpadded, strided, per tensor and per
 /// channel, with every parameter and tensor opaque.
 fn int8_conv() {
@@ -956,6 +1051,7 @@ pub extern "C" fn _start() -> ! {
     int8_mel::<256, 128, 129, 32>();
     int8_anomaly::<1, 1>();
     int8_anomaly::<32, 8>();
+    int8_int4();
     // The int8 recurrent cells: both cell-state types, an odd shape and a
     // larger one.
     int8_recurrent::<i8, 3, 16>(black_box(0));

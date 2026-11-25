@@ -27,7 +27,7 @@ affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
 (for residual connections) and multiplication, padding, concatenation, quantized
 ReLU, activation tables, a softmax that is bit-exact with TFLite's, LSTM and
-GRU cells, and radix-2 FFTs on 16-bit samples, complex or real-input), a fixed-point log-mel spectrogram and MFCC front end, int8 anomaly scores (k-means, with a trainer that learns the clusters on the device, and a diagonal Gaussian mixture), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`), and head-only fine-tuning: a trainable dense head and a nearest-class-mean head that adapt a frozen model on the device from a few labelled samples. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
+GRU cells, int4 weights packed two per byte, and radix-2 FFTs on 16-bit samples, complex or real-input), a fixed-point log-mel spectrogram and MFCC front end, int8 anomaly scores (k-means, with a trainer that learns the clusters on the device, and a diagonal Gaussian mixture), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`), and head-only fine-tuning: a trainable dense head and a nearest-class-mean head that adapt a frozen model on the device from a few labelled samples. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -234,6 +234,7 @@ set.
 | `src/int8/pool.rs` | `cpp/qpool2d.hpp`: int8 max, average and global average pooling |
 | `src/int8/add.rs` | `cpp/qadd.hpp`: int8 elementwise addition (TFLite ADD), for residual connections |
 | `src/int8/fft.rs` | `cpp/qfft1d.hpp`, `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp`: radix-2 FFT on int16 samples with Q1.15 twiddle tables (forward scaled by 1/N, inverse, bin magnitudes), the real-input FFT `QRFft1D` (`QRFFT1D`: N real samples to N/2 + 1 bins with an N/2-point inner transform, from the same tables), and the twiddle-table builder |
+| `src/int8/int4.rs` | `cpp/qint4.hpp`: dense, convolution and depthwise layers over int4 weights packed two per byte (TFLite and ONNX nibble order), with the same results as the int8 layers on the same weights; packing helpers, and per-channel int4 quantization (feature `std`) |
 | `src/int8/mel.rs` | `cpp/qmel.hpp`: log-mel spectrogram of int16 frames (pre-emphasis, window, per-frame block scaling, the real FFT, mel filters, natural log) and MFCCs (`QLogMelSpectrogram`, `QMfcc`), with host-side builders for the Hann window, the mel filters and the DCT |
 | `src/int8/anomaly.rs` | `cpp/qanomaly.hpp`: anomaly scores for int8 feature vectors, k-means distance in units of each cluster's radius (`QKMeansAnomaly`), a trainer that learns the centroids, feature weights and radii on the device one sample at a time (`QKMeansAnomalyTrainer`), and a diagonal Gaussian mixture (`QDiagGaussianAnomaly`, built from a float fit on the host) |
 | `src/int8/compose.rs` | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`: int8 elementwise multiplication (TFLite MUL), explicit padding (PAD) and channel concatenation (CONCATENATION) |
@@ -319,6 +320,13 @@ the int8 quantization tiers, SIMD backends, and so on.
   the round trip and the bin magnitudes, and the real FFT of each signal's real
   part, on the built tables and on random ones. It also checks every bin of the
   real FFT against an exact DFT for lengths 4 to 256.
+- `tests/int4_sweep.rs` checks the packed int4 layers against the
+  `QDenseInt4`, `QConv2DInt4` and `QDepthwiseConv2DInt4` (dense layers
+  with odd and even row lengths, convolutions on both sides of the unpack
+  threshold, every second filter starting mid-byte, padding and strides),
+  `packInt4`, `unpackInt4` and `quantizeInt4PerChannel` of tinymind (C++),
+  and every layer
+  against the int8 layer on the unpacked weights.
 - `tests/mel_sweep.rs` checks the log-mel spectrogram, the MFCCs and their
   table builders against tinymind (C++)'s `QLogMelSpectrogram`, `QMfcc`,
   `buildQHannWindow`, `buildQMelFilterbank` and `buildQDctMatrix` for frame
@@ -404,7 +412,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, logmel_vibration, vibration_anomaly, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (122 checks today, including
+  example does, runs both sides, and compares every output file (124 checks today, including
   that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

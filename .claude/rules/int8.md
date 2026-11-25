@@ -13,6 +13,8 @@ paths:
   - "tests/recurrent_int8_sweep.rs"
   - "tests/softmax_sweep.rs"
   - "tests/mel_sweep.rs"
+  - "tests/int4_sweep.rs"
+  - "scripts/cpp/int4_sweep.cpp"
   - "tests/logmel_golden.rs"
   - "tests/vibration_golden.rs"
   - "examples/logmel_vibration.rs"
@@ -275,6 +277,41 @@ the end-halving layout fails it (N=64, 70 LSB). Unit tests: N=2 exact,
 skip/no-skip identical. Kani: `rfft_forward_never_panics_4`, `_8`,
 `rfft_first_stage_fits` (an i16 first-stage plant fails). panic-never N=2, 8,
 256 at 3/s/z.
+
+## `src/int8/int4.rs` (re-exported from `int8`)
+
+C++ source: `cpp/qint4.hpp` (tinymind #299, #306, #307; v19.0)
+
+2026-11-25 at `cf3e9ef`. `QDenseInt4<'a, IN, OUT, PACKED>` (forward returns
+`[i8; OUT]` like `QDensePerChannel`), `QConv2DInt4<'a, C, KH, KW, F, PACKED,
+SH, SW, PT, PB, PL, PR>` and `QDepthwiseConv2DInt4<'a, C, KH, KW, PACKED, ...>`:
+`weights: &[u8; PACKED]`, `PACKED == (n + 1) / 2` in the inline const assert
+(the one const param stable Rust cannot derive). `pack_int4::<N, PACKED>`,
+`unpack_int4(&[u8], index) -> Option<i8>`, `int4_packed_bytes`,
+`INT4_UNPACK_MAX_WEIGHTS` (1024 = C++ `TINYMIND_INT4_CONV_UNPACK_MAX_BYTES`).
+Unpacking into the nested int8 weight array is expressible on stable (no
+`F*KH*KW*C` arithmetic: the nesting is the size), so layers up to the
+threshold unpack onto the stack in a `#[inline(never)]` fn and delegate to
+`QConv2DPerChannel` / `QDepthwiseConv2D`; larger ones run a tap-by-tap
+packed path (padding taps skipped: zp - zp contributes 0). C++ depthwise
+always unpacks per channel; ours uses the same threshold (results identical).
+Sums wrap in i32 as the int8 layers'. `calibration::quantize_int4_per_channel
+<C, N>` (f32 max |w| / 7, lround on the double quotient, clamp -7..7). No SMLAD
+speed-ups (no `unsafe`); not timed yet. Checked by `tests/int4_sweep.rs`
+(golden from `scripts/cpp/int4_sweep.cpp`, UBSan+ASan clean, -O1 = -O3): 6
+dense shapes (odd rows), 7 convs (3 unpack, packed via the C++'s patch,
+patch-odd, rows-odd (window 135 > 128) and one-row paths), 2 depthwise (unpack;
+C=40 5x6 = 1200 weights packed on our side), pack/unpack all 16 values both
+nibbles + odd length + out of range, quantize incl. a zero channel and ties;
+every layer also == the int8 layer on unpacked weights (`same=1`, both
+sides). Matched first run. Plants that fail it: nibbles swapped, no sign
+extension, padded tap not advancing k, depthwise taps transposed, trailing
+nibble 15, ties to even, threshold 1200, dense zp dropped. panic-never: dense
+64x16 and 3x3 (odd), conv 288 weights (unpack) and 1296 (packed, strided,
+padded), depthwise 144 and 1296; planted `packed[k / 2]` fails the link. Kani
+`mod int4`: nibbles sign-extend (spec via `<< 4 >> 4`), dense 3x2, conv
+(conv_never_panics' shape), depthwise 2 channels (unwind 5); planted OOB
+`packed[(k + 1) / 2]` fails dense.
 
 ## `src/int8/mel.rs` (re-exported from `int8`)
 

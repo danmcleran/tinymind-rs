@@ -74,6 +74,7 @@ PORTED=(
   cpp/qsoftmax_fixedpoint.hpp
   cpp/qfft1d.hpp
   cpp/qmel.hpp
+  cpp/qint4.hpp
   cpp/qanomaly.hpp
   cpp/qtree.hpp
   examples/gbdt_tabular_int8

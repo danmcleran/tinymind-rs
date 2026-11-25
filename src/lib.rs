@@ -22,7 +22,8 @@
 //! affine-quantized inference ([`int8`]: dense layers, 2D convolutions (standard,
 //! depthwise and pointwise), pooling, elementwise addition and multiplication,
 //! padding, concatenation, quantized activations,
-//! a TFLite-exact softmax, LSTM and GRU cells, radix-2 FFTs on 16-bit
+//! a TFLite-exact softmax, LSTM and GRU cells, int4 weights packed two per
+//! byte, radix-2 FFTs on 16-bit
 //! samples, complex or real-input, a log-mel spectrogram and MFCC front end,
 //! and anomaly scores, k-means with an on-device trainer or a diagonal
 //! Gaussian mixture), quantized decision trees and gradient-boosted

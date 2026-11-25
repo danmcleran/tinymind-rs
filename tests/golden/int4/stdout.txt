@@ -1,0 +1,28 @@
+dense 1x1 0x348D451F same=1
+dense 3x2 0xE07E906E same=1
+dense 7x5 0xF1140C0D same=1
+dense 8x4 0x8871681E same=1
+dense 33x10 0x713ACC9C same=1
+dense 64x16 0x453DB4B2 same=1
+# unpack-3x3-pad unpacks=1
+conv unpack-3x3-pad 0x7505421A same=1
+# unpack-odd-window unpacks=1
+conv unpack-odd-window 0x65C2F0C3 same=1
+# unpack-pointwise unpacks=1
+conv unpack-pointwise 0x7A797E0D same=1
+# packed-patch unpacks=0
+conv packed-patch 0x6E6814EE same=1
+# packed-patch-odd unpacks=0
+conv packed-patch-odd 0xC8F394E1 same=1
+# packed-rows-odd unpacks=0
+conv packed-rows-odd 0x408C0412 same=1
+# packed-one-row-odd unpacks=0
+conv packed-one-row-odd 0x63535664 same=1
+depthwise 3x3-pad 0x606D9469 same=1
+depthwise large-strided 0x31D33891 same=1
+pack 98 ba dc fe 10 32 54 76 98 ba dc fe 10 32 54 76 7d 03
+unpack -8 -7 -6 -5 -4 -3 -2 -1 0 1 2 3 4 5 6 7 -8 -7 -6 -5 -4 -3 -2 -1 0 1 2 3 4 5 6 7 -3 7 3
+quantize c=0 scale=3e042492 codes=1,0,6,-1,7,-6,5,-1,6
+quantize c=1 scale=3e026db7 codes=-7,-6,6,3,-6,6,-7,-6,6
+quantize c=2 scale=3f800000 codes=0,0,0,0,0,0,0,0,0
+quantize c=3 scale=3f000000 codes=7,-1,2,-3,5,-7,0,4,-6

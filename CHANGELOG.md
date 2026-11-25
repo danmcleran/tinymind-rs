@@ -9,6 +9,16 @@ break the API).
 
 ### Added
 
+- `int8::QDenseInt4`, `int8::QConv2DInt4` and `int8::QDepthwiseConv2DInt4`,
+  ported from tinymind (C++)'s `cpp/qint4.hpp`: dense, convolution and
+  depthwise layers over int4 weights packed two per byte (TFLite and ONNX
+  nibble order), one requantizer per output channel, with exactly the int8
+  layers' results on the same weights for half the weight flash. The packed
+  length is a const parameter checked at compile time. `int8::pack_int4`,
+  `int8::unpack_int4`, `int8::int4_packed_bytes` and
+  `int8::INT4_UNPACK_MAX_WEIGHTS`; with `std`,
+  `calibration::quantize_int4_per_channel`. `tests/int4_sweep.rs` checks them
+  against tinymind (C++).
 - `int8::QLogMelSpectrogram` and `int8::QMfcc`, ported from tinymind (C++)'s
   `QLogMelSpectrogram` and `QMfcc` (`cpp/qmel.hpp`): a fixed-point log-mel
   spectrogram and MFCC front end for audio, vibration and IMU frames. A frame
