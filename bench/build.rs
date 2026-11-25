@@ -1,7 +1,9 @@
 //! Put the selected board's memory.x where cortex-m-rt's link.x finds it, and
 //! write the FFT workload's twiddle tables (tinymind (C++)'s, read from the FFT
 //! sweep's golden, with the hash it expects) to fft_twiddles.rs, and the fine-tuning
-//! heads' expected hashes (read from the head sweep's golden) to head_expect.rs.
+//! heads' expected hashes (read from the head sweep's golden) to head_expect.rs,
+//! and the features workload's tables and hashes (tinymind (C++)'s
+//! gen_tables.cpp output, tests/golden/features/tables.h) to features_tables.rs.
 use std::{env, fs, path::PathBuf};
 
 fn main() {
@@ -32,6 +34,76 @@ fn main() {
 
     fs::write(out.join("head_expect.rs"), head_expect()).unwrap();
     println!("cargo:rerun-if-changed=../tests/golden/head/stdout.txt");
+
+    fs::write(out.join("features_tables.rs"), features_tables()).unwrap();
+    println!("cargo:rerun-if-changed=../tests/golden/features/tables.h");
+}
+
+/// The features workload's tables as Rust statics, shaped for the layers,
+/// and its expected hashes, from gen_tables.cpp's header.
+fn features_tables() -> String {
+    let header = fs::read_to_string("../tests/golden/features/tables.h").unwrap();
+    let values = |name: &str| -> Vec<String> {
+        let line = header
+            .lines()
+            .find(|l| l.contains(&format!(" {name}[")))
+            .unwrap_or_else(|| panic!("{name} in the features golden"));
+        let body = line.split('{').nth(1).unwrap().split('}').next().unwrap();
+        body.split(',').map(|v| v.trim().to_string()).collect()
+    };
+    // (Rust name, C++ name, element type, row length or 0 for a flat array)
+    let tables = [
+        ("WINDOW", "kWindow", "i16", 0),
+        ("TW_COS", "kTwCos", "i16", 0),
+        ("TW_SIN", "kTwSin", "i16", 0),
+        ("BAND_START", "kBandStart", "u16", 0),
+        ("BAND_LENGTH", "kBandLength", "u16", 0),
+        ("MEL_WEIGHTS", "kMelWeights", "u16", 0),
+        ("DCT", "kDct", "i16", 32),
+        ("CENTROIDS", "kCentroids", "i8", 32),
+        ("INV_RADIUS", "kInvRadius", "u32", 0),
+        ("FEATURE_WEIGHT", "kFeatureWeight", "u16", 0),
+        ("GAUSS_MEANS", "kGaussMeans", "i8", 32),
+        ("GAUSS_PRECISION", "kGaussPrecision", "u32", 32),
+        ("GAUSS_BIAS", "kGaussBias", "i32", 0),
+    ];
+    let mut out = String::new();
+    for (rust, cpp, ty, row) in tables {
+        let v = values(cpp);
+        if row == 0 {
+            out += &format!(
+                "pub static {rust}: [{ty}; {}] = [{}];\n",
+                v.len(),
+                v.join(", ")
+            );
+        } else {
+            assert_eq!(v.len() % row, 0, "{cpp} rows of {row}");
+            let rows: Vec<String> = v
+                .chunks(row)
+                .map(|r| format!("[{}]", r.join(", ")))
+                .collect();
+            out += &format!(
+                "pub static {rust}: [[{ty}; {row}]; {}] = [{}];\n",
+                rows.len(),
+                rows.join(", ")
+            );
+        }
+    }
+    for name in [
+        "HASH_MEL",
+        "HASH_MFCC",
+        "HASH_KMEANS",
+        "HASH_GAUSSIAN",
+        "HASH_LEARN",
+    ] {
+        let line = header
+            .lines()
+            .find(|l| l.starts_with(&format!("#define {name} ")))
+            .unwrap_or_else(|| panic!("{name} in the features golden"));
+        let hex = line.rsplit(' ').next().unwrap().trim_end_matches('u');
+        out += &format!("pub const {name}: u32 = {hex};\n");
+    }
+    out
 }
 
 /// `EXPECT`, the five `bench <name> <hex>` hashes tinymind (C++) printed for

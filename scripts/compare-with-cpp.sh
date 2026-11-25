@@ -580,6 +580,28 @@ cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test int4_swee
   && same "int4 Rust vs tests/golden/int4" \
   || { echo "DIFFERENT  int4 Rust vs tests/golden/int4"; status=1; }
 
+echo "== features (tinymind's tier1 on-board benchmark)"
+# tinymind's benchmarks/tier1_onboard/gen_tables.cpp, unchanged, writes the
+# features workload's tables and hashes (and the digits model's inputs);
+# tests/features_bench.rs checks this crate builds the same tables and hashes,
+# and bench/ runs the workload on the boards from this header.
+mkdir -p "$TMP/features"
+g++ -std=c++14 -O2 -Wall -Wextra -Werror -o "$TMP/features/gen_tables" \
+  "$TINYMIND_DIR/benchmarks/tier1_onboard/gen_tables.cpp" -I"$TINYMIND_DIR/benchmarks/tier1_onboard" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -I"$TINYMIND_DIR/examples/onnx_digits_int8" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=1 -DTINYMIND_ENABLE_STD=1
+"$TMP/features/gen_tables" "$ROOT/data/optdigits.tes" "$TMP/features/tables.h" > /dev/null
+if cmp -s "$TMP/features/tables.h" "$ROOT/tests/golden/features/tables.h"; then
+  same "features tables.h (C++ vs tests/golden/features)"
+else
+  echo "DIFFERENT  features tables.h (C++ vs tests/golden/features)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test features_bench >/dev/null 2>&1 \
+  && same "features Rust tables and hashes vs tests/golden/features" \
+  || { echo "DIFFERENT  features Rust tables and hashes vs tests/golden/features"; status=1; }
+
 echo "== qanomaly"
 # tinymind's QKMeansAnomaly, QKMeansAnomalyTrainer, QDiagGaussianAnomaly and
 # buildQDiagGaussianAnomaly on random tables and streams; tests/qanomaly_sweep.rs
@@ -1002,6 +1024,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/fft/stdout.txt" "$KEEP_CPP_OUTPUT/fft/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/int4"
   cp "$TMP/int4/stdout.txt" "$KEEP_CPP_OUTPUT/int4/stdout.txt"
+  mkdir -p "$KEEP_CPP_OUTPUT/features"
+  cp "$TMP/features/tables.h" "$KEEP_CPP_OUTPUT/features/tables.h"
   mkdir -p "$KEEP_CPP_OUTPUT/qanomaly" "$KEEP_CPP_OUTPUT/mel"
   mkdir -p "$KEEP_CPP_OUTPUT/logmel" "$KEEP_CPP_OUTPUT/vibration"
   cp "$TMP/logmel/cpp/stdout.txt" "$TMP/logmel/cpp/logmel_vibration_error.csv" "$KEEP_CPP_OUTPUT/logmel/"

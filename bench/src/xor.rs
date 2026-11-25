@@ -8,7 +8,7 @@ use core::fmt::{self, Display, Write};
 use core::hint::black_box;
 
 use tinymind::rand::GlibcRand;
-use tinymind::{Activation, Scalar, MultilayerPerceptron, Q8_8, Q16_16, Sigmoid, Tanh};
+use tinymind::{Activation, MultilayerPerceptron, Q8_8, Q16_16, Scalar, Sigmoid, Tanh};
 
 use crate::board::{self, Uart};
 use crate::{REPS, median};

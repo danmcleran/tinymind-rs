@@ -341,6 +341,12 @@ the int8 quantization tiers, SIMD backends, and so on.
   streams with different step caps, with feature weighting on and off, and in
   the edge cases (calibrating before learning, fewer samples than clusters, a
   stream where every distance ties, 600 features).
+- `tests/features_bench.rs` runs tinymind (C++)'s on-board features benchmark
+  (log-mel frame, MFCCs, k-means and Gaussian scores, k-means learning) on the
+  host: every table this crate's calibration builds, including a k-means model
+  learned and calibrated as a device would, and every workload hash must equal
+  those tinymind (C++)'s `gen_tables.cpp` writes; `bench/` runs the same
+  workload on the boards.
 - `tests/head_sweep.rs` checks the fine-tuning heads against tinymind (C++)'s
   `DenseHead` and `PrototypeHead`: nine dense heads (Q16.16, Q8.8, `f64` and
   `f32`; both losses; logits far beyond the exp table; sums that wrap in Q8.8)
@@ -412,7 +418,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, logmel_vibration, vibration_anomaly, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (124 checks today, including
+  example does, runs both sides, and compares every output file (126 checks today, including
   that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the
