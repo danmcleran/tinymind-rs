@@ -40,6 +40,18 @@ samples, so the numbers sit next to the tinymind (C++) ones.
   signal's real part, whose hash must equal the one tinymind (C++)'s `QRFFT1D`
   printed. `fft-runtime` is the same with the layers built at run time from
   tables the compiler cannot see, instead of `static`s.
+- **`features`**: tinymind (C++)'s tier1 features workload
+  (`benchmarks/tier1_onboard`), on `tests/sweeps/features_bench.rs`: one
+  256-sample log-mel frame (32 bands, pre-emphasis 0.97) and its 13 MFCCs,
+  a k-means anomaly score (32 features, 8 clusters), a diagonal Gaussian
+  score (4 components) and a k-means learning step, on tinymind (C++)'s
+  synthetic inputs and with its tables (`tests/golden/features/tables.h`,
+  the unchanged output of its `gen_tables.cpp`, read by `build.rs`;
+  `tests/features_bench.rs` checks that this crate's calibration builds the
+  same tables). Each workload's hash over its 8 inputs must equal the one
+  `gen_tables.cpp` printed. The whole image overflows the L031's 32 KB at
+  opt-level 3, so there `run.sh` runs `features-mel` (log-mel, MFCC) and
+  `features-anomaly` (the scores and learning) as two images.
 - **`head`**: the fine-tuning heads (`tinymind::head`) on a Q16.16 workload
   shared with the host (`tests/sweeps/head_bench.rs`): 32-value embeddings
   for 6 classes, 5 samples each, and a shipped `DenseHead<Q16_16, 32, 6>`,
@@ -177,6 +189,7 @@ sensitive to placement (see below).
 | 256-point FFT, forward: spectrum hash = tinymind (C++)'s (`0xEFABBA1C`) | match | match |
 | 256-point real-input FFT: spectrum hash = tinymind (C++)'s (`0x316EE142`) | match | match |
 | Fine-tuning heads: dense step, prediction, prototype update and prediction, whole adaptation: hashes = tinymind (C++)'s | match | match |
+| Log-mel frame, MFCCs, k-means and Gaussian scores, k-means learning: hashes = tinymind (C++)'s (`0x8658E8AF`, `0x793B419E`, `0x39A381B6`, `0x45F5EBB5`, `0x10A2C62E`) | match | match |
 | MLPerf Tiny DS-CNN (translated from TFLite) output hash = tinymind (C++)'s (`0xF623A166`) | match | - |
 | MLPerf Tiny ResNet-8 (translated from TFLite) output hash = tinymind (C++)'s (`0x8897F6ED`) | match | - |
 | MLP accuracy | 346/360 (96.11%) | 31/32 (96.88%) |
@@ -266,6 +279,30 @@ The L031 image leaves about 2.0 KB of the part's 32 KB free; the training step
 and the scorer are `#[inline(never)]` so the training and timing loops share
 one copy (inlined twice at `opt-level = 3` it did not fit), and so is the
 library's per-layer update loop (`optimizer::update_all`).
+
+### Log-mel front end and anomaly scores
+
+tinymind (C++)'s tier1 features workload, median cycles over 33 calls
+cycling through 8 inputs; tinymind (C++)'s figures are its
+`benchmarks/tier1_onboard/results/raw_features_*_O3*.txt` (gcc `-O3`, scalar
+kernels), every hash matching. Measured 2026-11-25 (rustc 1.100.0).
+
+| Median cycles | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
+|---|---:|---:|---:|---:|
+| Log-mel frame, 256 samples to 32 bands | **49,183** (492 us) | 46,878 | **197,936** (6.19 ms) | 185,172 |
+| 13 MFCCs from 32 bands | **2,450** | 4,112 | **34,650** | 33,567 |
+| k-means score, 32 features, 8 clusters | **3,699** | 3,569 | **24,678** | 23,571 |
+| Gaussian score, 32 features, 4 components | **1,788** | 1,967 | **12,167** | 12,436 |
+| k-means learning step | **2,728** | 5,461 | **30,244** | 30,700 |
+
+The log-mel frame takes 5% (M4F) and 7% (M0+) more cycles than the C++: its
+real FFT is this crate's (`QRFft1D`, 23,083 / 55,823 cycles alone), the
+rest is the window, block scaling, filters and log. At opt-level 3 LLVM
+unrolls the MFCCs' 13 x 32 sum and the learning step's loops completely,
+which halves the learning step and takes 40% off the MFCCs on the M4F, for
+flash: the F411 image is 33,628 B (20,312 B over the baseline), the L031's
+two images 24,488 B and 23,028 B (12,052 B and 10,592 B over it). Raw
+reports: session scratchpad `bench-features/`.
 
 ### Fine-tuning heads
 

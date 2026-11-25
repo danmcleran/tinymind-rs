@@ -28,6 +28,7 @@ The Rust figures on this page were measured with Rust 1.100.0 (LLVM 23.1.5) on 2
 | 256-point FFT, forward transform: spectrum hash equals tinymind (C++)'s | match | match |
 | 256-point real-input FFT: spectrum hash equals tinymind (C++)'s | match | match |
 | fine-tuning heads: a dense training step and prediction, a prototype update and prediction, and a whole adaptation: hashes equal tinymind (C++)'s | match | match |
+| log-mel frame, MFCCs, k-means and Gaussian anomaly scores, k-means learning: hashes equal tinymind (C++)'s | match | match |
 | MLPerf Tiny keyword spotting (DS-CNN), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 | MLPerf Tiny image classification (ResNet-8), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 
@@ -138,6 +139,20 @@ The [anomaly-detection example]({{ site.baseurl }}/anomaly) on the boards: an 8-
 | Training, 3,000 steps (signal generation included) | 0.27 s | 4.5 s |
 | One training step | 8,489 cycles | 38,557 cycles |
 | One detection | 1,611 cycles | 8,084 cycles |
+
+## Log-mel front end and anomaly scores
+
+tinymind (C++)'s on-board features benchmark: one 256-sample log-mel frame (32 bands) and its 13 MFCCs, k-means and Gaussian anomaly scores over 32 int8 features, and one step of the k-means trainer that learns on the device, on tinymind (C++)'s synthetic inputs and tables; every hash matches tinymind (C++)'s. tinymind (C++)'s figures come from its own benchmark (gcc `-O3`). Measured 2026-11-25 (Rust 1.100.0).
+
+| Median cycles | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
+|---|---:|---:|---:|---:|
+| Log-mel frame, 256 samples to 32 bands | **49,183** (492 µs) | 46,878 | **197,936** (6.19 ms) | 185,172 |
+| 13 MFCCs from 32 bands | **2,450** | 4,112 | **34,650** | 33,567 |
+| k-means score, 32 features, 8 clusters | **3,699** | 3,569 | **24,678** | 23,571 |
+| Gaussian score, 32 features, 4 components | **1,788** | 1,967 | **12,167** | 12,436 |
+| k-means learning step | **2,728** | 5,461 | **30,244** | 30,700 |
+
+A frame every 128 samples at 3.2 kHz leaves 40 ms: the front end takes about 0.5 ms of it on the M4F and 6.2 ms on the M0+, and scoring or learning a frame well under 1 ms on either. The log-mel frame takes 5 to 7% more cycles than the C++; the k-means score 4 to 5% more. The learning step takes half the cycles on the M4F and the MFCCs 40% fewer, where LLVM unrolls their loops completely, which costs flash: the whole workload adds 20 KB to the F411 image, and on the L031 it is run as two images of 12 KB and 11 KB over the baseline. The details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
 
 ## Fine-tuning heads
 

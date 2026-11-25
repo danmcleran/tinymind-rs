@@ -108,6 +108,10 @@ name = "fft_sweep"
 required-features = ["std"]
 
 [[test]]
+name = "features_bench"
+required-features = ["std"]
+
+[[test]]
 name = "mel_sweep"
 required-features = ["std"]
 

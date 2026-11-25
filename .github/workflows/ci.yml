@@ -197,9 +197,10 @@ jobs:
               --out src/gen/mlperf_$m.rs --data src/gen/mlperf_${m}_data.rs --target-dir "$RUNNER_TEMP/tflite_target"
           done
           for spec in f411:thumbv7em-none-eabihf l031:thumbv6m-none-eabi; do
-            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",fft" ",fft-runtime" ",trees" ",kws" ",kws-profile" ",mlperf-kws" ",mlperf-ic"; do
-              # The MLPerf models do not fit the L031.
-              case "${spec%%:*}$wl" in l031,mlperf-*) continue ;; esac
+            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",fft" ",fft-runtime" ",features" ",features-mel" ",features-anomaly" ",trees" ",kws" ",kws-profile" ",mlperf-kws" ",mlperf-ic"; do
+              # The MLPerf models do not fit the L031, nor the whole features
+              # workload at opt-level 3 (run.sh runs its two halves there).
+              case "${spec%%:*}$wl" in l031,mlperf-*|l031,features) continue ;; esac
               echo "== ${spec%%:*}$wl"
               # As run.sh: the L031 trees image fits 32 KB only at opt-level s.
               opt=3; [ "${spec%%:*}$wl" = "l031,trees" ] && opt=s

@@ -11,6 +11,8 @@ compile_error!("one MLPerf model per image: enable mlperf-kws or mlperf-ic, not 
 #[cfg(feature = "anomaly")]
 mod anomaly;
 mod board;
+#[cfg(any(feature = "features-mel", feature = "features-anomaly"))]
+mod features;
 #[cfg(feature = "fft")]
 mod fft;
 #[cfg(feature = "head")]
@@ -22,6 +24,8 @@ mod kws;
     feature = "xor-q8",
     feature = "anomaly",
     feature = "fft",
+    feature = "features-mel",
+    feature = "features-anomaly",
     feature = "head",
     feature = "trees",
     feature = "kws",
@@ -66,7 +70,9 @@ fn main() -> ! {
         feature = "xor-q8",
         feature = "anomaly",
         feature = "fft",
-    feature = "head",
+        feature = "features-mel",
+        feature = "features-anomaly",
+        feature = "head",
         feature = "trees",
         feature = "kws",
         feature = "mlperf-kws",
@@ -88,6 +94,8 @@ fn main() -> ! {
     fft::run(&mut out);
     #[cfg(feature = "head")]
     head::run(&mut out);
+    #[cfg(any(feature = "features-mel", feature = "features-anomaly"))]
+    features::run(&mut out);
     #[cfg(feature = "xor-q16")]
     xor::run::<tinymind::Q16_16>(&mut out, "xor-q16.16", xor::Q16_EXPECT);
     #[cfg(feature = "xor-q8")]

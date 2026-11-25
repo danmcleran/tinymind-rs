@@ -162,3 +162,22 @@ parallel-DSP flag changes only ResNet-8 (KWS and DS-CNN identical with it).
 probe-rs is not installed; OpenOCD and arm-none-eabi binutils are.
 
 Toolchain re-measure (2026-11-14, rustc 1.100.0 / LLVM 23.1.5, was 1.99.1 / 23.1.1): every default workload on both boards, plus FFT and KWS at opt s, fft-runtime at 3 and s, MLPerf (F411, and ResNet-8 with parallel-DSP), the F411 settings table (generic / misched off / top-down for MLP, KWS, both MLPerf, anomaly; head with misched off) and the F411 sweeps at opt s; every hash matched. Moves: F411 KWS 189,097 -> 189,015 (max pool 9,527 -> 9,446), DS-CNN 10,790,589 -> 10,806,923, ResNet-8 58,807,476 -> 58,755,508, parallel-DSP 38,273,811 -> 38,519,503, KWS at s 537,118 -> 537,193, head step 9,371 -> 9,374; L031 KWS 649,286 -> 649,090 (max pool 20,192 -> 19,210), KWS at s 1,171,205 -> 1,181,849, xor-q16 5,957 -> 5,942 (inference 4,149 -> 4,134), anomaly 38,569 -> 38,557 / detect 8,096 -> 8,084, head 51,252 -> 51,222, trees quantize 11,292 -> 11,241, MLP 35,710 -> 35,711, FFT static magnitudes 4,863 -> 4,895 (the runtime image still 4,863); settings table DS-CNN generic +32.2% / top-down +9.9%, ResNet-8 generic +10.0% / top-down +0.7%, KWS top-down -7.2%; sweeps 355,889,556 -> 351,627,680 cycles (both modulo 2^32, see verification.md), 424,448 B. Unchanged to the cycle: F411 MLP, xor, anomaly, FFT, trees, MLP profile, misched/top-down MLP and anomaly. Text with 1.99.1 vs 1.100.0 for the same tree differs by at most 16 B (built side by side), so the stale size figures this found were older drift, not the compiler: KWS code+weights F411 8,056 -> 8,072, L031 8,352 / 4,848 RAM -> 8,096 / 4,592; DS-CNN 49,712 -> 46,952; ResNet-8 130,504 -> 128,160 (parallel-DSP 125,496 -> 123,216); all from #89/#91 (2026-11-11), not re-measured by later library PRs. Re-measure sizes with timings. 1.100.0's cargo warns `unused dependency tinymind` for the bench's baseline image (no workload feature); harmless. Gotcha: `bench/src/gen/` is gitignored, so a fresh worktree needs it created and the MLPerf files copied before `mlperf-*` builds. Raw runs: session scratchpad `tc/`.
+
+The `features` workload (2026-11-25, tinymind v19.0 tier1): tinymind's
+`benchmarks/tier1_onboard` features group on `tests/sweeps/features_bench.rs`
+(make_frame/make_features/hashes/trainer warm-up ported from
+tier1_common.hpp; the generators and hash helpers `#[inline(never)]`, else
+`main` was 10.8 KB on the M0+). Tables from `tests/golden/features/tables.h`
+= tinymind's `gen_tables.cpp` output unchanged (compare-with-cpp rebuilds it
+and cmps; `tests/features_bench.rs` builds every table with this crate's
+calibration and matches them and all five hashes: first run). build.rs
+writes `features_tables.rs`. At opt 3 the one image is 33,628 B on the F411
+but overflowed the L031 by 3.6 KB (9.3 KB before the never-inlines), so cargo
+features `features-mel` / `features-anomaly` (`features` = both) and run.sh
+runs the two on the L031 (24,488 / 23,028 B text; baseline 12,436). Rust opt 3
+vs C++ -O3 scalar (raw_features_*_O3*): F411 logmel 49,183 / 46,878, mfcc
+2,450 / 4,112, kmeans 3,699 / 3,569, gaussian 1,788 / 1,967, learn 2,728 /
+5,461; L031 197,936 / 185,172, 34,650 / 33,567, 24,678 / 23,571, 12,167 /
+12,436, 30,244 / 30,700; all match=1. Big code: QKMeansAnomalyTrainer::learn
+4.8 KB and run_mfcc 3.5 KB on the M0+ (full unroll). Not tuned yet: log-mel
+is the gap (5-7%). Raw: session scratchpad `bench-features/`.

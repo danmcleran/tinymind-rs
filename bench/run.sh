@@ -60,7 +60,11 @@ for board in "${@:-f411 l031}"; do
   for b in $board; do
     read -r target cfg serial n <<< "$(board_info "$b")"
     python3 -I "$HERE/gen.py" "$n" >/dev/null
-    for wl in ${WORKLOADS:-baseline mlp profile xor-q16 xor-q8 anomaly fft head trees kws kws-profile}; do
+    wls="${WORKLOADS:-baseline mlp profile xor-q16 xor-q8 anomaly fft head features trees kws kws-profile}"
+    # The whole features image overflows the L031's 32 KB at opt-level 3: run
+    # it there as two images, the log-mel front end and the anomaly scores.
+    [ "$b" = l031 ] && wls="${wls/features/features-mel features-anomaly}"
+    for wl in $wls; do
       features="$b"; [ "$wl" = baseline ] || features="$b,$wl"
       echo "### $b $wl"
       run_image "$b" "$target" "$cfg" "$serial" "$features" "$wl"
