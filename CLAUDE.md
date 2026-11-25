@@ -164,6 +164,7 @@ The third column is the notes file in `.claude/rules/`.
 | `src/int8/conv.rs`, `src/int8/pool.rs` (re-exported from `int8`) | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp` | `int8.md` |
 | `src/int8/add.rs` (re-exported from `int8`) | `cpp/qadd.hpp`, `buildQAddParams` in `cpp/include/qcalibration.hpp` | `int8.md` |
 | `src/int8/fft.rs` (re-exported from `int8`), `tests/sweeps/fft.rs`, `scripts/cpp/fft_sweep.cpp` | `cpp/qfft1d.hpp` (`QFFT1D`, `QRFFT1D`), `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp` | `int8.md` |
+| `src/int8/int4.rs` (re-exported from `int8`), `tests/int4_sweep.rs`, `scripts/cpp/int4_sweep.cpp` | `cpp/qint4.hpp` (`QDenseInt4`, `QConv2DInt4`, `QDepthwiseConv2DInt4`, `packInt4`, `unpackInt4`, `quantizeInt4PerChannel`) | `int8.md` |
 | `src/int8/mel.rs` (re-exported from `int8`), `tests/mel_sweep.rs`, `scripts/cpp/mel_sweep.cpp` | `cpp/qmel.hpp` (`QLogMelSpectrogram`, `QMfcc`, `QMelWorkspace`, `buildQHannWindow`, `buildQMelFilterbank`, `buildQDctMatrix`) | `int8.md` |
 | `src/int8/anomaly.rs` (re-exported from `int8`), `tests/qanomaly_sweep.rs`, `scripts/cpp/anomaly_sweep.cpp` | `cpp/qanomaly.hpp` (`QKMeansAnomaly`, `QKMeansAnomalyTrainer`, `QDiagGaussianAnomaly`, `buildQDiagGaussianAnomaly`) | `int8.md` |
 | `src/int8/compose.rs` (re-exported from `int8`) | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `buildQMulRequantizer`/`buildRescaler` | `int8.md` |

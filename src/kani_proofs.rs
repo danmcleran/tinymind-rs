@@ -1350,3 +1350,80 @@ mod mel {
         QMfcc { dct: &dct }.forward(&out, &mut coeffs);
     }
 }
+
+/// The packed int4 layers (`int8::int4`).
+mod int4 {
+    use crate::int8::{QConv2DInt4, QDenseInt4, QDepthwiseConv2DInt4, Requantizer, unpack_int4};
+
+    fn any_requantizer() -> Requantizer {
+        Requantizer {
+            multiplier: kani::any(),
+            shift: kani::any(),
+            zero_point: kani::any(),
+            qmin: kani::any(),
+            qmax: kani::any(),
+        }
+    }
+
+    /// Both nibbles of any byte decode to their two's-complement 4-bit values.
+    #[kani::proof]
+    fn int4_nibbles_sign_extend() {
+        let b: u8 = kani::any();
+        let packed = [b];
+        assert!(unpack_int4(&packed, 0) == Some(((b << 4) as i8) >> 4));
+        assert!(unpack_int4(&packed, 1) == Some((b as i8) >> 4));
+        assert!(unpack_int4(&packed, 2).is_none());
+    }
+
+    /// Three inputs and two outputs, so the second row starts mid-byte.
+    #[kani::proof]
+    #[kani::unwind(4)]
+    fn int4_dense_never_panics() {
+        let weights: [u8; 3] = kani::any();
+        let biases: [i32; 2] = kani::any();
+        let requantizers = [any_requantizer(), any_requantizer()];
+        let layer: QDenseInt4<'_, 3, 2, 3> = QDenseInt4 {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
+        };
+        let input: [i8; 3] = kani::any();
+        layer.forward(&input);
+    }
+
+    /// conv_never_panics' layer with packed weights (unpacked onto the stack).
+    #[kani::proof]
+    #[kani::unwind(6)]
+    fn int4_conv_never_panics() {
+        let weights: [u8; 2] = kani::any();
+        let biases: [i32; 1] = kani::any();
+        let requantizers = [any_requantizer()];
+        let layer: QConv2DInt4<'_, 1, 2, 2, 1, 2, 2, 1, 1, 0, 0, 1> = QConv2DInt4 {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
+        };
+        let input: [[[i8; 1]; 2]; 2] = kani::any();
+        let mut output = [[[0i8; 1]; 2]; 1];
+        layer.forward(&input, &mut output);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(5)]
+    fn int4_depthwise_never_panics() {
+        let weights: [u8; 4] = kani::any();
+        let biases: [i32; 2] = kani::any();
+        let requantizers = [any_requantizer(), any_requantizer()];
+        let layer: QDepthwiseConv2DInt4<'_, 2, 2, 2, 4, 1, 1, 1, 0, 0, 1> = QDepthwiseConv2DInt4 {
+            weights: &weights,
+            biases: if kani::any() { Some(&biases) } else { None },
+            input_zero_point: kani::any(),
+            requantizers: &requantizers,
+        };
+        let input: [[[i8; 2]; 2]; 2] = kani::any();
+        let mut output = [[[0i8; 2]; 2]; 2];
+        layer.forward(&input, &mut output);
+    }
+}

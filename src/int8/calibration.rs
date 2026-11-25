@@ -7,7 +7,7 @@
 //! `buildQMulRequantizer`, `buildQLSTMParams`, `buildQGRUParams`,
 //! `quantizeQLSTMBiases`, `quantizeQGRUBiases`, `buildQFFTTwiddles`,
 //! `buildQHannWindow`, `buildQMelFilterbank`, `buildQDctMatrix`,
-//! `buildQDiagGaussianAnomaly`).
+//! `buildQDiagGaussianAnomaly`, `quantizeInt4PerChannel`).
 //!
 //! Needs the `std` feature, for `exp`, `tanh`, `cos`, `sin`, `log`, `log10` and
 //! `pow`; tinymind (C++) gates the
@@ -905,6 +905,41 @@ pub fn build_diag_gaussian_anomaly<const F: usize, const K: usize>(
         bias_out[k] = (b * 256.0).round().clamp(-2_147_483_648.0, 2_147_483_647.0) as i32;
     }
     (means_out, precision_out, bias_out)
+}
+
+/// Symmetric per-channel int4 quantization of a `[C][N]` float matrix (C++
+/// `quantizeInt4PerChannel`): `scale_c = max_i |w[c][i]| / 7` (in `f32`) and
+/// `q = round(w / scale_c)` in `-7..=7`, the symmetric range (-8 is not
+/// used). A channel of zeros gets scale 1 and all-zero codes. Returns the
+/// codes (pack them with [`pack_int4`](super::pack_int4)) and the scales.
+///
+/// ```
+/// use tinymind::int8::calibration::quantize_int4_per_channel;
+///
+/// let (codes, scales) = quantize_int4_per_channel(&[[3.5, -1.25, 0.5], [0.0; 3]]);
+/// assert_eq!(scales, [0.5, 1.0]);
+/// assert_eq!(codes, [[7, -3, 1], [0; 3]]); // -2.5 rounds away from zero
+/// ```
+pub fn quantize_int4_per_channel<const C: usize, const N: usize>(
+    weights: &[[f32; N]; C],
+) -> ([[i8; N]; C], [f32; C]) {
+    let mut codes = [[0i8; N]; C];
+    let mut scales = [0f32; C];
+    for ((row, scale), w) in codes.iter_mut().zip(scales.iter_mut()).zip(weights) {
+        let mut largest = 0.0f32;
+        for &v in w {
+            let a = v.abs();
+            if a > largest {
+                largest = a;
+            }
+        }
+        *scale = if largest > 0.0 { largest / 7.0 } else { 1.0 };
+        for (q, &v) in row.iter_mut().zip(w) {
+            // C `lround` on the double quotient, then the clamp to -7..=7.
+            *q = (f64::from(v) / f64::from(*scale)).round().clamp(-7.0, 7.0) as i8;
+        }
+    }
+    (codes, scales)
 }
 
 #[cfg(test)]

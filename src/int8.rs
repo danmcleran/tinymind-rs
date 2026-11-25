@@ -3,7 +3,7 @@
 //! `cpp/qpointwiseconv2d.hpp`, `cpp/qpool2d.hpp`, `cpp/qadd.hpp`, `cpp/qmul.hpp`,
 //! `cpp/qpad.hpp`, `cpp/qconcat.hpp`, `cpp/qactivations.hpp`,
 //! `cpp/qsoftmax_fixedpoint.hpp`, `cpp/qlstm.hpp`, `cpp/qgru.hpp`,
-//! `cpp/qfft1d.hpp`, `cpp/qmel.hpp` and `cpp/qanomaly.hpp`.
+//! `cpp/qfft1d.hpp`, `cpp/qmel.hpp`, `cpp/qanomaly.hpp` and `cpp/qint4.hpp`.
 //!
 //! This is the TFLite / CMSIS-NN quantization model, separate from the Q-format
 //! [`QValue`](crate::QValue) pipeline: a real value is `scale * (q - zero_point)`,
@@ -83,6 +83,17 @@
 //! (TFLite MUL, squeeze-and-excite gating). [`QPad2D`] pads a tensor with a
 //! constant and [`QConcat`] joins two along the channel axis.
 //!
+//! # Int4 weights
+//!
+//! [`QDenseInt4`], [`QConv2DInt4`] and [`QDepthwiseConv2DInt4`] hold their
+//! weights as int4, two per byte, in the nibble order TFLite and ONNX use,
+//! with one requantizer per output channel. Each computes exactly what
+//! [`QDensePerChannel`], [`QConv2DPerChannel`] or [`QDepthwiseConv2D`]
+//! computes on the same weights stored as `i8`, for half the weight flash.
+//! The packed length is one more const parameter, checked at compile time;
+//! [`pack_int4`] packs a tensor and `calibration` quantizes float weights to
+//! int4 per channel.
+//!
 //! # Recurrent cells
 //!
 //! [`QLstmCell`] and [`QGruCell`] run one time step of an int8 LSTM or GRU
@@ -141,6 +152,7 @@ pub mod calibration;
 pub(crate) mod compose;
 pub(crate) mod conv;
 pub(crate) mod fft;
+pub(crate) mod int4;
 pub(crate) mod mel;
 pub(crate) mod pool;
 pub(crate) mod recurrent;
@@ -152,6 +164,10 @@ pub use conv::{
     QConv2D, QConv2DPerChannel, QDepthwiseConv2D, QPointwiseConv2D, QPointwiseConv2DPerChannel,
 };
 pub use fft::{QFft1D, QRFft1D};
+pub use int4::{
+    INT4_UNPACK_MAX_WEIGHTS, QConv2DInt4, QDenseInt4, QDepthwiseConv2DInt4, int4_packed_bytes,
+    pack_int4, unpack_int4,
+};
 pub use mel::{QLogMelSpectrogram, QMelWorkspace, QMfcc};
 pub use pool::{QAvgPool2D, QGlobalAvgPool2D, QMaxPool2D};
 pub use recurrent::{CellStorage, QGruCell, QLstmCell};
