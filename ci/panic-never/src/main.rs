@@ -19,6 +19,7 @@ use tinymind::int8::{
     QLstmCell, QMaxPool2D, QMelWorkspace, QMfcc, QMul, QPad2D, QPointwiseConv2D,
     QPointwiseConv2DPerChannel, QRFft1D, QSoftmax, Requantizer,
 };
+use tinymind::int16x8;
 use tinymind::qlearn;
 use tinymind::rand::GlibcRand;
 use tinymind::recurrent::LstmNetwork;
@@ -612,6 +613,102 @@ fn int8_int4() {
     ));
 }
 
+/// The 16x8 layers, with every weight, bias, parameter and input opaque.
+fn int16x8_layers() {
+    let rq = int16x8::Requantizer {
+        multiplier: black_box(1 << 30),
+        shift: black_box(9),
+        zero_point: black_box(-3),
+        qmin: black_box(-32768),
+        qmax: black_box(32767),
+    };
+    black_box(rq.apply(black_box(i64::MIN)));
+    let w = black_box([[black_box(3i8); 16]; 4]);
+    let b = black_box([black_box(1i64 << 40); 4]);
+    let rqs = black_box([rq; 4]);
+    let x = black_box([black_box(-7i16); 16]);
+    let dense: int16x8::QDense<'_, 16, 4> = black_box(int16x8::QDense {
+        weights: &w,
+        biases: if black_box(true) { Some(&b) } else { None },
+        input_zero_point: black_box(2),
+        requantizer: rq,
+    });
+    black_box(dense.forward(&x));
+    let per: int16x8::QDensePerChannel<'_, 16, 4> = black_box(int16x8::QDensePerChannel {
+        weights: &w,
+        biases: None,
+        input_zero_point: black_box(2),
+        requantizers: &rqs,
+    });
+    black_box(per.forward(&x));
+
+    let map = black_box([[[black_box(100i16); 2]; 6]; 5]);
+    let cw = black_box([[[[black_box(-5i8); 2]; 3]; 3]; 4]);
+    let conv: int16x8::QConv2D<'_, 2, 3, 3, 4, 2, 1, 1, 1, 1, 1> = black_box(int16x8::QConv2D {
+        weights: &cw,
+        biases: if black_box(true) { Some(&b) } else { None },
+        input_zero_point: black_box(-1),
+        requantizer: rq,
+    });
+    let mut out = black_box([[[0i16; 4]; 6]; 3]);
+    conv.forward(&map, &mut out);
+    black_box(&out);
+    let conv_pc: int16x8::QConv2DPerChannel<'_, 2, 3, 3, 4, 2, 1, 1, 1, 1, 1> =
+        black_box(int16x8::QConv2DPerChannel {
+            weights: &cw,
+            biases: None,
+            input_zero_point: black_box(-1),
+            requantizers: &rqs,
+        });
+    conv_pc.forward(&map, &mut out);
+    black_box(&out);
+    let dw = black_box([[[black_box(7i8); 3]; 3]; 2]);
+    let rqs2 = black_box([rq; 2]);
+    let depthwise: int16x8::QDepthwiseConv2D<'_, 2, 3, 3, 1, 1, 1, 1, 1, 1> =
+        black_box(int16x8::QDepthwiseConv2D {
+            weights: &dw,
+            biases: None,
+            input_zero_point: black_box(4),
+            requantizers: &rqs2,
+        });
+    let mut dw_out = black_box([[[0i16; 2]; 6]; 5]);
+    depthwise.forward(&map, &mut dw_out);
+    black_box(&dw_out);
+    let mut pooled = black_box([[[0i16; 2]; 3]; 2]);
+    int16x8::QMaxPool2D::<2, 2>.forward(&map, &mut pooled);
+    black_box(&pooled);
+
+    let add = black_box(int16x8::QAdd {
+        input_a_zero_point: black_box(0),
+        input_b_zero_point: black_box(0),
+        left_shift: black_box(15),
+        input_a_multiplier: black_box(1 << 30),
+        input_a_shift: black_box(1),
+        input_b_multiplier: black_box(1 << 30),
+        input_b_shift: black_box(1),
+        output_requantizer: int16x8::Requantizer32 {
+            multiplier: black_box(1 << 30),
+            shift: black_box(14),
+            zero_point: black_box(0),
+            qmin: black_box(-32768),
+            qmax: black_box(32767),
+        },
+    });
+    let mut sum = black_box([[[0i16; 2]; 6]; 5]);
+    add.forward(&map, &map, &mut sum);
+    black_box(&sum);
+
+    let lut = black_box([black_box(1234i16); int16x8::LUT_SIZE]);
+    black_box(int16x8::apply_lut(black_box(i16::MAX), &lut));
+    let softmax = black_box(int16x8::QSoftmax {
+        input_multiplier: black_box(1 << 30),
+        input_shift: black_box(-1),
+    });
+    let mut probs = black_box([0i16; 16]);
+    softmax.forward(&x, &mut probs);
+    black_box(&probs);
+}
+
 /// Convolutions and pooling: padded and unpadded, strided, per tensor and per
 /// channel, with every parameter and tensor opaque.
 fn int8_conv() {
@@ -1052,6 +1149,7 @@ pub extern "C" fn _start() -> ! {
     int8_anomaly::<1, 1>();
     int8_anomaly::<32, 8>();
     int8_int4();
+    int16x8_layers();
     // The int8 recurrent cells: both cell-state types, an odd shape and a
     // larger one.
     int8_recurrent::<i8, 3, 16>(black_box(0));

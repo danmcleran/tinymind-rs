@@ -227,10 +227,10 @@ jobs:
         env:
           TINYMIND_DIR: ${{ github.workspace }}/tinymind
         run: scripts/qemu-bench.sh
-      - name: Check src/lut.rs matches the tables at TINYMIND_REF
+      - name: Check src/lut.rs and the int16 softmax tables match TINYMIND_REF
         if: success() || failure()
         env:
           TINYMIND_DIR: ${{ github.workspace }}/tinymind
         run: |
           python3 -I tinymind-rs/scripts/extract-luts.py
-          git -C tinymind-rs diff --exit-code -- src/lut.rs
+          git -C tinymind-rs diff --exit-code -- src/lut.rs src/int16x8/softmax_tables.rs

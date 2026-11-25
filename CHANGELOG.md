@@ -19,6 +19,20 @@ break the API).
   `int8::INT4_UNPACK_MAX_WEIGHTS`; with `std`,
   `calibration::quantize_int4_per_channel`. `tests/int4_sweep.rs` checks them
   against tinymind (C++).
+- A new module, `int16x8`, ported from tinymind (C++) v19.0's int16 paths:
+  TFLite's 16x8 scheme, int16 activations with int8 weights and int64
+  accumulators. `int16x8::Requantizer` computes exactly what TFLite's 64-bit
+  `MultiplyByQuantizedMultiplier` computes; `QDense`, `QDensePerChannel`,
+  `QConv2D`, `QConv2DPerChannel`, `QDepthwiseConv2D` and `QMaxPool2D` have the
+  int8 layers' shapes over `i16` tensors; `QAdd` (with `Requantizer32` and the
+  sealed `int16x8::Tensor`) is TFLite's int16 ADD; `apply_lut` is TFLite's
+  513-entry interpolated int16 table; `QSoftmax` is TFLite's int16 softmax,
+  bit for bit, with TFLite's tables as constants (`int16x8::LUT_SIZE`
+  entries). With `std`, `int16x8::calibration` builds them from float scales:
+  `build_requantizer`, `build_add`, `build_lut`, `build_sigmoid_lut`,
+  `build_tanh_lut`, `build_softmax`, and `build_softmax_luts` (TFLite's
+  softmax tables, to check the constants). `tests/int16x8_sweep.rs` checks
+  them against tinymind (C++).
 - `int8::QLogMelSpectrogram` and `int8::QMfcc`, ported from tinymind (C++)'s
   `QLogMelSpectrogram` and `QMfcc` (`cpp/qmel.hpp`): a fixed-point log-mel
   spectrogram and MFCC front end for audio, vibration and IMU frames. A frame

@@ -26,7 +26,9 @@
 //! byte, radix-2 FFTs on 16-bit
 //! samples, complex or real-input, a log-mel spectrogram and MFCC front end,
 //! and anomaly scores, k-means with an on-device trainer or a diagonal
-//! Gaussian mixture), quantized decision trees and gradient-boosted
+//! Gaussian mixture), TFLite's 16x8 scheme with int16 activations and int8
+//! weights ([`int16x8`]: dense, convolution, depthwise and pooling layers,
+//! addition, activation tables and softmax), quantized decision trees and gradient-boosted
 //! ensembles ([`tree`]), Q-learning, tabular or with a deep Q-network
 //! ([`qlearn`]), LSTM recurrent
 //! networks ([`recurrent::LstmNetwork`]), and head-only fine-tuning ([`head`]:
@@ -39,7 +41,8 @@
 //!
 //! # Features
 //!
-//! - `std`: host-side int8 calibration (`int8::calibration`), and the math
+//! - `std`: host-side calibration (`int8::calibration`,
+//!   `int16x8::calibration`), and the math
 //!   (`tanh`, `exp`, `pow`, `sqrt`) of the `f32`/`f64` [`Tanh`], [`Sigmoid`],
 //!   `AdamFloat`, `RmsPropFloat` and `head::SoftmaxExp`, from the platform (bit-identical to
 //!   tinymind (C++) on a glibc host).
@@ -88,6 +91,7 @@ extern crate std;
 
 pub mod activation;
 pub mod head;
+pub mod int16x8;
 pub mod int8;
 mod lut;
 pub mod network;

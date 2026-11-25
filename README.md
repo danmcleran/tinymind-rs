@@ -27,7 +27,7 @@ affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
 (for residual connections) and multiplication, padding, concatenation, quantized
 ReLU, activation tables, a softmax that is bit-exact with TFLite's, LSTM and
-GRU cells, int4 weights packed two per byte, and radix-2 FFTs on 16-bit samples, complex or real-input), a fixed-point log-mel spectrogram and MFCC front end, int8 anomaly scores (k-means, with a trainer that learns the clusters on the device, and a diagonal Gaussian mixture), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`), and head-only fine-tuning: a trainable dense head and a nearest-class-mean head that adapt a frozen model on the device from a few labelled samples. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
+GRU cells, int4 weights packed two per byte, and radix-2 FFTs on 16-bit samples, complex or real-input), TFLite's 16x8 scheme (int16 activations with int8 weights: dense, convolution, depthwise, pooling, addition, activation tables and softmax), a fixed-point log-mel spectrogram and MFCC front end, int8 anomaly scores (k-means, with a trainer that learns the clusters on the device, and a diagonal Gaussian mixture), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`), and head-only fine-tuning: a trainable dense head and a nearest-class-mean head that adapt a frozen model on the device from a few labelled samples. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
 helpers (`int8::calibration`) that turn float scales into the integer parameters
@@ -239,6 +239,7 @@ set.
 | `src/int8/anomaly.rs` | `cpp/qanomaly.hpp`: anomaly scores for int8 feature vectors, k-means distance in units of each cluster's radius (`QKMeansAnomaly`), a trainer that learns the centroids, feature weights and radii on the device one sample at a time (`QKMeansAnomalyTrainer`), and a diagonal Gaussian mixture (`QDiagGaussianAnomaly`, built from a float fit on the host) |
 | `src/int8/compose.rs` | `cpp/qmul.hpp`, `cpp/qpad.hpp`, `cpp/qconcat.hpp`: int8 elementwise multiplication (TFLite MUL), explicit padding (PAD) and channel concatenation (CONCATENATION) |
 | `src/int8/recurrent.rs` | `cpp/qlstm.hpp`, `cpp/qgru.hpp`: int8 LSTM cell (int8 or int16 cell state) and GRU cell, one time step at a time |
+| `src/int16x8.rs`, `src/int16x8/` | the int16 paths of `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpool2d.hpp`, `cpp/qadd.hpp`, `cpp/qactivations.hpp`, `cpp/qsoftmax_fixedpoint.hpp` and `cpp/qsoftmax16_tables.hpp`: TFLite's 16x8 scheme (int16 activations, int8 weights, int64 accumulators): the 64-bit requantizer, dense, convolution, depthwise and max-pooling layers, int16 addition, TFLite's 513-entry interpolated int16 activation tables and its int16 softmax, with host-side calibration (feature `std`) |
 | `src/int8/calibration.rs` | `cpp/include/qcalibration.hpp`, `cpp/qactivations.hpp`: host-side calibration (feature `std`) |
 | `src/tree.rs` | `cpp/qtree.hpp`: quantized decision tree (`QDecisionTree`) and gradient-boosted ensemble (`QGbdt`) over a shared node pool; not the compile-time `QStatic*` forms |
 | `examples/gbdt_tabular_int8.rs` | `examples/gbdt_tabular_int8/gbdt_tabular_int8.cpp` |
@@ -327,6 +328,13 @@ the int8 quantization tiers, SIMD backends, and so on.
   `packInt4`, `unpackInt4` and `quantizeInt4PerChannel` of tinymind (C++),
   and every layer
   against the int8 layer on the unpacked weights.
+- `tests/int16x8_sweep.rs` checks the 16x8 layers against tinymind (C++)'s
+  int16 paths: the 64-bit requantizer on 20,000 accumulators and parameters
+  inside and outside TFLite's contract, dense, convolution, depthwise
+  (windows above and below 256 taps) and max-pooling layers, the int16
+  addition (calibrated as TFLite's and with random parameters), the int16
+  activation table over all 65,536 inputs on random and built sigmoid and
+  tanh tables, and the int16 softmax on rows of 1 to 300 values.
 - `tests/mel_sweep.rs` checks the log-mel spectrogram, the MFCCs and their
   table builders against tinymind (C++)'s `QLogMelSpectrogram`, `QMfcc`,
   `buildQHannWindow`, `buildQMelFilterbank` and `buildQDctMatrix` for frame
@@ -418,7 +426,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, logmel_vibration, vibration_anomaly, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (126 checks today, including
+  example does, runs both sides, and compares every output file (128 checks today, including
   that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

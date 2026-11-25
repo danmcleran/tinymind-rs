@@ -3,6 +3,7 @@
 # iris, optical_digits, energy_efficiency, gas_sensor_drift, air_quality, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8, logmel_vibration, vibration_anomaly), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
 # fine-tuning heads, the int8 softmax, FFT, int4, log-mel and anomaly sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included), the ONNX importer's and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# fine-tuning heads, the int8 softmax, FFT, 16x8, log-mel and anomaly sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included), the ONNX importer's and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -579,6 +580,22 @@ fi
 cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test int4_sweep >/dev/null 2>&1 \
   && same "int4 Rust vs tests/golden/int4" \
   || { echo "DIFFERENT  int4 Rust vs tests/golden/int4"; status=1; }
+echo "== int16x8"
+# tinymind's int16 (16x8) paths on random parameters and tensors;
+# tests/int16x8_sweep.rs checks the Rust side against the committed golden.
+mkdir -p "$TMP/int16x8"
+g++ -O3 -Wall -Wextra -Werror -Wpedantic -o "$TMP/int16x8/int16x8_sweep" "$ROOT/scripts/cpp/int16x8_sweep.cpp" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" -DTINYMIND_ENABLE_QUANTIZATION=1
+"$TMP/int16x8/int16x8_sweep" > "$TMP/int16x8/stdout.txt"
+if cmp -s "$TMP/int16x8/stdout.txt" "$ROOT/tests/golden/int16x8/stdout.txt"; then
+  same "int16x8 stdout.txt (C++ vs tests/golden/int16x8)"
+else
+  echo "DIFFERENT  int16x8 stdout.txt (C++ vs tests/golden/int16x8)"
+  status=1
+fi
+cargo test -q --manifest-path "$ROOT/Cargo.toml" --features std --test int16x8_sweep >/dev/null 2>&1 \
+  && same "int16x8 Rust vs tests/golden/int16x8" \
+  || { echo "DIFFERENT  int16x8 Rust vs tests/golden/int16x8"; status=1; }
 
 echo "== features (tinymind's tier1 on-board benchmark)"
 # tinymind's benchmarks/tier1_onboard/gen_tables.cpp, unchanged, writes the
@@ -1026,6 +1043,8 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   cp "$TMP/int4/stdout.txt" "$KEEP_CPP_OUTPUT/int4/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/features"
   cp "$TMP/features/tables.h" "$KEEP_CPP_OUTPUT/features/tables.h"
+  mkdir -p "$KEEP_CPP_OUTPUT/int16x8"
+  cp "$TMP/int16x8/stdout.txt" "$KEEP_CPP_OUTPUT/int16x8/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/qanomaly" "$KEEP_CPP_OUTPUT/mel"
   mkdir -p "$KEEP_CPP_OUTPUT/logmel" "$KEEP_CPP_OUTPUT/vibration"
   cp "$TMP/logmel/cpp/stdout.txt" "$TMP/logmel/cpp/logmel_vibration_error.csv" "$KEEP_CPP_OUTPUT/logmel/"

@@ -73,6 +73,7 @@ PORTED=(
   cpp/qactivations.hpp
   cpp/qsoftmax_fixedpoint.hpp
   cpp/qfft1d.hpp
+  cpp/qsoftmax16_tables.hpp
   cpp/qmel.hpp
   cpp/qint4.hpp
   cpp/qanomaly.hpp

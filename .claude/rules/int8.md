@@ -1,6 +1,10 @@
 ---
 paths:
   - "src/int8.rs"
+  - "src/int16x8.rs"
+  - "src/int16x8/**"
+  - "tests/int16x8_sweep.rs"
+  - "scripts/cpp/int16x8_sweep.cpp"
   - "src/int8/**"
   - "examples/kws_cortex_m_int8.rs"
   - "examples/int8_xor.rs"
@@ -312,6 +316,46 @@ padded), depthwise 144 and 1296; planted `packed[k / 2]` fails the link. Kani
 `mod int4`: nibbles sign-extend (spec via `<< 4 >> 4`), dense 3x2, conv
 (conv_never_panics' shape), depthwise 2 channels (unwind 5); planted OOB
 `packed[(k + 1) / 2]` fails dense.
+## `src/int16x8.rs`, `src/int16x8/{calibration,softmax_tables}.rs`
+
+C++ source: the int16 paths of `cpp/qaffine.hpp` (`Requantizer<int64_t, int16_t>`), `qdense.hpp`, `qconv2d.hpp`, `qdepthwiseconv2d.hpp`, `qpool2d.hpp`, `qadd.hpp`, `qactivations.hpp` (`qApplyLUT16`, `buildQLUT16`, sigmoid/tanh 16), `qsoftmax_fixedpoint.hpp` (`QSoftmaxInt16`, `populateTFLiteLUT16`, `buildQSoftmaxInt16Params`), `qsoftmax16_tables.hpp` (tinymind #300, #303-#305, #308; v19.0)
+
+2026-11-25 at `cf3e9ef`. Dan's call (2026-11-25): a new top-level module
+`int16x8` with the C++/int8 names inside it, not generic int8 layers (struct
+literal inference break) and not suffixed types. `Requantizer` (i64 -> i16):
+the C++'s 32-bit-halves algorithm is `floor((x * m16 + 2^(t-1)) / 2^t)`
+saturated to i32, written directly in i64 (product < 2^62); clamps acc to
++-2^47 and shift to -14..=47 as the C++; then rail +-2^30, zp, two-`if`
+clamp. `Requantizer32` = the int8 requantizer's arithmetic with i16 bounds,
+for `QAdd` (C++ `Requantizer<int32_t, int16_t>`). Layers: `QDense`,
+`QDensePerChannel`, `QConv2D`, `QConv2DPerChannel` (one `conv_layer!` macro
+over a shared tap-by-tap `conv2d`), `QDepthwiseConv2D`, `QMaxPool2D`, `QAdd`
+(+ sealed `int16x8::Tensor` for i16 arrays; saturating_shl like int8),
+`apply_lut` (`LUT_SIZE` 513, slope wrapped to i16 as TFLite), `QSoftmax`
+(`forward::<N>`, N 1..65536, tables `softmax_tables::{EXP, RECIPROCAL}`
+extracted by `scripts/extract-luts.py` from qsoftmax16_tables.hpp; CI's LUT
+step diffs both files; `calibration::build_softmax_luts` = TFLite's
+LUTPopulateInt16 and a unit test checks it equals the constants: glibc exp
+matched). Straightforward loops, i64 sums wrapping (Kani found bias + dot
+overflowing for any i64 bias; the C++ is UB there); not tuned, no SMLAD.
+Pointwise not a separate type (a 1x1 `QConv2DPerChannel`). `calibration`:
+`build_requantizer`, `build_add` (left shift 15, as the C++ code generator's
+16x8 ADD), `build_lut`/`build_sigmoid_lut`/`build_tanh_lut` (buildQLUT16, on
+the knots), `build_softmax_luts`, `build_softmax`. Checked by
+`tests/int16x8_sweep.rs` (golden from `scripts/cpp/int16x8_sweep.cpp`, 78
+lines, UBSan+ASan clean; -O1 first differed from -O3: two draws in one C++
+expression (unspecified order), now one per statement): rq64 corners x20000,
+dense/conv/depthwise (trial 1 = inputs >> 9 with fine requantizers: random
+16x8 accumulators mostly saturate or round an error of one away, so a
+depthwise tap off by one first passed), 289-tap depthwise (C++ int64 window),
+maxpool, add (16 calibrated + 8 random), lut over all 65536 inputs (2 random
+tables, 4 built), softmax N 1/2/10/300 (t=7 alternating rails). Matched on
+the first run. Plants that fail: acc/shift not clamped, m16 truncated,
+rounding term off by one, slope unwrapped, lookup unrounded, reciprocal
+recentred +1, depthwise tap +1, dot term +1, padding sides swapped, add left
+shift 16, table without midpoint correction; extra i16 clamp before qmin/qmax
+is equivalent. panic-never: every layer (planted `lut[x >> 6]` fails the
+link). Kani `mod int16x8` (7).
 
 ## `src/int8/mel.rs` (re-exported from `int8`)
 
