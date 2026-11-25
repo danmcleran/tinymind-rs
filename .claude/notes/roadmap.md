@@ -21,9 +21,9 @@ what to port next, and update it when a step is done.
   0. **Done 2026-11-25:** compare-with-cpp at `cf3e9ef` 111/111 identical,
      regenerated importer modules unchanged; `TINYMIND_REF` -> `cf3e9ef`. New
      files go into `PORTED` as they are ported.
-  1. **Done 2026-11-25 except IsolationForest** (qmel + qanomaly + both
-     examples, 122 comparisons, 116 Kani harnesses; notes in
-     `.claude/rules/int8.md`). Not done yet: device sweeps for mel/anomaly
+  1. **Done 2026-11-25** (qmel + qanomaly + both examples, #130: 122
+     comparisons, 116 Kani harnesses, notes in `.claude/rules/int8.md`;
+     IsolationForest in the tree importer, #131). Not done yet: device sweeps for mel/anomaly
      under QEMU (bench `sweeps`), board timings (phase 5).
      Sensor front end + anomaly (all additive, possible 0.3.9): libstdc++
      `normal_distribution` (Marsaglia polar) in `examples/common/std_random.rs`,
@@ -40,13 +40,19 @@ what to port next, and update it when a step is done.
   3. 16x8 (likely 0.4.0): i64 requantizer = TFLite 64-bit
      `MultiplyByQuantizedMultiplier`, `qApplyLUT16` + builders,
      `QSoftmaxInt16` (tables from `qsoftmax16_tables.hpp` by script, never by
-     hand), layers over i16. Open: generic over a sealed activation type with
-     default `i8` (preferred; check with cargo-semver-checks) vs separate types.
+     hand), layers over i16. **Dan's call (2026-11-25): a new `int16x8`
+     module** with the C++ names inside it (`int16x8::{QDense,
+     QConv2DPerChannel, QDepthwiseConv2D, QMaxPool2D, QAdd, Requantizer,
+     QSoftmax, apply_lut, ...}`), arithmetic shared with int8 internally;
+     additive, can ship in 0.3.x. Not generic int8 layers (inference break
+     risk), not suffixed types.
   4. Importers: ONNX codegen options `int4_dense`/`int4_conv`/
      `activation_bits=16`, `tinymind_qat.py` (verbatim), maybe the greedy
      arena plan; `onnx_digits_int8` needs the `.onnx` models, which tinymind
-     does not commit (only generated headers): hand off a tinymind change to
-     commit them rather than retrain here. PyTorch `generate_model`: check
+     does not commit (only generated headers). **Dan's call (2026-11-25):**
+     hand off a tested tinymind patch committing the fp32, int8 and QAT int4
+     `.onnx` files train.py writes; he lands it in a tinymind session, then
+     port the example against them. PyTorch `generate_model`: check
      ReLU folding against ours.
   5. bench/: tinymind's `benchmarks/tier1_onboard` workloads on both boards,
      C++ at -O3.
