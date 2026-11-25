@@ -38,6 +38,10 @@ break the API).
   need `std` and write byte-identical output to the C++ examples, except the
   trainer's size in `vibration_anomaly`'s last line (1,248 bytes here, 1,264
   in the C++).
+- The tree importer (`tools/import_trees`, in the repository, not the
+  published crate) exports scikit-learn's `IsolationForest`, as the importer
+  of tinymind (C++) does since v19.0: an ensemble whose sum is the forest's total path
+  length, with `predict` 1 for an outlier against scikit-learn's threshold.
 - `tests/mel_sweep.rs` and `tests/qanomaly_sweep.rs` check both against
   tinymind (C++) over frame lengths 4 to 1024 and random tables and sample
   streams.

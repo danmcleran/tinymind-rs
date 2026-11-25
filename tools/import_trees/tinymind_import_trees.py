@@ -39,7 +39,7 @@ Supported models:
 
   scikit-learn  DecisionTree{Classifier,Regressor}, RandomForest{Classifier,
                 Regressor}, ExtraTrees{Classifier,Regressor},
-                GradientBoosting{Classifier,Regressor}
+                GradientBoosting{Classifier,Regressor}, IsolationForest
   XGBoost       XGBClassifier / XGBRegressor / Booster (gbtree)
   LightGBM      LGBMClassifier / LGBMRegressor / Booster
 
@@ -60,6 +60,17 @@ How the integer model is built (tinymind (C++)'s rules):
   * The model's base score is measured as the model's raw output minus the
     summed tree outputs on the calibration data, and must be the same for
     every sample. That also checks the tree parsing against the library.
+
+IsolationForest becomes an additive ensemble whose sum is the forest's total
+path length: each leaf holds its depth plus c(n), the average path length of
+an unbuilt subtree over the n training samples that reached it, which is what
+scikit-learn's score_samples adds up. Each tree's feature subset is mapped
+back to the input's columns. The module's predict() is 1 for an outlier
+(scikit-learn's predict == -1): a sample is an outlier when its summed path
+length is below ANOMALY_THRESHOLD, scikit-learn's offset_ moved into
+path-length units (score_samples < offset_  <=>  sum < -T c(max_samples)
+log2(-offset_)). ExportedModel.score_samples gives scikit-learn's score from
+the integer sum.
 
 Not supported: missing values (NaN), categorical splits, multi-output trees,
 XGBoost dart / gblinear, LightGBM linear trees and rf mode.
@@ -352,6 +363,34 @@ def _quantize_tree(tree: _FTree, quant: FeatureQuant, leaf_fn, X=None, Q=None) -
 # Readers: library model -> float trees
 # ----------------------------------------------------------------------------
 
+def _iforest_average_path_length(n: float) -> float:
+    """c(n): scikit-learn's _average_path_length, the average path length of
+    an unsuccessful search in a binary search tree of n samples."""
+    if n <= 1:
+        return 0.0
+    if n == 2:
+        return 1.0
+    return 2.0 * (math.log(n - 1.0) + np.euler_gamma) - 2.0 * (n - 1.0) / n
+
+
+def _iforest_tree(est, features) -> _FTree:
+    """One isolation tree: leaves hold depth + c(n_node_samples), and splits
+    name the input's columns rather than the tree's feature subset."""
+    t = est.tree_
+    nodes = [None] * t.node_count
+    stack = [(0, 0)]
+    while stack:
+        i, depth = stack.pop()
+        if t.children_left[i] == -1:
+            nodes[i] = _FNode(value=float(depth) + _iforest_average_path_length(float(t.n_node_samples[i])))
+        else:
+            nodes[i] = _FNode(int(features[int(t.feature[i])]), float(t.threshold[i]), False,
+                              int(t.children_left[i]), int(t.children_right[i]))
+            stack.append((int(t.children_left[i]), depth + 1))
+            stack.append((int(t.children_right[i]), depth + 1))
+    return _FTree(nodes, precision="f32x")
+
+
 def _sklearn_tree(est, value_fn) -> _FTree:
     t = est.tree_
     if t.n_outputs != 1:
@@ -439,6 +478,8 @@ class _Plan:
     raw_fn: object = None           # X -> raw output (n,) or (n, K), for the base measurement
     classes: Optional[np.ndarray] = None
     original: object = None         # X -> the original model's class index or value
+    anomaly_threshold: Optional[float] = None  # IsolationForest: outlier when the path sum is below it
+    average_path: float = 0.0       # IsolationForest: c(max_samples)
 
 
 def _from_raw(raw_fn, task):
@@ -493,6 +534,19 @@ def _plan(model, voting: str) -> _Plan:
             task = "binary" if K == 1 else "multiclass"
             return _Plan("additive", task, trees, cls, K, leaf_mult=model.learning_rate,
                          raw_fn=model.decision_function, classes=model.classes_)
+        if name == "IsolationForest":
+            ests = list(model.estimators_)
+            trees = [_iforest_tree(e, f) for e, f in zip(ests, model.estimators_features_)]
+            T_ = len(ests)
+            c = _iforest_average_path_length(float(model.max_samples_))
+            # score_samples = -2^(-E / (T c)), E the summed path length.
+            raw = lambda X: -T_ * c * np.log2(-model.score_samples(X))
+            if not -1.0 < float(model.offset_) < 0.0:
+                raise ValueError("IsolationForest offset_ %r is outside (-1, 0)" % model.offset_)
+            threshold = -T_ * c * math.log2(-float(model.offset_))
+            return _Plan("additive", "anomaly", trees, [0] * T_, 1, raw_fn=raw,
+                         original=lambda X: (model.predict(X) == -1).astype(np.int64),
+                         anomaly_threshold=threshold, average_path=c)
         raise ValueError("unsupported scikit-learn model: %s" % name)
 
     if mod.startswith("xgboost"):
@@ -556,6 +610,8 @@ class ExportedModel:
     output_scale: float
     original_predict: object
     report: str = ""
+    anomaly_threshold: Optional[int] = None  # IsolationForest: outlier when raw < this
+    average_path: float = 0.0
 
     def predict_raw(self, X) -> np.ndarray:
         """Integer outputs of the exported model: class votes (vote models) or
@@ -577,9 +633,18 @@ class ExportedModel:
         raw = self.predict_raw(X)
         if self.task == "regression":
             return raw[:, 0] / self.output_scale
+        if self.task == "anomaly":
+            return (raw[:, 0] < self.anomaly_threshold).astype(np.int64)
         if self.task == "binary":
             return (raw[:, 0] > 0).astype(np.int64)
         return np.argmax(raw, axis=1)
+
+    def score_samples(self, X) -> np.ndarray:
+        """IsolationForest: scikit-learn's score_samples, from the integer sum."""
+        if self.task != "anomaly":
+            raise ValueError("score_samples is for IsolationForest exports")
+        path = self.predict_raw(X)[:, 0] / self.output_scale
+        return -np.power(2.0, -path / (len(self.qtrees) * self.average_path))
 
     def agreement(self, X) -> float:
         """Fraction of samples where the exported model matches the original
@@ -688,6 +753,10 @@ def export_trees(model, X_calib, output_path: str, name: str,
 
     exported = ExportedModel(output_path, name, quant, plan.kind, plan.task, K, qtrees,
                              plan.tree_class, base, output_scale, original)
+    if plan.task == "anomaly":
+        # Outlier when E < E_thr, i.e. raw < E_thr * scale; raw is an integer.
+        exported.anomaly_threshold = int(math.ceil(plan.anomaly_threshold * output_scale))
+        exported.average_path = plan.average_path
     with open(output_path, "w") as fh:
         fh.write(_render(exported, type(model).__name__, plan.classes))
     _rustfmt(output_path)
@@ -750,6 +819,9 @@ def _render(m: ExportedModel, model_name: str, classes) -> str:
         what = "a vote: each tree names a class, and `forward` counts the votes"
     elif m.task == "regression":
         what = "an int32 sum; `raw / OUTPUT_SCALE` is the model's prediction"
+    elif m.task == "anomaly":
+        what = ("an int32 sum, the forest's total path length times `OUTPUT_SCALE`; "
+                "`predict` is 1 for an outlier")
     else:
         what = "int32 raw scores (log-odds or margins times `OUTPUT_SCALE`)"
     w("//! `%s`: generated by tinymind-rs tools/import_trees/tinymind_import_trees.py\n" % m.name)
@@ -884,9 +956,22 @@ pub fn forward_inline(x: &[InputType; NUM_FEATURES]) -> [i32; NUM_OUTPUTS] {
             w("/// Predicted class index: 1 when the raw score is positive.\n")
             w("pub fn predict%s(x: &[InputType; NUM_FEATURES]) -> usize {\n    usize::from(forward%s(x)[0] > 0)\n}\n\n"
               % (suffix, suffix))
+    elif m.task == "anomaly":
+        w("/// Outlier test: the summed path length is short.\npub const ANOMALY_THRESHOLD: i32 = %d;\n\n"
+          % m.anomaly_threshold)
+        for suffix in ("", "_inline"):
+            w("/// 1 for an outlier (scikit-learn's `predict() == -1`), 0 for an inlier.\n")
+            w("pub fn predict%s(x: &[InputType; NUM_FEATURES]) -> usize {\n"
+              "    usize::from(forward%s(x)[0] < ANOMALY_THRESHOLD)\n}\n\n" % (suffix, suffix))
     if not vote:
         w("/// `raw / OUTPUT_SCALE` is the model's %s.\npub const OUTPUT_SCALE: f64 = %r;\n"
-          % ("prediction" if m.task == "regression" else "raw score (log-odds or margin)", m.output_scale))
+          % ({"regression": "prediction",
+              "anomaly": "summed path length; scikit-learn's `score_samples` is\n/// "
+                         "`-2^(-(raw / OUTPUT_SCALE) / (NUM_TREES * AVERAGE_PATH_LENGTH))`"}
+             .get(m.task, "raw score (log-odds or margin)"), m.output_scale))
+    if m.task == "anomaly":
+        w("/// c(max_samples), the average path length of the forest's subsample size.\n"
+          "pub const AVERAGE_PATH_LENGTH: f64 = %r;\n" % m.average_path)
 
     if classes is not None and m.task != "regression":
         labels = list(classes)

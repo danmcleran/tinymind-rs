@@ -15,7 +15,7 @@ tinymind (C++); only the output is Rust instead of a C++ header.
 
 | Library | Models |
 |---|---|
-| scikit-learn | `DecisionTree{Classifier,Regressor}`, `RandomForest{Classifier,Regressor}`, `ExtraTrees{Classifier,Regressor}`, `GradientBoosting{Classifier,Regressor}` |
+| scikit-learn | `DecisionTree{Classifier,Regressor}`, `RandomForest{Classifier,Regressor}`, `ExtraTrees{Classifier,Regressor}`, `GradientBoosting{Classifier,Regressor}`, `IsolationForest` |
 | XGBoost | `XGBClassifier`, `XGBRegressor`, `Booster` (gbtree) |
 | LightGBM | `LGBMClassifier`, `LGBMRegressor`, `Booster` |
 
@@ -108,7 +108,7 @@ cargo run --release --example imported_trees
 
 ## How it is checked
 
-- `test_parity.py`: 18 models (every supported family, and features far from
+- `test_parity.py`: 20 models (every supported family, `IsolationForest` twice, and features far from
   zero; int8, uint8, int16 and integer grids) exported by both importers. Every integer must be identical:
   nodes, thresholds, leaves, tree classes, base scores, output scale, grids.
   Then tinymind (C++)'s header is compiled with g++ and run under its three

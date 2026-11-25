@@ -246,7 +246,7 @@ set.
 | `tools/import_pytorch/` | `apps/import_pytorch/tinymind_import.py`: the PyTorch importer, emitting Rust |
 | `tools/import_onnx/` | `apps/import_onnx/tinymind_import_onnx.py`: the ONNX Runtime int8 importer (its parser unchanged), emitting Rust with a `forward` |
 | `tools/import_tflite/` | `benchmarks/framework_comparison_f411/gen/make_mlperf.py`: the int8 TFLite translator, emitting Rust |
-| `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer, emitting Rust |
+| `tools/import_trees/` | `apps/import_trees/tinymind_import_trees.py`: the scikit-learn / XGBoost / LightGBM tree importer (scikit-learn's `IsolationForest` as a path-length ensemble), emitting Rust |
 | `examples/imported_trees.rs` | two models written by that importer, checked against tinymind (C++)'s importer + C++ runtime |
 | `examples/imported_cnn.rs` | two convolutional models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 | `examples/imported_lstm.rs` | two LSTM sequence models written by the PyTorch importer, checked against tinymind (C++)'s importer (identical parameters) and its calibration functions + `QLSTMCell` |
