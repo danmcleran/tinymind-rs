@@ -2,7 +2,7 @@
 """Parity of this importer with tinymind (C++)'s (apps/import_trees, from TINYMIND_DIR,
 default ../tinymind), and of the generated Rust with the tinymind (C++) runtime.
 
-For every model family (and features far from zero), both importers export the same trained model on the
+For every model family (IsolationForest included, and features far from zero), both importers export the same trained model on the
 same feature grid. The integer models must be identical: every tree's nodes,
 thresholds and leaves, the tree classes, the base scores, the output scale and
 the feature grids. Then each output is checked on its own runtime against the
@@ -92,11 +92,20 @@ def models():
     # far from 0 that its grid is widened to include 0.
     yield "RandomForestClassifier offset", RandomForestClassifier(n_estimators=8, max_depth=4, random_state=0), 3, {"offset": 50.0}
     yield "GradientBoostingRegressor far", GradientBoostingRegressor(n_estimators=10, max_depth=3, random_state=0), 0, {"offset": 1.0e6}
+    # IsolationForest: an additive ensemble of path lengths (unsupervised: fit
+    # ignores the labels). The second draws a feature subset per tree, which
+    # the importer maps back to the input's columns, and sets the threshold
+    # from a contamination rate.
+    from sklearn.ensemble import IsolationForest
+    yield "IsolationForest", IsolationForest(n_estimators=20, random_state=0), 0, {}
+    yield "IsolationForest subsets", IsolationForest(n_estimators=12, max_features=0.6, max_samples=64,
+                                                     contamination=0.1, random_state=0), 0, {}
 
 
 def same_integer_model(a, b):
     """Every integer the two importers produce, compared field by field."""
     assert (a.kind, a.task, a.num_outputs) == (b.kind, b.task, b.num_outputs)
+    assert (a.anomaly_threshold, a.average_path) == (b.anomaly_threshold, b.average_path)
     assert a.output_scale == b.output_scale
     assert list(a.tree_class) == list(b.tree_class)
     assert [int(v) for v in a.base] == [int(v) for v in b.base]
