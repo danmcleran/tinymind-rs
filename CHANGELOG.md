@@ -100,6 +100,11 @@ break the API).
   published crate) exports scikit-learn's `IsolationForest`, as the importer
   of tinymind (C++) does since v19.0: an ensemble whose sum is the forest's total path
   length, with `predict` 1 for an outlier against scikit-learn's threshold.
+- A faster `QLogMelSpectrogram`, same results: the pre-emphasized sample is
+  formed in 32 bits, so windowing it is one 32x32 -> 64 multiply. A
+  256-sample, 32-band frame takes 43,645 cycles on the Cortex-M4F (was
+  49,183) and 156,410 on the Cortex-M0+ (was 197,936), 7% and 16% fewer
+  than tinymind (C++).
 - `tests/mel_sweep.rs` and `tests/qanomaly_sweep.rs` check both against
   tinymind (C++) over frame lengths 4 to 1024 and random tables and sample
   streams.

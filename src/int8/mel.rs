@@ -196,11 +196,15 @@ impl<const N: usize, const HALF: usize, const BANDS: usize, const LOG_FRAC_BITS:
         workspace: &mut QMelWorkspace<N, BINS>,
     ) {
         const { Self::check::<BINS>() };
-        let a = i64::from(self.preemphasis);
-        // y in Q15 (x * 2^15 - a * x_prev, |y| <= 2^31) and z = y * w in 64
-        // bits (|z| < 2^46): both exact.
-        let windowed =
-            |x: i16, prev: i16, w: i16| (i64::from(x) * 32768 - a * i64::from(prev)) * i64::from(w);
+        let a = i32::from(self.preemphasis);
+        // y in Q15, x * 2^15 - a * x_prev, lies in [-2^31, 2^31 - 2^15]:
+        // exact in i32 (formed with wrapping ops, which only matter at
+        // -2^31 itself). z = y * w in 64 bits (|z| < 2^46), one 32x32 -> 64
+        // multiply.
+        let windowed = |x: i16, prev: i16, w: i16| {
+            let y = (i32::from(x) << 15).wrapping_sub(a * i32::from(prev));
+            i64::from(y) * i64::from(w)
+        };
 
         // Pass 1: the largest windowed sample, which sets the block scale.
         let mut prev = previous_sample;
