@@ -163,9 +163,9 @@ tinymind (C++)'s on-board digits benchmark: the residual CNN of its ONNX digits 
 |---|---:|---:|---:|---:|
 | int8 | **287,802** (2.88 ms) | 479,524 | **719,369** (22.5 ms) | 760,608 |
 | int4 weights | **304,367** | 454,157 | **742,524** | 778,803 |
-| 16x8 (int16 activations) | **517,458** | 452,807 | **1,122,048** | 853,668 |
+| 16x8 (int16 activations) | **408,880** | 452,807 | **854,511** | 853,668 |
 
-The int8 model takes 40% fewer cycles than the C++ on the M4F and 5% fewer on the M0+, the int4 one 33% and 5% fewer. The 16x8 layers are not tuned yet: 14% more on the M4F and 31% more on the M0+. tinymind (C++)'s Arm DSP build (SMLAD intrinsics) runs int8 in 171,384 cycles on the M4F; this crate uses no `unsafe`, so no intrinsics.
+The int8 model takes 40% fewer cycles than the C++ on the M4F and 5% fewer on the M0+, the int4 one 33% and 5% fewer, the 16x8 one 10% fewer on the M4F and the same on the M0+, where the 64-bit requantizer runs in 32-bit arithmetic. tinymind (C++)'s Arm DSP build (SMLAD intrinsics) runs int8 in 171,384 cycles on the M4F; this crate uses no `unsafe`, so no intrinsics.
 
 ## Fine-tuning heads
 

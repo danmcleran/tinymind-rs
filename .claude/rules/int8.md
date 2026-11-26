@@ -337,7 +337,33 @@ extracted by `scripts/extract-luts.py` from qsoftmax16_tables.hpp; CI's LUT
 step diffs both files; `calibration::build_softmax_luts` = TFLite's
 LUTPopulateInt16 and a unit test checks it equals the constants: glibc exp
 matched). Straightforward loops, i64 sums wrapping (Kani found bias + dot
-overflowing for any i64 bias; the C++ is UB there); not tuned, no SMLAD.
+overflowing for any i64 bias; the C++ is UB there); no SMLAD.
+**Tuned 2026-11-25** on the digits 16x8 model (F411 517,458 -> 408,880,
+C++ -O3 scalar 452,807; L031 1,122,048 -> 854,511, C++ 853,668), each step
+result-identical: `SUM32_TERMS` = 255 products (|(x - zp) * w| <= 65,535 *
+128 < 2^23) summed in i32 (`dot32`, `dot` in i32 chunks); `Requantizer::scale`
+uses `i32::try_from(acc)` for a 32x32 -> 64 product (smull); conv windows
+<= 255 taps gathered once per pixel into `[i16; 255]` (padding = zp) + one
+`dot32`/`dot32_zp0` per filter (larger windows tap by tap); depthwise
+windows <= 255 look each tap up once per pixel into `[i32; C]` sums;
+`QAdd` (int16): `FastAddInputWide` ported (one nudged 32x32 -> 64 per input;
+`half` = shift for TFLite's exactly halved input; three loops; reference
+loop otherwise; `add_elements` `#[inline(never)]`); ARMv6-M only
+(`SPLIT_MULTIPLY = cfg!(not(target_has_atomic = "32"))`):
+`Requantizer::scale_split` (r = 16-bit multiplier < 2^15, acc = ah 2^16 + al,
+(A + 2^(t-17) + (B >> 16)) >> (t - 16), t = 15 + shift in 16..=47). F411
+per layer (profiled copy): stem 112,077 -> 86,903, c2 284,660 -> 223,954,
+add 80,034 -> 34,912, depthwise 25,970 -> 6,221, pointwise 42,068 -> 40,026,
+fc 18,891 -> 14,582. The zp-0 dot alone: L031 -3k; the split requantizer:
+L031 1,016,150 -> 854,511. Unit tests: `fast_add_input_equals_reference`
+(43 parameter sets x every int16 input; plant: no negative nudge),
+`split_scale_equals_scale` (shifts -16..50 x 40 multipliers x 200 accs;
+plant: high round 2^(t-16)), `conv_paths_equal_direct_sum` (gathered and
+tap-by-tap vs an i64 sum; plants: padding 0, a skipped kernel row); the M0
+QEMU sweep (`sweeps-b`) runs the split path (the same plant fails it). L031
+16x8 image 32,648 B: 120 B under 32 KB. An i8 `forward` before/after
+alignment-only change of the plain image moved 470k -> 489k once (the
+FastAddInput step alone, profile said faster): F411 layout effects.
 Pointwise not a separate type (a 1x1 `QConv2DPerChannel`). `calibration`:
 `build_requantizer`, `build_add` (left shift 15, as the C++ code generator's
 16x8 ADD), `build_lut`/`build_sigmoid_lut`/`build_tanh_lut` (buildQLUT16, on

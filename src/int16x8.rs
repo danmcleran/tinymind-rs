@@ -87,18 +87,64 @@ impl Requantizer {
         };
         let total = (15 + s) as u32; // 1..=62
         // |x * reduced| < 2^62 and the rounding term is at most 2^61: no
-        // overflow.
-        let v = x * i64::from(reduced) + (1i64 << (total - 1));
+        // overflow. An accumulator that fits an i32 (as one under 256
+        // products does) needs one 32x32 -> 64 multiply (`smull`).
+        let product = match i32::try_from(x) {
+            Ok(x32) => i64::from(x32) * i64::from(reduced),
+            Err(_) => x * i64::from(reduced),
+        };
+        let v = product + (1i64 << (total - 1));
         let q = v >> total;
         q.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
     }
 
+    /// [`scale`](Self::scale) in 32-bit arithmetic, for an accumulator in
+    /// `i32`, a multiplier `>= 0` and a total shift `t = 15 + shift` in
+    /// `16..=47`, or `None` outside that. The 16-bit multiplier `r < 2^15`
+    /// times `acc = ah * 2^16 + al` (`al` in `[0, 2^16)`) is `A * 2^16 + B`
+    /// with `A = ah * r` and `B = al * r` both in 32 bits, and
+    /// `floor((A * 2^16 + B + 2^(t-1)) / 2^t)` is `(A + 2^(t-17) + (B >>
+    /// 16)) >> (t - 16)` for `t >= 17` (`(A + ((B + 2^15) >> 16))` for `t =
+    /// 16`): nested floors, every sum below 2^31. The same value as
+    /// `scale`, without the 64-bit multiply and shift ARMv6-M has to call
+    /// library routines for.
+    #[inline]
+    pub(crate) fn scale_split(&self, acc: i32) -> Option<i32> {
+        let t = 15 + self.shift.clamp(-14, 47);
+        if self.multiplier < 0 || !(16..=47).contains(&t) {
+            return None;
+        }
+        // (m + 2^15) >> 16 without 64 bits: m >= 0, so no overflow below
+        // 0x7FFF_0000, and the reduced multiplier saturates at 0x7FFF above.
+        let r = if self.multiplier < 0x7FFF_0000 {
+            (self.multiplier >> 16) + i32::from(self.multiplier & 0xFFFF >= 0x8000)
+        } else {
+            0x7FFF
+        };
+        let high = (acc >> 16) * r;
+        let low = (acc & 0xFFFF) as u32 * r as u32;
+        let (high_round, low_round) = if t >= 17 {
+            (1i32 << (t - 17), 0u32)
+        } else {
+            (0, 1u32 << 15)
+        };
+        Some((high + high_round + ((low + low_round) >> 16) as i32) >> (t - 16))
+    }
+
     /// Rescale `acc`, add the zero point and saturate to `[qmin, qmax]`.
     pub fn apply(&self, acc: i64) -> i16 {
+        // ARMv6-M (the only target without 32-bit atomics among Cortex-M)
+        // has no 32x32 -> 64 multiply: there an accumulator in i32 takes
+        // the 32-bit form, which gives the same value.
+        let scaled = match i32::try_from(acc) {
+            Ok(a) if SPLIT_MULTIPLY => self.scale_split(a),
+            _ => None,
+        };
+        let scaled = scaled.unwrap_or_else(|| self.scale(acc));
         // |zero_point|, |qmin| and |qmax| are below 2^16, so clamping to
         // +-2^30 first keeps the sum in i32 and changes no result.
         let rail = 1 << 30;
-        let v = self.scale(acc).clamp(-rail, rail) + i32::from(self.zero_point);
+        let v = scaled.clamp(-rail, rail) + i32::from(self.zero_point);
         clamp16(v, self.qmin, self.qmax)
     }
 }
@@ -147,12 +193,46 @@ impl Requantizer32 {
     }
 }
 
-/// `sum_i (x[i] - zp) * w[i]` in `i64`.
+/// Whether [`Requantizer::apply`] takes the 32-bit form: on ARMv6-M (no
+/// 32x32 -> 64 multiply), told apart by its lack of 32-bit atomics, the one
+/// cfg that differs between thumbv6m and thumbv7em.
+const SPLIT_MULTIPLY: bool = cfg!(not(target_has_atomic = "32"));
+
+/// Products that sum exactly in an `i32`: an int16 value less an int16 zero
+/// point times an int8 weight is below 2^23 in magnitude (65,535 x 128), and
+/// 255 of them stay below 2^31. Summing that many in `i32` before adding to
+/// the `i64` accumulator gives the same result as adding each to it, for a
+/// third of the work on a 32-bit core.
+const SUM32_TERMS: usize = 255;
+
+/// `sum_i (x[i] - zp) * w[i]` in `i32`, for at most [`SUM32_TERMS`] terms
+/// (more would wrap).
+#[inline]
+fn dot32(x: &[i16], w: &[i8], zp: i32) -> i32 {
+    let mut acc = 0i32;
+    for (&v, &wi) in x.iter().zip(w) {
+        acc = acc.wrapping_add((i32::from(v) - zp) * i32::from(wi));
+    }
+    acc
+}
+
+/// [`dot32`] for a zero point of 0.
+#[inline]
+fn dot32_zp0(x: &[i16], w: &[i8]) -> i32 {
+    let mut acc = 0i32;
+    for (&v, &wi) in x.iter().zip(w) {
+        acc = acc.wrapping_add(i32::from(v) * i32::from(wi));
+    }
+    acc
+}
+
+/// `sum_i (x[i] - zp) * w[i]` in `i64`, [`SUM32_TERMS`] products at a time
+/// in `i32`.
 #[inline]
 fn dot(x: &[i16], w: &[i8], zp: i32) -> i64 {
     let mut acc = 0i64;
-    for (&v, &wi) in x.iter().zip(w) {
-        acc = acc.wrapping_add(i64::from((i32::from(v) - zp) * i32::from(wi)));
+    for (xs, ws) in x.chunks(SUM32_TERMS).zip(w.chunks(SUM32_TERMS)) {
+        acc = acc.wrapping_add(i64::from(dot32(xs, ws, zp)));
     }
     acc
 }
@@ -256,6 +336,42 @@ fn conv2d<
     requantize: impl Fn(usize, i64) -> i16,
 ) {
     let zp = i32::from(zp);
+    // A window of at most SUM32_TERMS products sums in i32 (exactly). Its
+    // taps are gathered once per pixel, the padding as the zero point (which
+    // adds nothing), so each filter is one straight dot over its flattened
+    // weights.
+    if KH * KW * C <= SUM32_TERMS {
+        let n = KH * KW * C;
+        let mut window = [0i16; SUM32_TERMS];
+        for (oh, row) in output.iter_mut().enumerate() {
+            for (ow, pixel) in row.iter_mut().enumerate() {
+                let mut taps = window.chunks_exact_mut(C.max(1));
+                for kh in 0..KH {
+                    for kw in 0..KW {
+                        if let Some(slot) = taps.next() {
+                            match tap(input, oh * stride.0 + kh, ow * stride.1 + kw, pad.0, pad.1) {
+                                Some(x) => slot.copy_from_slice(x),
+                                None => slot.fill(zp as i16),
+                            }
+                        }
+                    }
+                }
+                let window = window.get(..n).unwrap_or(&[]);
+                for (f, (y, filter)) in pixel.iter_mut().zip(weights).enumerate() {
+                    let w = filter.as_flattened().as_flattened();
+                    // TFLite's int16 grids have zero point 0: no subtraction.
+                    let sum = if zp == 0 {
+                        dot32_zp0(window, w)
+                    } else {
+                        dot32(window, w, zp)
+                    };
+                    *y = requantize(f, bias_of(biases, f).wrapping_add(i64::from(sum)));
+                }
+            }
+        }
+        return;
+    }
+    // A larger window: tap by tap, each tap's dot in i32 chunks.
     for (oh, row) in output.iter_mut().enumerate() {
         for (ow, pixel) in row.iter_mut().enumerate() {
             for (f, (y, filter)) in pixel.iter_mut().zip(weights).enumerate() {
@@ -422,6 +538,38 @@ impl<
             )
         };
         let zp = i32::from(self.input_zero_point);
+        if KH * KW <= SUM32_TERMS {
+            // Each tap looked up once per pixel, every channel summed in i32
+            // (a window of at most SUM32_TERMS taps is exact there).
+            for (oh, row) in output.iter_mut().enumerate() {
+                for (ow, pixel) in row.iter_mut().enumerate() {
+                    let mut sums = [0i32; C];
+                    for kh in 0..KH {
+                        for kw in 0..KW {
+                            if let Some(x) = tap(input, oh * SH + kh, ow * SW + kw, PT, PL) {
+                                for ((sum, &v), filter) in sums.iter_mut().zip(x).zip(self.weights)
+                                {
+                                    let w = filter
+                                        .get(kh)
+                                        .and_then(|t| t.get(kw))
+                                        .map_or(0, |&w| i32::from(w));
+                                    *sum = sum.wrapping_add((i32::from(v) - zp) * w);
+                                }
+                            }
+                        }
+                    }
+                    for (c, ((y, sum), rq)) in pixel
+                        .iter_mut()
+                        .zip(sums)
+                        .zip(self.requantizers)
+                        .enumerate()
+                    {
+                        *y = rq.apply(bias_of(self.biases, c).wrapping_add(i64::from(sum)));
+                    }
+                }
+            }
+            return;
+        }
         for (oh, row) in output.iter_mut().enumerate() {
             for (ow, pixel) in row.iter_mut().enumerate() {
                 for (c, ((y, filter), rq)) in pixel
@@ -431,15 +579,23 @@ impl<
                     .enumerate()
                 {
                     let mut acc = bias_of(self.biases, c);
+                    // A window of at most SUM32_TERMS taps sums in i32
+                    // (exactly); a larger one adds each tap to the i64.
+                    let mut window = 0i32;
                     for (kh, taps) in filter.iter().enumerate() {
                         for (kw, &w) in taps.iter().enumerate() {
                             if let Some(x) = tap(input, oh * SH + kh, ow * SW + kw, PT, PL) {
                                 let x = x.get(c).map_or(zp, |&v| i32::from(v));
-                                acc = acc.wrapping_add(i64::from((x - zp) * i32::from(w)));
+                                let p = (x - zp) * i32::from(w);
+                                if KH * KW <= SUM32_TERMS {
+                                    window = window.wrapping_add(p);
+                                } else {
+                                    acc = acc.wrapping_add(i64::from(p));
+                                }
                             }
                         }
                     }
-                    *y = rq.apply(acc);
+                    *y = rq.apply(acc.wrapping_add(i64::from(window)));
                 }
             }
         }
@@ -491,6 +647,70 @@ impl<const PH: usize, const PW: usize, const SH: usize, const SW: usize>
                 }
             }
         }
+    }
+}
+
+/// One [`QAdd`] input's rescaling, `multiply_by_quantized_multiplier((q -
+/// zp) << left_shift, m, e)`, as one rounding (C++ `FastAddInputWide`): with
+/// `x2 = (q - zp) << (left_shift + 1)`, the two roundings of the reference
+/// compose into the high word of `x2 * m + 2^31 + 2^32 * (2^(e-1) - [x2 <
+/// 0])`, shifted right by `e`. Valid for `m >= 0`, `0 <= e <= 31`, `0 <=
+/// left_shift <= 29` and `x2` in `i32` for every int16 `q`, which TFLite's
+/// int16 ADD (zero points 0, left shift 15) meets; the product and nudge stay
+/// inside 64 bits there. The unit test `fast_add_input_equals_reference`
+/// compares it with the reference over every int16 input.
+#[derive(Clone, Copy, Debug)]
+struct FastAddInput {
+    zero_point: i32,
+    left_shift2: u32,
+    multiplier: i32,
+    nudge_high: u32,
+    negative_step: u32,
+    shift: u32,
+    /// `Some(left_shift - 1)` when the rescaling is exactly a halving
+    /// (zero point 0, multiplier 2^30, shift 0, left shift at least 1):
+    /// then it is `q << (left_shift - 1)`, nothing to round.
+    half: Option<u32>,
+}
+
+impl FastAddInput {
+    fn new(zero_point: i16, left_shift: i32, multiplier: i32, shift: i32) -> Option<Self> {
+        if multiplier < 0 || !(0..=31).contains(&shift) || !(0..=29).contains(&left_shift) {
+            return None;
+        }
+        let zp = i64::from(zero_point);
+        let scale = 1i64 << (left_shift + 1);
+        let lowest = (i64::from(i16::MIN) - zp) * scale;
+        let highest = (i64::from(i16::MAX) - zp) * scale;
+        if lowest < i64::from(i32::MIN) || highest > i64::from(i32::MAX) {
+            return None;
+        }
+        let half = (zero_point == 0 && multiplier == 1 << 30 && shift == 0 && left_shift >= 1)
+            .then(|| (left_shift - 1) as u32);
+        Some(FastAddInput {
+            zero_point: zp as i32,
+            left_shift2: (left_shift + 1) as u32,
+            multiplier,
+            nudge_high: if shift > 0 { 1 << (shift - 1) } else { 0 },
+            negative_step: u32::from(shift > 0),
+            shift: shift as u32,
+            half,
+        })
+    }
+
+    /// The shift that rescales this input exactly, if it is a halving.
+    fn half_shift(&self) -> Option<u32> {
+        self.half
+    }
+
+    #[inline]
+    fn apply(&self, q: i16) -> i32 {
+        // In range by construction: (q - zp) << (left_shift + 1) fits i32.
+        let x2 = (i32::from(q) - self.zero_point).wrapping_shl(self.left_shift2);
+        let negative = ((x2 as u32) >> 31) & self.negative_step;
+        let nudge = (u64::from(self.nudge_high.wrapping_sub(negative)) << 32) | 0x8000_0000;
+        let v = nudge.wrapping_add((i64::from(x2) * i64::from(self.multiplier)) as u64);
+        ((v >> 32) as u32 as i32) >> (self.shift & 31)
     }
 }
 
@@ -554,7 +774,50 @@ impl QAdd {
     }
 
     /// The loop over (output slot, a, b) triples all three forms share.
+    /// When both inputs' rescalings have a fast form ([`FastAddInput`],
+    /// TFLite's int16 ADD always does), each is one 32x32 -> 64 multiply,
+    /// or one shift for the input TFLite halves exactly; otherwise the
+    /// reference arithmetic. The results are the same.
+    #[inline(never)]
     fn add_elements<'o>(&self, elements: impl Iterator<Item = (&'o mut i16, i16, i16)>) {
+        let rq = self.output_requantizer;
+        let a = FastAddInput::new(
+            self.input_a_zero_point,
+            self.left_shift,
+            self.input_a_multiplier,
+            self.input_a_shift,
+        );
+        let b = FastAddInput::new(
+            self.input_b_zero_point,
+            self.left_shift,
+            self.input_b_multiplier,
+            self.input_b_shift,
+        );
+        if let (Some(a), Some(b)) = (a, b) {
+            match (a.half_shift(), b.half_shift()) {
+                (_, Some(hb)) => {
+                    for (o, x, y) in elements {
+                        *o = rq.apply(a.apply(x).wrapping_add(i32::from(y) << hb));
+                    }
+                }
+                (Some(ha), None) => {
+                    for (o, x, y) in elements {
+                        *o = rq.apply((i32::from(x) << ha).wrapping_add(b.apply(y)));
+                    }
+                }
+                (None, None) => {
+                    for (o, x, y) in elements {
+                        *o = rq.apply(a.apply(x).wrapping_add(b.apply(y)));
+                    }
+                }
+            }
+            return;
+        }
+        self.add_elements_reference(elements);
+    }
+
+    /// TFLite's arithmetic for any parameters.
+    fn add_elements_reference<'o>(&self, elements: impl Iterator<Item = (&'o mut i16, i16, i16)>) {
         let shift = self.left_shift.max(0).unsigned_abs();
         let scale = |x: i16, zp: i16, m: i32, s: i32| {
             multiply_by_quantized_multiplier(
@@ -722,6 +985,174 @@ impl QSoftmax {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The fast input rescaling equals the reference's for every int16
+    /// input, over TFLite's int16 parameters and random ones in its domain,
+    /// and the exact halving equals it too.
+    #[test]
+    fn fast_add_input_equals_reference() {
+        let reference = |q: i16, zp: i16, ls: i32, m: i32, sh: i32| {
+            multiply_by_quantized_multiplier(
+                saturating_shl(i32::from(q) - i32::from(zp), ls.max(0).unsigned_abs()),
+                m,
+                sh,
+            )
+        };
+        let mut state = 5u32;
+        let mut next = || {
+            state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            state
+        };
+        let fixed = [(0i16, 15, 1 << 30, 0), (0, 15, i32::MAX, 31), (0, 15, 0, 5)];
+        let cases: [(i16, i32, i32, i32); 43] = core::array::from_fn(|i| {
+            if let Some(&c) = fixed.get(i) {
+                return c;
+            }
+            let ls = (next() % 16) as i32;
+            let zp = if next() % 2 == 0 {
+                0
+            } else {
+                ((next() >> 16) as i16) >> (ls + 1)
+            };
+            (zp, ls, (next() >> 1) as i32, (next() % 32) as i32)
+        });
+        let mut fast = 0;
+        for (zp, ls, m, sh) in cases {
+            let Some(f) = FastAddInput::new(zp, ls, m, sh) else {
+                continue;
+            };
+            fast += 1;
+            for q in i16::MIN..=i16::MAX {
+                let want = reference(q, zp, ls, m, sh);
+                assert_eq!(f.apply(q), want, "q {q} zp {zp} ls {ls} m {m} sh {sh}");
+                if let Some(h) = f.half_shift() {
+                    assert_eq!(i32::from(q) << h, want, "half q {q} ls {ls}");
+                }
+            }
+        }
+        assert!(fast >= 30, "{fast} cases in the fast domain");
+    }
+
+    /// The 32-bit requantizer form equals the 64-bit one wherever it applies:
+    /// every shift, multipliers at the edges and random ones, accumulators
+    /// at the edges and random ones.
+    #[test]
+    fn split_scale_equals_scale() {
+        let mut state = 3u32;
+        let mut next = || {
+            state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            state
+        };
+        let mut checked = 0u32;
+        for shift in -16..=50 {
+            for k in 0..40 {
+                let multiplier = match k {
+                    0 => 0,
+                    1 => 1,
+                    2 => 0x7FFF_7FFF,
+                    3 => 0x7FFF_0000,
+                    4 => i32::MAX,
+                    5 => 1 << 30,
+                    6 => -5,
+                    _ => (next() >> 1) as i32,
+                };
+                let rq = Requantizer {
+                    multiplier,
+                    shift,
+                    zero_point: 0,
+                    qmin: i16::MIN,
+                    qmax: i16::MAX,
+                };
+                for j in 0..200 {
+                    let acc = match j {
+                        0 => i32::MIN,
+                        1 => i32::MAX,
+                        2 => 0,
+                        3 => -1,
+                        4 => 0xFFFF,
+                        5 => -0x10000,
+                        _ => next() as i32 >> (next() % 32),
+                    };
+                    if let Some(v) = rq.scale_split(acc) {
+                        assert_eq!(
+                            v,
+                            rq.scale(i64::from(acc)),
+                            "acc {acc} m {multiplier} shift {shift}"
+                        );
+                        checked += 1;
+                    }
+                }
+            }
+        }
+        assert!(checked > 100_000, "{checked}");
+    }
+
+    /// Both convolution paths (the gathered window up to 255 taps, tap by
+    /// tap above) and both depthwise paths equal a direct i64 sum, with
+    /// padding, strides, and zero points 0 and not.
+    #[test]
+    #[allow(clippy::needless_range_loop)] // the reference indexes as the definition reads
+    fn conv_paths_equal_direct_sum() {
+        let mut state = 9u32;
+        let mut next = || {
+            state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            state
+        };
+        fn check<const C: usize, const K: usize, const F: usize>(next: &mut impl FnMut() -> u32) {
+            const H: usize = 5;
+            const OH: usize = 3; // (5 + 1 + 1 - K) / 2 + 1 for K = 3
+            let input: [[[i16; C]; H]; H] = core::array::from_fn(|_| {
+                core::array::from_fn(|_| core::array::from_fn(|_| (next() >> 16) as i16))
+            });
+            let weights: [[[[i8; C]; K]; K]; F] = core::array::from_fn(|_| {
+                core::array::from_fn(|_| {
+                    core::array::from_fn(|_| core::array::from_fn(|_| (next() >> 24) as i8))
+                })
+            });
+            let biases: [i64; F] = core::array::from_fn(|_| i64::from(next() as i32) >> 4);
+            let rq = Requantizer {
+                multiplier: 1 << 30,
+                shift: 20,
+                zero_point: 0,
+                qmin: i16::MIN,
+                qmax: i16::MAX,
+            };
+            for zp in [0i16, -1234] {
+                let layer: QConv2D<'_, C, K, K, F, 2, 2, 1, 1, 1, 1> = QConv2D {
+                    weights: &weights,
+                    biases: Some(&biases),
+                    input_zero_point: zp,
+                    requantizer: rq,
+                };
+                let mut out = [[[0i16; F]; OH]; OH];
+                layer.forward(&input, &mut out);
+                for (oh, row) in out.iter().enumerate() {
+                    for (ow, px) in row.iter().enumerate() {
+                        for (f, &y) in px.iter().enumerate() {
+                            let mut acc = biases[f];
+                            for kh in 0..K {
+                                for kw in 0..K {
+                                    let (r, c) =
+                                        ((oh * 2 + kh) as isize - 1, (ow * 2 + kw) as isize - 1);
+                                    if r < 0 || c < 0 || r >= H as isize || c >= H as isize {
+                                        continue;
+                                    }
+                                    for ch in 0..C {
+                                        let x = i64::from(input[r as usize][c as usize][ch])
+                                            - i64::from(zp);
+                                        acc += x * i64::from(weights[f][kh][kw][ch]);
+                                    }
+                                }
+                            }
+                            assert_eq!(y, rq.apply(acc), "C {C} zp {zp}");
+                        }
+                    }
+                }
+            }
+        }
+        check::<2, 3, 3>(&mut next); // 18 taps: gathered
+        check::<29, 3, 2>(&mut next); // 261 taps: tap by tap
+    }
 
     /// Both in-place additions equal `forward`.
     #[test]

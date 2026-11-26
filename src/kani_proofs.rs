@@ -1475,6 +1475,18 @@ mod int16x8 {
         }
     }
 
+    /// The requantizer's 32-bit form (ARMv6-M) never overflows or panics,
+    /// for any accumulator, multiplier and shift: every partial product and
+    /// sum stays inside 32 bits, as its derivation says. (Its equality with
+    /// the 64-bit form is the unit test `split_scale_equals_scale` and the
+    /// M0 device sweep: a symbolic equality proof ran past 25 minutes.)
+    #[kani::proof]
+    fn split_scale_never_overflows() {
+        let rq = any_requantizer();
+        let acc: i32 = kani::any();
+        let _ = rq.scale_split(acc);
+    }
+
     /// The 64-bit requantizer never panics or overflows, for any fields and
     /// accumulator, and lands in `[qmin, qmax]` (in `qmax` when `qmin > qmax`).
     #[kani::proof]
@@ -1554,7 +1566,7 @@ mod int16x8 {
     /// A 2x2 kernel over a 2x2 input, padded so that windows reach into the
     /// padding.
     #[kani::proof]
-    #[kani::unwind(3)]
+    #[kani::unwind(6)]
     fn conv16_never_panics() {
         let weights: [[[[i8; 1]; 2]; 2]; 1] = kani::any();
         let biases: [i64; 1] = kani::any();

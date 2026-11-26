@@ -70,8 +70,8 @@ what to port next, and update it when a step is done.
      C++ at -O3. **Features group done 2026-11-25 (#134)**: every hash
      matches; log-mel 5-7% behind the C++, MFCC/learning ahead on the M4F.
      Digits groups (int8/int4/16x8) done 2026-11-25. Follow-ups:
-     tune log-mel; tune the 16x8 layers (digits 16x8: F411 517,458 vs C++
-     452,807, L031 1,122,048 vs 853,668). int4 and 16x8 timed on the boards
+     tune log-mel; the 16x8 layers tuned 2026-11-25 (digits 16x8: F411
+     408,880 vs C++ 452,807, L031 854,511 vs 853,668). int4 and 16x8 timed on the boards
      2026-11-25 (digits groups). **Device sweeps done 2026-11-25** (#136):
      mel/anomaly/int4/16x8 in `tests/sweeps/`, bench `sweeps-b` (QEMU + F411,
      all match).
