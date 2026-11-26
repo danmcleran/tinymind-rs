@@ -31,11 +31,11 @@ nav_exclude: true
 
 ## What it is
 
-- **`no_std` and allocation-free.** The library needs only Rust's `core` library, not `std` or `alloc`, so it builds for bare-metal targets with no operating system. Two optional features add more: `std` for the host-side int8 calibration helpers, and `libm` for floating-point tanh, sigmoid, the float optimizers and the heads' softmax without `std`. Networks are plain fixed-size arrays sized by const generics: no heap, no global state.
+- **`no_std` and allocation-free.** The library needs only Rust's `core` library, not `std` or `alloc`, so it builds for bare-metal targets with no operating system. Two optional features add more: `std` for the host-side int8 and 16x8 calibration helpers, and `libm` for floating-point tanh, sigmoid, the float optimizers and the heads' softmax without `std`. Networks are plain fixed-size arrays sized by const generics: no heap, no global state.
 - **Fixed point and floating point, as in tinymind (C++).** Both libraries run networks in fixed point and in floating point. The fixed-point value types are Q-format integers (Q16.16 and Q8.8), int8 in the TFLite/CMSIS-NN affine model, and the int8, uint8 or int16 feature grids of the decision trees, so training and inference need no FPU, and activations come from lookup tables. The same networks run on `f32` and `f64`, with tanh and sigmoid from the math library (feature `std`, or `libm` without std); with `std` on a glibc host they train bit for bit like tinymind (C++)'s `float` and `double` networks.
-- **No `unsafe`, no reachable panics.** The library is `#![forbid(unsafe_code)]`, and CI links a Cortex-M firmware image that calls every public function and whose panic handler does not exist: any panic path left after optimisation would fail the build.
+- **No `unsafe`, no reachable panics.** The library is `#![forbid(unsafe_code)]`, and CI links a Cortex-M firmware image that calls every public function and every generated example model's `forward`, and whose panic handler does not exist: any panic path left after optimisation would fail the build.
 - **Bit-exact with C++.** The port is checked byte for byte against tinymind (C++)'s own C++ build on every pull request. See [Equivalence with tinymind (C++)]({{ site.baseurl }}/equivalence).
-- **Built for microcontrollers, checked on them.** CI builds the library for Cortex-M4F (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`), and it has been run on an STM32F411 and an STM32L031: int8 inference and on-device training match the C++ bit for bit there, at about tinymind (C++)'s code size. See [On-board results]({{ site.baseurl }}/benchmarks). Minimum Rust version: 1.85.
+- **Built for microcontrollers, checked on them.** CI builds the library for Cortex-M4F (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`), and it has been run on an STM32F411 and an STM32L031: int8 inference and on-device training match the C++ bit for bit there, at about tinymind (C++)'s code size. See [On-board results]({{ site.baseurl }}/benchmarks). Minimum Rust version: 1.85 (the `onnx_digits_int8` example needs 1.88).
 
 How the port is checked, and what Rust's guarantees did and did not buy: [Bit for bit]({{ site.baseurl }}/bit-for-bit).
 
@@ -70,7 +70,7 @@ cargo run --release --features std --example int8_xor -- output   # PyTorch-trai
 cargo run --release --features std --example imported_mlp    # models written by the PyTorch importer
 cargo run --release --features std --example imported_cnn    # convolutional models written by the PyTorch importer
 cargo run --release --features std --example imported_lstm   # int8 LSTM sequence models written by the PyTorch importer
-cargo run --release --example imported_onnx                  # int8 models quantized by ONNX Runtime, via the ONNX importer
+cargo run --release --example imported_onnx                  # int8 models quantized by ONNX Runtime, and int4/16x8 variants, via the ONNX importer
 cargo run --release --example onnx_digits_int8 -- output     # a residual digit classifier from tinymind (C++)'s ONNX models, int8/int4/16x8, in planned arenas
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN
@@ -90,7 +90,7 @@ To use the library from another project:
 ```toml
 [dependencies]
 tinymind = "0.3.8"
-# Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat, DenseHead softmax:
+# Host-side int8 and 16x8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat, DenseHead softmax:
 # tinymind = { version = "0.3.8", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
 # tinymind = { version = "0.3.8", features = ["libm"] }

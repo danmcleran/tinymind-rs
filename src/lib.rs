@@ -27,7 +27,7 @@
 //! samples, complex or real-input, a log-mel spectrogram and MFCC front end,
 //! and anomaly scores, k-means with an on-device trainer or a diagonal
 //! Gaussian mixture), TFLite's 16x8 scheme with int16 activations and int8
-//! weights ([`int16x8`]: dense, convolution, depthwise and pooling layers,
+//! weights ([`int16x8`]: dense, convolution, depthwise and max-pooling layers,
 //! addition, activation tables and softmax), quantized decision trees and gradient-boosted
 //! ensembles ([`tree`]), Q-learning, tabular or with a deep Q-network
 //! ([`qlearn`]), LSTM recurrent

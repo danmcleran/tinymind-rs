@@ -13,10 +13,16 @@
 //! sigmoid, average and global average pooling and a dense layer. The
 //! generated modules are
 //! `examples/common/imported_onnx_{cnn,cnn_qop,mlp,resnet,resnet_qop}_model.rs`.
+//! Four variants run two of them with the importer's int4 and 16x8 options:
+//! `onnx_cnn_int4` and `onnx_resnet_int4` (int4 weights in every dense and
+//! convolution layer), `onnx_cnn_16x8` and `onnx_resnet_qop_16x8` (int16
+//! activations with the int8 weights).
 //!
 //! tinymind (C++)'s own ONNX importer reads the same models into its headers,
 //! and `scripts/cpp/imported_onnx.cpp` runs them on tinymind (C++)'s int8
-//! layers: the output is byte-identical (`scripts/compare-with-cpp.sh`).
+//! layers, and the variants through tinymind (C++)'s own code generator with
+//! the same options: the output is byte-identical
+//! (`scripts/compare-with-cpp.sh`).
 //!
 //! Run: `cargo run --release --example imported_onnx`.
 

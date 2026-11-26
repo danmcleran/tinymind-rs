@@ -27,15 +27,16 @@ affine-quantized inference (the TFLite/CMSIS-NN model: requantizer, dense layer,
 2D convolution (standard, depthwise and pointwise), pooling, elementwise addition
 (for residual connections) and multiplication, padding, concatenation, quantized
 ReLU, activation tables, a softmax that is bit-exact with TFLite's, LSTM and
-GRU cells, int4 weights packed two per byte, and radix-2 FFTs on 16-bit samples, complex or real-input), TFLite's 16x8 scheme (int16 activations with int8 weights: dense, convolution, depthwise, pooling, addition, activation tables and softmax), a fixed-point log-mel spectrogram and MFCC front end, int8 anomaly scores (k-means, with a trainer that learns the clusters on the device, and a diagonal Gaussian mixture), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`), and head-only fine-tuning: a trainable dense head and a nearest-class-mean head that adapt a frozen model on the device from a few labelled samples. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
+GRU cells, int4 weights packed two per byte, and radix-2 FFTs on 16-bit samples, complex or real-input), TFLite's 16x8 scheme (int16 activations with int8 weights: dense, convolution, depthwise, max pooling, addition, activation tables and softmax), a fixed-point log-mel spectrogram and MFCC front end, int8 anomaly scores (k-means, with a trainer that learns the clusters on the device, and a diagonal Gaussian mixture), quantized decision trees and gradient-boosted ensembles, Q-learning (tabular, or with a deep Q-network), LSTM recurrent networks (in Q16.16, Q8.8, `f32` or `f64`), and head-only fine-tuning: a trainable dense head and a nearest-class-mean head that adapt a frozen model on the device from a few labelled samples. It is a partial port of tinymind (C++), and every ported path is checked bit for bit against it. The API is not stable yet: before 1.0, a minor version may break it.
 
 The library is `no_std` by default. The `std` feature adds host-side calibration
-helpers (`int8::calibration`) that turn float scales into the integer parameters
-the int8 layers use, and the math (`tanh`, `exp`, `pow`, `sqrt`) of the
+helpers (`int8::calibration`, `int16x8::calibration`) that turn float scales into
+the integer parameters the int8 and 16x8 layers use, and the math (`tanh`, `exp`, `pow`, `sqrt`) of the
 floating-point activations, optimizers and fine-tuning head's softmax; the optional `libm` feature provides
 that math without `std`, from the `libm` crate (not bit-identical to glibc).
 
-The minimum supported Rust version is 1.85. CI builds the library for Cortex-M4F
+The minimum supported Rust version is 1.85; the `onnx_digits_int8` example needs
+1.88 (its generated modules use the ONNX importer's arena option). CI builds the library for Cortex-M4F
 (`thumbv7em-none-eabihf`) and Cortex-M0+ (`thumbv6m-none-eabi`).
 
 It has also run on two boards, an STM32F411 (Cortex-M4F, 100 MHz) and an
@@ -61,9 +62,16 @@ built for the same boards with the same models, inputs and compiler settings:
   results; on the M0+ in 3% fewer cycles than the C++, on the M4F in 27% more.
 - The anomaly example trains on the chip in 0.27 s on the M4F and 4.5 s on the
   M0+.
+- tinymind (C++)'s residual digits CNN generated from ONNX (`onnx_digits_int8`):
+  its output hashes in int8, int4 and 16x8. In int8, 287,802 cycles on the M4F
+  and 719,369 on the M0+, 40% and 5% fewer than the C++'s portable build; in
+  16x8, 10% fewer on the M4F and the same on the M0+.
+- A 256-sample log-mel frame with 32 bands: 43,645 cycles on the M4F and
+  156,410 on the M0+, 7% and 16% fewer than the C++.
 
 On the M4F, tinymind (C++)'s build with the Cortex-M4's DSP instructions (SMLAD)
-is faster than the Rust on all four inference models. Compiler settings matter
+is faster than the Rust on all five inference models (the digits CNN in int8:
+171,384 cycles). Compiler settings matter
 on the M4F: tuning for the core (`-C target-cpu=cortex-m4`, set by your
 application) makes the int8 networks up to a third faster but small Q16.16
 networks such as the anomaly demo about a third slower, through an LLVM
@@ -77,7 +85,7 @@ the results page lists the settings to measure. Results and method:
 ```toml
 [dependencies]
 tinymind = "0.3.8"
-# Host-side int8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat, DenseHead softmax:
+# Host-side int8 and 16x8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat, DenseHead softmax:
 # tinymind = { version = "0.3.8", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
 # tinymind = { version = "0.3.8", features = ["libm"] }
@@ -108,7 +116,7 @@ cargo run --release --features std --example int8_xor -- output   # PyTorch-trai
 cargo run --release --features std --example imported_mlp    # two models written by the PyTorch importer
 cargo run --release --features std --example imported_cnn    # two convolutional models written by the PyTorch importer
 cargo run --release --features std --example imported_lstm   # two int8 LSTM sequence models written by the PyTorch importer
-cargo run --release --example imported_onnx                  # five int8 models quantized by ONNX Runtime (two residual), via the ONNX importer
+cargo run --release --example imported_onnx                  # five int8 models quantized by ONNX Runtime (two residual), and four int4/16x8 variants, via the ONNX importer
 cargo run --release --example onnx_digits_int8 -- output     # a residual digit classifier from tinymind (C++)'s ONNX models, int8/int4/16x8, in planned arenas
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN, per-layer report
@@ -187,7 +195,9 @@ digits of the UCI optical digits set, in three variants written by
 weights after quantization-aware training, and 16x8. Each runs in the arena
 tinymind (C++)'s planner gives it (1,024 bytes, or 2,048 for 16x8); it writes
 `onnx_digits_int8.csv`, `onnx_digits_int8_logits.csv`,
-`onnx_digits_int8_plan.csv` and `onnx_digits_int8_summary.csv`. The `int8_xor` example (feature
+`onnx_digits_int8_plan.csv` and `onnx_digits_int8_summary.csv`
+(arguments `[output_dir] [test_set]`; the test set, `data/optdigits.tes`, is
+not in the published crate, so run it from a clone, with Rust 1.88). The `int8_xor` example (feature
 `std`) runs a PyTorch-trained, int8-quantized 2-4-1 network and writes
 `xor_decision_surface.csv`. The `gbdt_tabular_int8` example (feature `std`)
 quantizes a five-tree ensemble onto an int8 feature grid, compares it with the
@@ -263,7 +273,7 @@ set.
 | `examples/imported_cnn.rs` | two convolutional models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
 | `examples/imported_lstm.rs` | two LSTM sequence models written by the PyTorch importer, checked against tinymind (C++)'s importer (identical parameters) and its calibration functions + `QLSTMCell` |
 | `examples/imported_mlp.rs` | two models written by the PyTorch importer, checked against tinymind (C++)'s importer + C++ runtime |
-| `examples/imported_onnx.rs` | five models written by the ONNX importer (two residual networks), checked against tinymind (C++)'s ONNX importer + C++ runtime |
+| `examples/imported_onnx.rs` | five models written by the ONNX importer (two residual networks) and four int4 and 16x8 variants, checked against tinymind (C++)'s ONNX importer + C++ runtime and its code generator |
 
 Everything else in tinymind (C++) is not ported: other Q
 formats, unsigned and 8/64-bit storage, the other activations, the trainable GRU
@@ -347,11 +357,11 @@ the int8 quantization tiers, SIMD backends, and so on.
   (windows above and below 256 taps) and max-pooling layers, the int16
   addition (calibrated as TFLite's and with random parameters), the int16
   activation table over all 65,536 inputs on random and built sigmoid and
-  tanh tables, and the int16 softmax on rows of 1 to 300 values.
+  tanh tables, and the int16 softmax on rows of 1, 2, 10 and 300 values.
 - `tests/mel_sweep.rs` checks the log-mel spectrogram, the MFCCs and their
   table builders against tinymind (C++)'s `QLogMelSpectrogram`, `QMfcc`,
   `buildQHannWindow`, `buildQMelFilterbank` and `buildQDctMatrix` for frame
-  lengths 4 to 1024 and output formats Q0, Q8 and Q14: ten integer test signals
+  lengths 4, 16, 64, 128, 256, 512 and 1024 and output formats Q0, Q8 and Q14: ten integer test signals
   (silence, a one-LSB impulse, noise of a few LSB, full-scale noise and rails,
   a sawtooth, a quiet square wave, DC, a pre-emphasis step) with pre-emphasis
   off and on, through the built tables and through random ones.
@@ -439,7 +449,7 @@ the int8 quantization tiers, SIMD backends, and so on.
   tinymind (C++)'s on 504 and 48 calibrations; `test_ops.py` checks PAD, MUL and
   CONCATENATION on generated models against TFLite's reference kernels (LiteRT).
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
-  (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, logmel_vibration, vibration_anomaly, int8 xor, GBDT) with the flags their
+  (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, logmel_vibration, vibration_anomaly, onnx_digits_int8, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
   example does, runs both sides, and compares every output file (143 checks today, including
   that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
@@ -464,15 +474,19 @@ the int8 quantization tiers, SIMD backends, and so on.
   at or below -6, that pooling's divide rounds half away from zero, that the FFT's
   Q1.15 multiply floors and its magnitudes saturate only where they must,
   that the learning-rate schedule, early stopping and scheduled sampling never panic and weight
-  decay with lambda 0 changes no weight, and that the FFT's saturation skip on
-  cores without a saturating instruction changes no output.
+  decay with lambda 0 changes no weight, that the FFT's saturation skip on
+  cores without a saturating instruction changes no output, and that the int4
+  and 16x8 layers (the 16x8 requantizer's 32-bit form included), the in-place
+  addition, the log-mel spectrogram, the anomaly scores and the k-means
+  trainer never panic.
 - `ci/panic-never` is a Cortex-M firmware image that calls every public function
-  and whose panic handler is an undefined symbol, so CI fails to link it if any
+  and every generated example model's `forward`, and whose panic handler is an undefined symbol, so CI fails to link it if any
   panic path survives optimisation (M0+ and M4F, three optimisation levels).
 - `scripts/qemu-bench.sh` runs the on-board checks in `bench/` under QEMU, on a
   Cortex-M4 and a Cortex-M0 (the boards' instruction sets), at three
   optimisation levels: every workload's output hash (the int8 MLP and CNNs,
-  the MLPerf models, xor training, the anomaly demo, the FFT, the fine-tuning heads, the trees) must match, as
+  the MLPerf models, xor training, the anomaly demo, the FFT, the fine-tuning heads, the trees,
+  the log-mel and anomaly-score features benchmark, the digits CNN from ONNX in int8, int4 and 16x8) must match, as
   on the boards. It also runs the convolution and pooling, LSTM, decision-tree
   and Q-learning sweeps on Cortex-M, along with the addition, composition,
   softmax, FFT, 16x8, int4, anomaly-score and log-mel sweeps (with the C++'s

@@ -13,7 +13,7 @@ The crate has been run on two microcontroller boards, with the same boards, cloc
 | NUCLEO-F411RE | Cortex-M4F | 100 MHz |
 | NUCLEO-L031K6 | Cortex-M0+ (no DSP extension, no hardware divide; 32 KB flash, 8 KB RAM) | 32 MHz |
 
-The Rust figures on this page were measured with Rust 1.100.0 (LLVM 23.1.5) on 2026-11-14, the real-input FFT's on 2026-11-15 with the same compiler.
+The Rust figures on this page were measured with Rust 1.100.0 (LLVM 23.1.5) on 2026-11-14, the real-input FFT's on 2026-11-15, and the log-mel, anomaly-score and digits figures on 2026-11-25, with the same compiler.
 
 ## Exactness
 
@@ -153,7 +153,7 @@ tinymind (C++)'s on-board features benchmark: one 256-sample log-mel frame (32 b
 | Gaussian score, 32 features, 4 components | **1,788** | 1,967 | **12,167** | 12,436 |
 | k-means learning step | **2,728** | 5,461 | **30,244** | 30,700 |
 
-A frame every 128 samples at 3.2 kHz leaves 40 ms: the front end takes about 0.5 ms of it on the M4F and 4.9 ms on the M0+, and scoring or learning a frame well under 1 ms on either. The log-mel frame takes 7% (M4F) and 16% (M0+) fewer cycles than the C++; the k-means score 4 to 5% more. The learning step takes half the cycles on the M4F and the MFCCs 40% fewer, where LLVM unrolls their loops completely, which costs flash: the whole workload adds 20 KB to the F411 image, and on the L031 it is run as two images of 12 KB and 11 KB over the baseline. The details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
+A frame every 128 samples at 3.2 kHz leaves 40 ms: the front end takes about 0.5 ms of it on the M4F and 4.9 ms on the M0+, and scoring or learning a frame under 1 ms on either (0.95 ms for a learning step on the M0+). The log-mel frame takes 7% (M4F) and 16% (M0+) fewer cycles than the C++; the k-means score 4 to 5% more. The learning step takes half the cycles on the M4F and the MFCCs 40% fewer, where LLVM unrolls their loops completely, which costs flash: the whole workload adds 20 KB to the F411 image, and on the L031 it is run as two images of 12 KB and 11 KB over the baseline. The details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
 
 ## Digits model from ONNX
 
@@ -255,7 +255,7 @@ The crate cannot choose compiler settings for you: `-C target-cpu` and `-C llvm-
 ## What these show
 
 - Exactness holds on both cores: int8 inference and every training step match the C++ (and, for the anomaly demo, the host run) bit for bit on the chips themselves, not only on a desktop.
-- Against tinymind (C++)'s portable C++ the Rust MLP takes 9% fewer cycles on the Cortex-M4F and is 9–13% slower on the Cortex-M0+; the KWS-shaped network takes 12-26% fewer cycles, the MLPerf DS-CNN 31% and ResNet-8 31% fewer on the M4F. It has no SMLAD backend of its own: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee; only the 16-bit pairs of multi-channel convolutions reach `SMLAD`, through LLVM, with the opt-in option above.
+- Against tinymind (C++)'s portable C++ the Rust MLP takes 9% fewer cycles on the Cortex-M4F and is 9–13% slower on the Cortex-M0+; the KWS-shaped network takes 12-26% fewer cycles, the MLPerf DS-CNN 31% and ResNet-8 31% fewer on the M4F; the digits CNN from ONNX 40% (M4F) and 5% (M0+) fewer in int8, and 10% fewer and the same in 16x8; the log-mel frame 7% and 16% fewer. It has no SMLAD backend of its own: the Arm DSP intrinsics are not available in stable Rust, and inline assembly would give up the crate's no-`unsafe` guarantee; only the 16-bit pairs of multi-channel convolutions reach `SMLAD`, through LLVM, with the opt-in option above.
 - These are two boards, one model per task and one compiler version. Tuning for the core moves workloads both ways: on the F411, `target-cpu=cortex-m4` makes the int8 networks faster and the anomaly demo's training step 35% slower; see [Settings for your own build](#settings-for-your-own-build).
 - F411 timings are taken with every loop aligned to 16 bytes, so they do not move when unrelated code changes shift the hot loops in flash (without it, a 10-byte shift once made the MLPerf DS-CNN 11% slower). The alignment padding costs 0-2% on most workloads, up to 7.8% on the tree walks and 12% at `opt-level = "s"`. The L031 figures, without it, stay sensitive to placement.
 

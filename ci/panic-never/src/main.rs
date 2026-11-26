@@ -627,6 +627,7 @@ fn int8_int4() {
     black_box((
         int8::unpack_int4(&packed, black_box(5)),
         int8::pack_int4::<5, 3>(&black_box([black_box(-8i8); 5])),
+        int8::int4_packed_bytes(black_box(17)),
     ));
 }
 
@@ -714,6 +715,12 @@ fn int16x8_layers() {
     let mut sum = black_box([[[0i16; 2]; 6]; 5]);
     add.forward(&map, &map, &mut sum);
     black_box(&sum);
+    // The in-place forms (generated arena models), over either input.
+    let mut in_a = black_box(map);
+    add.forward_in_place(&mut in_a, &black_box(map));
+    let mut in_b = black_box(map);
+    add.forward_in_place_b(&black_box(map), &mut in_b);
+    black_box((&in_a, &in_b));
 
     let lut = black_box([black_box(1234i16); int16x8::LUT_SIZE]);
     black_box(int16x8::apply_lut(black_box(i16::MAX), &lut));
@@ -918,6 +925,12 @@ fn int8_conv() {
     let mut big_sum = [[[0i8; 8]; 8]; 8];
     add.forward(&big, &black_box(big), &mut big_sum);
     black_box(&big_sum);
+    // The in-place forms, element by element and tabulated.
+    let mut in_a = black_box(input);
+    add.forward_in_place(&mut in_a, &black_box(input));
+    let mut in_b = black_box(big);
+    add.forward_in_place_b(&black_box(big), &mut in_b);
+    black_box((&in_a, &in_b));
 }
 
 /// The int8 recurrent cells with every field, input and state opaque.

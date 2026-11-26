@@ -53,6 +53,10 @@ break the API).
   mixture score is a negative log-likelihood in Q8 nats; with `std`,
   `calibration::build_diag_gaussian_anomaly` builds its tables from a float
   fit (for example scikit-learn's `GaussianMixture`).
+- `int8::QAdd::forward_in_place` and `forward_in_place_b`, and the same on
+  `int16x8::QAdd`: the addition with its result written over the first or
+  second input, as generated models run a residual addition whose input dies
+  there (equal to `forward`, element by element).
 - Two examples ported from tinymind (C++): `logmel_vibration` (the log-mel
   spectrogram and MFCCs of a synthetic vibration recording whose level ramps
   from -50 dBFS to -6 dBFS, compared frame by frame with the float
@@ -62,23 +66,6 @@ break the API).
   need `std` and write byte-identical output to the C++ examples, except the
   trainer's size in `vibration_anomaly`'s last line (1,248 bytes here, 1,264
   in the C++).
-- `int8::QAdd::forward_in_place` and `forward_in_place_b`, and the same on
-  `int16x8::QAdd`: the addition with its result written over the first or
-  second input, as generated models run a residual addition whose input dies
-  there (equal to `forward`, element by element).
-- The ONNX importer's `arena=True` option: every intermediate activation in
-  one arena the caller passes (`forward(&input, &mut arena)`), planned by
-  tinymind (C++)'s planner (`plan_memory`, copied unchanged), so the module
-  needs the activation memory tinymind (C++)'s generated model needs. The
-  module exports `ARENA_BYTES`, the plan (`BUFFERS`), `LAYER_NAMES` and
-  `WEIGHT_BYTES`; it needs Rust 1.88 (`as_chunks`), the crate stays on 1.85.
-- Faster `int16x8` layers, same results: products summed in `i32` before
-  the `i64` accumulator (exact up to 255 at a time), a one-multiply
-  requantizer for an accumulator in `i32` (and, on ARMv6-M, all-32-bit
-  arithmetic), convolution windows gathered once per pixel, depthwise taps
-  looked up once per pixel, and tinymind (C++)'s fused input rescaling in
-  the addition. The 16x8 digits model went from 517,458 to 408,880 cycles
-  on the Cortex-M4F and from 1,122,048 to 854,511 on the Cortex-M0+.
 - The `onnx_digits_int8` example, a port of tinymind (C++)'s: a residual
   int8 CNN on the UCI optical digits, from the ONNX models that example
   commits, as int8, int4 (quantization-aware trained) and 16x8 modules, each
@@ -96,18 +83,19 @@ break the API).
   `tinymind_qat.py`, int4 quantization-aware training for PyTorch models. The
   `imported_onnx` example runs four such variants, byte-identical with
   tinymind (C++)'s own generator.
+- The ONNX importer's `arena=True` option (in the repository): every intermediate activation in
+  one arena the caller passes (`forward(&input, &mut arena)`), planned by
+  tinymind (C++)'s planner (`plan_memory`, copied unchanged), so the module
+  needs the activation memory tinymind (C++)'s generated model needs. The
+  module exports `ARENA_BYTES`, the plan (`BUFFERS`), `LAYER_NAMES` and
+  `WEIGHT_BYTES`; it needs Rust 1.88 (`as_chunks`), the crate stays on 1.85.
 - The tree importer (`tools/import_trees`, in the repository, not the
   published crate) exports scikit-learn's `IsolationForest`, as the importer
   of tinymind (C++) does since v19.0: an ensemble whose sum is the forest's total path
   length, with `predict` 1 for an outlier against scikit-learn's threshold.
-- A faster `QLogMelSpectrogram`, same results: the pre-emphasized sample is
-  formed in 32 bits, so windowing it is one 32x32 -> 64 multiply. A
-  256-sample, 32-band frame takes 43,645 cycles on the Cortex-M4F (was
-  49,183) and 156,410 on the Cortex-M0+ (was 197,936), 7% and 16% fewer
-  than tinymind (C++).
-- `tests/mel_sweep.rs` and `tests/qanomaly_sweep.rs` check both against
-  tinymind (C++) over frame lengths 4 to 1024 and random tables and sample
-  streams.
+- `tests/mel_sweep.rs` and `tests/qanomaly_sweep.rs` check the log-mel front
+  end and the anomaly scores against tinymind (C++), over frame lengths 4,
+  16, 64, 128, 256, 512 and 1024, random tables and sample streams.
 - The log-mel, anomaly, int4 and 16x8 sweeps also run on Cortex-M (bench
   workload `sweeps`, under QEMU in CI and on the F411), against the same
   goldens. Their parts that need `std` (the built mel tables, Gaussians, int4
@@ -115,6 +103,26 @@ break the API).
   additions and softmaxes take the C++'s parameters from the golden. The
   sweeps image is now two halves, `sweeps-a` and `sweeps-b`, each of which
   fits the F411.
+- `bench/` (in the repository) runs tinymind (C++)'s tier1 on-board
+  benchmark: the log-mel frame, MFCCs, k-means and Gaussian anomaly scores
+  and the k-means learning step, on its tables and inputs, every hash
+  matching on both boards; `tests/features_bench.rs` checks that this
+  crate's calibration rebuilds those tables and hashes.
+
+### Changed
+
+- Faster `int16x8` layers, same results: products summed in `i32` before
+  the `i64` accumulator (exact up to 255 at a time), a one-multiply
+  requantizer for an accumulator in `i32` (and, on ARMv6-M, all-32-bit
+  arithmetic), convolution windows gathered once per pixel, depthwise taps
+  looked up once per pixel, and tinymind (C++)'s fused input rescaling in
+  the addition. The 16x8 digits model went from 517,458 to 408,880 cycles
+  on the Cortex-M4F and from 1,122,048 to 854,511 on the Cortex-M0+.
+- A faster `QLogMelSpectrogram`, same results: the pre-emphasized sample is
+  formed in 32 bits, so windowing it is one 32x32 -> 64 multiply. A
+  256-sample, 32-band frame takes 43,645 cycles on the Cortex-M4F (was
+  49,183) and 156,410 on the Cortex-M0+ (was 197,936), 7% and 16% fewer
+  than tinymind (C++).
 
 ## [0.3.8] - 2026-11-20
 
