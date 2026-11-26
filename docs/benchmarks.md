@@ -147,13 +147,13 @@ tinymind (C++)'s on-board features benchmark: one 256-sample log-mel frame (32 b
 
 | Median cycles | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
 |---|---:|---:|---:|---:|
-| Log-mel frame, 256 samples to 32 bands | **49,183** (492 µs) | 46,878 | **197,936** (6.19 ms) | 185,172 |
+| Log-mel frame, 256 samples to 32 bands | **43,645** (436 µs) | 46,878 | **156,410** (4.89 ms) | 185,172 |
 | 13 MFCCs from 32 bands | **2,450** | 4,112 | **34,650** | 33,567 |
 | k-means score, 32 features, 8 clusters | **3,699** | 3,569 | **24,678** | 23,571 |
 | Gaussian score, 32 features, 4 components | **1,788** | 1,967 | **12,167** | 12,436 |
 | k-means learning step | **2,728** | 5,461 | **30,244** | 30,700 |
 
-A frame every 128 samples at 3.2 kHz leaves 40 ms: the front end takes about 0.5 ms of it on the M4F and 6.2 ms on the M0+, and scoring or learning a frame well under 1 ms on either. The log-mel frame takes 5 to 7% more cycles than the C++; the k-means score 4 to 5% more. The learning step takes half the cycles on the M4F and the MFCCs 40% fewer, where LLVM unrolls their loops completely, which costs flash: the whole workload adds 20 KB to the F411 image, and on the L031 it is run as two images of 12 KB and 11 KB over the baseline. The details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
+A frame every 128 samples at 3.2 kHz leaves 40 ms: the front end takes about 0.5 ms of it on the M4F and 4.9 ms on the M0+, and scoring or learning a frame well under 1 ms on either. The log-mel frame takes 7% (M4F) and 16% (M0+) fewer cycles than the C++; the k-means score 4 to 5% more. The learning step takes half the cycles on the M4F and the MFCCs 40% fewer, where LLVM unrolls their loops completely, which costs flash: the whole workload adds 20 KB to the F411 image, and on the L031 it is run as two images of 12 KB and 11 KB over the baseline. The details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
 
 ## Digits model from ONNX
 

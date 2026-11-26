@@ -297,14 +297,17 @@ kernels), every hash matching. Measured 2026-11-25 (rustc 1.100.0).
 
 | Median cycles | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
 |---|---:|---:|---:|---:|
-| Log-mel frame, 256 samples to 32 bands | **49,183** (492 us) | 46,878 | **197,936** (6.19 ms) | 185,172 |
+| Log-mel frame, 256 samples to 32 bands | **43,645** (436 us) | 46,878 | **156,410** (4.89 ms) | 185,172 |
 | 13 MFCCs from 32 bands | **2,450** | 4,112 | **34,650** | 33,567 |
 | k-means score, 32 features, 8 clusters | **3,699** | 3,569 | **24,678** | 23,571 |
 | Gaussian score, 32 features, 4 components | **1,788** | 1,967 | **12,167** | 12,436 |
 | k-means learning step | **2,728** | 5,461 | **30,244** | 30,700 |
 
-The log-mel frame takes 5% (M4F) and 7% (M0+) more cycles than the C++: its
-real FFT is this crate's (`QRFft1D`, 23,083 / 55,823 cycles alone), the
+The log-mel frame takes 7% (M4F) and 16% (M0+) fewer cycles than the C++
+(2026-11-25; it was 5% and 7% more, at 49,183 and 197,936 cycles, until the
+pre-emphasized sample, which always fits an `i32`, was formed in 32 bits:
+windowing it is then one 32x32 -> 64 multiply instead of 64-bit products).
+Its real FFT is this crate's (`QRFft1D`, 23,083 / 55,823 cycles alone), the
 rest is the window, block scaling, filters and log. At opt-level 3 LLVM
 unrolls the MFCCs' 13 x 32 sum and the learning step's loops completely,
 which halves the learning step and takes 40% off the MFCCs on the M4F, for

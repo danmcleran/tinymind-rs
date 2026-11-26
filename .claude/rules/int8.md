@@ -420,7 +420,11 @@ unreached (pass): mel_to_hz via `exp(x ln 10)` (ulps never flip a rounded
 weight), band edge `> 1` instead of `> 0`, weight clamp 65534 (no weight
 rounds to exactly 1/65536 or 65536 in these configs). panic-never N=4 (2
 bands) and N=256 (32 bands), a short weights slice; planted `LOG2_TABLE[x >>
-58]` fails the M0+ link. Kani `mod mel`: `log2_q30_brackets`,
+58]` fails the M0+ link. **Tuned 2026-11-25:** y = x * 2^15 - a * prev formed in i32 (range
+[-2^31, 2^31 - 2^15], exact; `wrapping_sub` only matters at -2^31) so z = y
+* w is one 32x32 -> 64 multiply: features log-mel F411 49,183 -> 43,645
+(C++ 46,878), L031 197,936 -> 156,410 (185,172); same hashes; plant `<< 14`
+fails the mel sweep. Kani `mod mel`: `log2_q30_brackets`,
 `natural_log_never_overflows` (|arg| < 200 << 30), `log_mel_never_panics` (N=4,
 every field symbolic, unwind 6).
 
