@@ -53,6 +53,8 @@ PORTED=(
   examples/gas_sensor_drift
   examples/logmel_vibration
   examples/vibration_anomaly
+  examples/onnx_digits_int8
+  benchmarks/tier1_onboard
   examples/pytorch_quant/xor
   apps/import_pytorch
   apps/import_onnx

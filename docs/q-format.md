@@ -1,7 +1,7 @@
 ---
 title: Q-format in Rust
 layout: default
-nav_order: 15
+nav_order: 16
 ---
 
 # Q-format in Rust

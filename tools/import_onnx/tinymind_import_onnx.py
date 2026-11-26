@@ -1021,9 +1021,204 @@ def _shape_text(shape) -> str:
     return " x ".join(str(d) for d in shape[1:])
 
 
+# The arena views a module with an arena declares (see _arena_forward).
+ARENA_VIEWS = [
+    "/// The map `[..; H]` of `[..; W]` of `[T; C]` stored at the start of `s` (NHWC).",
+    "fn view<T, const H: usize, const W: usize, const C: usize>(s: &[T]) -> &[[[T; C]; W]; H] {",
+    "    let (pixels, _) = s.as_chunks::<C>();",
+    "    let (rows, _) = pixels.as_chunks::<W>();",
+    "    rows.first_chunk::<H>().expect(\"the arena plan gives every map its size\")",
+    "}",
+    "",
+    "/// [`view`], writable.",
+    "fn view_mut<T, const H: usize, const W: usize, const C: usize>(s: &mut [T]) -> &mut [[[T; C]; W]; H] {",
+    "    let (pixels, _) = s.as_chunks_mut::<C>();",
+    "    let (rows, _) = pixels.as_chunks_mut::<W>();",
+    "    rows.first_chunk_mut::<H>().expect(\"the arena plan gives every map its size\")",
+    "}",
+    "",
+    "/// The vector `[T; N]` stored at the start of `s`.",
+    "fn view1<T, const N: usize>(s: &[T]) -> &[T; N] {",
+    "    s.first_chunk::<N>().expect(\"the arena plan gives every vector its size\")",
+    "}",
+    "",
+    "/// [`view1`], writable.",
+    "fn view1_mut<T, const N: usize>(s: &mut [T]) -> &mut [T; N] {",
+    "    s.first_chunk_mut::<N>().expect(\"the arena plan gives every vector its size\")",
+    "}",
+    "",
+]
+
+
+def _arena_forward(layers, steps, shapes, act: str, elem: int, weight_bytes: int):
+    """The plan constants and the body of `forward(&Input, &mut Arena)` for
+    emit_rust_module's arena option: tinymind (C++)'s plan_memory over the
+    same byte sizes its generator uses (elements times `elem`, alignment 4,
+    element-wise layers in place), then one block per layer that splits the
+    arena around the layer's output and views its inputs below or above it.
+    The last layer writes the returned value, as the C++ writes the caller's
+    output buffer."""
+    import numpy as np
+
+    cg = _codegen()
+    n = len(layers)
+    sizes = {j: int(np.prod(shapes[j][1:])) for j in [-1] + list(range(n))}
+    plan = cg.plan_memory(layers, {j: v * elem for j, v in sizes.items()}, alignment=4, in_place=True)
+    cg.check_plan(plan)
+    buffer_of = {i: b for b in plan.buffers for i in b.layers}
+
+    def region(j):
+        return plan.offsets[j] // elem, sizes[j]
+
+    def dims(j):
+        return ", ".join(str(d) for d in shapes[j][1:])
+
+    def typed(j, s, mut=False):
+        f = ("view" if shapes[j][0] == "map" else "view1") + ("_mut" if mut else "")
+        return f"{f}::<_, {dims(j)}>({s})"
+
+    def flat_input(count):
+        if shapes[-1][0] == "map":
+            return f"input.as_flattened().as_flattened().first_chunk::<{count}>().expect(\"{count} values\")"
+        return "input"
+
+    names = [sanitize(l.name) for l in layers]
+    lines = ["/// Bytes of activation memory `forward` uses: tinymind (C++)'s arena plan for",
+             f"/// this model ({len(plan.buffers)} buffers; {plan.unshared_size} bytes if every output had its own,",
+             f"/// {plan.lower_bound} live during the busiest layer, so no plan needs fewer).",
+             f"pub const ARENA_BYTES: usize = {plan.arena_size};",
+             "/// The plan's offset alignment, in bytes (tinymind (C++)'s `kModelArenaAlignment`).",
+             "pub const ARENA_ALIGNMENT: usize = 4;",
+             "/// Bytes if every layer's output had its own buffer.",
+             f"pub const UNSHARED_BYTES: usize = {plan.unshared_size};",
+             "/// Bytes live during the busiest layer: no plan needs fewer.",
+             f"pub const PEAK_LIVE_BYTES: usize = {plan.lower_bound};",
+             "/// The activation arena `forward` takes.",
+             (f"pub type Arena = [{act}; ARENA_BYTES];" if elem == 1 else
+              f"pub type Arena = [{act}; ARENA_BYTES / {elem}];"),
+             "/// The model's layers, in the order `forward` runs them.",
+             f"pub const LAYER_NAMES: [&str; {n}] = [{', '.join(repr(x).replace(chr(39), chr(34)) for x in names)}];",
+             "/// Bytes of weights the layers read (int4 layers count their packed bytes).",
+             f"pub const WEIGHT_BYTES: usize = {weight_bytes};",
+             "/// One region of the arena: the bytes it spans and the layers whose output",
+             "/// lives there (more than one when an element-wise layer writes over its",
+             "/// input), live from `first_layer` to `last_layer`.",
+             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+             "pub struct ArenaBuffer {",
+             "    /// Offset into the arena, in bytes.",
+             "    pub offset: usize,",
+             "    /// Size in bytes (aligned).",
+             "    pub size: usize,",
+             "    /// The first layer that writes it.",
+             "    pub first_layer: usize,",
+             "    /// The last layer that reads it.",
+             "    pub last_layer: usize,",
+             "    /// The layers whose output lives here, in order (`a + b`).",
+             "    pub outputs: &'static str,",
+             "}",
+             "/// The plan, by offset.",
+             f"pub const BUFFERS: [ArenaBuffer; {len(plan.buffers)}] = ["]
+    for b in sorted(plan.buffers, key=lambda b: (b.offset, b.first)):
+        outs = " + ".join(names[i] for i in b.layers)
+        lines.append(f"    ArenaBuffer {{ offset: {b.offset}, size: {b.size}, first_layer: {b.first}, "
+                     f"last_layer: {b.last}, outputs: \"{outs}\" }},")
+    lines += ["];", ""]
+
+    body: list[str] = []
+    last = n - 1
+    for i, kind, call, extra in steps:
+        layer = layers[i]
+        srcs = layer.sources
+        if i == last:
+            def read(j):
+                if j < 0:
+                    return "input"
+                o, m = region(j)
+                return typed(j, f"&arena[{o}..{o + m}]")
+
+            def read_flat(j, count):
+                if j < 0:
+                    return flat_input(count)
+                o, _ = region(j)
+                return f"view1::<_, {count}>(&arena[{o}..{o + count}])"
+
+            out_zeros = _zeros(shapes[i][1:], act)
+            if kind == "value":
+                body.append("    " + call.replace("{x0}", read(srcs[0]))
+                            .replace("{x0flat}", read_flat(srcs[0], extra)))
+            elif kind == "into":
+                body += [f"    let mut out = {out_zeros};",
+                         "    " + call.replace("{x0}", read(srcs[0])).replace("{y}", "&mut out") + ";",
+                         "    out"]
+            elif kind == "add":
+                body += [f"    let mut out = {out_zeros};",
+                         f"    {call}.forward({read(srcs[0])}, {read(srcs[1])}, &mut out);",
+                         "    out"]
+            else:  # elementwise
+                body += [f"    let mut out = *{read(srcs[0])};",
+                         "    for x in out" + (".as_flattened_mut().as_flattened_mut()"
+                                                 if shapes[i][0] == "map" else ".iter_mut()") + " {",
+                         f"        *x = {extra('*x')};",
+                         "    }",
+                         "    out"]
+            continue
+
+        o, m = region(i)
+        used = set()
+
+        def part(j, o=o, m=m, used=used):
+            """Slice of the arena holding value j, from the halves around [o, o + m)."""
+            oj, mj = region(j)
+            if oj + mj <= o:
+                used.add("lo")
+                return f"&lo[{oj}..{oj + mj}]"
+            assert oj >= o + m, (layer.name, j)
+            used.add("hi")
+            return f"&hi[{oj - o - m}..{oj - o - m + mj}]"
+
+        def read(j):
+            return "input" if j < 0 else typed(j, part(j))
+
+        def read_flat(j, count):
+            if j < 0:
+                return flat_input(count)
+            return f"view1::<_, {count}>({part(j)})"
+
+        in_place = [j for j in srcs if j >= 0 and buffer_of.get(j) is buffer_of[i]]
+        if kind == "into":
+            code = call.replace("{x0}", read(srcs[0])).replace("{y}", typed(i, "y", mut=True)) + ";"
+        elif kind == "value":
+            code = (f"*{typed(i, 'y', mut=True)} = "
+                    + call.replace("{x0}", read(srcs[0])).replace("{x0flat}", read_flat(srcs[0], extra)) + ";")
+        elif kind == "add":
+            a, b = srcs
+            if in_place and in_place[0] == a:
+                code = f"{call}.forward_in_place({typed(i, 'y', mut=True)}, {read(b)});"
+            elif in_place:
+                code = f"{call}.forward_in_place_b({read(a)}, {typed(i, 'y', mut=True)});"
+            else:
+                code = f"{call}.forward({read(a)}, {read(b)}, {typed(i, 'y', mut=True)});"
+        else:  # elementwise: flat, in place or from its input
+            x = srcs[0]
+            if in_place:
+                code = f"for x in y.iter_mut() {{ *x = {extra('*x')}; }}"
+            else:
+                src = ("input.as_flattened().as_flattened()" if x < 0 and shapes[-1][0] == "map"
+                       else "input" if x < 0 else part(x))
+                code = f"for (y, &x) in y.iter_mut().zip({src}) {{ *y = {extra('x')}; }}"
+        lo = "lo" if "lo" in used else "_"
+        hi = "hi" if "hi" in used else "_"
+        body += ["    {",
+                 f"        let ({lo}, rest) = arena.split_at_mut({o});",
+                 f"        let (y, {hi}) = rest.split_at_mut({m});",
+                 f"        {code}",
+                 "    }"]
+    return lines, body
+
+
 def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
                      model_note: str = "", int4_dense: bool = False, int4_conv: bool = False,
-                     activation_bits: int = 8) -> None:
+                     activation_bits: int = 8, arena: bool = False) -> None:
     """Write the Rust module for the parsed layers (see check_graph): statics
     for every layer and `forward(&Input) -> Output`.
 
@@ -1048,7 +1243,18 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
     buffer of its output's shape whose tensor no later layer reads, or a new
     one, and a table or Relu on a map whose input is not read again rewrites
     that buffer in place. A chain needs a buffer per shape it passes through,
-    and a residual block keeps its skip tensor until the Add."""
+    and a residual block keeps its skip tensor until the Add.
+
+    arena: keep every intermediate activation in one arena the caller passes,
+    `forward(&Input, &mut Arena) -> Output`, planned by tinymind (C++)'s
+    planner (plan_memory: TFLite Micro's greedy-by-size placement, an Add,
+    Relu, Sigmoid or Tanh writing over an input that dies there), so the
+    arena and its plan are the ones tinymind (C++)'s generated model.hpp
+    uses: ARENA_BYTES, BUFFERS, UNSHARED_BYTES, PEAK_LIVE_BYTES, plus
+    LAYER_NAMES and WEIGHT_BYTES. Each layer splits the arena around its
+    output (`split_at_mut`) and views the parts as typed tensors with
+    `as_chunks`, so the module needs Rust 1.88 (the crate itself builds on
+    1.85)."""
     import numpy as np
 
     if activation_bits not in (8, 16):
@@ -1070,6 +1276,11 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
     buffers: list[list] = []  # [shape, value it holds]
     buffer_of: dict[int, int] = {}  # map value -> buffer
     out_scale, out_zp = layers[-1].output_scale, layers[-1].output_zp
+    # What each layer runs, for the arena form of forward: (layer, kind,
+    # call, extra). Calls name their operands {x0} (source 0, typed), {x0flat}
+    # (source 0 as a flat vector), {y} (the output, written).
+    steps: list[tuple] = []
+    weight_bytes = 0
 
     def ref(j: int) -> str:
         """A reference to value j."""
@@ -1174,6 +1385,7 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
             shapes[i] = ("map", oh, ow, c)
             out = new_buffer(i, shapes[i])
             body.append(f"    {tag}.forward({ref(x)}, &mut {out});")
+            steps.append((i, "into", f"{tag}.forward({{x0}}, {{y}})", None))
             continue
         elif layer.op_type == "Add":
             y = layer.sources[1]
@@ -1212,6 +1424,7 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
                 out = f"v{i}"
                 body.append(f"    let mut {out} = {_zeros(shape[1:], act)};")
             body.append(f"    {tag}.forward({ref(x)}, {ref(y)}, &mut {out});")
+            steps.append((i, "add", tag, None))
             continue
         elif layer.op_type == "Softmax":
             s = shapes.get(x)
@@ -1231,6 +1444,7 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
                 out_scale, out_zp = cg.SOFTMAX16_OUTPUT_SCALE, 0
                 body.append(f"    let mut v{i} = {_zeros(s[1:], act)};")
                 body.append(f"    {tag}.forward({ref(x)}, &mut v{i});")
+                steps.append((i, "into", f"{tag}.forward({{x0}}, {{y}})", None))
                 continue
             mult, left, diff_min = build_softmax(layer.input_scale)
             decls.append(f"/// {what}: softmax over {s[1]} logits, output on the 1/256 grid.")
@@ -1238,6 +1452,7 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
                          f"input_left_shift: {left}, diff_min: {diff_min} }};\n")
             out_scale, out_zp = 1.0 / 256.0, -128
             body.append(f"    let v{i} = {tag}.forward({ref(x)});")
+            steps.append((i, "value", f"{tag}.forward({{x0}})", None))
             continue
         elif layer.op_type in ("Sigmoid", "Tanh", "Relu"):
             if x not in shapes:
@@ -1276,6 +1491,7 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
                 def fn(v, tag=tag):
                     return f"apply_lut({v}, &{tag})"
             shapes[i] = shapes[x]
+            steps.append((i, "elementwise", None, fn))
             if shapes[x][0] == "vec":
                 body.append(f"    let v{i} = {val(x)}.map(|x| {fn('x')});")
                 continue
@@ -1299,11 +1515,14 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
         n_out = layer.weight.shape[0]
         int4_here = ((layer.op_type == "Dense" and int4_dense)
                      or (layer.op_type in ("Conv", "DepthwiseConv") and int4_conv))
+        if not int4_here:
+            weight_bytes += int(layer.weight.size)
         if int4_here:
             q4 = cg.requantize_int4(layer)
             packed = cg.pack_int4(q4.codes.reshape(-1).tolist())
             # The int8 weights the layer would have read go unused.
             decls = [d for d in decls if not d.startswith(f"static {tag}_WEIGHTS:")]
+            weight_bytes += len(packed)
             decls.append(f"/// int4 per channel: {len(packed)} bytes, against {layer.weight.size} as int8.")
             decls.append(f"static {tag}_WEIGHTS: [u8; {len(packed)}] = {_rust_nested(np.array(packed))};")
             biases = "None"
@@ -1370,8 +1589,10 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
         if new_shape[0] == "map":
             out = new_buffer(i, new_shape)
             body.append(f"    {tag}.forward({ref(x)}, &mut {out});")
+            steps.append((i, "into", f"{tag}.forward({{x0}}, {{y}})", None))
         else:
             body.append(f"    let v{i} = {tag}.forward({arg});")
+            steps.append((i, "value", f"{tag}.forward({{x0flat}})", g["NumInputs"]))
 
     # The last value is the function's value (clippy::let_and_return).
     last = val(n - 1)
@@ -1380,6 +1601,8 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
     else:
         body.append(f"    {last}")
     body = [f"    let mut b{k} = {_zeros(shape[1:], act)};" for k, (shape, _) in enumerate(buffers)] + body
+    if arena:
+        plan_lines, body = _arena_forward(layers, steps, shapes, act, 2 if wide else 1, weight_bytes)
 
     in_shape, shape = shapes[-1], shapes[n - 1]
     first = layers[0]
@@ -1395,13 +1618,17 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
     if model_note:
         lines += [f"//! {line}".rstrip() for line in model_note.splitlines()]
     lines += ["//!",
-              "//! Integer-only and `no_std`: int8 input in the `INPUT` grid, int8 output in the",
+              f"//! Integer-only and `no_std`: {'int16' if wide else 'int8'} input in the `INPUT` grid, "
+              f"{'int16' if wide else 'int8'} output in the",
               "//! `OUTPUT` grid (real value = `SCALE * (q - ZERO_POINT)`). Feature maps are NHWC",
               "//! without the batch axis, `[row][column][channel]`: the transpose of the NCHW",
               "//! tensor the ONNX model takes.",
               "",
               "// Not every program uses every constant.",
               "#![allow(dead_code)]",
+              *(["// The arena views (`as_chunks`) need Rust 1.88, whatever MSRV the crate",
+                 "// including this module declares.",
+                 "#![allow(clippy::incompatible_msrv)]"] if arena else []),
               "",
               "use tinymind::int16x8::*;" if wide else "use tinymind::int8::*;",
               ""]
@@ -1421,9 +1648,17 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
               f"/// Scale of the output tensor.{softmax_note}\npub const OUTPUT_SCALE: f32 = {_f32_literal(out_scale)};",
               f"/// Zero point of the output tensor.\npub const OUTPUT_ZERO_POINT: {act} = {out_zp};",
               ""]
+    if arena:
+        lines += plan_lines
     lines += decls
-    lines += ["/// Run the network on an int8 input in the `INPUT` grid.",
-              "pub fn forward(input: &Input) -> Output {"] + body + ["}"]
+    if arena:
+        lines += ARENA_VIEWS
+        lines += ["/// Run the network on an input in the `INPUT` grid, with every intermediate",
+                  "/// activation in `arena` (its contents need not be kept between calls).",
+                  "pub fn forward(input: &Input, arena: &mut Arena) -> Output {"] + body + ["}"]
+    else:
+        lines += [f"/// Run the network on an {'int16' if wide else 'int8'} input in the `INPUT` grid.",
+                  "pub fn forward(input: &Input) -> Output {"] + body + ["}"]
     with open(path, "w") as f:
         f.write("\n".join(lines) + "\n")
     rustfmt = shutil.which("rustfmt")
@@ -1436,14 +1671,14 @@ def emit_rust_module(path: str, name: str, layers: list[OnnxQuantizedLayer],
 
 def import_onnx_model(model_path: str, output_path: str, name: str,
                       model_note: str = "", int4_dense: bool = False, int4_conv: bool = False,
-                      activation_bits: int = 8) -> list[OnnxQuantizedLayer]:
+                      activation_bits: int = 8, arena: bool = False) -> list[OnnxQuantizedLayer]:
     """Top level: parse the quantized ONNX model, check its graph, and write
     the Rust module (options as emit_rust_module). Returns the parsed
     layers."""
     layers = parse_onnx_model(model_path)
     check_graph(model_path, layers)
     emit_rust_module(output_path, name, layers, model_note, int4_dense=int4_dense, int4_conv=int4_conv,
-                     activation_bits=activation_bits)
+                     activation_bits=activation_bits, arena=arena)
     return layers
 
 

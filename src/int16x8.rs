@@ -524,6 +524,37 @@ impl QAdd {
     /// `out = a + b` element by element; the three tensors have the same
     /// shape (`[i16; N]`, `[[i16; C]; W]` or `[[[i16; C]; W]; H]`).
     pub fn forward<T: Tensor>(&self, a: &T, b: &T, out: &mut T) {
+        self.add_elements(
+            out.as_flat_mut()
+                .iter_mut()
+                .zip(a.as_flat())
+                .zip(b.as_flat())
+                .map(|((o, &x), &y)| (o, x, y)),
+        );
+    }
+
+    /// `a = a + b` element by element: [`forward`](Self::forward) with its
+    /// result written over the first input, as tinymind (C++)'s generated
+    /// models run an addition whose first input dies there. Each element is
+    /// read before it is written, so the result equals `forward`'s.
+    pub fn forward_in_place<T: Tensor>(&self, a: &mut T, b: &T) {
+        self.add_elements(a.as_flat_mut().iter_mut().zip(b.as_flat()).map(|(o, &y)| {
+            let x = *o;
+            (o, x, y)
+        }));
+    }
+
+    /// `b = a + b` element by element: [`forward`](Self::forward) with its
+    /// result written over the second input.
+    pub fn forward_in_place_b<T: Tensor>(&self, a: &T, b: &mut T) {
+        self.add_elements(b.as_flat_mut().iter_mut().zip(a.as_flat()).map(|(o, &x)| {
+            let y = *o;
+            (o, x, y)
+        }));
+    }
+
+    /// The loop over (output slot, a, b) triples all three forms share.
+    fn add_elements<'o>(&self, elements: impl Iterator<Item = (&'o mut i16, i16, i16)>) {
         let shift = self.left_shift.max(0).unsigned_abs();
         let scale = |x: i16, zp: i16, m: i32, s: i32| {
             multiply_by_quantized_multiplier(
@@ -532,12 +563,7 @@ impl QAdd {
                 s,
             )
         };
-        for ((o, &x), &y) in out
-            .as_flat_mut()
-            .iter_mut()
-            .zip(a.as_flat())
-            .zip(b.as_flat())
-        {
+        for (o, x, y) in elements {
             let sa = scale(
                 x,
                 self.input_a_zero_point,
@@ -689,6 +715,51 @@ impl QSoftmax {
         for y in output.iter_mut() {
             let v = (i32::from(*y) * reciprocal).wrapping_add(round) >> right_shift;
             *y = v.clamp(0, 32767) as i16;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Both in-place additions equal `forward`.
+    #[test]
+    fn in_place_add_equals_forward() {
+        let mut state = 11u32;
+        let mut next = || {
+            state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            state
+        };
+        for _ in 0..16 {
+            let add = QAdd {
+                input_a_zero_point: (next() >> 24) as u8 as i8 as i16,
+                input_b_zero_point: (next() >> 24) as u8 as i8 as i16,
+                left_shift: 15,
+                input_a_multiplier: (1 << 30) + (next() >> 2) as i32,
+                input_a_shift: (next() % 4) as i32,
+                input_b_multiplier: (1 << 30) + (next() >> 2) as i32,
+                input_b_shift: (next() % 4) as i32,
+                output_requantizer: Requantizer32 {
+                    multiplier: (1 << 30) + (next() >> 2) as i32,
+                    shift: (next() % 20) as i32,
+                    zero_point: 0,
+                    qmin: -32768,
+                    qmax: 32767,
+                },
+            };
+            let a: [[i16; 3]; 5] =
+                core::array::from_fn(|_| core::array::from_fn(|_| (next() >> 16) as i16));
+            let b: [[i16; 3]; 5] =
+                core::array::from_fn(|_| core::array::from_fn(|_| (next() >> 16) as i16));
+            let mut sum = [[0i16; 3]; 5];
+            add.forward(&a, &b, &mut sum);
+            let mut in_a = a;
+            add.forward_in_place(&mut in_a, &b);
+            assert_eq!(in_a, sum);
+            let mut in_b = b;
+            add.forward_in_place_b(&a, &mut in_b);
+            assert_eq!(in_b, sum);
         }
     }
 }

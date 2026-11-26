@@ -110,7 +110,20 @@ jobs:
           cargo test --all-features --manifest-path "$(ls -d target/package/tinymind-*/ | head -1)Cargo.toml"
       - name: cargo test on MSRV (${{ steps.toolchain.outputs.msrv }})
         if: success() || failure()
-        run: cargo "+${{ steps.toolchain.outputs.msrv }}" test --all-features
+        # Every target but onnx_digits_int8's example and golden test: their
+        # generated models use the ONNX importer's arena option, which needs
+        # Rust 1.88 (`as_chunks`). The library itself builds on the MSRV.
+        run: |
+          skip='^(onnx_digits_int8|onnx_digits_golden)$'
+          targets=()
+          for f in tests/*.rs; do
+            t="$(basename "$f" .rs)"; [[ "$t" =~ $skip ]] || targets+=(--test "$t")
+          done
+          for f in examples/*.rs; do
+            e="$(basename "$f" .rs)"; [[ "$e" =~ $skip ]] || targets+=(--example "$e")
+          done
+          cargo "+${{ steps.toolchain.outputs.msrv }}" test --all-features --lib "${targets[@]}"
+          cargo "+${{ steps.toolchain.outputs.msrv }}" test --all-features --doc
 
   # Kani proofs (src/kani_proofs.rs): properties checked for every input.
   # Installed directly (pinned version) rather than through the Kani action,
@@ -197,7 +210,7 @@ jobs:
               --out src/gen/mlperf_$m.rs --data src/gen/mlperf_${m}_data.rs --target-dir "$RUNNER_TEMP/tflite_target"
           done
           for spec in f411:thumbv7em-none-eabihf l031:thumbv6m-none-eabi; do
-            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",fft" ",fft-runtime" ",features" ",features-mel" ",features-anomaly" ",trees" ",kws" ",kws-profile" ",mlperf-kws" ",mlperf-ic"; do
+            for wl in "" ",mlp" ",profile" ",xor-q16" ",xor-q8" ",anomaly" ",fft" ",fft-runtime" ",features" ",features-mel" ",features-anomaly" ",trees" ",kws" ",kws-profile" ",digits-int8" ",digits-int4" ",digits-16x8" ",mlperf-kws" ",mlperf-ic"; do
               # The MLPerf models do not fit the L031, nor the whole features
               # workload at opt-level 3 (run.sh runs its two halves there).
               case "${spec%%:*}$wl" in l031,mlperf-*|l031,features) continue ;; esac

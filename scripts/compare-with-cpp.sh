@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Build tinymind's C++ examples and their Rust ports (xor in Q16.16 and Q8.8,
-# iris, optical_digits, energy_efficiency, gas_sensor_drift, air_quality, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8, logmel_vibration, vibration_anomaly), plus
+# iris, optical_digits, energy_efficiency, gas_sensor_drift, air_quality, maze, dqn_maze, the int8 pytorch_quant xor, gbdt_tabular_int8, logmel_vibration, vibration_anomaly, onnx_digits_int8), plus
 # the C++ programs in scripts/cpp/ (deep networks, inference-only networks, the
-# fine-tuning heads, the int8 softmax, FFT, int4, log-mel and anomaly sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included), the ONNX importer's and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
-# fine-tuning heads, the int8 softmax, FFT, 16x8, log-mel and anomaly sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included), the ONNX importer's and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
+# fine-tuning heads, the int8 softmax, FFT, int4, 16x8, log-mel and anomaly sweeps, scheduled sampling, the Q-learning and tree sweeps, the PyTorch importer's models (LSTM included), the ONNX importer's and the tree importer's), run both sides, and cmp every output file. Set TINYMIND_DIR to the
 # tinymind checkout (default ../tinymind). Set KEEP_CPP_OUTPUT=dir to keep the
 # C++ outputs, the only valid source for tests/golden.
 set -euo pipefail
@@ -932,14 +931,15 @@ else
   status=1
 fi
 
-# The int4 and 16x8 helpers are tinymind's code generator's, unchanged:
-# everything from `def _f32` to the end of pack_int4.
-cg_range() { awk '/^def _f32/{p=1} p{print} p && /^def pack_int4/{q=1} q && /^    return out$/{exit}' "$1"; }
+# The arena planner and the int4 and 16x8 helpers are tinymind's code
+# generator's, unchanged: everything from its "Static memory planning"
+# banner to the end of pack_int4.
+cg_range() { awk '/^# Static memory planning/{p=1} p{print} p && /^def pack_int4/{q=1} q && /^    return out$/{exit}' "$1"; }
 if cmp -s <(cg_range "$TINYMIND_DIR/apps/import_onnx/tinymind_model_codegen.py") \
           <(cg_range "$ROOT/tools/import_onnx/tinymind_model_codegen.py"); then
-  same "import_onnx code generator helpers (tinymind's int4 and 16x8, verbatim)"
+  same "import_onnx code generator helpers (tinymind's planner, int4 and 16x8, verbatim)"
 else
-  echo "DIFFERENT  import_onnx code generator helpers (tinymind's int4 and 16x8, verbatim)"
+  echo "DIFFERENT  import_onnx code generator helpers (tinymind's planner, int4 and 16x8, verbatim)"
   status=1
 fi
 # tinymind's int4 quantization-aware training helper, copied whole.
@@ -949,6 +949,43 @@ else
   echo "DIFFERENT  import_onnx tinymind_qat.py (tinymind's int4 QAT, verbatim)"
   status=1
 fi
+
+echo "== onnx_digits_int8 (ONNX importer, arena-planned models)"
+# tinymind's example runs the three models its train.py generated
+# (model.hpp, model_int4.hpp, model_int16x8.hpp) from the ONNX models it
+# commits; ours runs the modules tools/import_onnx/example_digits.py
+# generates from the same models, in the same planned arenas. Flags from
+# examples/onnx_digits_int8/Makefile's release target, plus -ffp-contract=off
+# (the logit error is double arithmetic). The C++ reads its test set from
+# ../../optical_digits, relative to where it runs.
+mkdir -p "$TMP/onnx_digits/optical_digits" "$TMP/onnx_digits/run/cpp" "$TMP/onnx_digits/rust"
+cp "$TINYMIND_DIR/examples/optical_digits/optdigits.tes" "$TMP/onnx_digits/optical_digits/"
+g++ -g -O3 -ffp-contract=off -Wall -Wextra -Werror -Wpedantic -o "$TMP/onnx_digits/onnx_digits_int8" \
+  "$TINYMIND_DIR/examples/onnx_digits_int8/onnx_digits_int8.cpp" -I"$TINYMIND_DIR/examples/onnx_digits_int8" \
+  -I"$TINYMIND_DIR/cpp" -I"$TINYMIND_DIR/cpp/include" -I"$TINYMIND_DIR/include" \
+  -DTINYMIND_ENABLE_QUANTIZATION=1 -DTINYMIND_ENABLE_FLOAT=0 -DTINYMIND_ENABLE_STD=0
+(cd "$TMP/onnx_digits/run/cpp" && ../../onnx_digits_int8 > stdout.txt)
+"$ROOT/target/release/examples/onnx_digits_int8" "$TMP/onnx_digits/rust" \
+  "$TINYMIND_DIR/examples/optical_digits/optdigits.tes" > "$TMP/onnx_digits/rust/stdout.txt"
+for f in stdout.txt onnx_digits_int8.csv onnx_digits_int8_plan.csv onnx_digits_int8_summary.csv \
+         onnx_digits_int8_logits.csv; do
+  if cmp -s "$TMP/onnx_digits/run/cpp/$f" "$TMP/onnx_digits/rust/$f"; then
+    same "onnx_digits_int8 $f"
+  else
+    echo "DIFFERENT  onnx_digits_int8 $f"
+    status=1
+  fi
+done
+mkdir -p "$TMP/onnx_digits/gen"
+TINYMIND_DIR="$TINYMIND_DIR" "$PYTHON" -I -B "$ROOT/tools/import_onnx/example_digits.py" "$TMP/onnx_digits/gen" >/dev/null
+for f in onnx_digits_model.rs onnx_digits_int4_model.rs onnx_digits_16x8_model.rs onnx_digits_reference.rs; do
+  if cmp -s "$TMP/onnx_digits/gen/$f" "$ROOT/examples/common/$f"; then
+    same "onnx_digits_int8 examples/common/$f (regenerated)"
+  else
+    echo "DIFFERENT  onnx_digits_int8 examples/common/$f (regenerated)"
+    status=1
+  fi
+done
 
 echo "== import_tflite (TFLite translator)"
 # Needs tflite and flatbuffers in PYTHON. The MLPerf Tiny keyword-spotting and
@@ -1066,6 +1103,9 @@ if [ -n "${KEEP_CPP_OUTPUT:-}" ]; then
   mkdir -p "$KEEP_CPP_OUTPUT/int16x8"
   cp "$TMP/int16x8/stdout.txt" "$KEEP_CPP_OUTPUT/int16x8/stdout.txt"
   mkdir -p "$KEEP_CPP_OUTPUT/qanomaly" "$KEEP_CPP_OUTPUT/mel"
+  mkdir -p "$KEEP_CPP_OUTPUT/onnx_digits"
+  cp "$TMP/onnx_digits/run/cpp/stdout.txt" "$TMP/onnx_digits/run/cpp/onnx_digits_int8_plan.csv" \
+    "$TMP/onnx_digits/run/cpp/onnx_digits_int8_summary.csv" "$KEEP_CPP_OUTPUT/onnx_digits/"
   mkdir -p "$KEEP_CPP_OUTPUT/logmel" "$KEEP_CPP_OUTPUT/vibration"
   cp "$TMP/logmel/cpp/stdout.txt" "$TMP/logmel/cpp/logmel_vibration_error.csv" "$KEEP_CPP_OUTPUT/logmel/"
   cp "$TMP/vibration/cpp/stdout.txt" "$TMP/vibration/cpp/vibration_anomaly_summary.csv" "$KEEP_CPP_OUTPUT/vibration/"

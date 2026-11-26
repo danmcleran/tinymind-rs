@@ -52,6 +52,14 @@ samples, so the numbers sit next to the tinymind (C++) ones.
   `gen_tables.cpp` printed. The whole image overflows the L031's 32 KB at
   opt-level 3, so there `run.sh` runs `features-mel` (log-mel, MFCC) and
   `features-anomaly` (the scores and learning) as two images.
+- **`digits-int8`**, **`digits-int4`**, **`digits-16x8`**: tinymind (C++)'s
+  tier1 digits workloads, the residual CNN of its `examples/onnx_digits_int8`
+  in three variants, run from the modules `tools/import_onnx` writes from
+  that example's ONNX models (`examples/common/onnx_digits_*`, each in the
+  arena tinymind (C++)'s planner gives it) on the 8 test digits of its
+  `gen_tables.cpp` (`tests/golden/features/tables.h`). Each output hash must
+  equal the one `gen_tables.cpp` printed. One image per variant, as the C++
+  builds them.
 - **`head`**: the fine-tuning heads (`tinymind::head`) on a Q16.16 workload
   shared with the host (`tests/sweeps/head_bench.rs`): 32-value embeddings
   for 6 classes, 5 samples each, and a shipped `DenseHead<Q16_16, 32, 6>`,
@@ -303,6 +311,34 @@ which halves the learning step and takes 40% off the MFCCs on the M4F, for
 flash: the F411 image is 33,628 B (20,312 B over the baseline), the L031's
 two images 24,488 B and 23,028 B (12,052 B and 10,592 B over it). Raw
 reports: session scratchpad `bench-features/`.
+
+### Digits model from ONNX: int8, int4, 16x8
+
+tinymind (C++)'s tier1 digits workloads, median cycles over 33 calls cycling
+through 8 test digits, every hash matching; tinymind (C++)'s figures are its
+`benchmarks/tier1_onboard/results/raw_{int8,int4,16x8}_*_O3*.txt` (gcc `-O3`,
+scalar kernels; its Arm DSP build, SMLAD intrinsics, has no counterpart
+here). Image text and the stack the workload used, beside the C++'s text,
+static RAM and stack. Measured 2026-11-25 (rustc 1.100.0).
+
+| Median cycles | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
+|---|---:|---:|---:|---:|
+| int8 | **287,802** (2.88 ms) | 479,524 | **719,369** (22.5 ms) | 760,608 |
+| int4 weights | **304,367** | 454,157 | **742,524** | 778,803 |
+| 16x8 (int16 activations) | **517,458** | 452,807 | **1,122,048** | 853,668 |
+
+| Memory (B) | F411 Rust text / stack | F411 C++ text / static / stack | L031 Rust text / stack | L031 C++ text / static / stack |
+|---|---|---|---|---|
+| int8 | 30,312 / 4,688 | 36,120 / 3,128 / 844 | 29,036 / 5,160 | 26,232 / 1,684 / 1,788 |
+| int4 | 32,424 / 5,864 | 22,620 / 3,128 / 1,560 | 31,240 / 6,264 | 24,320 / 1,684 / 2,292 |
+| 16x8 | 27,920 / 3,592 | 35,384 / 5,192 / 1,232 | 26,732 / 4,124 | 24,632 / 3,228 / 1,732 |
+
+The Rust images keep the arena and the eight inputs on the stack, the C++
+in static RAM. The int8 model takes 40% fewer cycles than the C++ scalar
+build on the M4F and 5% fewer on the M0+; int4 33% and 5% fewer. The 16x8
+layers (`int16x8`, written plainly, not tuned yet) take 14% more on the M4F
+and 31% more on the M0+. The L031 int4 image, 31,240 B, is the closest to
+its 32 KB. Raw reports: session scratchpad `bench-digits/`.
 
 ### Fine-tuning heads
 

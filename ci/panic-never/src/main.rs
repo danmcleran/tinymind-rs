@@ -369,6 +369,14 @@ mod imported_onnx_resnet_qop_16x8;
 /// A model written by the tree importer (generated code must be panic-free too).
 #[path = "../../../examples/common/imported_trees_gbdt_model.rs"]
 mod imported_trees;
+#[path = "../../../examples/common/onnx_digits_model.rs"]
+mod onnx_digits;
+/// tinymind (C++)'s onnx_digits_int8 models, generated with the arena
+/// option: every activation in one arena, viewed with `as_chunks`.
+#[path = "../../../examples/common/onnx_digits_16x8_model.rs"]
+mod onnx_digits_16x8;
+#[path = "../../../examples/common/onnx_digits_int4_model.rs"]
+mod onnx_digits_int4;
 
 /// The int8 path: primitives, requantizer, a dense layer, activations, tables.
 fn int8_inference() {
@@ -1211,6 +1219,21 @@ pub extern "C" fn _start() -> ! {
     black_box(imported_onnx_resnet_qop_16x8::forward(&black_box(
         imported_onnx_resnet_qop_16x8::Input::default(),
     )));
+    let mut arena: onnx_digits::Arena = [0; onnx_digits::ARENA_BYTES];
+    black_box(onnx_digits::forward(
+        &black_box(onnx_digits::Input::default()),
+        black_box(&mut arena),
+    ));
+    let mut arena4: onnx_digits_int4::Arena = [0; onnx_digits_int4::ARENA_BYTES];
+    black_box(onnx_digits_int4::forward(
+        &black_box(onnx_digits_int4::Input::default()),
+        black_box(&mut arena4),
+    ));
+    let mut arena16: onnx_digits_16x8::Arena = [0; onnx_digits_16x8::ARENA_BYTES / 2];
+    black_box(onnx_digits_16x8::forward(
+        &black_box(onnx_digits_16x8::Input::default()),
+        black_box(&mut arena16),
+    ));
     let f = black_box([0i16; imported_forest::NUM_FEATURES]);
     black_box((
         imported_forest::predict(&f),

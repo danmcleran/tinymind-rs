@@ -1,0 +1,6 @@
+offset,size,first_layer,last_layer,outputs
+0,512,0,3,c1_Conv + Add
+0,256,5,6,pw_Conv
+256,128,4,5,dw_Conv
+512,512,1,2,c2_Conv
+512,128,3,4,MaxPool

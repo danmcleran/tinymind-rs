@@ -1,0 +1,12 @@
+test digits:                    1797
+tinymind int8 accuracy:         0.9699
+ONNX Runtime int8 accuracy:     0.9699
+float (PyTorch) accuracy:       0.9699
+same class as ONNX Runtime:     1795 of 1797
+activation arena:               1024 bytes (unshared 2048, busiest layer 1024)
+int4 weights accuracy:          0.9705 (same class as int8 on 1784 of 1797)
+weights:                        3408 bytes int8, 1704 bytes in int4
+16x8 accuracy:                  0.9688 (arena 2048 bytes, same weights)
+same class as the float model:  int8 1791, 16x8 1795 of 1797
+logit error vs float activations (first 256 digits): mean 0.1619 int8, 0.00128 16x8; max 0.6565 int8, 0.00633 16x8
+wrote onnx_digits_int8.csv, onnx_digits_int8_plan.csv, onnx_digits_int8_summary.csv and onnx_digits_int8_logits.csv

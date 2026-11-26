@@ -62,6 +62,24 @@ break the API).
   need `std` and write byte-identical output to the C++ examples, except the
   trainer's size in `vibration_anomaly`'s last line (1,248 bytes here, 1,264
   in the C++).
+- `int8::QAdd::forward_in_place` and `forward_in_place_b`, and the same on
+  `int16x8::QAdd`: the addition with its result written over the first or
+  second input, as generated models run a residual addition whose input dies
+  there (equal to `forward`, element by element).
+- The ONNX importer's `arena=True` option: every intermediate activation in
+  one arena the caller passes (`forward(&input, &mut arena)`), planned by
+  tinymind (C++)'s planner (`plan_memory`, copied unchanged), so the module
+  needs the activation memory tinymind (C++)'s generated model needs. The
+  module exports `ARENA_BYTES`, the plan (`BUFFERS`), `LAYER_NAMES` and
+  `WEIGHT_BYTES`; it needs Rust 1.88 (`as_chunks`), the crate stays on 1.85.
+- The `onnx_digits_int8` example, a port of tinymind (C++)'s: a residual
+  int8 CNN on the UCI optical digits, from the ONNX models that example
+  commits, as int8, int4 (quantization-aware trained) and 16x8 modules, each
+  in its planned arena (1,024 bytes, 2,048 for 16x8). Its output is
+  byte-identical to the C++ example's. On the boards, tinymind (C++)'s tier1
+  digits workloads (bench `digits-int8`, `digits-int4`, `digits-16x8`) match
+  its hashes: int8 287,802 cycles on the Cortex-M4F and 719,369 on the
+  Cortex-M0+.
 - The ONNX importer (`tools/import_onnx`, in the repository, not the
   published crate) takes tinymind (C++)'s code generator's options:
   `int4_dense` and `int4_conv` write the model with per-channel int4 weights

@@ -55,6 +55,11 @@ kws-profile = ["kws"]
 # bench/src/gen/mlperf_{kws,ic}*.rs with tools/import_tflite/mlperf.py first).
 mlperf-kws = []
 mlperf-ic = []
+# tinymind (C++)'s tier1 digits workloads: the generated onnx_digits_int8
+# model (examples/common/onnx_digits_*), one variant per image as the C++.
+digits-int8 = []
+digits-int4 = []
+digits-16x8 = []
 # The host test sweeps (tests/sweeps/) against their committed goldens:
 # correctness only, for QEMU (scripts/qemu-bench.sh) or a board. The whole
 # image overflows the F411's 512 KB of flash; each half fits at opt-level s.
