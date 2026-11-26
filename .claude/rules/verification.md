@@ -144,6 +144,17 @@ The goldens only prove the paths the examples execute. For the arithmetic:
   add 492,388,819, the rest < 100M each; 435,108 B, 73,288 B stack. Shown by
   per-section instrumentation summing to the wrapped total + 2^32, and by
   wall clock (63 s for build check, flash and run).
+  2026-11-25: the v19.0 sweeps (mel, qanomaly, int4, int16x8) moved into
+  `tests/sweeps/` too, each with a `Calibrate`/`Quantize` trait for the std
+  part (device: 16x8 add/softmax params read from the golden; mel twiddles
+  from the FFT golden's `twiddles n=N` lines; built mel tables, Gaussians,
+  int4 quantizer, 16x8 LUTs return None and their lines are filtered, the
+  draws still made). Whole image overflowed the F411 by 71 KB at s, so bench
+  features `sweeps-a` (old) / `sweeps-b` (new), `sweeps` = both (QEMU). F411
+  at s: a 463,552 B, 4,986,218,402 cycles, 73,304 B stack; b 205,796 B,
+  136,165,700 cycles, 44,760 B stack; all match. Plants caught on QEMU:
+  int4 `byte >> 3`, int16x8 add left shift + 1, anomaly negative rounding
+  without b/2, mel offset -105.
 - **Not done yet:** a coverage report. The sweeps on Cortex-M were first meant
   as the prerequisite for an opt-in `unsafe` DSP feature; Dan ruled `unsafe`
   out in any form (2026-11-11, CLAUDE.md), so they guard Arm code generation

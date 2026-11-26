@@ -56,8 +56,14 @@ kws-profile = ["kws"]
 mlperf-kws = []
 mlperf-ic = []
 # The host test sweeps (tests/sweeps/) against their committed goldens:
-# correctness only, for QEMU (scripts/qemu-bench.sh) or a board.
-sweeps = []
+# correctness only, for QEMU (scripts/qemu-bench.sh) or a board. The whole
+# image overflows the F411's 512 KB of flash; each half fits at opt-level s.
+sweeps = ["sweeps-a", "sweeps-b"]
+# Convolutions, addition, composition, softmax, FFT, int8 recurrent cells,
+# LSTM, trees, Q-learning, the Q-format oracle.
+sweeps-a = []
+# tinymind (C++) v19.0's: log-mel, 16x8, anomaly scores, int4.
+sweeps-b = []
 
 [profile.release]
 opt-level = 3

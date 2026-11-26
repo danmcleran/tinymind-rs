@@ -10,28 +10,52 @@
 
 use core::fmt::{self, Write};
 
+#[cfg(feature = "sweeps-a")]
 use tinymind::int8::{QAdd, QSoftmax, Requantizer};
 
 use crate::board::{self, Uart};
 
+#[cfg(feature = "sweeps-a")]
 #[path = "../../tests/sweeps/add.rs"]
 mod add;
+#[cfg(feature = "sweeps-a")]
 #[path = "../../tests/sweeps/compose.rs"]
 mod compose;
+#[cfg(feature = "sweeps-a")]
 #[path = "../../tests/sweeps/conv.rs"]
 mod conv;
+// sweeps-b uses only its twiddle reader (for the log-mel sweep).
+#[cfg_attr(not(feature = "sweeps-a"), allow(dead_code))]
 #[path = "../../tests/sweeps/fft.rs"]
 mod fft;
+#[cfg(feature = "sweeps-b")]
+#[path = "../../tests/sweeps/int16x8.rs"]
+mod int16x8;
+#[cfg(feature = "sweeps-b")]
+#[path = "../../tests/sweeps/int4.rs"]
+mod int4;
+#[cfg(feature = "sweeps-a")]
 #[path = "../../tests/sweeps/lstm.rs"]
 mod lstm;
+#[cfg(feature = "sweeps-b")]
+#[path = "../../tests/sweeps/mel.rs"]
+mod mel;
+#[cfg(feature = "sweeps-a")]
 #[path = "../../tests/sweeps/oracle.rs"]
 mod oracle;
+#[cfg(feature = "sweeps-b")]
+#[path = "../../tests/sweeps/qanomaly.rs"]
+mod qanomaly;
+#[cfg(feature = "sweeps-a")]
 #[path = "../../tests/sweeps/qlearn.rs"]
 mod qlearn;
+#[cfg(feature = "sweeps-a")]
 #[path = "../../tests/sweeps/recurrent_int8.rs"]
 mod recurrent_int8;
+#[cfg(feature = "sweeps-a")]
 #[path = "../../tests/sweeps/softmax.rs"]
 mod softmax;
+#[cfg(feature = "sweeps-a")]
 #[path = "../../tests/sweeps/tree.rs"]
 mod tree;
 
@@ -57,6 +81,7 @@ struct Expect {
 }
 
 impl Expect {
+    #[cfg(feature = "sweeps-a")]
     fn new(golden: &'static str) -> Self {
         Self::keeping(golden, |_| true)
     }
@@ -182,6 +207,7 @@ impl GoldenLines {
 
 /// The integers of the `occurrence`-th `key` field of `line` (`key=1,-2;3 ...`:
 /// separated by `,` or `;`, ending at a space). A malformed field panics.
+#[cfg(feature = "sweeps-a")]
 fn ints<const N: usize>(line: &str, key: &str, occurrence: usize) -> [i32; N] {
     let field = line
         .split(' ')
@@ -197,6 +223,7 @@ fn ints<const N: usize>(line: &str, key: &str, occurrence: usize) -> [i32; N] {
 }
 
 /// A requantizer from a golden's `rq=multiplier,shift,zero_point,qmin,qmax`.
+#[cfg(feature = "sweeps-a")]
 fn requantizer(line: &str, occurrence: usize) -> Requantizer {
     let [multiplier, shift, zero_point, qmin, qmax] = ints(line, "rq=", occurrence);
     Requantizer {
@@ -208,6 +235,7 @@ fn requantizer(line: &str, occurrence: usize) -> Requantizer {
     }
 }
 
+#[cfg(feature = "sweeps-a")]
 fn narrow(v: i32) -> i8 {
     i8::try_from(v).expect("int8 field")
 }
@@ -215,8 +243,10 @@ fn narrow(v: i32) -> i8 {
 /// The add sweep's calibrated layers, from the golden's `calibrated` lines.
 /// The zero points and range come from the sweep's generator too: they must
 /// agree with the line, or the device is reading another trial's parameters.
+#[cfg(feature = "sweeps-a")]
 struct AddParams(GoldenLines);
 
+#[cfg(feature = "sweeps-a")]
 impl add::Calibrate for AddParams {
     fn add(&mut self, a: (f32, i8), b: (f32, i8), out: (f32, i8), qmin: i8, qmax: i8) -> QAdd {
         let line = self.0.next();
@@ -249,6 +279,7 @@ impl add::Calibrate for AddParams {
 
 /// A requantizer read for a layer whose zero point and range the sweep drew:
 /// they must agree with the golden line (see `AddParams`).
+#[cfg(feature = "sweeps-a")]
 fn checked(rq: Requantizer, zo: i8, qmin: i32, qmax: i32, what: &str) -> Requantizer {
     let read = (rq.zero_point, i32::from(rq.qmin), i32::from(rq.qmax));
     assert!(read == (zo, qmin, qmax), "{what}: golden line out of step");
@@ -257,6 +288,7 @@ fn checked(rq: Requantizer, zo: i8, qmin: i32, qmax: i32, what: &str) -> Requant
 
 /// The compose sweep's calibrated requantizers: one per `mul calibrated` line,
 /// two per `concat` line (input a, then b).
+#[cfg(feature = "sweeps-a")]
 struct ComposeParams {
     mul: GoldenLines,
     concat: GoldenLines,
@@ -265,6 +297,7 @@ struct ComposeParams {
     next: usize,
 }
 
+#[cfg(feature = "sweeps-a")]
 impl compose::Calibrate for ComposeParams {
     fn mul_requantizer(
         &mut self,
@@ -291,8 +324,10 @@ impl compose::Calibrate for ComposeParams {
 
 /// The softmax sweep's calibrations: `params=multiplier,left_shift,diff_min`
 /// on every line, in order.
+#[cfg(feature = "sweeps-a")]
 struct SoftmaxParams(GoldenLines);
 
+#[cfg(feature = "sweeps-a")]
 impl softmax::Calibrate for SoftmaxParams {
     fn softmax(&mut self, _input_scale: f64, _beta: f64) -> QSoftmax {
         let [input_multiplier, input_left_shift, diff_min] = ints(self.0.next(), "params=", 0);
@@ -332,6 +367,130 @@ impl fft::Twiddles for FftTwiddles {
     }
 }
 
+/// The anomaly sweep's built Gaussians (trials 3 to 5) are only hashed in the
+/// golden: they run on the host only.
+#[cfg(feature = "sweeps-b")]
+struct NoGaussian;
+
+#[cfg(feature = "sweeps-b")]
+impl qanomaly::Calibrate for NoGaussian {
+    fn gaussian<const F: usize, const K: usize>(
+        &mut self,
+        _means: &[[f64; F]; K],
+        _variances: &[[f64; F]; K],
+        _weights: &[f64; K],
+        _scale: f32,
+        _zero_point: i32,
+        _floor: f64,
+    ) -> Option<qanomaly::Gaussian<F, K>> {
+        None
+    }
+}
+
+/// The int4 sweep's float quantizer needs std: its lines run on the host only.
+#[cfg(feature = "sweeps-b")]
+struct NoQuantize;
+
+#[cfg(feature = "sweeps-b")]
+impl int4::Quantize for NoQuantize {
+    fn quantize(&mut self, _w: &[[f32; 9]; 4]) -> Option<([[i8; 9]; 4], [f32; 4])> {
+        None
+    }
+}
+
+/// The 16x8 sweep's calibrated additions (`add calibrated T: ls am as bm bs
+/// om os`) and softmax parameters (`softmax N T params m s`), from the golden.
+/// The zero points are 0 and the range int16's, as the sweep builds them. The
+/// built activation tables are only hashed in the golden: those lines run on
+/// the host only.
+#[cfg(feature = "sweeps-b")]
+struct Int16x8Params {
+    add: GoldenLines,
+    softmax: core::iter::Filter<core::str::Lines<'static>, fn(&&'static str) -> bool>,
+}
+
+/// The integers after `: ` (an addition) or after ` params ` (a softmax).
+#[cfg(feature = "sweeps-b")]
+fn trailing_ints<const N: usize>(line: &str, after: &str) -> [i32; N] {
+    let (_, rest) = line.split_once(after).expect("golden field");
+    let mut values = rest.split(' ').map(|v| v.parse::<i32>().expect("integer"));
+    let out = core::array::from_fn(|_| values.next().expect("enough values"));
+    assert!(values.next().is_none(), "no extra values");
+    out
+}
+
+#[cfg(feature = "sweeps-b")]
+impl int16x8::Calibrate for Int16x8Params {
+    fn add(&mut self, _sa: f32, _sb: f32, _so: f32) -> tinymind::int16x8::QAdd {
+        let [left_shift, am, ash, bm, bsh, om, osh] = trailing_ints(self.add.next(), ": ");
+        tinymind::int16x8::QAdd {
+            input_a_zero_point: 0,
+            input_b_zero_point: 0,
+            left_shift,
+            input_a_multiplier: am,
+            input_a_shift: ash,
+            input_b_multiplier: bm,
+            input_b_shift: bsh,
+            output_requantizer: tinymind::int16x8::Requantizer32 {
+                multiplier: om,
+                shift: osh,
+                zero_point: 0,
+                qmin: -32768,
+                qmax: 32767,
+            },
+        }
+    }
+
+    fn lut(
+        &mut self,
+        _sigmoid: bool,
+        _in_scale: f64,
+        _in_zp: i32,
+    ) -> Option<[i16; tinymind::int16x8::LUT_SIZE]> {
+        None
+    }
+
+    fn softmax(&mut self, _scale: f64, _beta: f64) -> tinymind::int16x8::QSoftmax {
+        let line = self.softmax.next().expect("golden softmax parameters");
+        let [input_multiplier, input_shift] = trailing_ints(line, " params ");
+        tinymind::int16x8::QSoftmax {
+            input_multiplier,
+            input_shift,
+        }
+    }
+}
+
+const FFT: &str = include_str!("../../tests/golden/fft/stdout.txt");
+
+/// The log-mel sweep on the device: twiddles from the FFT golden's tables for
+/// that length; the built window, filterbank and DCT need libm and are only
+/// hashed in the golden, so those configurations run on the host only.
+#[cfg(feature = "sweeps-b")]
+struct MelTables;
+
+#[cfg(feature = "sweeps-b")]
+impl mel::Calibrate for MelTables {
+    fn twiddles<const N: usize, const HALF: usize>(&mut self) -> ([i16; HALF], [i16; HALF]) {
+        let first = FFT
+            .lines()
+            .find(|l| l.starts_with("twiddles ") && l.split(' ').nth(1) == Some(itoa_eq(N)))
+            .expect("FFT golden twiddles for this length");
+        let offset = first.as_ptr() as usize - FFT.as_ptr() as usize;
+        let rest = FFT.get(offset..).expect("offset inside the golden");
+        fft::Twiddles::twiddles::<N, HALF>(&mut FftTwiddles(GoldenLines::new(rest, "twiddles ")))
+    }
+
+    fn tables<const N: usize, const BANDS: usize, const COEFFS: usize, const CAP: usize>(
+        &mut self,
+        _periodic: bool,
+        _sample_rate: f64,
+        _f_min: f64,
+        _f_max: f64,
+    ) -> Option<mel::Tables<N, BANDS, COEFFS, CAP>> {
+        None
+    }
+}
+
 /// `n=<n>`, for comparing a golden field without formatting.
 fn itoa_eq(n: usize) -> &'static str {
     match n {
@@ -352,8 +511,10 @@ fn itoa_eq(n: usize) -> &'static str {
 /// The int8 recurrent sweep's calibrated trials need weights, biases and LUTs
 /// that the golden prints only as hashes: they run here only to keep the
 /// generator in step, and only the direct-parameter lines are compared.
+#[cfg(feature = "sweeps-a")]
 struct NoCalibration;
 
+#[cfg(feature = "sweeps-a")]
 impl recurrent_int8::Calibrate for NoCalibration {
     fn lstm<const I: usize, const H: usize>(
         &mut self,
@@ -409,7 +570,17 @@ impl Laps {
 pub fn run(out: &mut Uart) {
     let _ = writeln!(out, "name=sweeps");
     let mut laps = Laps::start();
+    #[cfg(feature = "sweeps-a")]
+    run_a(out, &mut laps);
+    #[cfg(feature = "sweeps-b")]
+    run_b(out, &mut laps);
+    // All of the above, on a board (0 under QEMU, which has no cycle counter).
+    let _ = writeln!(out, "cycles={}", laps.total);
+}
 
+/// The sweeps up to tinymind (C++) v18 (convolutions to the Q-format oracle).
+#[cfg(feature = "sweeps-a")]
+fn run_a(out: &mut Uart, laps: &mut Laps) {
     let mut e = Expect::new(include_str!("../../tests/golden/conv/stdout.txt"));
     conv::run(&mut e);
     laps.lap(out, "conv", |out| e.report(out, "conv"));
@@ -435,7 +606,6 @@ pub fn run(out: &mut Uart) {
     softmax::report(&mut e, &mut SoftmaxParams(GoldenLines::new(SOFTMAX, "e=")));
     laps.lap(out, "softmax", |out| e.report(out, "softmax"));
 
-    const FFT: &str = include_str!("../../tests/golden/fft/stdout.txt");
     let mut e = Expect::new(FFT);
     fft::report(&mut e, &mut FftTwiddles(GoldenLines::new(FFT, "twiddles ")));
     laps.lap(out, "fft", |out| e.report(out, "fft"));
@@ -486,6 +656,49 @@ pub fn run(out: &mut Uart) {
         let ok = t.failures == 0 && t.checks == expected;
         let _ = writeln!(out, "{name}_match={}", u8::from(ok));
     }
-    // All of the above, on a board (0 under QEMU, which has no cycle counter).
-    let _ = writeln!(out, "cycles={}", laps.total);
+}
+
+/// tinymind (C++) v19.0's sweeps: log-mel, 16x8, anomaly scores, int4.
+#[cfg(feature = "sweeps-b")]
+fn run_b(out: &mut Uart, laps: &mut Laps) {
+    // The random-table configurations (rand16, rand64).
+    let mut e = Expect::keeping(include_str!("../../tests/golden/mel/stdout.txt"), |l| {
+        l.split(' ')
+            .nth(1)
+            .is_some_and(|name| name.starts_with("rand"))
+    });
+    mel::run(&mut e, &mut MelTables);
+    laps.lap(out, "mel", |out| e.report(out, "mel"));
+
+    const INT16X8: &str = include_str!("../../tests/golden/int16x8/stdout.txt");
+    // Tables 0 and 1 are random, 2 to 5 built (host only).
+    let mut e = Expect::keeping(INT16X8, |l| {
+        !(l.starts_with("lut table ")
+            || l.starts_with("lut apply ")
+                && !(l.starts_with("lut apply 0 ") || l.starts_with("lut apply 1 ")))
+    });
+    let mut cal = Int16x8Params {
+        add: GoldenLines::new(INT16X8, "add calibrated "),
+        softmax: INT16X8
+            .lines()
+            .filter((|l: &&str| l.contains(" params ")) as fn(&&'static str) -> bool),
+    };
+    int16x8::run(&mut e, &mut cal);
+    laps.lap(out, "int16x8", |out| e.report(out, "int16x8"));
+
+    let mut e = Expect::keeping(
+        include_str!("../../tests/golden/qanomaly/stdout.txt"),
+        |l| {
+            !(l.starts_with("gaussian ")
+                && (l.contains(" trial=3 ") || l.contains(" trial=4 ") || l.contains(" trial=5 ")))
+        },
+    );
+    qanomaly::run(&mut e, &mut NoGaussian);
+    laps.lap(out, "qanomaly", |out| e.report(out, "qanomaly"));
+
+    let mut e = Expect::keeping(include_str!("../../tests/golden/int4/stdout.txt"), |l| {
+        !l.starts_with("quantize ")
+    });
+    int4::run(&mut e, &mut NoQuantize);
+    laps.lap(out, "int4", |out| e.report(out, "int4"));
 }

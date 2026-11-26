@@ -647,8 +647,11 @@ fine-tuning heads' (whose on-device check is the `head` workload) on the
 device: convolution and pooling, addition, composition (multiply, concat,
 pad), softmax, the FFT (with tinymind (C++)'s twiddle tables from the
 golden), the int8 LSTM and GRU cells, LSTM training, decision trees and
-Q-learning, and the qformat oracle, from `tests/sweeps/`, which the host tests
-include too. Each sweep writes its report into a sink that compares it line by
+Q-learning, and the qformat oracle (feature `sweeps-a`), and tinymind (C++)
+v19.0's log-mel front end, 16x8 layers, anomaly scores and trainer, and int4
+layers (feature `sweeps-b`), from `tests/sweeps/`, which the host tests
+include too. `sweeps` is both halves (what QEMU runs); the whole image does
+not fit the F411, each half does. Each sweep writes its report into a sink that compares it line by
 line, as it is written, with the committed golden from tinymind (C++)'s
 program (no buffer: the goldens are in flash), and prints `<sweep>_match=1`,
 or the first golden line that differs. The oracle checks itself against exact
@@ -674,14 +677,25 @@ Some of the host's report is not reproduced on the device:
   the host also compares with what it built.
 - The Q-learning sweep's maze line stays on the host (the maze driver uses
   `std`).
+- The log-mel sweep's window, filterbank and DCT are built with libm and only
+  hashed in the golden: on the device the two random-table configurations
+  run (82 of 269 lines; twiddles from the FFT golden), and the built ones
+  only make their draws, to keep the generator in step.
+- The anomaly sweep's built Gaussians (trials 3 to 5) are only hashed: 120 of
+  138 lines run on the device. The int4 sweep's float quantizer lines (24 of
+  28 run) and the 16x8 sweep's built sigmoid and tanh tables (70 of 78 run)
+  stay on the host; the 16x8 additions and softmaxes take the C++'s
+  parameters from the golden.
 
 The image is large, and the LSTM sweep needs 73 KB of stack, so
 `qemu-bench.sh` gives the microbit 2 MB of flash and 256 KB of RAM (`-global
 nrf51-soc.flash-size`, `sram-size`; `memory-qemu-m0.x`); only the instruction
-set is under test there. On the F411 it fits only at opt-level s (435,108 B
-of flash, 2026-11-14; at 3 it exceeds the 512 KB): `OPT=s
-WORKLOADS=sweeps bench/run.sh f411` matches on every sweep, in 4,969,033,191
-cycles (49.7 s), with 73 KB of stack. Most of that is the softmax sweep
+set is under test there. On the F411 each half fits only at opt-level s
+(2026-11-25: `sweeps-a` 463,552 B of flash, `sweeps-b` 205,796 B; the two
+together overflow the 512 KB by 71 KB): `OPT=s WORKLOADS="sweeps-a sweeps-b"
+bench/run.sh f411` matches on every sweep, `sweeps-a` in 4,986,218,402 cycles
+(49.9 s) with 73 KB of stack, `sweeps-b` in 136,165,700 (mel 2,299,119,
+16x8 10,349,886, anomaly 110,195,612, int4 13,321,083) with 45 KB. Most of that is the softmax sweep
 (2,854,448,321 cycles) and the LSTM sweep (1,326,788,950); each sweep reports
 its own `<sweep>_cycles=`. The total is summed per sweep in 64 bits: the
 cycle counter is 32 bits wide and wraps every 43 s, and earlier figures here,
@@ -691,7 +705,10 @@ fail it: the trees' `<=` as `<` (`tree_match=0`), a rounding Q-format
 multiply (the oracle, the LSTM and Q-learning sweeps), a positive number
 divided by zero giving max - 1 (only the oracle), addition subtracting a's
 zero point from b, padding with 0, softmax dropping a logit exactly at
-`diff_min`, and the GRU's `1 - z` off by one; each fails its own sweep only.
+`diff_min`, the GRU's `1 - z` off by one, an int4 high nibble shifted by 3,
+the 16x8 addition's left shift one more, the anomaly trainer rounding
+negative means toward zero and the log-mel offset -105; each fails its own
+sweep only.
 
 ## Read the generated code
 

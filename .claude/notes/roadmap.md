@@ -67,8 +67,9 @@ what to port next, and update it when a step is done.
      C++ at -O3. **Features group done 2026-11-25 (#134)**: every hash
      matches; log-mel 5-7% behind the C++, MFCC/learning ahead on the M4F.
      Digits groups (int8/int4/16x8) wait on the models above. Follow-ups:
-     tune log-mel; put the mel/anomaly/int4/16x8 sweeps on the QEMU device
-     sweeps (`bench` `sweeps`); time int4 and 16x8 layers on the boards.
+     tune log-mel; time int4 and 16x8 layers on the boards. **Device sweeps
+     done 2026-11-25:** mel/anomaly/int4/16x8 in `tests/sweeps/`, bench
+     `sweeps-b` (QEMU + F411, all match).
 - **v18.6 sync (2026-11-20, TINYMIND_REF 65c6160 = tag v18.6):** #293 `getPredictedClass` ported to all three trained networks + 4 examples (goldens: gas, digits); #288/#292 regenerated `src/lut.rs` (Q8.8 exp tail only); #291 (log/sin/cos range reduction) not applicable. Merged as #127; released in 0.3.8.
 - **ONNX importer (done, 2026-11-16):** `tools/import_onnx`, Dan's pick ("#1")
   from the ROI review after v18.5: tinymind's `apps/import_onnx` parser

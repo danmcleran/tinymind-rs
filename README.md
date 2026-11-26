@@ -462,8 +462,9 @@ the int8 quantization tiers, SIMD backends, and so on.
   the MLPerf models, xor training, the anomaly demo, the FFT, the fine-tuning heads, the trees) must match, as
   on the boards. It also runs the convolution and pooling, LSTM, decision-tree
   and Q-learning sweeps on Cortex-M, along with the addition, composition,
-  softmax and FFT sweeps (with the C++'s calibrated parameters and twiddle
-  tables from the goldens, since calibration needs `std`) and the int8
+  softmax, FFT, 16x8, int4, anomaly-score and log-mel sweeps (with the C++'s
+  calibrated parameters and twiddle tables from the goldens, since
+  calibration needs `std`; built tables stay on the host) and the int8
   LSTM/GRU sweep's direct-parameter trials, whose reports must equal tinymind (C++)'s
   goldens byte for byte, and the qformat oracle's default sample (240,277
   checks). CI runs it on every pull request; the boards themselves are still
