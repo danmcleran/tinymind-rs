@@ -133,9 +133,10 @@ Vectors are values on the stack. Feature maps live in buffers declared at the
 top of `forward`: a layer writes into a buffer of its output's shape whose map
 no later layer reads, or a new one, and a table or `Relu` on a map that is not
 read again rewrites it in place. A residual block keeps its skip tensor only
-until the addition. (The TFLite translator plans one byte arena instead, which
-can need less memory when a network passes through many shapes; its views need
-Rust 1.88, and these modules build on the crate's 1.85.)
+until the addition. (With `arena=True`, below, the maps share one planned byte
+arena instead, as in the TFLite translator, which can need less memory when a
+network passes through many shapes; those modules need Rust 1.88, while the
+default ones build on the crate's 1.85.)
 
 Anything else is refused with a `ValueError` naming the node, never skipped:
 other operators (`Concat`, ...), padded or `ceil_mode` pooling, other

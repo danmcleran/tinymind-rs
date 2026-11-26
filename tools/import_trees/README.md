@@ -63,9 +63,12 @@ What `forward` returns depends on the model:
 | Classifier forest or tree (hard vote) | votes per class | most votes, ties to the lowest class |
 | Boosted classifier, soft-vote forest | `i32` raw score per class | largest score (multiclass) or score > 0 (binary) |
 | Regressor | `i32` raw value; `raw / OUTPUT_SCALE` is the prediction | - |
+| IsolationForest | `[i32; 1]`, the summed path length over the trees | 1 for an outlier (`forward(x)[0] < ANOMALY_THRESHOLD`, scikit-learn's threshold), else 0 |
 
 `CLASS_LABELS` maps a predicted index back to the original label when the
-labels are integers.
+labels are integers. An IsolationForest module also exports
+`ANOMALY_THRESHOLD` and `AVERAGE_PATH_LENGTH` (scikit-learn's normalizing path
+length, for turning the raw sum into scikit-learn's anomaly score).
 
 ## How the integer model is built
 

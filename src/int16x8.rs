@@ -13,11 +13,14 @@
 //! TFLite requires int16 tensors to have zero point 0; these layers accept
 //! any.
 //!
-//! The layers have the [`int8`](crate::int8) layers' names, shapes and
-//! conventions (NHWC nested arrays, kernel, strides and padding as const
-//! parameters, output sizes checked at compile time): an int8 model becomes
-//! a 16x8 one by changing the activation type, the bias type and the
-//! requantizers, with no recalibration of the weights. [`QAdd`] adds two
+//! The dense, convolution, depthwise, max-pooling and addition layers have
+//! the [`int8`](crate::int8) layers' names, shapes and conventions (NHWC
+//! nested arrays, kernel, strides and padding as const parameters, output
+//! sizes checked at compile time; a pointwise convolution is a 1x1
+//! [`QConv2D`] or [`QConv2DPerChannel`], and there is no average pooling):
+//! an int8 model made of them becomes a 16x8 one by changing the activation
+//! type, the bias type and the requantizers, with no recalibration of the
+//! weights. [`QAdd`] adds two
 //! int16 tensors (TFLite's int16 ADD), [`apply_lut`] runs TFLite's 513-entry
 //! interpolated int16 table for sigmoid or tanh, and [`QSoftmax`] is
 //! TFLite's int16 softmax, bit for bit. `calibration` (feature `std`) builds

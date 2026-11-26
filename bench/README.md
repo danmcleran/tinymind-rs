@@ -104,7 +104,8 @@ samples, so the numbers sit next to the tinymind (C++) ones.
 
 Every Rust figure in the tables was re-measured on both boards on 2026-11-14
 with Rust 1.100.0 (LLVM 23.1.5) and the build settings below (the real-input
-FFT rows on 2026-11-15, with the same compiler); a section that
+FFT rows on 2026-11-15, the log-mel, anomaly-score and digits rows on
+2026-11-25, with the same compiler); a section that
 gives an earlier date is describing how a figure got there. C++ figures are tinymind (C++)'s own
 (`docs/benchmarks.md`, gcc 13.2.1 `-O3`), measured on these same boards.
 
@@ -198,6 +199,7 @@ sensitive to placement (see below).
 | 256-point real-input FFT: spectrum hash = tinymind (C++)'s (`0x316EE142`) | match | match |
 | Fine-tuning heads: dense step, prediction, prototype update and prediction, whole adaptation: hashes = tinymind (C++)'s | match | match |
 | Log-mel frame, MFCCs, k-means and Gaussian scores, k-means learning: hashes = tinymind (C++)'s (`0x8658E8AF`, `0x793B419E`, `0x39A381B6`, `0x45F5EBB5`, `0x10A2C62E`) | match | match |
+| Digits CNN from ONNX, int8 / int4 / 16x8: hashes = tinymind (C++)'s (`0xE7304483`, `0xD7573732`, `0x4C676A3B`) | match | match |
 | MLPerf Tiny DS-CNN (translated from TFLite) output hash = tinymind (C++)'s (`0xF623A166`) | match | - |
 | MLPerf Tiny ResNet-8 (translated from TFLite) output hash = tinymind (C++)'s (`0x8897F6ED`) | match | - |
 | MLP accuracy | 346/360 (96.11%) | 31/32 (96.88%) |
