@@ -1,7 +1,7 @@
 ---
 title: On-board results
 layout: default
-nav_order: 16
+nav_order: 17
 ---
 
 # On-board results
@@ -29,6 +29,7 @@ The Rust figures on this page were measured with Rust 1.100.0 (LLVM 23.1.5) on 2
 | 256-point real-input FFT: spectrum hash equals tinymind (C++)'s | match | match |
 | fine-tuning heads: a dense training step and prediction, a prototype update and prediction, and a whole adaptation: hashes equal tinymind (C++)'s | match | match |
 | log-mel frame, MFCCs, k-means and Gaussian anomaly scores, k-means learning: hashes equal tinymind (C++)'s | match | match |
+| digits CNN generated from ONNX, int8, int4 and 16x8: hashes equal tinymind (C++)'s | match | match |
 | MLPerf Tiny keyword spotting (DS-CNN), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 | MLPerf Tiny image classification (ResNet-8), translated from TFLite: output hash equals tinymind (C++)'s and TFLite's | match | does not fit |
 
@@ -153,6 +154,18 @@ tinymind (C++)'s on-board features benchmark: one 256-sample log-mel frame (32 b
 | k-means learning step | **2,728** | 5,461 | **30,244** | 30,700 |
 
 A frame every 128 samples at 3.2 kHz leaves 40 ms: the front end takes about 0.5 ms of it on the M4F and 6.2 ms on the M0+, and scoring or learning a frame well under 1 ms on either. The log-mel frame takes 5 to 7% more cycles than the C++; the k-means score 4 to 5% more. The learning step takes half the cycles on the M4F and the MFCCs 40% fewer, where LLVM unrolls their loops completely, which costs flash: the whole workload adds 20 KB to the F411 image, and on the L031 it is run as two images of 12 KB and 11 KB over the baseline. The details are in [`bench/README.md`](https://github.com/danmcleran/tinymind-rs/tree/master/bench).
+
+## Digits model from ONNX
+
+tinymind (C++)'s on-board digits benchmark: the residual CNN of its ONNX digits example ([Digits from ONNX]({{ site.baseurl }}/onnx-digits)), in int8, with int4 weights and with int16 activations (16x8), each running in the arena tinymind (C++)'s planner gives it, on 8 test digits; every hash matches tinymind (C++)'s. tinymind (C++)'s figures come from its own benchmark (gcc `-O3`, scalar kernels). Measured 2026-11-25 (Rust 1.100.0).
+
+| Median cycles | F411 Rust | F411 C++ | L031 Rust | L031 C++ |
+|---|---:|---:|---:|---:|
+| int8 | **287,802** (2.88 ms) | 479,524 | **719,369** (22.5 ms) | 760,608 |
+| int4 weights | **304,367** | 454,157 | **742,524** | 778,803 |
+| 16x8 (int16 activations) | **517,458** | 452,807 | **1,122,048** | 853,668 |
+
+The int8 model takes 40% fewer cycles than the C++ on the M4F and 5% fewer on the M0+, the int4 one 33% and 5% fewer. The 16x8 layers are not tuned yet: 14% more on the M4F and 31% more on the M0+. tinymind (C++)'s Arm DSP build (SMLAD intrinsics) runs int8 in 171,384 cycles on the M4F; this crate uses no `unsafe`, so no intrinsics.
 
 ## Fine-tuning heads
 

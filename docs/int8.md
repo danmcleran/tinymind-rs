@@ -1,7 +1,7 @@
 ---
 title: Int8 inference
 layout: default
-nav_order: 14
+nav_order: 15
 ---
 
 # Int8 inference
@@ -166,6 +166,8 @@ python3 tools/import_onnx/tinymind_import_onnx.py model_int8.onnx my_model.rs my
 Its parser is tinymind (C++)'s ONNX importer, unchanged, so the int8 weights, int32 biases and requantizers are the ones tinymind (C++) computes. tinymind (C++)'s importer writes constants for a network you write by hand; this one also writes the network: convolutions (pointwise and depthwise ones on their own layers), max and average pooling, residual additions, dense layers, ReLU folded into the layer before it, sigmoid and tanh tables, and a softmax as the last layer. Feature maps live in buffers inside `forward`, each reused once no later layer reads the map it holds, so a residual block keeps its skip tensor only until the addition. A model with anything else (padded pooling, broadcasting, a layer that requantizes its input) is refused with the node's name. Feature maps are NHWC, the transpose of the model's NCHW input, and a softmax's output is on TFLite's 1/256 grid rather than ONNX Runtime's 1/255. The `imported_onnx` example runs five models quantized by ONNX Runtime, two of them residual networks; CI runs them through tinymind (C++)'s own ONNX importer and C++ layers too, and the outputs are byte-identical. Against ONNX Runtime itself the outputs are within one step and softmax probabilities within 2/256 (ONNX Runtime requantizes in float, and quantizes a softmax to 1/255). See the importer's [README](https://github.com/danmcleran/tinymind-rs/tree/master/tools/import_onnx).
 
 With `int4_dense=True, int4_conv=True` the importer writes the same model with every dense and convolution layer on per-channel int4 weights (`QDenseInt4`, `QConv2DInt4`, `QDepthwiseConv2DInt4`), and with `activation_bits=16` with int16 activations and the int8 weights (the `int16x8` layers), as tinymind (C++)'s code generator does with the same options; CI checks four such models against that generator's C++ output. `tinymind_qat.py` (tinymind (C++)'s, needs PyTorch) fine-tunes a model so its weights sit on the int4 grid before export.
+
+With `arena=True` the module keeps every intermediate activation in one arena that the caller passes, `forward(&input, &mut arena)`, planned by tinymind (C++)'s planner (TFLite Micro's greedy-by-size placement; an addition or activation writes over an input that dies there, through `QAdd::forward_in_place`). The arena is the size tinymind (C++)'s generated model uses (`ARENA_BYTES`, with the plan in `BUFFERS`), so a residual network needs about half the activation memory of a buffer per layer. Such modules view the arena with `as_chunks`, which needs Rust 1.88; the crate builds on 1.85. The [digits example]({{ site.baseurl }}/onnx-digits) runs three of them.
 
 ## How it is checked
 

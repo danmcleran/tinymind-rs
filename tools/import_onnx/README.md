@@ -84,6 +84,31 @@ ti.import_onnx_model("model_int8.onnx", "model_16x8.rs", "model", activation_bit
   0). No recalibration: the int8 model's scales define the grids. `Input` and
   `Output` are `i16`, `INPUT_ZERO_POINT` and `OUTPUT_ZERO_POINT` 0.
 
+### One planned arena (`arena=True`)
+
+```python
+ti.import_onnx_model("model_int8.onnx", "model.rs", "model", arena=True)
+```
+
+```rust
+let mut arena: model::Arena = [0; model::ARENA_BYTES];
+let y = model::forward(&input, &mut arena);
+```
+
+Every intermediate activation lives in one arena the caller passes, placed
+by tinymind (C++)'s planner (`plan_memory` in `tinymind_model_codegen.py`,
+verbatim: TFLite Micro's greedy-by-size placement, and an Add, Relu, Sigmoid
+or Tanh writes over an input that dies there, through
+`QAdd::forward_in_place`). The arena and its plan are the ones
+tinymind (C++)'s generated `model.hpp` uses: the module exports `ARENA_BYTES`,
+`BUFFERS` (offset, size, live layers and outputs of each region),
+`UNSHARED_BYTES`, `PEAK_LIVE_BYTES`, `LAYER_NAMES` and `WEIGHT_BYTES`. A
+residual network needs about half the activation memory of the default
+buffers. Each layer splits the arena around its output (`split_at_mut`)
+and views the parts as tensors with `as_chunks`, so the module needs Rust
+1.88 (the crate builds on 1.85). It combines with the int4 and 16x8 options
+(a 16x8 arena is `[i16; ARENA_BYTES / 2]`).
+
 ## What it supports
 
 Layers from the model's one input to its one output, where every layer reads
@@ -138,6 +163,10 @@ Two results differ from ONNX Runtime's by design:
   16x8 helpers, verbatim (CI checks they still are).
 - `tinymind_qat.py`: tinymind (C++)'s int4 quantization-aware training for
   PyTorch models, verbatim (CI checks it still is).
+- `example_digits.py`: writes `examples/common/onnx_digits_*_model.rs`, the
+  three models of tinymind (C++)'s `examples/onnx_digits_int8` (int8, int4,
+  16x8, all with `arena=True`) from the `.onnx` files that example commits,
+  and `onnx_digits_reference.rs` from its `reference.hpp`.
 - `models/*.onnx`: five small example models (`cnn`: QDQ, per-channel
   weights, strided, pointwise and padded convolutions, tanh, sigmoid, softmax;
   `cnn_qop`: QOperator, per-tensor weights, sigmoid; `mlp`: a MatMul with a
@@ -166,7 +195,16 @@ Two results differ from ONNX Runtime's by design:
   with the same options, whole models, and must give the same outputs (int8
   inputs for the int4 models, int16 inputs for the 16x8 ones); their modules
   are regenerated and compared too, and the code generator's helpers here
-  must be tinymind (C++)'s, line for line. `tests/imported_onnx_golden.rs` checks the example against the C++
+  must be tinymind (C++)'s, line for line.
+- `scripts/compare-with-cpp.sh` also builds tinymind (C++)'s
+  `onnx_digits_int8` example, whose three models its own code generator
+  wrote, and compares its stdout and four CSV files (classes for all 1,797
+  test digits, logits, the arena plan, the summary) with
+  `examples/onnx_digits_int8.rs`, which runs the arena modules written here
+  from the same `.onnx` files: byte-identical. It regenerates the modules and
+  compares them. Planted defects in the arena back end (no in-place
+  placement, the in-place addition's operands swapped, 16x8 offsets in bytes
+  instead of elements) fail `tests/onnx_digits_golden.rs`. `tests/imported_onnx_golden.rs` checks the example against the C++
   output in `cargo test`.
 - `test_onnx.py`: on the same inputs, every output of `onnx_cnn_qop` and
   `onnx_resnet` is within one step of ONNX Runtime's (46 of 48 and 61 of 64
@@ -184,4 +222,6 @@ Two results differ from ONNX Runtime's by design:
   16, the int16 tables not clamped to the output's range, the 64-bit
   requantizers without the int16 grid's bounds, an int4 layer reading its
   input at zero point 0, and the 16x8 input grid left at the int8 scale.
-  `ci/panic-never` links all nine modules' `forward` with no reachable panic.
+  `ci/panic-never` links all nine modules' `forward` with no reachable panic,
+  and the three digits modules' (a planted short arena slice fails the
+  link).

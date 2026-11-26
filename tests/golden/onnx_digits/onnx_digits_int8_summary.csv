@@ -1,0 +1,17 @@
+metric,value
+layers,7
+arena_bytes,1024
+unshared_bytes,2048
+busiest_layer_bytes,1024
+weight_bytes_int8,3408
+weight_bytes_int4,1704
+accuracy_int8,0.9699
+accuracy_int4,0.9705
+accuracy_16x8,0.9688
+arena_bytes_16x8,2048
+same_class_as_float_int8,1791
+same_class_as_float_16x8,1795
+mean_logit_error_int8,0.161877
+mean_logit_error_16x8,0.001280
+max_logit_error_int8,0.656522
+max_logit_error_16x8,0.006332

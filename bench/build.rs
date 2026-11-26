@@ -48,8 +48,13 @@ fn features_tables() -> String {
             .lines()
             .find(|l| l.contains(&format!(" {name}[")))
             .unwrap_or_else(|| panic!("{name} in the features golden"));
-        let body = line.split('{').nth(1).unwrap().split('}').next().unwrap();
-        body.split(',').map(|v| v.trim().to_string()).collect()
+        // Everything between the outer braces; a nested array's inner braces
+        // only group rows.
+        let body = &line[line.find('{').unwrap() + 1..line.rfind('}').unwrap()];
+        body.replace(['{', '}'], "")
+            .split(',')
+            .map(|v| v.trim().to_string())
+            .collect()
     };
     // (Rust name, C++ name, element type, row length or 0 for a flat array)
     let tables = [
@@ -66,6 +71,8 @@ fn features_tables() -> String {
         ("GAUSS_MEANS", "kGaussMeans", "i8", 32),
         ("GAUSS_PRECISION", "kGaussPrecision", "u32", 32),
         ("GAUSS_BIAS", "kGaussBias", "i32", 0),
+        // The digits workloads' 8 test digits (pixels 0..16).
+        ("DIGIT_PIXELS", "kDigitPixels", "u8", 64),
     ];
     let mut out = String::new();
     for (rust, cpp, ty, row) in tables {
@@ -95,6 +102,9 @@ fn features_tables() -> String {
         "HASH_KMEANS",
         "HASH_GAUSSIAN",
         "HASH_LEARN",
+        "HASH_INT8",
+        "HASH_INT4",
+        "HASH_16X8",
     ] {
         let line = header
             .lines()

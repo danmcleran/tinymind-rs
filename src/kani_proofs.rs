@@ -460,6 +460,36 @@ mod int8 {
         add.forward(&a, &b, &mut y);
     }
 
+    /// Both in-place additions never panic, for any parameters and inputs.
+    /// (Their equality with `forward` is the unit test
+    /// `in_place_forms_equal_forward`: a symbolic proof of it ran past 25
+    /// minutes, two copies of the 32x32 multiply.)
+    #[kani::proof]
+    fn add_in_place_never_panics() {
+        let add = crate::int8::QAdd {
+            input_a_zero_point: kani::any(),
+            input_b_zero_point: kani::any(),
+            left_shift: kani::any(),
+            input_a_multiplier: kani::any(),
+            input_a_shift: kani::any(),
+            input_b_multiplier: kani::any(),
+            input_b_shift: kani::any(),
+            output_requantizer: Requantizer {
+                multiplier: kani::any(),
+                shift: kani::any(),
+                zero_point: kani::any(),
+                qmin: kani::any(),
+                qmax: kani::any(),
+            },
+        };
+        let (mut a, mut b): ([i8; 1], [i8; 1]) = (kani::any(), kani::any());
+        if kani::any() {
+            add.forward_in_place(&mut a, &b);
+        } else {
+            add.forward_in_place_b(&a, &mut b);
+        }
+    }
+
     /// A dense layer never panics, for any weights, biases, inputs and
     /// requantizer.
     #[kani::proof]

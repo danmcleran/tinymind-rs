@@ -109,6 +109,7 @@ cargo run --release --features std --example imported_mlp    # two models writte
 cargo run --release --features std --example imported_cnn    # two convolutional models written by the PyTorch importer
 cargo run --release --features std --example imported_lstm   # two int8 LSTM sequence models written by the PyTorch importer
 cargo run --release --example imported_onnx                  # five int8 models quantized by ONNX Runtime (two residual), via the ONNX importer
+cargo run --release --example onnx_digits_int8 -- output     # a residual digit classifier from tinymind (C++)'s ONNX models, int8/int4/16x8, in planned arenas
 cargo run --release --features std --example gbdt_tabular_int8 -- output   # int8 gradient-boosted trees
 cargo run --release --features std --example kws_cortex_m_int8   # keyword-spotting shaped int8 CNN, per-layer report
 cargo run --release --example imported_trees                 # scikit-learn tree models via the tree importer
@@ -178,7 +179,15 @@ turns a synthetic machine's stream into int8 log-mel features frame by frame,
 learns normal running on the device with a `QKMeansAnomalyTrainer`, sets an
 alarm threshold, and scores normal running and three growing faults beside a
 Euclidean k-means and a host-fitted Gaussian; it writes
-`vibration_anomaly.csv` and `vibration_anomaly_summary.csv`. The `int8_xor` example (feature
+`vibration_anomaly.csv` and `vibration_anomaly_summary.csv`. The
+`onnx_digits_int8` example runs the residual int8 CNN that tinymind (C++)'s
+example of that name generates from ONNX Runtime models, on the 1,797 test
+digits of the UCI optical digits set, in three variants written by
+`tools/import_onnx` from that example's committed `.onnx` files: int8, int4
+weights after quantization-aware training, and 16x8. Each runs in the arena
+tinymind (C++)'s planner gives it (1,024 bytes, or 2,048 for 16x8); it writes
+`onnx_digits_int8.csv`, `onnx_digits_int8_logits.csv`,
+`onnx_digits_int8_plan.csv` and `onnx_digits_int8_summary.csv`. The `int8_xor` example (feature
 `std`) runs a PyTorch-trained, int8-quantized 2-4-1 network and writes
 `xor_decision_surface.csv`. The `gbdt_tabular_int8` example (feature `std`)
 quantizes a five-tree ensemble onto an int8 feature grid, compares it with the
@@ -228,11 +237,12 @@ set.
 | `examples/gas_sensor_drift.rs` | `examples/gas_sensor_drift/gas_sensor_drift.cpp` |
 | `examples/logmel_vibration.rs` | `examples/logmel_vibration/logmel_vibration.cpp` |
 | `examples/vibration_anomaly.rs` | `examples/vibration_anomaly/vibration_anomaly.cpp` |
+| `examples/onnx_digits_int8.rs` | `examples/onnx_digits_int8/onnx_digits_int8.cpp`, its `model.hpp`, `model_int4.hpp` and `model_int16x8.hpp` (regenerated here from its `models/*.onnx` by `tools/import_onnx`) and `reference.hpp` |
 | `examples/anomaly.rs` | no counterpart: an on-device anomaly-detection demo built from the ported parts |
 | `src/int8.rs` | `cpp/qaffine.hpp`, `cpp/qdense.hpp`, `cpp/qpointwiseconv2d.hpp`, `cpp/qactivations.hpp`, `cpp/qsoftmax_fixedpoint.hpp`: requantizer, int8 dense layer (per-tensor and per-channel), quantized ReLU, activation tables, softmax |
 | `src/int8/conv.rs` | `cpp/qconv2d.hpp`, `cpp/qdepthwiseconv2d.hpp`, `cpp/qpointwiseconv2d.hpp`: int8 2D convolution (per-tensor and per-channel), depthwise and pointwise convolution, with zero-point padding |
 | `src/int8/pool.rs` | `cpp/qpool2d.hpp`: int8 max, average and global average pooling |
-| `src/int8/add.rs` | `cpp/qadd.hpp`: int8 elementwise addition (TFLite ADD), for residual connections |
+| `src/int8/add.rs` | `cpp/qadd.hpp`: int8 elementwise addition (TFLite ADD), for residual connections, also in place over either input |
 | `src/int8/fft.rs` | `cpp/qfft1d.hpp`, `buildQFFTTwiddles` in `cpp/include/qcalibration.hpp`: radix-2 FFT on int16 samples with Q1.15 twiddle tables (forward scaled by 1/N, inverse, bin magnitudes), the real-input FFT `QRFft1D` (`QRFFT1D`: N real samples to N/2 + 1 bins with an N/2-point inner transform, from the same tables), and the twiddle-table builder |
 | `src/int8/int4.rs` | `cpp/qint4.hpp`: dense, convolution and depthwise layers over int4 weights packed two per byte (TFLite and ONNX nibble order), with the same results as the int8 layers on the same weights; packing helpers, and per-channel int4 quantization (feature `std`) |
 | `src/int8/mel.rs` | `cpp/qmel.hpp`: log-mel spectrogram of int16 frames (pre-emphasis, window, per-frame block scaling, the real FFT, mel filters, natural log) and MFCCs (`QLogMelSpectrogram`, `QMfcc`), with host-side builders for the Hann window, the mel filters and the DCT |
@@ -285,7 +295,10 @@ the int8 quantization tiers, SIMD backends, and so on.
   `tests/int8_xor_golden.rs` for the int8 example against `tests/golden/int8_xor/`,
   `tests/imported_mlp_golden.rs`, `tests/imported_cnn_golden.rs` and
   `tests/imported_lstm_golden.rs` for the PyTorch importer's models, and
-  `tests/imported_onnx_golden.rs` for the ONNX importer's. `TINYMIND_REF`
+  `tests/imported_onnx_golden.rs` for the ONNX importer's, and
+  `tests/onnx_digits_golden.rs` for onnx_digits_int8 against
+  `tests/golden/onnx_digits/` (its models need Rust 1.88; CI's MSRV job
+  skips it). `TINYMIND_REF`
   records the tinymind (C++) commit they were last verified against. The int8, GBDT and
   PyTorch-importer tests need the `std` feature: run `cargo test --all-features`.
 - `tests/deep_mlp.rs` checks networks with one, two and three hidden layers
@@ -428,7 +441,7 @@ the int8 quantization tiers, SIMD backends, and so on.
 - `scripts/compare-with-cpp.sh` builds the C++ examples from a tinymind (C++) checkout
   (xor in both formats, iris, optical digits, energy efficiency, maze, dqn_maze, har_activity, air_quality, gas_sensor_drift, logmel_vibration, vibration_anomaly, int8 xor, GBDT) with the flags their
   Makefiles use, plus the C++ programs in `scripts/cpp/` that exercise what no
-  example does, runs both sides, and compares every output file (134 checks today, including
+  example does, runs both sides, and compares every output file (143 checks today, including
   that `data/iris.data`, `data/optdigits.*` and `data/ENB2012_data.csv` are still tinymind (C++)'s files). It exits nonzero if anything differs.
 - `tests/glibc_rand.rs` checks the crate's glibc `rand()` re-implementation
   against the real `srand`/`rand` (through FFI, Linux only) for 212 seeds; the

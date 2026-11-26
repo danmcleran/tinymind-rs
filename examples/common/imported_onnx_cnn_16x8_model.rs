@@ -6,7 +6,7 @@
 //! -> Linear + Tanh -> Linear + Sigmoid -> Linear -> Softmax on a 2 x 8 x 10 input
 //! (tools/import_onnx/models/cnn.onnx: QDQ format, per-channel weights).
 //!
-//! Integer-only and `no_std`: int8 input in the `INPUT` grid, int8 output in the
+//! Integer-only and `no_std`: int16 input in the `INPUT` grid, int16 output in the
 //! `OUTPUT` grid (real value = `SCALE * (q - ZERO_POINT)`). Feature maps are NHWC
 //! without the batch axis, `[row][column][channel]`: the transpose of the NCHW
 //! tensor the ONNX model takes.
@@ -605,7 +605,7 @@ static SOFTMAX8: QSoftmax = QSoftmax {
     input_shift: 1,
 };
 
-/// Run the network on an int8 input in the `INPUT` grid.
+/// Run the network on an int16 input in the `INPUT` grid.
 pub fn forward(input: &Input) -> Output {
     let mut b0 = [[[0i16; 6]; 5]; 8];
     let mut b1 = [[[0i16; 4]; 5]; 8];

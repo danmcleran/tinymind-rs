@@ -49,12 +49,15 @@ what to port next, and update it when a step is done.
   4. **Importer options done 2026-11-25** (this PR: verbatim helpers in
      `tools/import_onnx/tinymind_model_codegen.py`, `tinymind_qat.py`
      verbatim, four variants checked against tinymind's own generator).
-     **Waiting on Dan:** the `.onnx` models for `onnx_digits_int8`
-     (handoff `~/Documents/tinymind/tinymind-rs-findings-2026-11-25/`:
-     README + `onnx_digits_models.patch`, applies to `cf3e9ef`). Then: port
-     the example against `models/`, and the digits groups of the tier1 bench.
-     Not done: tinymind's greedy arena plan (ours keeps per-shape buffers);
-     PyTorch `generate_model` (our importer already writes the whole model).
+     **Digits done 2026-11-25** against tinymind PR #313 (`416ec06`, the
+     handoff: the four `.onnx` files): `onnx_digits_int8` byte-identical,
+     tinymind's planner verbatim as the importer's opt-in `arena=True`
+     (Dan's call 2026-11-25: arena modules need Rust 1.88, crate MSRV stays
+     1.85, MSRV CI skips the digits targets), `QAdd::forward_in_place[_b]`,
+     tier1 digits workloads on both boards (all hashes match; 16x8 14%/31%
+     behind the C++ scalar build: tune). Set `TINYMIND_REF` to #313's merge
+     commit once it lands (done: `af9b655`). Not done: PyTorch `generate_model` (our importer
+     already writes the whole model).
      Original plan: ONNX codegen options `int4_dense`/`int4_conv`/
      `activation_bits=16`, `tinymind_qat.py` (verbatim), maybe the greedy
      arena plan; `onnx_digits_int8` needs the `.onnx` models, which tinymind
@@ -66,10 +69,12 @@ what to port next, and update it when a step is done.
   5. bench/: tinymind's `benchmarks/tier1_onboard` workloads on both boards,
      C++ at -O3. **Features group done 2026-11-25 (#134)**: every hash
      matches; log-mel 5-7% behind the C++, MFCC/learning ahead on the M4F.
-     Digits groups (int8/int4/16x8) wait on the models above. Follow-ups:
-     tune log-mel; time int4 and 16x8 layers on the boards. **Device sweeps
-     done 2026-11-25:** mel/anomaly/int4/16x8 in `tests/sweeps/`, bench
-     `sweeps-b` (QEMU + F411, all match).
+     Digits groups (int8/int4/16x8) done 2026-11-25. Follow-ups:
+     tune log-mel; tune the 16x8 layers (digits 16x8: F411 517,458 vs C++
+     452,807, L031 1,122,048 vs 853,668). int4 and 16x8 timed on the boards
+     2026-11-25 (digits groups). **Device sweeps done 2026-11-25** (#136):
+     mel/anomaly/int4/16x8 in `tests/sweeps/`, bench `sweeps-b` (QEMU + F411,
+     all match).
 - **v18.6 sync (2026-11-20, TINYMIND_REF 65c6160 = tag v18.6):** #293 `getPredictedClass` ported to all three trained networks + 4 examples (goldens: gas, digits); #288/#292 regenerated `src/lut.rs` (Q8.8 exp tail only); #291 (log/sin/cos range reduction) not applicable. Merged as #127; released in 0.3.8.
 - **ONNX importer (done, 2026-11-16):** `tools/import_onnx`, Dan's pick ("#1")
   from the ROI review after v18.5: tinymind's `apps/import_onnx` parser

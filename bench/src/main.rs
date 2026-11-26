@@ -8,9 +8,22 @@
 #[cfg(all(feature = "mlperf-kws", feature = "mlperf-ic"))]
 compile_error!("one MLPerf model per image: enable mlperf-kws or mlperf-ic, not both");
 
+#[cfg(any(
+    all(feature = "digits-int8", feature = "digits-int4"),
+    all(feature = "digits-int8", feature = "digits-16x8"),
+    all(feature = "digits-int4", feature = "digits-16x8")
+))]
+compile_error!("one digits model per image: enable one of digits-int8, digits-int4, digits-16x8");
+
 #[cfg(feature = "anomaly")]
 mod anomaly;
 mod board;
+#[cfg(any(
+    feature = "digits-int8",
+    feature = "digits-int4",
+    feature = "digits-16x8"
+))]
+mod digits;
 #[cfg(any(feature = "features-mel", feature = "features-anomaly"))]
 mod features;
 #[cfg(feature = "fft")]
@@ -32,7 +45,10 @@ mod kws;
     feature = "mlperf-kws",
     feature = "mlperf-ic",
     feature = "sweeps-a",
-    feature = "sweeps-b"
+    feature = "sweeps-b",
+    feature = "digits-int8",
+    feature = "digits-int4",
+    feature = "digits-16x8"
 )))]
 mod mlp;
 #[cfg(any(feature = "mlperf-kws", feature = "mlperf-ic"))]
@@ -79,9 +95,18 @@ fn main() -> ! {
         feature = "mlperf-kws",
         feature = "mlperf-ic",
         feature = "sweeps-a",
-        feature = "sweeps-b"
+        feature = "sweeps-b",
+        feature = "digits-int8",
+        feature = "digits-int4",
+        feature = "digits-16x8"
     )))]
     mlp::run(&mut out);
+    #[cfg(any(
+        feature = "digits-int8",
+        feature = "digits-int4",
+        feature = "digits-16x8"
+    ))]
+    digits::run(&mut out);
     #[cfg(feature = "kws")]
     kws::run(&mut out);
     #[cfg(any(feature = "mlperf-kws", feature = "mlperf-ic"))]

@@ -113,6 +113,7 @@ cargo run --release --example air_quality      # args: [out_dir] [epoch limit, d
 cargo run --release --features std --example int8_xor   # args: [out_dir]
 cargo run --release --features std --example logmel_vibration   # args: [out_dir]
 cargo run --release --features std --example vibration_anomaly  # args: [out_dir]
+cargo run --release --example onnx_digits_int8   # args: [out_dir] [test set, default data/optdigits.tes]; needs Rust 1.88
 cargo test --all-features           # unit tests + golden tests against the C++ outputs (int8 needs std)
 cargo clippy --all-targets --all-features -- -D warnings
 cargo fmt --check
@@ -174,7 +175,8 @@ The third column is the notes file in `.claude/rules/`.
 | `examples/int8_xor.rs`, `examples/common/int8_xor_driver.rs` | `examples/pytorch_quant/xor/xor_quant.cpp`, `weights.hpp` | `int8.md` |
 | `tools/import_pytorch/tinymind_import.py` | `apps/import_pytorch/tinymind_import.py` | `importers.md` |
 | `tools/import_onnx/tinymind_import_onnx.py`, `example_onnx.py`, `make_models.py`, `test_onnx.py`, `examples/imported_onnx.rs`, `examples/common/imported_onnx_*`, `scripts/cpp/imported_onnx.cpp` | `apps/import_onnx/tinymind_import_onnx.py` (parser verbatim) + the C++ int8 layers | `importers.md` |
-| `tools/import_onnx/tinymind_model_codegen.py`, `tinymind_qat.py`, the int4/16x8 variants (`examples/common/imported_onnx_*_{int4,16x8}_model.rs`) | `apps/import_onnx/tinymind_model_codegen.py` (helpers verbatim; the C++ check runs the whole generator), `apps/import_onnx/tinymind_qat.py` (verbatim) | `importers.md` |
+| `tools/import_onnx/tinymind_model_codegen.py`, `tinymind_qat.py`, the int4/16x8 variants (`examples/common/imported_onnx_*_{int4,16x8}_model.rs`) | `apps/import_onnx/tinymind_model_codegen.py` (planner and helpers verbatim; the C++ check runs the whole generator), `apps/import_onnx/tinymind_qat.py` (verbatim) | `importers.md` |
+| `examples/onnx_digits_int8.rs`, `examples/common/onnx_digits_{driver,model,int4_model,16x8_model,reference}.rs`, `tools/import_onnx/example_digits.py`, `tests/onnx_digits_golden.rs`, `bench/src/digits.rs` | `examples/onnx_digits_int8` (its `models/*.onnx` through our importer's arena option; `reference.hpp` extracted), `benchmarks/tier1_onboard` digits groups | `importers.md` |
 | `tools/import_tflite/tinymind_import_tflite.py`, `mlperf.py`, `test_translator.py`, `bench/src/mlperf.rs` | `benchmarks/framework_comparison_f411/gen/make_mlperf.py` | `importers.md` |
 | `tools/import_pytorch` conv support (4D), `examples/imported_cnn.rs`, `examples/common/imported_cnn{,_flat}_model.rs`, `examples/common/imported_cnn_driver.rs`, `scripts/cpp/imported_cnn.cpp`, `tools/import_pytorch/{example_cnn,torch_cnn}.py` | (tinymind importer's Conv2D descriptor + C++ runtime) | `importers.md` |
 | `tools/import_pytorch` LSTM support, `examples/imported_lstm.rs`, `examples/common/imported_lstm{,_i8}_model.rs`, `examples/common/imported_lstm_driver.rs`, `scripts/cpp/imported_lstm.cpp`, `tools/import_pytorch/{example_lstm,torch_lstm}.py` | (none in tinymind's importer; checked against `cpp/qlstm.hpp` + `buildQLSTMParams`/`quantizeQLSTMBiases`) | `importers.md` |

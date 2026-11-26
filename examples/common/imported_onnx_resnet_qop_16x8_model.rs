@@ -5,7 +5,7 @@
 //! The same network ending in a Softmax
 //! (tools/import_onnx/models/resnet_qop.onnx: QOperator format, per-tensor weights).
 //!
-//! Integer-only and `no_std`: int8 input in the `INPUT` grid, int8 output in the
+//! Integer-only and `no_std`: int16 input in the `INPUT` grid, int16 output in the
 //! `OUTPUT` grid (real value = `SCALE * (q - ZERO_POINT)`). Feature maps are NHWC
 //! without the batch axis, `[row][column][channel]`: the transpose of the NCHW
 //! tensor the ONNX model takes.
@@ -375,7 +375,7 @@ static SOFTMAX10: QSoftmax = QSoftmax {
     input_shift: 1,
 };
 
-/// Run the network on an int8 input in the `INPUT` grid.
+/// Run the network on an int16 input in the `INPUT` grid.
 pub fn forward(input: &Input) -> Output {
     let mut b0 = [[[0i16; 5]; 24]; 8];
     let mut b1 = [[[0i16; 5]; 12]; 4];

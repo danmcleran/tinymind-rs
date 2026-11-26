@@ -22,10 +22,12 @@ SOFTWARE.
 tinymind (C++)'s ONNX code generator helpers, for this importer's int4 and
 16x8 back ends.
 
-Everything from `def _f32` to the end of `pack_int4` is copied verbatim from
-tinymind (C++)'s apps/import_onnx/tinymind_model_codegen.py (scripts/
-compare-with-cpp.sh extracts that range from both files and compares them):
-the int4 requantization of a record's weights (requantize_int4, pack_int4),
+Everything from the "Static memory planning" banner to the end of `pack_int4`
+is copied verbatim from tinymind (C++)'s apps/import_onnx/
+tinymind_model_codegen.py (scripts/compare-with-cpp.sh extracts that range
+from both files and compares them): the arena planner (plan_memory,
+check_plan: TFLite Micro's greedy-by-size placement, with element-wise layers
+writing over an input that dies there), the int4 requantization of a record's weights (requantize_int4, pack_int4),
 the move of a record to int16 activations (int16_grid, requantize_16x8), the
 int16 tables (activation_lut16) and the int16 softmax and add parameters
 (softmax16_params, qadd_params). tinymind (C++)'s generator writes a C++
@@ -37,10 +39,125 @@ lround and quantize_multiplier are the parser's, verbatim in both.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import tinymind_import_onnx as ti
+
+
+# ----------------------------------------------------------------------------
+# Static memory planning.
+# ----------------------------------------------------------------------------
+
+
+@dataclass
+class PlannedBuffer:
+    """One arena region. `layers` lists the records whose output lives in it:
+    more than one when an element-wise layer writes over its input."""
+
+    size: int
+    first: int
+    last: int
+    layers: list = field(default_factory=list)
+    offset: int = -1
+
+
+@dataclass
+class MemoryPlan:
+    buffers: list
+    offsets: dict            # layer index -> arena offset of its output
+    arena_size: int          # bytes the planned arena needs
+    unshared_size: int       # bytes if every output had its own buffer
+    lower_bound: int         # bytes live at the busiest layer; no plan beats it
+    alignment: int
+
+
+def _align(n: int, alignment: int) -> int:
+    return (n + alignment - 1) // alignment * alignment
+
+
+# Records whose kernel reads element j before it writes element j and touches
+# no other element, so the output may overwrite an input of the same size.
+IN_PLACE_OPS = ("Relu", "Sigmoid", "Tanh", "Add")
+
+
+def plan_memory(layers, sizes: dict, alignment: int = 4, in_place: bool = True) -> MemoryPlan:
+    """Give every intermediate output an offset into one arena.
+
+    A layer's output is live from the layer that writes it to the last layer
+    that reads it, both included, so a layer's inputs and output never share
+    bytes unless the layer is element-wise and its input dies there (then the
+    output takes over the input's buffer, which IN_PLACE_OPS lists). The last
+    record writes the caller's output buffer and is not planned.
+
+    Placement is TFLite Micro's greedy-by-size: the largest buffer first,
+    each at the lowest aligned offset that overlaps no buffer it is live
+    beside. The result is never above the unshared total and is usually at
+    or near lower_bound, the bytes live during the busiest layer.
+    """
+    n = len(layers)
+    last_use = {i: i for i in range(n)}
+    for i, layer in enumerate(layers):
+        for j in layer.sources:
+            if j >= 0:
+                last_use[j] = max(last_use[j], i)
+
+    owner: dict[int, PlannedBuffer] = {}
+    buffers: list[PlannedBuffer] = []
+    for i, layer in enumerate(layers[:-1]):
+        target = None
+        if in_place and layer.op_type in IN_PLACE_OPS:
+            for j in layer.sources:
+                if j < 0 or j not in owner:
+                    continue
+                buf = owner[j]
+                if buf.last == i and sizes[j] == sizes[i]:
+                    target = buf
+                    break
+        if target is None:
+            target = PlannedBuffer(size=_align(sizes[i], alignment), first=i, last=last_use[i])
+            buffers.append(target)
+        else:
+            target.last = last_use[i]
+        target.layers.append(i)
+        owner[i] = target
+
+    placed: list[PlannedBuffer] = []
+    for buf in sorted(buffers, key=lambda b: (-b.size, b.first)):
+        clashes = sorted((p for p in placed if p.first <= buf.last and buf.first <= p.last),
+                         key=lambda p: p.offset)
+        offset = 0
+        for p in clashes:
+            if offset + buf.size <= p.offset:
+                break
+            offset = max(offset, p.offset + p.size)
+        buf.offset = offset
+        placed.append(buf)
+
+    arena = max((b.offset + b.size for b in buffers), default=0)
+    lower = max((sum(b.size for b in buffers if b.first <= t <= b.last) for t in range(n)), default=0)
+    unshared = sum(_align(sizes[i], alignment) for i in range(n - 1))
+    offsets = {i: owner[i].offset for i in owner}
+    return MemoryPlan(buffers=buffers, offsets=offsets, arena_size=arena,
+                      unshared_size=unshared, lower_bound=lower, alignment=alignment)
+
+
+def check_plan(plan: MemoryPlan) -> None:
+    """Raise AssertionError if two buffers that are live together overlap."""
+    for a in plan.buffers:
+        assert a.offset >= 0 and a.offset % plan.alignment == 0, a
+        for b in plan.buffers:
+            if a is b:
+                continue
+            live_together = a.first <= b.last and b.first <= a.last
+            disjoint = a.offset + a.size <= b.offset or b.offset + b.size <= a.offset
+            assert not live_together or disjoint, (a, b)
+
+
+# ----------------------------------------------------------------------------
+# Mirrors of the host-only C++ builders.
+# ----------------------------------------------------------------------------
+
 
 def _f32(x: float) -> float:
     """Round a double to the nearest float, as a C++ float variable holds it."""

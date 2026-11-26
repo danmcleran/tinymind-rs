@@ -181,3 +181,6 @@ vs C++ -O3 scalar (raw_features_*_O3*): F411 logmel 49,183 / 46,878, mfcc
 12,436, 30,244 / 30,700; all match=1. Big code: QKMeansAnomalyTrainer::learn
 4.8 KB and run_mfcc 3.5 KB on the M0+ (full unroll). Not tuned yet: log-mel
 is the gap (5-7%). Raw: session scratchpad `bench-features/`.
+
+2026-11-25, tier1 digits workloads (`bench/src/digits.rs`, features `digits-int8`/`digits-int4`/`digits-16x8`, one image each; inputs `kDigitPixels` and `HASH_INT8/INT4/16X8` from tests/golden/features/tables.h via build.rs, whose parser now strips nested braces). Timing as tier1_bench.cpp: one untimed call, 33 calls cycling 8 digits, `run_one` `#[inline(never)]`, arena on the stack. All hashes match (QEMU 18 runs, both boards). F411 opt 3: int8 287,802 (C++ -O3 scalar 479,524; DSP 171,384), int4 304,367 (454,157), 16x8 517,458 (452,807); L031: 719,369 (760,608), 742,524 (778,803), 1,122,048 (853,668). Text F411 30,312 / 32,424 / 27,920, L031 29,036 / 31,240 / 26,732 (int4 closest to 32 KB); stack F411 4,688 / 5,864 / 3,592, L031 5,160 / 6,264 / 4,124 (C++ keeps arena and inputs static: 3,128 / 1,684 B static RAM). C++ figures: tinymind's results/raw_*_O3*.txt. 16x8 untuned (roadmap).
+
