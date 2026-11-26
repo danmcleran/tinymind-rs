@@ -84,11 +84,11 @@ the results page lists the settings to measure. Results and method:
 
 ```toml
 [dependencies]
-tinymind = "0.3.8"
+tinymind = "0.3.9"
 # Host-side int8 and 16x8 calibration, and f32/f64 tanh, sigmoid, AdamFloat, RmsPropFloat, DenseHead softmax:
-# tinymind = { version = "0.3.8", features = ["std"] }
+# tinymind = { version = "0.3.9", features = ["std"] }
 # The same float math without std (for example on a Cortex-M4F):
-# tinymind = { version = "0.3.8", features = ["libm"] }
+# tinymind = { version = "0.3.9", features = ["libm"] }
 ```
 
 The API reference is on [docs.rs](https://docs.rs/tinymind).

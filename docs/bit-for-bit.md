@@ -12,17 +12,19 @@ The port has one rule that shapes everything else: **every ported path produces 
 
 ## What is in the crate
 
-As of 0.3.8:
+As of 0.3.9:
 
 - Q16.16 and Q8.8 fixed-point arithmetic (`QValue<i32, 16>`, `QValue<i16, 8>`), with ReLU, linear, and lookup-table tanh and sigmoid activations; the same networks also run on `f32` and `f64`.
 - Networks that train on the device with SGD and momentum, Adam or RMSprop (optionally with gradient clipping; for `f32`/`f64` also tinymind (C++)'s floating-point Adam and RMSprop, `AdamFloat` and `RmsPropFloat`): up to seven hidden layers (`NeuralNetwork` over `Dense` layers), and a one-hidden-layer perceptron (`MultilayerPerceptron`), each with an inference-only version that holds nothing but its weights (`InferenceNetwork`, `InferencePerceptron`). The trainable networks pick a class from the output logits (`predicted_class`), not from the saturating sigmoid outputs.
 - Training controls (module `training`): L2 weight decay and a step-decay learning-rate schedule that wrap the optimizer of any of the trainable networks, early stopping, and scheduled sampling for training a recurrent network on its own predictions.
-- int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), 2D convolutions (standard, depthwise and pointwise), pooling, residual addition, multiplication, padding, concatenation, quantized ReLU, activation tables, a softmax that is bit-exact with TFLite's, and LSTM and GRU cells; and radix-2 FFTs on 16-bit samples, complex (`QFft1D`) and real-input (`QRFft1D`), with a host-side twiddle-table builder.
+- int8 inference in the TFLite / CMSIS-NN quantization model: a requantizer with gemmlowp rounding, dense layers (per-tensor and per-channel), 2D convolutions (standard, depthwise and pointwise), pooling, residual addition, multiplication, padding, concatenation, quantized ReLU, activation tables, a softmax that is bit-exact with TFLite's, and LSTM and GRU cells; int4 weights packed two per byte for the dense, convolution and depthwise layers; and radix-2 FFTs on 16-bit samples, complex (`QFft1D`) and real-input (`QRFft1D`), with a host-side twiddle-table builder.
+- TFLite's 16x8 scheme (module `int16x8`): int16 activations with int8 weights for dense, convolution, depthwise, max-pooling and addition layers, interpolated int16 activation tables and TFLite's int16 softmax.
+- A fixed-point log-mel spectrogram and MFCC front end (`QLogMelSpectrogram`, `QMfcc`), and int8 anomaly scores (k-means, with `QKMeansAnomalyTrainer` learning the clusters on the device, and a diagonal Gaussian mixture), with tinymind (C++)'s log-mel and vibration anomaly examples.
 - Q-learning (`QLearner`, module `qlearn`) over a `QTable` or a deep Q-network (`QNetwork`), with tinymind (C++)'s maze and deep Q-network maze examples.
 - LSTM networks with one hidden layer (`LstmNetwork`, module `recurrent`), trained one step back in time, in fixed or floating point, with tinymind (C++)'s activity-recognition and air-quality forecasting examples.
 - Head-only fine-tuning (module `head`): a trainable dense head (`DenseHead`) and a nearest-class-mean head (`PrototypeHead`) that adapt a frozen model on the device, with tinymind (C++)'s gas sensor drift example.
 - Quantized decision trees and gradient-boosted ensembles (`QDecisionTree`, `QGbdt`) over a node pool that can live in flash, with int8, uint8 or int16 thresholds.
-- Four tools (in the repository, not the crate) that write `no_std` Rust modules: an importer for a trained PyTorch `nn.Sequential` (dense, convolutional, or starting with an `nn.LSTM`), one for int8 ONNX models quantized by ONNX Runtime, one for scikit-learn, XGBoost and LightGBM tree models, and a translator for int8 TensorFlow Lite models.
+- Four tools (in the repository, not the crate) that write `no_std` Rust modules: an importer for a trained PyTorch `nn.Sequential` (dense, convolutional, or starting with an `nn.LSTM`), one for int8 ONNX models quantized by ONNX Runtime (which can also write a model with int4 weights or int16 activations, in one planned activation arena), one for scikit-learn, XGBoost and LightGBM tree models, and a translator for int8 TensorFlow Lite models.
 
 The library is `no_std`, allocation-free, has no required dependencies (`libm` is optional), and is `#![forbid(unsafe_code)]`.
 

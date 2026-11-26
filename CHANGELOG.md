@@ -7,6 +7,8 @@ break the API).
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-11-25
+
 ### Added
 
 - `int8::QDenseInt4`, `int8::QConv2DInt4` and `int8::QDepthwiseConv2DInt4`,
@@ -745,7 +747,8 @@ an STM32F411 (Cortex-M4F) and an STM32L031 (Cortex-M0+), where int8 inference an
 on-device training match tinymind (C++) bit for bit (see `bench/README.md` in the
 repository).
 
-[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.8...HEAD
+[Unreleased]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.9...HEAD
+[0.3.9]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.8...v0.3.9
 [0.3.8]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/danmcleran/tinymind-rs/compare/v0.3.5...v0.3.6
