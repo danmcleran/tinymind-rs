@@ -72,6 +72,13 @@ break the API).
   needs the activation memory tinymind (C++)'s generated model needs. The
   module exports `ARENA_BYTES`, the plan (`BUFFERS`), `LAYER_NAMES` and
   `WEIGHT_BYTES`; it needs Rust 1.88 (`as_chunks`), the crate stays on 1.85.
+- Faster `int16x8` layers, same results: products summed in `i32` before
+  the `i64` accumulator (exact up to 255 at a time), a one-multiply
+  requantizer for an accumulator in `i32` (and, on ARMv6-M, all-32-bit
+  arithmetic), convolution windows gathered once per pixel, depthwise taps
+  looked up once per pixel, and tinymind (C++)'s fused input rescaling in
+  the addition. The 16x8 digits model went from 517,458 to 408,880 cycles
+  on the Cortex-M4F and from 1,122,048 to 854,511 on the Cortex-M0+.
 - The `onnx_digits_int8` example, a port of tinymind (C++)'s: a residual
   int8 CNN on the UCI optical digits, from the ONNX models that example
   commits, as int8, int4 (quantization-aware trained) and 16x8 modules, each

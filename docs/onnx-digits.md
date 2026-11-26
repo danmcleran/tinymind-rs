@@ -39,7 +39,7 @@ It writes the same files the C++ example writes, byte for byte:
 
 The int8 model reads 96.99% of the test digits correctly, as the float model and ONNX Runtime do, and gives ONNX Runtime's class on 1,795 of 1,797 digits; on the other two, ONNX Runtime's two highest logits are one step apart. The int4 model reads 97.05% with half the weight bytes. With int16 activations the logits are 126 times closer to the float-activation ones (mean error 0.0013 against 0.16) for twice the arena, and the 16x8 model agrees with the float model on 1,795 digits (int8: 1,791).
 
-On the boards (tinymind (C++)'s tier1 benchmark digits, [On-board results]({{ site.baseurl }}/benchmarks)), the int8 model takes 287,802 cycles on the Cortex-M4F and 719,369 on the Cortex-M0+.
+On the boards (tinymind (C++)'s tier1 benchmark digits, [On-board results]({{ site.baseurl }}/benchmarks)), the int8 model takes 287,802 cycles on the Cortex-M4F and 719,369 on the Cortex-M0+, the 16x8 model 408,880 and 854,511.
 
 The figure is drawn from this port's output with tinymind (C++)'s plotting style (`scripts/plot-examples.py`).
 

@@ -56,7 +56,7 @@ The `int16x8` module runs TFLite's 16x8 scheme: int16 activations with twice int
 | `int16x8::QSoftmax` | TFLite's int16 softmax, bit for bit: an exp table over [-10, 0] and a reciprocal table, both TFLite's, kept as constants | `QSoftmaxInt16` (`cpp/qsoftmax_fixedpoint.hpp`) |
 | `int16x8::calibration` (feature `std`) | Host side: requantizers and the addition from float scales, sigmoid and tanh tables, the softmax's parameters, and the softmax's two tables (built as TFLite builds them, to check the constants) | `buildQLUT16`, `buildQSigmoidLUT16`, `buildQTanhLUT16`, `buildQSoftmaxInt16LUTs`, `buildQSoftmaxInt16Params`, `buildQAddParams` |
 
-The 16x8 layers are written for clarity, not tuned yet; tinymind (C++)'s SMLAD and SMLAL forms need `unsafe` here.
+The 16x8 layers sum products in `i32` where that is exact, gather each convolution window once per pixel, and on the Cortex-M0+ run the 64-bit requantizer in 32-bit arithmetic: the digits model in 16x8 takes 10% fewer cycles than tinymind (C++)'s scalar build on the Cortex-M4F and the same on the M0+ ([On-board results]({{ site.baseurl }}/benchmarks)). tinymind (C++)'s SMLAD and SMLAL forms need `unsafe` here.
 
 ## Convolution and pooling
 

@@ -325,20 +325,32 @@ static RAM and stack. Measured 2026-11-25 (rustc 1.100.0).
 |---|---:|---:|---:|---:|
 | int8 | **287,802** (2.88 ms) | 479,524 | **719,369** (22.5 ms) | 760,608 |
 | int4 weights | **304,367** | 454,157 | **742,524** | 778,803 |
-| 16x8 (int16 activations) | **517,458** | 452,807 | **1,122,048** | 853,668 |
+| 16x8 (int16 activations) | **408,880** | 452,807 | **854,511** | 853,668 |
 
 | Memory (B) | F411 Rust text / stack | F411 C++ text / static / stack | L031 Rust text / stack | L031 C++ text / static / stack |
 |---|---|---|---|---|
 | int8 | 30,312 / 4,688 | 36,120 / 3,128 / 844 | 29,036 / 5,160 | 26,232 / 1,684 / 1,788 |
 | int4 | 32,424 / 5,864 | 22,620 / 3,128 / 1,560 | 31,240 / 6,264 | 24,320 / 1,684 / 2,292 |
-| 16x8 | 27,920 / 3,592 | 35,384 / 5,192 / 1,232 | 26,732 / 4,124 | 24,632 / 3,228 / 1,732 |
+| 16x8 | 29,344 / 4,104 | 35,384 / 5,192 / 1,232 | 32,648 / 4,628 | 24,632 / 3,228 / 1,732 |
 
 The Rust images keep the arena and the eight inputs on the stack, the C++
 in static RAM. The int8 model takes 40% fewer cycles than the C++ scalar
-build on the M4F and 5% fewer on the M0+; int4 33% and 5% fewer. The 16x8
-layers (`int16x8`, written plainly, not tuned yet) take 14% more on the M4F
-and 31% more on the M0+. The L031 int4 image, 31,240 B, is the closest to
-its 32 KB. Raw reports: session scratchpad `bench-digits/`.
+build on the M4F and 5% fewer on the M0+; int4 33% and 5% fewer; 16x8 10%
+fewer on the M4F and the same on the M0+. The 16x8 layers started at
+517,458 and 1,122,048 cycles (14% and 31% behind); 2026-11-25 they gained,
+all with the same results: sums of up to 255 products in `i32` (exact)
+before the `i64` accumulator, a one-multiply requantizer for an `i32`
+accumulator, the convolution's window gathered once per pixel (padding as
+the zero point) and one straight dot per filter, a zero-point-free dot for
+TFLite's zero point 0, depthwise taps looked up once per pixel for every
+channel, tinymind (C++)'s fused input rescaling for the int16 addition
+(`FastAddInputWide`, and a shift for the input TFLite halves exactly), and,
+on ARMv6-M only, the 64-bit requantizer in 32-bit arithmetic (its 16-bit
+multiplier splits the product into two 32-bit halves). On the M4F, per
+layer: stem convolution 112,077 -> 86,903 cycles, addition 80,034 ->
+34,912, depthwise 25,970 -> 6,221. The L031 16x8 image, 32,648 B, is 120 B
+under its 32 KB. Raw reports: session scratchpad `bench-digits/`,
+`bench-16x8*/`.
 
 ### Fine-tuning heads
 
