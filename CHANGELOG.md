@@ -78,6 +78,13 @@ break the API).
 - `tests/mel_sweep.rs` and `tests/qanomaly_sweep.rs` check both against
   tinymind (C++) over frame lengths 4 to 1024 and random tables and sample
   streams.
+- The log-mel, anomaly, int4 and 16x8 sweeps also run on Cortex-M (bench
+  workload `sweeps`, under QEMU in CI and on the F411), against the same
+  goldens. Their parts that need `std` (the built mel tables, Gaussians, int4
+  quantizer and 16x8 activation tables) stay on the host; the 16x8
+  additions and softmaxes take the C++'s parameters from the golden. The
+  sweeps image is now two halves, `sweeps-a` and `sweeps-b`, each of which
+  fits the F411.
 
 ## [0.3.8] - 2026-11-20
 

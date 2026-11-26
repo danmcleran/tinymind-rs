@@ -31,12 +31,13 @@ mod kws;
     feature = "kws",
     feature = "mlperf-kws",
     feature = "mlperf-ic",
-    feature = "sweeps"
+    feature = "sweeps-a",
+    feature = "sweeps-b"
 )))]
 mod mlp;
 #[cfg(any(feature = "mlperf-kws", feature = "mlperf-ic"))]
 mod mlperf;
-#[cfg(feature = "sweeps")]
+#[cfg(any(feature = "sweeps-a", feature = "sweeps-b"))]
 mod sweeps;
 #[cfg(feature = "trees")]
 mod trees;
@@ -77,7 +78,8 @@ fn main() -> ! {
         feature = "kws",
         feature = "mlperf-kws",
         feature = "mlperf-ic",
-        feature = "sweeps"
+        feature = "sweeps-a",
+        feature = "sweeps-b"
     )))]
     mlp::run(&mut out);
     #[cfg(feature = "kws")]
@@ -86,7 +88,7 @@ fn main() -> ! {
     mlperf::run(&mut out);
     #[cfg(feature = "trees")]
     trees::run(&mut out);
-    #[cfg(feature = "sweeps")]
+    #[cfg(any(feature = "sweeps-a", feature = "sweeps-b"))]
     sweeps::run(&mut out);
     #[cfg(feature = "anomaly")]
     anomaly::run(&mut out);
